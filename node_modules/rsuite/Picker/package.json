@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Picker",
+  "private": true,
+  "main": "../cjs/Picker/index.js",
+  "module": "../esm/Picker/index.js",
+  "types": "../esm/Picker/index.d.ts"
+}

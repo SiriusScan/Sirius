@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Nav",
+  "private": true,
+  "main": "../cjs/Nav/index.js",
+  "module": "../esm/Nav/index.js",
+  "types": "../esm/Nav/index.d.ts"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/IconButton",
+  "private": true,
+  "main": "../cjs/IconButton/index.js",
+  "module": "../esm/IconButton/index.js",
+  "types": "../esm/IconButton/index.d.ts"
+}

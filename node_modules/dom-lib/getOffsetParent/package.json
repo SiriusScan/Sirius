@@ -1,0 +1,7 @@
+{
+  "name": "dom-lib/getOffsetParent",
+  "private": true,
+  "main": "../cjs/getOffsetParent.js",
+  "module": "../esm/getOffsetParent.js",
+  "types": "../esm/getOffsetParent.d.ts"
+}

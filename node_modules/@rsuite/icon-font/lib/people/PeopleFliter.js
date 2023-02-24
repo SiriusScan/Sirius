@@ -1,0 +1,36 @@
+"use strict";
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports["default"] = void 0;
+
+var React = _interopRequireWildcard(require("react"));
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
+
+function PeopleFliter(props, svgRef) {
+  return /*#__PURE__*/React.createElement("svg", _extends({
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "currentColor",
+    ref: svgRef
+  }, props), /*#__PURE__*/React.createElement("path", {
+    d: "M7 0a3 3 0 110 6 3 3 0 010-6zm0 1a2 2 0 10-.001 3.999A2 2 0 007 1zM2 3a2 2 0 11.001 3.999A2 2 0 012 3zm0 1a1 1 0 100 2 1 1 0 000-2z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M7 5a.5.5 0 010 1C5.641 6 4.113 7.345 4.006 8.834L4 9v3.5a.5.5 0 00.41.492L4.5 13H8a.5.5 0 01.09.992L8 14H4.5a1.5 1.5 0 01-1.493-1.356L3 12.5V9c0-2.128 2.059-4 4-4zM2.474 7.342a.499.499 0 00-.632-.316C.681 7.413.064 8.365.005 9.774L0 10v2.5a.5.5 0 00.992.09L1 12.5V10c0-1.133.38-1.766 1.158-2.026a.499.499 0 00.316-.632z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M13.5 7a.5.5 0 01.09.992L13.5 8H8.435l2.481 3.723a.48.48 0 01.074.18l.01.098v2.191l1 .5v-2.691c0-.066.013-.131.038-.191l.046-.086 3-4.5a.5.5 0 01.875.475l-.043.079L13 12.152v3.349a.5.5 0 01-.646.478l-.078-.031-2-1a.503.503 0 01-.268-.354l-.009-.093v-2.347L7.083 7.778a.5.5 0 01.333-.771L7.499 7h6z"
+  }));
+}
+
+var ForwardRef = /*#__PURE__*/React.forwardRef(PeopleFliter);
+var _default = ForwardRef;
+exports["default"] = _default;

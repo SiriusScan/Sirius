@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/CheckPicker",
+  "private": true,
+  "main": "../cjs/CheckPicker/index.js",
+  "module": "../esm/CheckPicker/index.js",
+  "types": "../esm/CheckPicker/index.d.ts"
+}

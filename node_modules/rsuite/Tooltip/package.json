@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Tooltip",
+  "private": true,
+  "main": "../cjs/Tooltip/index.js",
+  "module": "../esm/Tooltip/index.js",
+  "types": "../esm/Tooltip/index.d.ts"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/locales/da_DK",
+  "private": true,
+  "main": "../../cjs/locales/da_DK.js",
+  "module": "../../esm/locales/da_DK.js",
+  "types": "../../esm/locales/da_DK.d.ts"
+}

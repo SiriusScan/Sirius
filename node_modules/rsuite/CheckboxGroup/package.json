@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/CheckboxGroup",
+  "private": true,
+  "main": "../cjs/CheckboxGroup/index.js",
+  "module": "../esm/CheckboxGroup/index.js",
+  "types": "../esm/CheckboxGroup/index.d.ts"
+}

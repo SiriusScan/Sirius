@@ -1,0 +1,7 @@
+{
+  "name": "dom-lib/getOffset",
+  "private": true,
+  "main": "../cjs/getOffset.js",
+  "module": "../esm/getOffset.js",
+  "types": "../esm/getOffset.d.ts"
+}

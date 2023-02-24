@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Sidenav",
+  "private": true,
+  "main": "../cjs/Sidenav/index.js",
+  "module": "../esm/Sidenav/index.js",
+  "types": "../esm/Sidenav/index.d.ts"
+}

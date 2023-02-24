@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/locales/kk_KZ",
+  "private": true,
+  "main": "../../cjs/locales/kk_KZ.js",
+  "module": "../../esm/locales/kk_KZ.js",
+  "types": "../../esm/locales/kk_KZ.d.ts"
+}

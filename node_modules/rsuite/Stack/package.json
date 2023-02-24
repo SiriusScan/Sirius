@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Stack",
+  "private": true,
+  "main": "../cjs/Stack/index.js",
+  "module": "../esm/Stack/index.js",
+  "types": "../esm/Stack/index.d.ts"
+}

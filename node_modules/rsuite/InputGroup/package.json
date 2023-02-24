@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/InputGroup",
+  "private": true,
+  "main": "../cjs/InputGroup/index.js",
+  "module": "../esm/InputGroup/index.js",
+  "types": "../esm/InputGroup/index.d.ts"
+}

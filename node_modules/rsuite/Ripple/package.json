@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Ripple",
+  "private": true,
+  "main": "../cjs/Ripple/index.js",
+  "module": "../esm/Ripple/index.js",
+  "types": "../esm/Ripple/index.d.ts"
+}

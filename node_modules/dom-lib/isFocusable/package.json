@@ -1,0 +1,7 @@
+{
+  "name": "dom-lib/isFocusable",
+  "private": true,
+  "main": "../cjs/isFocusable.js",
+  "module": "../esm/isFocusable.js",
+  "types": "../esm/isFocusable.d.ts"
+}

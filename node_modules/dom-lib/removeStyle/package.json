@@ -1,0 +1,7 @@
+{
+  "name": "dom-lib/removeStyle",
+  "private": true,
+  "main": "../cjs/removeStyle.js",
+  "module": "../esm/removeStyle.js",
+  "types": "../esm/removeStyle.d.ts"
+}

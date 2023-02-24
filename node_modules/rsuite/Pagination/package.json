@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Pagination",
+  "private": true,
+  "main": "../cjs/Pagination/index.js",
+  "module": "../esm/Pagination/index.js",
+  "types": "../esm/Pagination/index.d.ts"
+}

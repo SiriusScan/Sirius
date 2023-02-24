@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Radio",
+  "private": true,
+  "main": "../cjs/Radio/index.js",
+  "module": "../esm/Radio/index.js",
+  "types": "../esm/Radio/index.d.ts"
+}

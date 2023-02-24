@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "lib": ["es6", "dom", "es2017"],
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "downlevelIteration": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": { "schema-typed": ["."] }
+  }
+}

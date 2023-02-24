@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/locales/ar_EG",
+  "private": true,
+  "main": "../../cjs/locales/ar_EG.js",
+  "module": "../../esm/locales/ar_EG.js",
+  "types": "../../esm/locales/ar_EG.d.ts"
+}

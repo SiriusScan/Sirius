@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Rate",
+  "private": true,
+  "main": "../cjs/Rate/index.js",
+  "module": "../esm/Rate/index.js",
+  "types": "../esm/Rate/index.d.ts"
+}

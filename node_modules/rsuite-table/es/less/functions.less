@@ -1,0 +1,24 @@
+
+.box-shadow(@x:0px, @y:2px, @blur:3px, @color:rgba(0, 0, 0, 0.28)) {
+    -moz-box-shadow: @arguments;
+    -webkit-box-shadow: @arguments;
+    box-shadow: @arguments;
+}
+.ellipsis-basic() {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    -ms-text-overflow: ellipsis;
+    -o-text-overflow: ellipsis;
+}
+.ellipsis(@substract:0) {
+    .ellipsis-basic();
+    width: 100% - @substract;
+}
+
+.user-select(){
+    -webkit-user-select:none;
+    -moz-user-select:none;
+    -ms-user-select:none;
+    user-select:none;
+}

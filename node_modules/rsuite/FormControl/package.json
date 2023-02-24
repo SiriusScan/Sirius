@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/FormControl",
+  "private": true,
+  "main": "../cjs/FormControl/index.js",
+  "module": "../esm/FormControl/index.js",
+  "types": "../esm/FormControl/index.d.ts"
+}

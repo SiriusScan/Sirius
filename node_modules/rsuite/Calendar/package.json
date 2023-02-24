@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Calendar",
+  "private": true,
+  "main": "../cjs/Calendar/index.js",
+  "module": "../esm/Calendar/index.js",
+  "types": "../esm/Calendar/index.d.ts"
+}

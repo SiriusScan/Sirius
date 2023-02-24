@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Steps",
+  "private": true,
+  "main": "../cjs/Steps/index.js",
+  "module": "../esm/Steps/index.js",
+  "types": "../esm/Steps/index.d.ts"
+}

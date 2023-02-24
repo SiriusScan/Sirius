@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/TagPicker",
+  "private": true,
+  "main": "../cjs/TagPicker/index.js",
+  "module": "../esm/TagPicker/index.js",
+  "types": "../esm/TagPicker/index.d.ts"
+}

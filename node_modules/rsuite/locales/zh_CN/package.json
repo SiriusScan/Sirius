@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/locales/zh_CN",
+  "private": true,
+  "main": "../../cjs/locales/zh_CN.js",
+  "module": "../../esm/locales/zh_CN.js",
+  "types": "../../esm/locales/zh_CN.d.ts"
+}

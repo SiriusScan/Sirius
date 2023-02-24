@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Breadcrumb",
+  "private": true,
+  "main": "../cjs/Breadcrumb/index.js",
+  "module": "../esm/Breadcrumb/index.js",
+  "types": "../esm/Breadcrumb/index.d.ts"
+}

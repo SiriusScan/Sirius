@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/locales/sv_SE",
+  "private": true,
+  "main": "../../cjs/locales/sv_SE.js",
+  "module": "../../esm/locales/sv_SE.js",
+  "types": "../../esm/locales/sv_SE.d.ts"
+}

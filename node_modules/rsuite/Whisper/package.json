@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Whisper",
+  "private": true,
+  "main": "../cjs/Whisper/index.js",
+  "module": "../esm/Whisper/index.js",
+  "types": "../esm/Whisper/index.d.ts"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/FormControlLabel",
+  "private": true,
+  "main": "../cjs/FormControlLabel/index.js",
+  "module": "../esm/FormControlLabel/index.js",
+  "types": "../esm/FormControlLabel/index.d.ts"
+}

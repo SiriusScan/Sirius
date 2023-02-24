@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/DatePicker",
+  "private": true,
+  "main": "../cjs/DatePicker/index.js",
+  "module": "../esm/DatePicker/index.js",
+  "types": "../esm/DatePicker/index.d.ts"
+}

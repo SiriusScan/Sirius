@@ -1,0 +1,7 @@
+{
+  "name": "dom-lib/getScrollbarSize",
+  "private": true,
+  "main": "../cjs/getScrollbarSize.js",
+  "module": "../esm/getScrollbarSize.js",
+  "types": "../esm/getScrollbarSize.d.ts"
+}

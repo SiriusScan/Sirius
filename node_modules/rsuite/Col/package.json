@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Col",
+  "private": true,
+  "main": "../cjs/Col/index.js",
+  "module": "../esm/Col/index.js",
+  "types": "../esm/Col/index.d.ts"
+}

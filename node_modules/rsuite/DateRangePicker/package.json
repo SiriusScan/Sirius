@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/DateRangePicker",
+  "private": true,
+  "main": "../cjs/DateRangePicker/index.js",
+  "module": "../esm/DateRangePicker/index.js",
+  "types": "../esm/DateRangePicker/index.d.ts"
+}

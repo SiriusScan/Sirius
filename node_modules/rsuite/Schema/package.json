@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Schema",
+  "private": true,
+  "main": "../cjs/Schema/index.js",
+  "module": "../esm/Schema/index.js",
+  "types": "../esm/Schema/index.d.ts"
+}

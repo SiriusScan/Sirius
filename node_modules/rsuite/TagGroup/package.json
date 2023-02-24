@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/TagGroup",
+  "private": true,
+  "main": "../cjs/TagGroup/index.js",
+  "module": "../esm/TagGroup/index.js",
+  "types": "../esm/TagGroup/index.d.ts"
+}

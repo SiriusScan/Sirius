@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/ButtonGroup",
+  "private": true,
+  "main": "../cjs/ButtonGroup/index.js",
+  "module": "../esm/ButtonGroup/index.js",
+  "types": "../esm/ButtonGroup/index.d.ts"
+}

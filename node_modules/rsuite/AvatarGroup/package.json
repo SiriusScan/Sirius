@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/AvatarGroup",
+  "private": true,
+  "main": "../cjs/AvatarGroup/index.js",
+  "module": "../esm/AvatarGroup/index.js",
+  "types": "../esm/AvatarGroup/index.d.ts"
+}

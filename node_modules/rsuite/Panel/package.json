@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Panel",
+  "private": true,
+  "main": "../cjs/Panel/index.js",
+  "module": "../esm/Panel/index.js",
+  "types": "../esm/Panel/index.d.ts"
+}

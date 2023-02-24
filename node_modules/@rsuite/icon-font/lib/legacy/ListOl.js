@@ -1,0 +1,32 @@
+"use strict";
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports["default"] = void 0;
+
+var React = _interopRequireWildcard(require("react"));
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
+
+function ListOl(props, svgRef) {
+  return /*#__PURE__*/React.createElement("svg", _extends({
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 32 32",
+    fill: "currentColor",
+    ref: svgRef
+  }, props), /*#__PURE__*/React.createElement("path", {
+    d: "M6.804 28.929C6.804 30.893 5.268 32 3.411 32c-1.125 0-2.268-.375-3.071-1.179l1.018-1.571c.482.446 1.214.804 1.893.804.625 0 1.286-.304 1.286-1.018 0-1-1.143-1.054-1.875-1l-.464-1c.643-.821 1.232-1.732 2-2.429v-.018c-.571 0-1.161.036-1.732.036v.946H.573v-2.714h5.946v1.571l-1.696 2.054c1.196.286 1.982 1.214 1.982 2.446zm.035-11.197v2.839H.375a5.853 5.853 0 01-.107-.964c0-3.304 4.036-3.804 4.036-5.304 0-.607-.375-.929-.964-.929-.625 0-1.143.536-1.446 1.036L.376 13.356c.589-1.232 1.804-1.929 3.161-1.929 1.661 0 3.089.982 3.089 2.75 0 2.643-3.875 3.232-3.929 4.625h2.268v-1.071H6.84zM32 23.429v3.429a.587.587 0 01-.571.571H9.715a.575.575 0 01-.571-.571v-3.429c0-.321.25-.571.571-.571h21.714c.304 0 .571.25.571.571zM6.857 7.375v1.768H.875V7.375h1.911c0-1.446.018-2.893.018-4.339v-.214h-.036c-.196.393-.554.661-.893.964L.607 2.429 3.036.161h1.893v7.214h1.929zM32 14.286v3.429a.587.587 0 01-.571.571H9.715a.575.575 0 01-.571-.571v-3.429c0-.321.25-.571.571-.571h21.714c.304 0 .571.25.571.571zm0-9.143v3.429a.587.587 0 01-.571.571H9.715a.575.575 0 01-.571-.571V5.143c0-.304.25-.571.571-.571h21.714c.304 0 .571.268.571.571z"
+  }));
+}
+
+var ForwardRef = /*#__PURE__*/React.forwardRef(ListOl);
+var _default = ForwardRef;
+exports["default"] = _default;

@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/MaskedInput",
+  "private": true,
+  "main": "../cjs/MaskedInput/index.js",
+  "module": "../esm/MaskedInput/index.js",
+  "types": "../esm/MaskedInput/index.d.ts"
+}

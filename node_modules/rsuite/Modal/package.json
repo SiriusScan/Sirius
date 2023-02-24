@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Modal",
+  "private": true,
+  "main": "../cjs/Modal/index.js",
+  "module": "../esm/Modal/index.js",
+  "types": "../esm/Modal/index.d.ts"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Animation",
+  "private": true,
+  "main": "../cjs/Animation/index.js",
+  "module": "../esm/Animation/index.js",
+  "types": "../esm/Animation/index.d.ts"
+}

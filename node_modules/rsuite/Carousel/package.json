@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Carousel",
+  "private": true,
+  "main": "../cjs/Carousel/index.js",
+  "module": "../esm/Carousel/index.js",
+  "types": "../esm/Carousel/index.d.ts"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/locales/tr_TR",
+  "private": true,
+  "main": "../../cjs/locales/tr_TR.js",
+  "module": "../../esm/locales/tr_TR.js",
+  "types": "../../esm/locales/tr_TR.d.ts"
+}

@@ -1,0 +1,32 @@
+"use strict";
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports["default"] = void 0;
+
+var React = _interopRequireWildcard(require("react"));
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
+
+function Ravelry(props, svgRef) {
+  return /*#__PURE__*/React.createElement("svg", _extends({
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 39 32",
+    fill: "currentColor",
+    ref: svgRef
+  }, props), /*#__PURE__*/React.createElement("path", {
+    d: "M20.411 30.946a.909.909 0 01-.196-.071s-5.875-3.446-7.857-9.018c-.661-.107-2.054-.429-3.125-.661 1.554 5.054 5.875 8.911 11.179 9.75zM8.964 20.125l3 .5c-1.018-3.054-1.143-6.536-1.143-6.536-1.196 1.161-1.839 2.75-2.161 4 .054.696.143 1.375.304 2.036zM10.929 9.25c-.554.821-1 1.714-1.375 2.643.589-.625 1.071-1.036 1.321-1.214-.036-.536.054-1.429.054-1.429zM36.589 17c0-7.786-6.286-14.107-14-14.107-3.571 0-6.821 1.357-9.304 3.589-.375.732-.625 1.661-.804 2.857C16.285 6.107 23.07 6.91 23.07 6.91c1.696.071 1.5 1.571 1.482 2.036-6.179-.518-9.214 1.25-12.214 3.804 0 0 .589 5.714 1.946 8.036 7.821.357 13.768-3.893 13.768-3.893.75-.536 1.411-.589 1.554.339.107.75.161 1.768-.696 2.161-2.607 1.214-5.482 1.982-8.339 2.393-1.857.268-2.893.339-5.661.286 2.643 6.143 9.25 7.821 9.25 7.821 2.071.339 3.643.071 4.696-.268A14.162 14.162 0 0036.588 17zm1.322-.661c-.125 1.214-.321 2.625-.714 3.786-1.607 4.768-3.839 7.875-8.929 10.714-.464.321-.964.625-1.464.786-.911.321-1.893.393-2.911.286a15.47 15.47 0 01-1.304.054c-6.804 0-12.554-4.643-14.286-10.982-.054 0-.107-.018-.161-.018-.411 3.214 1.964 7.554 1.964 7.554s.143.214.964 1.464c-4.554-2.411-4.679-9.518-4.679-9.518-1.089-.411-4.875-1.696-5.536-2.75 0 0 2.964 1.625 5.518 1.946-.018-.018.036-.571.036-.571.161-2.179.911-3.875 1.679-5.179a14.902 14.902 0 013.143-6.518 15.864 15.864 0 011.446-3.821c.321-.607.625-1 1.446-1.375 5.429-2.536 10.786-3.179 16.286-.321 5.268 2.75 8.125 8.5 7.5 14.464z"
+  }));
+}
+
+var ForwardRef = /*#__PURE__*/React.forwardRef(Ravelry);
+var _default = ForwardRef;
+exports["default"] = _default;

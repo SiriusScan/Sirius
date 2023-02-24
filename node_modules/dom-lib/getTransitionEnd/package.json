@@ -1,0 +1,7 @@
+{
+  "name": "dom-lib/getTransitionEnd",
+  "private": true,
+  "main": "../cjs/getTransitionEnd.js",
+  "module": "../esm/getTransitionEnd.js",
+  "types": "../esm/getTransitionEnd.d.ts"
+}

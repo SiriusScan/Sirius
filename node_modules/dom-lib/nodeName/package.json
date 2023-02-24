@@ -1,0 +1,7 @@
+{
+  "name": "dom-lib/nodeName",
+  "private": true,
+  "main": "../cjs/nodeName.js",
+  "module": "../esm/nodeName.js",
+  "types": "../esm/nodeName.d.ts"
+}

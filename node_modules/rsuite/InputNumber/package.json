@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/InputNumber",
+  "private": true,
+  "main": "../cjs/InputNumber/index.js",
+  "module": "../esm/InputNumber/index.js",
+  "types": "../esm/InputNumber/index.d.ts"
+}

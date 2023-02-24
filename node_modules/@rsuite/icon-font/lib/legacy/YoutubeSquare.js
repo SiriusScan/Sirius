@@ -1,0 +1,32 @@
+"use strict";
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports["default"] = void 0;
+
+var React = _interopRequireWildcard(require("react"));
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
+
+function YoutubeSquare(props, svgRef) {
+  return /*#__PURE__*/React.createElement("svg", _extends({
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 27 32",
+    fill: "currentColor",
+    ref: svgRef
+  }, props), /*#__PURE__*/React.createElement("path", {
+    d: "M16.411 23.268v-2.804c0-.589-.179-.893-.518-.893-.196 0-.393.089-.589.286v4c.196.196.393.286.589.286.339 0 .518-.286.518-.875zm3.285-2.179h1.179v-.607c0-.607-.196-.911-.589-.911s-.589.304-.589.911v.607zM9.5 16.339v1.25H8.071v7.554H6.75v-7.554H5.357v-1.25H9.5zm3.589 2.25v6.554h-1.196v-.714c-.464.536-.911.804-1.357.804-.375 0-.643-.161-.75-.5-.071-.196-.107-.5-.107-.964V18.59h1.179v4.821c0 .268 0 .429.018.464.018.179.107.268.268.268.25 0 .482-.179.75-.554v-5h1.196zm4.5 1.982v2.607c0 .589-.036 1.036-.125 1.304-.143.5-.464.75-.946.75-.411 0-.821-.25-1.214-.732v.643h-1.196v-8.804h1.196v2.875c.375-.464.786-.714 1.214-.714.482 0 .804.25.946.75.089.268.125.696.125 1.321zm4.482 2.304v.161c0 .393-.018.643-.036.768a1.65 1.65 0 01-.268.714c-.321.482-.821.714-1.429.714-.625 0-1.107-.232-1.446-.679-.25-.321-.375-.839-.375-1.536v-2.304c0-.696.107-1.196.357-1.536.339-.446.821-.679 1.429-.679.589 0 1.071.232 1.393.679.25.339.375.839.375 1.536v1.357h-2.375v1.161c0 .607.196.911.607.911.286 0 .464-.161.536-.464 0-.071.018-.339.018-.804h1.214zM14.018 8.161v2.786c0 .607-.196.911-.571.911-.393 0-.571-.304-.571-.911V8.161c0-.607.179-.929.571-.929.375 0 .571.321.571.929zm9.518 12.732c0-1.536 0-3.161-.339-4.643-.25-1.054-1.107-1.821-2.125-1.929-2.429-.268-4.893-.268-7.357-.268-2.446 0-4.911 0-7.339.268-1.036.107-1.893.875-2.125 1.929-.339 1.482-.357 3.107-.357 4.643 0 1.518 0 3.143.357 4.643a2.487 2.487 0 002.107 1.929c2.446.268 4.911.268 7.357.268s4.911 0 7.357-.268a2.487 2.487 0 002.107-1.929c.357-1.5.357-3.125.357-4.643zM10.054 9.268l1.607-5.286h-1.339l-.911 3.482-.946-3.482H7.072c.268.821.571 1.643.839 2.464.429 1.25.696 2.179.821 2.821v3.589h1.321V9.267zm5.16 1.446V8.393c0-.696-.125-1.214-.375-1.554-.339-.446-.804-.679-1.393-.679-.607 0-1.071.232-1.393.679-.25.339-.375.857-.375 1.554v2.321c0 .696.125 1.214.375 1.554.321.446.786.679 1.393.679.589 0 1.054-.232 1.393-.679.25-.321.375-.857.375-1.554zm3.232 2.143h1.196V6.25h-1.196v5.054c-.268.375-.518.554-.75.554-.161 0-.268-.089-.286-.286-.018-.036-.018-.179-.018-.464V6.251h-1.196v5.232c0 .464.036.768.107.982.125.321.393.482.768.482.446 0 .893-.268 1.375-.804v.714zm8.983-5.428v17.143a5.145 5.145 0 01-5.143 5.143H5.143A5.145 5.145 0 010 24.572V7.429a5.145 5.145 0 015.143-5.143h17.143a5.145 5.145 0 015.143 5.143z"
+  }));
+}
+
+var ForwardRef = /*#__PURE__*/React.forwardRef(YoutubeSquare);
+var _default = ForwardRef;
+exports["default"] = _default;

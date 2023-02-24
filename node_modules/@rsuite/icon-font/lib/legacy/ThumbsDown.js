@@ -1,0 +1,32 @@
+"use strict";
+
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports["default"] = void 0;
+
+var React = _interopRequireWildcard(require("react"));
+
+function _getRequireWildcardCache() { if (typeof WeakMap !== "function") return null; var cache = new WeakMap(); _getRequireWildcardCache = function _getRequireWildcardCache() { return cache; }; return cache; }
+
+function _interopRequireWildcard(obj) { if (obj && obj.__esModule) { return obj; } if (obj === null || _typeof(obj) !== "object" && typeof obj !== "function") { return { "default": obj }; } var cache = _getRequireWildcardCache(); if (cache && cache.has(obj)) { return cache.get(obj); } var newObj = {}; var hasPropertyDescriptor = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var key in obj) { if (Object.prototype.hasOwnProperty.call(obj, key)) { var desc = hasPropertyDescriptor ? Object.getOwnPropertyDescriptor(obj, key) : null; if (desc && (desc.get || desc.set)) { Object.defineProperty(newObj, key, desc); } else { newObj[key] = obj[key]; } } } newObj["default"] = obj; if (cache) { cache.set(obj, newObj); } return newObj; }
+
+function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
+
+function ThumbsDown(props, svgRef) {
+  return /*#__PURE__*/React.createElement("svg", _extends({
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 29 32",
+    fill: "currentColor",
+    ref: svgRef
+  }, props), /*#__PURE__*/React.createElement("path", {
+    d: "M4.571 10.286c0 .625-.518 1.143-1.143 1.143a1.14 1.14 0 01-1.143-1.143c0-.643.5-1.143 1.143-1.143.625 0 1.143.5 1.143 1.143zm2.858 9.143V8c0-.625-.518-1.143-1.143-1.143H1.143C.518 6.857 0 7.375 0 8v11.429c0 .625.518 1.143 1.143 1.143h5.143c.625 0 1.143-.518 1.143-1.143zm20.16-2.661c.607.679.982 1.714.982 2.661-.018 1.857-1.571 3.429-3.429 3.429h-4.946c.143.571.321.75.518 1.143.464.929 1 1.964 1 3.429 0 1.375 0 4.571-4 4.571-.304 0-.589-.125-.804-.339-.768-.75-.982-1.857-1.179-2.911-.214-1.036-.411-2.107-1.107-2.804-.554-.554-1.161-1.321-1.804-2.143-.786-1.036-2.5-3.161-3.161-3.214-.589-.054-1.089-.554-1.089-1.143V8.001c0-.625.536-1.125 1.143-1.143.625-.018 1.696-.393 2.821-.786 1.929-.661 4.339-1.5 6.893-1.5h2.304c1.571.018 2.75.482 3.518 1.393.679.804.982 1.893.875 3.232.446.429.786 1.018.964 1.679a3.783 3.783 0 010 2.089 3.77 3.77 0 01.768 2.446c0 .25-.071.786-.268 1.357z"
+  }));
+}
+
+var ForwardRef = /*#__PURE__*/React.forwardRef(ThumbsDown);
+var _default = ForwardRef;
+exports["default"] = _default;

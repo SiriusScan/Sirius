@@ -1,0 +1,7 @@
+{
+  "name": "dom-lib/getPosition",
+  "private": true,
+  "main": "../cjs/getPosition.js",
+  "module": "../esm/getPosition.js",
+  "types": "../esm/getPosition.d.ts"
+}

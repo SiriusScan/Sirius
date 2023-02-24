@@ -1,0 +1,7 @@
+{
+  "name": "dom-lib/getAnimationEnd",
+  "private": true,
+  "main": "../cjs/getAnimationEnd.js",
+  "module": "../esm/getAnimationEnd.js",
+  "types": "../esm/getAnimationEnd.d.ts"
+}

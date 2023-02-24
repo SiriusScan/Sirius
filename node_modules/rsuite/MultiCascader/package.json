@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/MultiCascader",
+  "private": true,
+  "main": "../cjs/MultiCascader/index.js",
+  "module": "../esm/MultiCascader/index.js",
+  "types": "../esm/MultiCascader/index.d.ts"
+}

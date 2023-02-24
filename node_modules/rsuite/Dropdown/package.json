@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Dropdown",
+  "private": true,
+  "main": "../cjs/Dropdown/index.js",
+  "module": "../esm/Dropdown/index.js",
+  "types": "../esm/Dropdown/index.d.ts"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Progress",
+  "private": true,
+  "main": "../cjs/Progress/index.js",
+  "module": "../esm/Progress/index.js",
+  "types": "../esm/Progress/index.d.ts"
+}

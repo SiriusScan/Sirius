@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/SafeAnchor",
+  "private": true,
+  "main": "../cjs/SafeAnchor/index.js",
+  "module": "../esm/SafeAnchor/index.js",
+  "types": "../esm/SafeAnchor/index.d.ts"
+}

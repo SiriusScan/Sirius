@@ -1,0 +1,7 @@
+{
+  "name": "rsuite/Content",
+  "private": true,
+  "main": "../cjs/Content/index.js",
+  "module": "../esm/Content/index.js",
+  "types": "../esm/Content/index.d.ts"
+}

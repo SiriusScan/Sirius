@@ -1,0 +1,27 @@
+{
+    "CVEDataMeta": {
+        "ID": "Loading Vulnerability List...",
+        "ASSIGNER": "cve@mitre.org",
+    },
+    "CVSSV3": {
+        "baseScore": 0,
+        "baseSeverity": "",
+    },
+    "Description": {
+        "description_data": [
+            {
+                "value": "Loading...",
+            },
+        ]
+    },
+    "References": [
+        "Loading..."
+    ],
+    "cve": "CVE-2017-0145 - Remote Code Execution",
+    "catagory": "",
+    "tags": "CISA Worm RCE Wild",
+    "cvss": 9.8,
+    "srs": 10,
+    "description": "The SMBv1 server in Microsoft Windows Vista SP2; Windows Server 2008 SP2 and R2 SP1; Windows 7 SP1; Windows 8.1; Windows Server 2012 Gold and R2; Windows RT 8.1; and Windows 10 Gold, 1511, and 1607; and Windows Server 2016 allows remote attackers to execute arbitrary code via crafted packets, aka "Windows SMB Remote Code Execution Vulnerability." This vulnerability is different from those described in CVE-2017-0143, CVE-2017-0144, CVE-2017-0146, and CVE-2017-0148.",
+    "cia": "3,3,3",
+}

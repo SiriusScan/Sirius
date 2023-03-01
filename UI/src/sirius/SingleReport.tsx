@@ -26,7 +26,7 @@ export default function SingleReport() {
     const reportTitle = reportType + " Report";
 
     return (
-        <Container sx={{marginTop: 12, marginLeft: 3}}>
+        <Container sx={{marginTop: 8, marginLeft: 3}}>
             <Paper>
                 <Box sx={{
                     backgroundColor: "primary.main",

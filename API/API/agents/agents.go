@@ -4,7 +4,7 @@ package agentsAPI
 Sirius Agents API:
 This file contains functions and objects to support interaction with agents. It can be imported as follows: github.com/0sm0s1z/Sirius-Scan/API/agents
 The following functions are exported:
-- 
+-
 */
 
 import (
@@ -67,7 +67,7 @@ func AgentResponse(c *gin.Context) {
 	log.Println(taskResponse)
 
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func AgentResponse(c *gin.Context) {
 
 func RegisterAgent(agent siriusDB.SiriusAgent) {
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func RegisterAgent(agent siriusDB.SiriusAgent) {
 
 func TaskAgent(agent siriusDB.SiriusAgent) {
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -191,7 +191,7 @@ func TaskAgent(agent siriusDB.SiriusAgent) {
 
 func GetTasks(agent siriusDB.SiriusAgent) []siriusDB.Task {
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}

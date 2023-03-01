@@ -31,7 +31,7 @@ import (
 func GetHost(hostRequest siriusDB.SVDBHost) siriusDB.SVDBHost {
 
 	//Get the host data from the database
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}

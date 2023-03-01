@@ -1,0 +1,16 @@
+version: '3.4'
+services:
+  mongo:
+    image: mongo
+    restart: always
+    ports:
+      - 27017:27017
+
+  sirius-api:
+    build: ./API/
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mongo
+

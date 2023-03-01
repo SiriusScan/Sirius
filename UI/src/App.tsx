@@ -26,6 +26,13 @@ import indigo from '@mui/material/colors/indigo';
 import purple from '@mui/material/colors/purple';
 import green from '@mui/material/colors/green';
 
+
+// What is the Sirius theme color schema?
+// Main options:
+// #428dd1 - light blue
+// #1b2a3b - darker scheme
+// #00274b - darker scheme but more blue
+
 const theme = {
     ...defaultTheme,
     palette: {
@@ -36,7 +43,7 @@ const theme = {
           main: green[500],
         },
         background: {
-            default: '#fafafb',
+            default: '#eaeaea',
         },
       },
 };

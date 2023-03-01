@@ -31,7 +31,7 @@ import (
 func UpdateHost(updateRequest siriusDB.SVDBHost) {
 
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}

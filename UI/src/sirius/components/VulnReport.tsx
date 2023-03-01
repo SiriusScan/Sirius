@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, Paper } from "@mui/material";
 import { Container } from "@mui/material";
 import Tabs from '@mui/material/Tabs';
@@ -20,6 +21,7 @@ interface TabPanelProps {
 export default function VulnReportTabs() {
   const [value, setValue] = React.useState(0);
   const [vulnList, setVulnList] = React.useState([]);
+  const [queryParameters] = useSearchParams()
 
   React.useEffect(() => {
     //Get the list of vulnerabilities
@@ -27,7 +29,7 @@ export default function VulnReportTabs() {
     const requestOptions = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ CVE: ['CVE-2022-32168'] })
+      body: JSON.stringify({ CVE: [queryParameters.get("id")] })
     };
     fetch('http://localhost:8080/api/svdb/get/finding', requestOptions)
       .then((response) => response.json())

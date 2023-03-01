@@ -116,7 +116,7 @@ func AddVuln(vuln SVDBEntry) {
 	log.Println("Updating Sirius General Purpose Vulnerability Database...")
 
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -159,7 +159,7 @@ type Host struct {
 
 func DatabaseConnect() *mongo.Client {
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func DatabaseConnect() *mongo.Client {
 
 func GetHosts() []SVDBHost {
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func GetHosts() []SVDBHost {
 
 func GetFinding(request FindingRequest) []SVDBEntry {
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -218,12 +218,12 @@ func GetFinding(request FindingRequest) []SVDBEntry {
 		}
 	}
 
-	fmt.Println(findingList)
+	//fmt.Println(findingList)
 	return findingList
 }
 
 func listHosts(client *mongo.Client) []SVDBHost {
-	client, err := mongo.Connect(context.TODO())
+	//client, err := mongo.Connect(context.TODO())
 	hostCollection := client.Database("Sirius").Collection("Hosts")
 
 	var host SVDBHost
@@ -260,7 +260,7 @@ func AddHost(host SVDBHost) {
 	log.Println(host)
 
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -282,7 +282,7 @@ func NewReport(vuln SVDBEntry) {
 	log.Println("Got host update report")
 
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -302,7 +302,7 @@ func NewReport(vuln SVDBEntry) {
 //Add CVE API Endpoint?
 func NewCVE(host string, cve string) {
 	//DB Connection
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
 		log.Fatal(err)
 	}

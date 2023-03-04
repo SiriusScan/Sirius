@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/getContainer",
-  "private": true,
-  "main": "../cjs/getContainer.js",
-  "module": "../esm/getContainer.js",
-  "types": "../esm/getContainer.d.ts"
-}

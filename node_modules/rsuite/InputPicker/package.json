@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/InputPicker",
-  "private": true,
-  "main": "../cjs/InputPicker/index.js",
-  "module": "../esm/InputPicker/index.js",
-  "types": "../esm/InputPicker/index.d.ts"
-}

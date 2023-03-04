@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Loader",
-  "private": true,
-  "main": "../cjs/Loader/index.js",
-  "module": "../esm/Loader/index.js",
-  "types": "../esm/Loader/index.d.ts"
-}

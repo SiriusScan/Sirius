@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/on",
-  "private": true,
-  "main": "../cjs/on.js",
-  "module": "../esm/on.js",
-  "types": "../esm/on.d.ts"
-}

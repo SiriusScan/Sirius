@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Disclosure",
-  "private": true,
-  "main": "../cjs/Disclosure/index.js",
-  "module": "../esm/Disclosure/index.js",
-  "types": "../esm/Disclosure/index.d.ts"
-}

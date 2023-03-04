@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Button",
-  "private": true,
-  "main": "../cjs/Button/index.js",
-  "module": "../esm/Button/index.js",
-  "types": "../esm/Button/index.d.ts"
-}

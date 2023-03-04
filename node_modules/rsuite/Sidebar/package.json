@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Sidebar",
-  "private": true,
-  "main": "../cjs/Sidebar/index.js",
-  "module": "../esm/Sidebar/index.js",
-  "types": "../esm/Sidebar/index.d.ts"
-}

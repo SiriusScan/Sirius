@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/CloseButton",
-  "private": true,
-  "main": "../cjs/CloseButton/index.js",
-  "module": "../esm/CloseButton/index.js",
-  "types": "../esm/CloseButton/index.d.ts"
-}

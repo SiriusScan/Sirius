@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/requestAnimationFramePolyfill",
-  "private": true,
-  "main": "../cjs/requestAnimationFramePolyfill.js",
-  "module": "../esm/requestAnimationFramePolyfill.js",
-  "types": "../esm/requestAnimationFramePolyfill.d.ts"
-}

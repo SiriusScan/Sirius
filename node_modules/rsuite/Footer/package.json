@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Footer",
-  "private": true,
-  "main": "../cjs/Footer/index.js",
-  "module": "../esm/Footer/index.js",
-  "types": "../esm/Footer/index.d.ts"
-}

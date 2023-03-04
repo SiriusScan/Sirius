@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Affix",
-  "private": true,
-  "main": "../cjs/Affix/index.js",
-  "module": "../esm/Affix/index.js",
-  "types": "../esm/Affix/index.d.ts"
-}

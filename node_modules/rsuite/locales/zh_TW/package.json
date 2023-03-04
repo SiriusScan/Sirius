@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/locales/zh_TW",
-  "private": true,
-  "main": "../../cjs/locales/zh_TW.js",
-  "module": "../../esm/locales/zh_TW.js",
-  "types": "../../esm/locales/zh_TW.d.ts"
-}

@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/PanelGroup",
-  "private": true,
-  "main": "../cjs/PanelGroup/index.js",
-  "module": "../esm/PanelGroup/index.js",
-  "types": "../esm/PanelGroup/index.d.ts"
-}

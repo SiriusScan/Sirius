@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Slider",
-  "private": true,
-  "main": "../cjs/Slider/index.js",
-  "module": "../esm/Slider/index.js",
-  "types": "../esm/Slider/index.d.ts"
-}

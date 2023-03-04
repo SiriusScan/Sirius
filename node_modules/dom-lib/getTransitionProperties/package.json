@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/getTransitionProperties",
-  "private": true,
-  "main": "../cjs/getTransitionProperties.js",
-  "module": "../esm/getTransitionProperties.js",
-  "types": "../esm/getTransitionProperties.d.ts"
-}

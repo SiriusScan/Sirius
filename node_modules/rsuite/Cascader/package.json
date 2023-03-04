@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Cascader",
-  "private": true,
-  "main": "../cjs/Cascader/index.js",
-  "module": "../esm/Cascader/index.js",
-  "types": "../esm/Cascader/index.d.ts"
-}

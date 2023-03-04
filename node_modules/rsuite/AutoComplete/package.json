@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/AutoComplete",
-  "private": true,
-  "main": "../cjs/AutoComplete/index.js",
-  "module": "../esm/AutoComplete/index.js",
-  "types": "../esm/AutoComplete/index.d.ts"
-}

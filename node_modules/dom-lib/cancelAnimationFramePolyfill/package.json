@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/cancelAnimationFramePolyfill",
-  "private": true,
-  "main": "../cjs/cancelAnimationFramePolyfill.js",
-  "module": "../esm/cancelAnimationFramePolyfill.js",
-  "types": "../esm/cancelAnimationFramePolyfill.d.ts"
-}

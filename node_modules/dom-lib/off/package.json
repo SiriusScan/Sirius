@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/off",
-  "private": true,
-  "main": "../cjs/off.js",
-  "module": "../esm/off.js",
-  "types": "../esm/off.d.ts"
-}

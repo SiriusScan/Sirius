@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/SelectPicker",
-  "private": true,
-  "main": "../cjs/SelectPicker/index.js",
-  "module": "../esm/SelectPicker/index.js",
-  "types": "../esm/SelectPicker/index.d.ts"
-}

@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Drawer",
-  "private": true,
-  "main": "../cjs/Drawer/index.js",
-  "module": "../esm/Drawer/index.js",
-  "types": "../esm/Drawer/index.d.ts"
-}

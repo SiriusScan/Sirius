@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/FormErrorMessage",
-  "private": true,
-  "main": "../cjs/FormErrorMessage/index.js",
-  "module": "../esm/FormErrorMessage/index.js",
-  "types": "../esm/FormErrorMessage/index.d.ts"
-}

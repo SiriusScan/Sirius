@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/CustomProvider",
-  "private": true,
-  "main": "../cjs/CustomProvider/index.js",
-  "module": "../esm/CustomProvider/index.js",
-  "types": "../esm/CustomProvider/index.d.ts"
-}

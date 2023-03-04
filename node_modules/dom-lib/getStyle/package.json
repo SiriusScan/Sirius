@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/getStyle",
-  "private": true,
-  "main": "../cjs/getStyle.js",
-  "module": "../esm/getStyle.js",
-  "types": "../esm/getStyle.d.ts"
-}

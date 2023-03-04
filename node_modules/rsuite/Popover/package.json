@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Popover",
-  "private": true,
-  "main": "../cjs/Popover/index.js",
-  "module": "../esm/Popover/index.js",
-  "types": "../esm/Popover/index.d.ts"
-}

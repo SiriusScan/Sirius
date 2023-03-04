@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Menu",
-  "private": true,
-  "main": "../cjs/Menu/index.js",
-  "module": "../esm/Menu/index.js",
-  "types": "../esm/Menu/index.d.ts"
-}

@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/locales/ko_KR",
-  "private": true,
-  "main": "../../cjs/locales/ko_KR.js",
-  "module": "../../esm/locales/ko_KR.js",
-  "types": "../../esm/locales/ko_KR.d.ts"
-}

@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Tag",
-  "private": true,
-  "main": "../cjs/Tag/index.js",
-  "module": "../esm/Tag/index.js",
-  "types": "../esm/Tag/index.d.ts"
-}

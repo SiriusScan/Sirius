@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/locales/fa_IR",
-  "private": true,
-  "main": "../../cjs/locales/fa_IR.js",
-  "module": "../../esm/locales/fa_IR.js",
-  "types": "../../esm/locales/fa_IR.d.ts"
-}

@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Notification",
-  "private": true,
-  "main": "../cjs/Notification/index.js",
-  "module": "../esm/Notification/index.js",
-  "types": "../esm/Notification/index.d.ts"
-}

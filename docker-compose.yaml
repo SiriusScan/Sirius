@@ -14,9 +14,3 @@ services:
     depends_on:
       - mongo
 
-  sirius-web:
-    build: ./UI/
-    ports:
-      - "5173:5173"
-    depends_on:
-      - sirius-api

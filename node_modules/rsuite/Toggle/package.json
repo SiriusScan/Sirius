@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Toggle",
-  "private": true,
-  "main": "../cjs/Toggle/index.js",
-  "module": "../esm/Toggle/index.js",
-  "types": "../esm/Toggle/index.d.ts"
-}

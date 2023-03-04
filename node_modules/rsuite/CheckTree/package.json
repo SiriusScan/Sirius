@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/CheckTree",
-  "private": true,
-  "main": "../cjs/CheckTree/index.js",
-  "module": "../esm/CheckTree/index.js",
-  "types": "../esm/CheckTree/index.d.ts"
-}

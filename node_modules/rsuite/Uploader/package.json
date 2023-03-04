@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Uploader",
-  "private": true,
-  "main": "../cjs/Uploader/index.js",
-  "module": "../esm/Uploader/index.js",
-  "types": "../esm/Uploader/index.d.ts"
-}

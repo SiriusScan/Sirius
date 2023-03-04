@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/List",
-  "private": true,
-  "main": "../cjs/List/index.js",
-  "module": "../esm/List/index.js",
-  "types": "../esm/List/index.d.ts"
-}

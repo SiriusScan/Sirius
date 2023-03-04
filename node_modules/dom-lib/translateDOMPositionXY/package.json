@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/translateDOMPositionXY",
-  "private": true,
-  "main": "../cjs/translateDOMPositionXY.js",
-  "module": "../esm/translateDOMPositionXY.js",
-  "types": "../esm/translateDOMPositionXY.d.ts"
-}

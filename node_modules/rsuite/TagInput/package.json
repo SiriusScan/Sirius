@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/TagInput",
-  "private": true,
-  "main": "../cjs/TagInput/index.js",
-  "module": "../esm/TagInput/index.js",
-  "types": "../esm/TagInput/index.d.ts"
-}

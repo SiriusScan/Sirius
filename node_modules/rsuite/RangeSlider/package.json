@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/RangeSlider",
-  "private": true,
-  "main": "../cjs/RangeSlider/index.js",
-  "module": "../esm/RangeSlider/index.js",
-  "types": "../esm/RangeSlider/index.d.ts"
-}

@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/WheelHandler",
-  "private": true,
-  "main": "../cjs/WheelHandler.js",
-  "module": "../esm/WheelHandler.js",
-  "types": "../esm/WheelHandler.d.ts"
-}

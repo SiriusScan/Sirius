@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Container",
-  "private": true,
-  "main": "../cjs/Container/index.js",
-  "module": "../esm/Container/index.js",
-  "types": "../esm/Container/index.d.ts"
-}

@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/locales/es_ES",
-  "private": true,
-  "main": "../../cjs/locales/es_ES.js",
-  "module": "../../esm/locales/es_ES.js",
-  "types": "../../esm/locales/es_ES.d.ts"
-}

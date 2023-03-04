@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Tree",
-  "private": true,
-  "main": "../cjs/Tree/index.js",
-  "module": "../esm/Tree/index.js",
-  "types": "../esm/Tree/index.d.ts"
-}

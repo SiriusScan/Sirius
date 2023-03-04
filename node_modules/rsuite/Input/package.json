@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Input",
-  "private": true,
-  "main": "../cjs/Input/index.js",
-  "module": "../esm/Input/index.js",
-  "types": "../esm/Input/index.d.ts"
-}

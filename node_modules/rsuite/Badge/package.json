@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Badge",
-  "private": true,
-  "main": "../cjs/Badge/index.js",
-  "module": "../esm/Badge/index.js",
-  "types": "../esm/Badge/index.d.ts"
-}

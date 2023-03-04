@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/getWindow",
-  "private": true,
-  "main": "../cjs/getWindow.js",
-  "module": "../esm/getWindow.js",
-  "types": "../esm/getWindow.d.ts"
-}

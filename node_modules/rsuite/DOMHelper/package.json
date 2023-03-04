@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/DOMHelper",
-  "private": true,
-  "main": "../cjs/DOMHelper/index.js",
-  "module": "../esm/DOMHelper/index.js",
-  "types": "../esm/DOMHelper/index.d.ts"
-}

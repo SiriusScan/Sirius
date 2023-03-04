@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Grid",
-  "private": true,
-  "main": "../cjs/Grid/index.js",
-  "module": "../esm/Grid/index.js",
-  "types": "../esm/Grid/index.d.ts"
-}

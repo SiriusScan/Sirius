@@ -11,3 +11,6 @@ git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
 docker-compose up
 ```
+
+### Logging in
+The default username and password for Sirius is: `sirius/sirius`

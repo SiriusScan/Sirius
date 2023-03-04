@@ -27,6 +27,27 @@ import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 
 import { createMuiTheme } from 'material-ui/styles';
 
+type VulnerabilityList = {
+  CVEDataMeta: {
+    ID: string,
+    ASSIGNER: string,
+  },
+  Description: {
+    description_data: [{
+      lang: string,
+      value: string,
+    }],
+  },
+  Impact: {
+    baseMetricV3: {
+      cvssV3: {
+        baseScore: number,
+        baseSeverity: string,
+      },
+    },
+  },
+};
+
 class VulnTable extends React.Component {
   constructor(props) {
     super(props);
@@ -35,7 +56,6 @@ class VulnTable extends React.Component {
       open: false,
       setOpen: false,
     };
-    this.props.vulnList.map((row) => console.log(row));
   }
 
   render() {
@@ -53,7 +73,7 @@ class VulnTable extends React.Component {
               </TableRow>
             </TableHead>
             <TableBody>
-              {this.props.vulnList.map((row) => (
+              {Array.isArray(this.props.vulnList) && this.props.vulnList.map((row: VulnerabilityList) => (
                 <Row key={row.CVEDataMeta.ID} row={row} />
               ))}
             </TableBody>

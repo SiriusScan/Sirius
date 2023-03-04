@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Navbar",
-  "private": true,
-  "main": "../cjs/Navbar/index.js",
-  "module": "../esm/Navbar/index.js",
-  "types": "../esm/Navbar/index.d.ts"
-}

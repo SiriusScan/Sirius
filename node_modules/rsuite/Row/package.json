@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Row",
-  "private": true,
-  "main": "../cjs/Row/index.js",
-  "module": "../esm/Row/index.js",
-  "types": "../esm/Row/index.d.ts"
-}

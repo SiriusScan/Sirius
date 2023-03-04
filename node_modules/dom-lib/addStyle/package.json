@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/addStyle",
-  "private": true,
-  "main": "../cjs/addStyle.js",
-  "module": "../esm/addStyle.js",
-  "types": "../esm/addStyle.d.ts"
-}

@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Header",
-  "private": true,
-  "main": "../cjs/Header/index.js",
-  "module": "../esm/Header/index.js",
-  "types": "../esm/Header/index.d.ts"
-}

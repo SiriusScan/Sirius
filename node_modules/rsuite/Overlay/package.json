@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Overlay",
-  "private": true,
-  "main": "../cjs/Overlay/index.js",
-  "module": "../esm/Overlay/index.js",
-  "types": "../esm/Overlay/index.d.ts"
-}

@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/getWidth",
-  "private": true,
-  "main": "../cjs/getWidth.js",
-  "module": "../esm/getWidth.js",
-  "types": "../esm/getWidth.d.ts"
-}

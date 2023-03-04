@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/DOMMouseMoveTracker",
-  "private": true,
-  "main": "../cjs/DOMMouseMoveTracker.js",
-  "module": "../esm/DOMMouseMoveTracker.js",
-  "types": "../esm/DOMMouseMoveTracker.d.ts"
-}

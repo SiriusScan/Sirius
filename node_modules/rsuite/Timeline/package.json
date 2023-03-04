@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Timeline",
-  "private": true,
-  "main": "../cjs/Timeline/index.js",
-  "module": "../esm/Timeline/index.js",
-  "types": "../esm/Timeline/index.d.ts"
-}

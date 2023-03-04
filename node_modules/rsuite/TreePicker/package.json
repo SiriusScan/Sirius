@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/TreePicker",
-  "private": true,
-  "main": "../cjs/TreePicker/index.js",
-  "module": "../esm/TreePicker/index.js",
-  "types": "../esm/TreePicker/index.d.ts"
-}

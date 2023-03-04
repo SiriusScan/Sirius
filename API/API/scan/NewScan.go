@@ -42,14 +42,14 @@ func NewScan(c *gin.Context) {
 	scanID := "scan-" + siriusHelper.RandomString(10)
 
 	//Create Scratch Directory for Scan
-	os.MkdirAll("/tmp/sirius/" + scanID, 0755)
+	os.MkdirAll("/tmp/sirius/"+scanID, 0755)
 
 	//For each Target run a scan
-	
+
 	for _, target := range request.Targets {
 		//Execute Nmap Scan
 		rawScanResults := "/tmp/sirius/" + scanID + "/" + target + "-nmapportscan.xml"
-		exec.Command("/opt/homebrew/bin/nmap", "-A", "--script=vuln,vulners", target, "-oX", rawScanResults).Output()
+		exec.Command("nmap", "-A", "--script=vuln,vulners", target, "-oX", rawScanResults).Output()
 	}
 
 	//Hardcoded Scan ID for Testing

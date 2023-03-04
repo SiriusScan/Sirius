@@ -1,7 +1,0 @@
-{
-  "name": "dom-lib/getHeight",
-  "private": true,
-  "main": "../cjs/getHeight.js",
-  "module": "../esm/getHeight.js",
-  "types": "../esm/getHeight.d.ts"
-}

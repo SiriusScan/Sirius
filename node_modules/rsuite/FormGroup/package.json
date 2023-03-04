@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/FormGroup",
-  "private": true,
-  "main": "../cjs/FormGroup/index.js",
-  "module": "../esm/FormGroup/index.js",
-  "types": "../esm/FormGroup/index.d.ts"
-}

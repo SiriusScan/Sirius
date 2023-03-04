@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/FormHelpText",
-  "private": true,
-  "main": "../cjs/FormHelpText/index.js",
-  "module": "../esm/FormHelpText/index.js",
-  "types": "../esm/FormHelpText/index.d.ts"
-}

@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Table",
-  "private": true,
-  "main": "../cjs/Table/index.js",
-  "module": "../esm/Table/index.js",
-  "types": "../esm/Table/index.d.ts"
-}

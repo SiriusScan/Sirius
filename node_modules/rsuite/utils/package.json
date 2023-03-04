@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/utils",
-  "private": true,
-  "main": "../cjs/utils/index.js",
-  "module": "../esm/utils/index.js",
-  "types": "../esm/utils/index.d.ts"
-}

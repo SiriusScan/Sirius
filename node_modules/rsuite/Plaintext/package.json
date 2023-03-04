@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Plaintext",
-  "private": true,
-  "main": "../cjs/Plaintext/index.js",
-  "module": "../esm/Plaintext/index.js",
-  "types": "../esm/Plaintext/index.d.ts"
-}

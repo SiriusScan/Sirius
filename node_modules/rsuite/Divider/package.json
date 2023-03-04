@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Divider",
-  "private": true,
-  "main": "../cjs/Divider/index.js",
-  "module": "../esm/Divider/index.js",
-  "types": "../esm/Divider/index.d.ts"
-}

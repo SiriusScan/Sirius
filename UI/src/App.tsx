@@ -11,6 +11,7 @@ import { PostList, PostEdit, PostCreate } from "./admin/posts";
 import { UserList } from "./admin/users";
 import { Dashboard } from './admin/dashboard';
 import { authProvider } from './core/authProvider';
+import Login from './core/components/Login';
 
 import IssuesNavigator from "./sirius/IssuesNavigator";
 import InventoryNavigator from "./sirius/InventoryNavigator";
@@ -46,16 +47,22 @@ const theme = {
             default: '#eaeaea',
         },
       },
+      MuiTextField: {
+        root: {
+            color: 'white',
+        },
+    },
 };
 
 const App = () => (
  <Admin 
     authProvider={authProvider} 
     dataProvider={dataProvider}
+    loginPage={Login}
     layout={Layout} 
     dashboard={IssuesNavigator}
-        theme={{
-        ...theme,
+    theme={{
+      ...theme,
     }}
   >
    <CustomRoutes>

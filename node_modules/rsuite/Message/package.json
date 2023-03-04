@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Message",
-  "private": true,
-  "main": "../cjs/Message/index.js",
-  "module": "../esm/Message/index.js",
-  "types": "../esm/Message/index.d.ts"
-}

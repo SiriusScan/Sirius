@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Placeholder",
-  "private": true,
-  "main": "../cjs/Placeholder/index.js",
-  "module": "../esm/Placeholder/index.js",
-  "types": "../esm/Placeholder/index.d.ts"
-}

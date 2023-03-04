@@ -1,7 +1,0 @@
-{
-  "name": "rsuite/Form",
-  "private": true,
-  "main": "../cjs/Form/index.js",
-  "module": "../esm/Form/index.js",
-  "types": "../esm/Form/index.d.ts"
-}

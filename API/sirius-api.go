@@ -43,6 +43,9 @@ func main() {
 		AllowHeaders: []string{"Content-Type,access-control-allow-origin, access-control-allow-headers"},
 	}))
 
+	//Sirius Core API
+	router.GET("/api/status", APIHandler.GetStatus)
+
 	//Sirius Host API
 	router.GET("/api/get/hosts", getHosts)
 	router.POST("/api/get/host", APIHandler.GetHost)

@@ -1,6 +1,7 @@
 version: '3.4'
 services:
   mongo:
+    vscommand: mongod --quiet --logpath /dev/null 
     image: mongo
     restart: always
     ports:
@@ -11,6 +12,16 @@ services:
     restart: always
     ports:
       - "8080:8080"
+    volumes:
+      - ./API:/api
     depends_on:
       - mongo
 
+  sirius-web:
+    build: ./UI/
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./UI:/app
+    depends_on:
+      - sirius-api

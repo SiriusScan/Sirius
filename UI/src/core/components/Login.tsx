@@ -41,12 +41,33 @@ import loginbg from '../../assets/loginbg.jpg';
 import siriusscan from '../../assets/sirius-scan.png';
 
 const Login = ({ theme }) => {
-    const [initialStartup, setInitialStartup] = useState(true);
+    const [initialStartup, setInitialStartup] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [progress, setProgress] = React.useState(0);
     const login = useLogin();
     const notify = useNotify();
+
+
+    //Check if first time startup
+    React.useEffect(() => {
+        var checktime = 1000;
+        //Make API get request to get current system status
+        setInterval(() => {
+            fetch('http://localhost:8080/api/status')
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.status == "Initializing") {
+                    setInitialStartup(true);
+                } else {
+                    setInitialStartup(false);
+                    checktime = 10000;
+                }
+                console.log(data);
+            });
+        }, checktime);
+    }, [])
+
 
     React.useEffect(() => {
         const timer = setInterval(() => {
@@ -56,6 +77,9 @@ const Login = ({ theme }) => {
           clearInterval(timer);
         };
       }, []);
+
+
+
 
       React.useEffect(() => {
         const timer = setInterval(() => {

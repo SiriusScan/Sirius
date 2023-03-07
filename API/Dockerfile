@@ -2,8 +2,17 @@
 
 FROM golang:1.20-bullseye
 WORKDIR /api
-COPY . .
-RUN go build -o ./tmp/sirius-api ./sirius-api.go
+#COPY . .
+
+COPY .air.toml .air.toml
+
+# Dependencies
 RUN apt-get update && apt-get install -y nmap
-CMD ["./tmp/sirius-api"]
+
+#DEV Dependencies
+RUN go install github.com/cosmtrek/air@latest
+
+# Invoke air to run the server after volume mount
+ENTRYPOINT [ "air" ]  
+
 EXPOSE 8080

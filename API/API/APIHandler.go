@@ -18,6 +18,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	//coreAPI "github.com/0sm0s1z/Sirius-Scan/API/core"
 	hostAPI "github.com/0sm0s1z/Sirius-Scan/API/hosts"
 	siriusDB "github.com/0sm0s1z/Sirius-Scan/lib/db"
 )
@@ -50,4 +52,17 @@ func UpdateHost(c *gin.Context) {
 	response := "Updated "
 
 	c.String(200, response)
+}
+
+//GetStatus returns the status of the API
+func GetStatus(c *gin.Context) {
+
+	//Get the status of the API from the database
+	result := "asdf"
+	//result := coreAPI.GetStatus()
+
+	//Hardcode result for now
+	//result = coreAPI.SystemStatus{Status: "Initializing"}
+
+	c.IndentedJSON(http.StatusOK, result)
 }

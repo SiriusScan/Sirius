@@ -32,7 +32,8 @@ services:
     volumes:
       - ./API:/api
     depends_on:
-      - mongo
+      mongo:
+        condition: service_started
       rabbitmq:
         condition: service_started
 

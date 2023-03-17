@@ -36,6 +36,9 @@ import green from '@mui/material/colors/green';
 
 const theme = {
     ...defaultTheme,
+    default: {
+      fontSize: 20,
+    },
     palette: {
         primary: {
           main: '#428dd1',
@@ -47,11 +50,25 @@ const theme = {
             default: '#eaeaea',
         },
       },
-      MuiTextField: {
-        root: {
-            color: 'white',
-        },
+    typography: {
+      fontSize: 16,
+      fontFamily: [
+        'Roboto',
+        'Helvetica',
+        'Arial',
+        'sans-serif',
+      ].join(','),
     },
+    MuiCard: {
+      root: {
+        backgroundColor: 'blue',
+      },
+    },
+    MuiTextField: {
+      root: {
+          color: 'white',
+      },
+  },
 };
 
 const App = () => (

@@ -10,15 +10,22 @@ const Layout = (props: LayoutProps) => {
     const { children } = props;
     return (
         <>
-            <CssBaseline />
-            <Nav />
-            <Container sx={{ maxWidth: { xl: 1280 } }}>
-                <main id="main-content">
-                    {/* @ts-ignore */}
+            <Container sx={{backgroundColor: '#eaeaea', height: '100vh'}}>
+                <CssBaseline />
+                <Nav />
+                {/* @ts-ignore */}
+                <Container sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    marginTop: 8, 
+                }}>
                     <ErrorBoundary FallbackComponent={Error}>
                         {children}
                     </ErrorBoundary>
-                </main>
+                </Container>
             </Container>
         </>
     );

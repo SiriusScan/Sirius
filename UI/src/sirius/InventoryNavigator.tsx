@@ -11,6 +11,8 @@ import AnalyticsIcon from '@mui/icons-material/Analytics';
 
 import InventoryHost from "./containers/InventoryHost";
 
+import config from '../../config.json';
+
 interface TabPanelProps {
     children?: React.ReactNode;
     index: number;
@@ -23,7 +25,7 @@ export default function IssuesNavigator() {
 
   React.useEffect(() => {
   //Get the list of hosts
-  fetch('http://localhost:8080/api/get/hosts')
+  fetch('http://' + config.server.host + ':' + config.server.port + '/api/get/hosts')
     .then((response) => response.json())
     .then((data) => {
       setHostList(data);
@@ -35,11 +37,11 @@ export default function IssuesNavigator() {
   };
 
   return (
-      <Container sx={{marginTop: 8, marginLeft: 3}}>
+      <Container>
         <Card>
           {/* Navigator Tab Headers */}
           {value == 0 ?
-              <CardHeader sx={{ fontSize: 54 }} title="Inventory Navigator" subheader="Hosts" avatar={<LanIcon />} />
+              <CardHeader title="Inventory Navigator" subheader="Hosts" avatar={<LanIcon />} />
           : null}
           {value == 1 ?
               <CardHeader title="Inventory Navigator" subheader="Software Inventory" avatar={<HealingIcon />} />

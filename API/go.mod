@@ -3,6 +3,8 @@ module github.com/0sm0s1z/Sirius-Scan
 go 1.17
 
 require (
+	github.com/codeclysm/extract v2.2.0+incompatible // indirect
+	github.com/codeclysm/extract/v3 v3.1.0 // indirect
 	github.com/cosmtrek/air v1.41.0 // indirect
 	github.com/creack/pty v1.1.18 // indirect
 	github.com/fatih/color v1.14.1 // indirect
@@ -17,9 +19,11 @@ require (
 	github.com/goccy/go-json v0.9.7 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
+	github.com/h2non/filetype v1.1.3 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.13.6 // indirect
+	github.com/juju/errors v1.0.0 // indirect
+	github.com/klauspost/compress v1.15.13 // indirect
 	github.com/lair-framework/go-nmap v0.0.0-20191202052157-3507e0b03523 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
@@ -30,7 +34,9 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/streadway/amqp v1.0.0 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
+	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.0.2 // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect

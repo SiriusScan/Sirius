@@ -36,14 +36,41 @@ func handleXML(run *nmap.NmapRun) []CVE {
 	var scan Scan
 	var cvelist []CVE
 
+	// Convert the NmapRun struct to a SVDBHost struct
+	//var host siriusDB.SVDBHost
+	//host.OS = run.Hosts[0].Os.OsMatches[0].Name
+
+	//CVEs from HostScript Output
+	for j := 0; j < len(run.Hosts[0].HostScripts); j++ {
+		scriptOutput := run.Hosts[0].HostScripts[j].Output
+
+		for _, line := range strings.Split(strings.TrimSuffix(scriptOutput, "\n"), "\n") {
+			if strings.Contains(line, "CVE-") {
+				//log.Println(line)
+				cveid := strings.Split(line, "CVE-")[1]
+
+				if len(cveid) > 9 {
+					cveid = cveid[:10]
+					cvelist = append(cvelist, CVE{CVEID: cveid})
+				} else {
+					cveid = cveid[:9]
+					cvelist = append(cvelist, CVE{CVEID: cveid})
+				}
+			}
+		}
+	}
+
 	// THIS IS GHETTO AND BAD AND I SHOULD FEEL BAD - but it works for now
 	for i := 0; i < len(run.Hosts[0].Ports); i++ {
+
+		//CVEs from Port Script Output
 		for j := 0; j < len(run.Hosts[0].Ports[i].Scripts); j++ {
 
 			scriptOutput := run.Hosts[0].Ports[i].Scripts[j].Output
 
 			for _, line := range strings.Split(strings.TrimSuffix(scriptOutput, "\n"), "\n") {
 				if strings.Contains(line, "CVE-") {
+					//log.Println(line)
 					cveid := strings.Split(line, "CVE-")[1]
 
 					if len(cveid) > 9 {

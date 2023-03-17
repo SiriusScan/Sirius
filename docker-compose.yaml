@@ -1,11 +1,28 @@
 version: '3.4'
 services:
   mongo:
-    vscommand: mongod --quiet --logpath /dev/null 
+    command: mongod --quiet --logpath /dev/null 
     image: mongo
     restart: always
     ports:
       - 27017:27017
+  
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: always
+    logging:
+      driver: none
+    ports:
+      - 5672:5672
+      - 15672:15672
+    volumes:
+      - ./rabbit-mq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    healthcheck:
+      test: [ "CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+
 
   sirius-api:
     build: ./API/
@@ -23,5 +40,16 @@ services:
       - "5173:5173"
     volumes:
       - ./UI:/app
+      - /app/node_modules
     depends_on:
       - sirius-api
+
+  sirius-engine:
+    build: ./Engine/
+    restart: always
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./Engine:/engine
+    depends_on:
+      - rabbitmq

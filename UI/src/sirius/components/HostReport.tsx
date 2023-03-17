@@ -11,6 +11,7 @@ import LanIcon from '@mui/icons-material/Lan';
 import HealingIcon from '@mui/icons-material/Healing';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
 
+import config from '../../../config.json';
 
 import VulnTable from "./VulnTable";
 
@@ -33,7 +34,7 @@ export default function HostReportTabs() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ip: queryParameters.get("ip") })
     };
-    fetch('http://localhost:8080/api/svdb/report/host', requestOptions)
+    fetch('http://' + config.server.host + ':' + config.server.port + '/api/svdb/report/host', requestOptions)
       .then((response) => response.json())
       .then((data) => {
           setVulnList(data);
@@ -46,46 +47,34 @@ export default function HostReportTabs() {
   };
 
   return (
-      <div sx={{marginTop: 0, width: '100%'}}>
-        <Card>
-          {/* Navigator Tab Headers */}
-
-          <CardContent>
-              <HostTabs value={value} handleChange={handleChange} />
-          </CardContent>
-
-          {/* Navigator Tab Contents */}
-          {value == 0 ? 
-              <VulnTable vulnList={vulnList}/>
-          : null}
+    <div sx={{ marginTop: 0, width: "100%" }}>
+      <Card>
+        {/* Navigator Tab Headers */}
+          <HostTabs value={value} vulnList={vulnList} handleChange={handleChange} />
       </Card>
     </div>
   );
 }
 
 
-function HostTabs({value, handleChange}) {
-    return (
-      <Box>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={value} onChange={handleChange} aria-label="">
-            <Tab label="Vulnerabilities" {...a11yProps(0)} />
-            <Tab label="Missing Patches" {...a11yProps(1)} />
-            <Tab label="Statistics" {...a11yProps(2)} />
-          </Tabs>
-        </Box>
-        <TabPanel value={value} index={0}>
-            
-        </TabPanel>
-        <TabPanel value={value} index={1}>
-          Item Two
-        </TabPanel>
-        <TabPanel value={value} index={2}>
-          Item Three
-        </TabPanel>
+function HostTabs({ value, vulnList, handleChange }) {
+  return (
+    <Box>
+      <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+        <Tabs value={value} onChange={handleChange} aria-label="">
+          <Tab label="Vulnerabilities" {...a11yProps(0)} />
+          <Tab label="Missing Patches" {...a11yProps(1)} />
+          <Tab label="Statistics" {...a11yProps(2)} />
+        </Tabs>
       </Box>
-    );
-  }
+      <TabPanel value={value} index={0}>
+        <VulnTable vulnList={vulnList} />
+      </TabPanel>
+      <TabPanel value={value} index={1}>Item Two</TabPanel>
+      <TabPanel value={value} index={2}>Item Three</TabPanel>
+    </Box>
+  );
+}
     
   function TabPanel(props: TabPanelProps) {
       const { children, value, index, ...other } = props;

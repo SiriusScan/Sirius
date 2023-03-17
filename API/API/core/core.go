@@ -1,11 +1,13 @@
 package coreAPI
 
 type SystemStatus struct {
-	Status string `json:"status"`
-	Tasks []SystemTask `json:"system_task"`
+	Profile string       `json:"profile"`
+	Status  string       `json:"status"`
+	Tasks   []SystemTask   `json:"tasks"`
 }
 type SystemTask struct {
-	TaskID int `json:"task_id"`
-	TaskName string `json:"task_name"`
-	TaskStatus string `json:"task_status"`
+	TaskID       string `json:"task_id"`
+	TaskName     string `json:"task_name"`
+	TaskStatus   string `json:"task_status"`
+	TaskProgress int    `json:"task_progress"`
 }

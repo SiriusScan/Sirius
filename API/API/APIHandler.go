@@ -19,9 +19,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	//coreAPI "github.com/0sm0s1z/Sirius-Scan/API/core"
+	coreAPI "github.com/0sm0s1z/Sirius-Scan/API/core"
 	hostAPI "github.com/0sm0s1z/Sirius-Scan/API/hosts"
+	scanAPI "github.com/0sm0s1z/Sirius-Scan/API/scan"
 	siriusDB "github.com/0sm0s1z/Sirius-Scan/lib/db"
+	siriusHelper "github.com/0sm0s1z/Sirius-Scan/lib/utils"
 )
 
 func GetHost(c *gin.Context) {
@@ -33,7 +35,10 @@ func GetHost(c *gin.Context) {
 
 	//Get the host data from the database
 	var result siriusDB.SVDBHost
-	result = hostAPI.GetHost(hostRequest)
+	result, err := hostAPI.GetHost(hostRequest)
+	if err != nil {
+		log.Println("Error retrieving result from DB")
+	}
 
 	c.IndentedJSON(http.StatusOK, result)
 }
@@ -58,11 +63,40 @@ func UpdateHost(c *gin.Context) {
 func GetStatus(c *gin.Context) {
 
 	//Get the status of the API from the database
-	result := "asdf"
-	//result := coreAPI.GetStatus()
+	var result coreAPI.SystemStatus
+	result = coreAPI.GetStatus()
 
 	//Hardcode result for now
-	//result = coreAPI.SystemStatus{Status: "Initializing"}
+	//result := coreAPI.SystemStatus{Status: "Initializing"}
 
 	c.IndentedJSON(http.StatusOK, result)
+}
+
+func NewScan(c *gin.Context) {
+	//Get Scan Profile from Request
+	var request scanAPI.ScanRequest
+	if c.ShouldBind(&request) == nil {
+		//log.Println("Request Received")
+	}
+
+	scanID := "scan-" + siriusHelper.RandomString(10)
+	request.ScanID = scanID
+
+	scanAPI.NewScan(request)
+
+	c.IndentedJSON(http.StatusOK, scanID)
+}
+
+/* SCAN API */
+func GetScanReport(c *gin.Context) {
+	var scanRequest scanAPI.ScanRequest
+
+	if c.ShouldBind(&scanRequest) != nil {
+		log.Println("Scan Report Failed for: ", scanRequest.ScanID)
+	}
+
+	//Get the report data from the database
+	scanRequest = scanAPI.GetScanReport(scanRequest.ScanID)
+
+	c.IndentedJSON(http.StatusOK, scanRequest)
 }

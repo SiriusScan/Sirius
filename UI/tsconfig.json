@@ -14,7 +14,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "typeRoots": ["./src/sirius/api/types"]
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

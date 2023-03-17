@@ -28,8 +28,6 @@ import { createMuiTheme } from 'material-ui/styles';
 export function HostTable(props: { row: ReturnType<typeof createData> }) {
     const { row } = props;
     const [open, setOpen] = React.useState(false);
-
-    console.log(row);
   
     return (
       <>

@@ -1,110 +1,85 @@
 package scanAPI
 
 import (
+	"bytes"
+	"encoding/json"
 	_ "encoding/json"
 	_ "errors"
 	"log"
-	"net/http"
-	"os"
-	"os/exec"
 
-	"github.com/gin-gonic/gin"
 	//Internal Libraries
+
 	hostAPI "github.com/0sm0s1z/Sirius-Scan/API/hosts"
 	siriusDB "github.com/0sm0s1z/Sirius-Scan/lib/db"
-	siriusHelper "github.com/0sm0s1z/Sirius-Scan/lib/utils"
-	siriusNmap "github.com/0sm0s1z/Sirius-Scan/scanner/engines/nmap"
+	"github.com/streadway/amqp"
 	//3rd Party Dependencies
 )
-
-type ScanRequest struct {
-	ScanID  string
-	Targets []string
-}
 
 type HostCVE struct {
 	Host    string
 	CVEList []string
 }
 
-// NewScan -
-func NewScan(c *gin.Context) {
-
-	log.Println("New Scan Requested")
-
-	//Get Scan Profile from Request
-	var request ScanRequest
-	if c.ShouldBind(&request) == nil {
-		//log.Println("Request Received")
+func failOnError(err error, msg string) {
+	if err != nil {
+		log.Fatalf("%s: %s", msg, err)
 	}
-
-	//Create Scan ID
-	scanID := "scan-" + siriusHelper.RandomString(10)
-
-	//Create Scratch Directory for Scan
-	os.MkdirAll("/tmp/sirius/"+scanID, 0755)
-
-	//For each Target run a scan
-
-	for _, target := range request.Targets {
-		//Execute Nmap Scan
-		rawScanResults := "/tmp/sirius/" + scanID + "/" + target + "-nmapportscan.xml"
-		exec.Command("nmap", "-A", "--script=vuln,vulners", target, "-oX", rawScanResults).Output()
-	}
-
-	//Hardcoded Scan ID for Testing
-	//scanID = "scan-BpLnfgDsc2"
-
-	//log.Println("Processing Scan Results")
-	var scanResults []siriusNmap.CVE
-	var hostCVEs []HostCVE
-
-	//Process Scan Results for each Target
-	for _, target := range request.Targets {
-		rawScanResults := "/tmp/sirius/" + scanID + "/" + target + "-nmapportscan.xml"
-		dat, err := os.ReadFile(rawScanResults)
-		siriusHelper.ErrorCheck(err)
-
-		//Process Scan Results and append to scanResults
-		scanResults = append(scanResults, processScanResults(dat)...)
-
-		//Create HostCVE
-		var hostCVE HostCVE
-		hostCVE.Host = target
-
-		//Create CVEList
-		var cveList []string
-		for _, cve := range scanResults {
-			newCVE := "CVE-" + cve.CVEID
-			cveList = append(cveList, newCVE)
-		}
-
-		hostCVE.CVEList = cveList
-
-		//Append HostCVE to hostCVEs
-		hostCVEs = append(hostCVEs, hostCVE)
-	}
-
-	//Send Scan Results to Database
-	SubmitFindings(hostCVEs)
-	log.Println("Scan Complete")
-	//log.Println(hostCVEs)
-
-	//Return Scan Results
-	c.IndentedJSON(http.StatusOK, hostCVEs)
 }
 
-func processScanResults(dat []byte) []siriusNmap.CVE {
+//API Call to test any function
+func NewScan(request ScanRequest) {
+	//Connect to the RabbitMQ server
+	conn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
+	failOnError(err, "Failed to connect to RabbitMQ")
+	defer conn.Close()
 
-	//Parse XML Using Lair Project's Nmap Parser
-	var scanResults []siriusNmap.CVE
-	scanResults = siriusNmap.ProcessReport(dat)
+	ch, err := conn.Channel()
+	failOnError(err, "Failed to open a channel")
+	defer ch.Close()
 
-	log.Println(scanResults)
+	q, err := ch.QueueDeclare(
+		"scan", // name
+		false,  // durable
+		false,  // delete when unused
+		false,  // exclusive
+		false,  // no-wait
+		nil,    // arguments
+	)
+	failOnError(err, "Failed to declare a queue")
 
-	//Return DiscoveryDetails struct
+	request.Command = "new"
 
-	return scanResults
+	body, error := json.Marshal(request)
+	if error != nil {
+		log.Fatal(error)
+	}
+
+	err = ch.Publish(
+		"",     // exchange
+		q.Name, // routing key
+		false,  // mandatory
+		false,  // immediate
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		})
+	log.Println("=== Requesting Scan ===")
+	failOnError(err, "Failed to publish a message")
+}
+
+func serialize(msg ScanRequest) ([]byte, error) {
+	var b bytes.Buffer
+	encoder := json.NewEncoder(&b)
+	err := encoder.Encode(msg)
+	return b.Bytes(), err
+}
+
+func deserialize(b []byte) (ScanRequest, error) {
+	var msg ScanRequest
+	buf := bytes.NewBuffer(b)
+	decoder := json.NewDecoder(buf)
+	err := decoder.Decode(&msg)
+	return msg, err
 }
 
 // Update hosts in database with new findings
@@ -114,7 +89,10 @@ func SubmitFindings(cveList []HostCVE) {
 		//Get the host from the database
 		var hostRequest siriusDB.SVDBHost
 		hostRequest.IP = host.Host
-		hostRequest = hostAPI.GetHost(hostRequest)
+		hostRequest, err := hostAPI.GetHost(hostRequest)
+		if err != nil {
+			log.Println("Error retrieving result from DB")
+		}
 
 		//If host does not exist in the database, create it
 		if hostRequest.IP == "" {
@@ -127,8 +105,27 @@ func SubmitFindings(cveList []HostCVE) {
 			//Combine the new cve list with the old cve
 			hostRequest.CVE = append(hostRequest.CVE, host.CVEList...)
 
+			//Remove duplicates from the hostRequest.CVE list
+			hostRequest.CVE = removeDuplicateValues(hostRequest.CVE)
+
 			//Update the host in the database
 			hostAPI.UpdateHost(hostRequest)
 		}
 	}
+}
+
+func removeDuplicateValues(stringSlice []string) []string {
+	keys := make(map[string]bool)
+	list := []string{}
+
+	// If the key(values of the slice) is not equal
+	// to the already present value in new slice (list)
+	// then we append it. else we jump on another element.
+	for _, entry := range stringSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = true
+			list = append(list, entry)
+		}
+	}
+	return list
 }

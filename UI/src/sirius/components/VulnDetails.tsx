@@ -37,13 +37,12 @@ class VulnDetails extends React.Component {
       open: false,
       setOpen: false,
     };
-    this.props.vulnList.map((row) => console.log(row));
   }
 
   render() {
     return (
       <div>
-        {this.props.vulnList.map((row) => (
+        {this.props.vulnList && this.props.vulnList.map((row) => (
           <Card sx={{marginTop: -2, paddingLeft: 3}} key={row.CVEDataMeta.ID}>
 
             <Table sx={{maxWidth: '80%'}} aria-label="collapsible table">
@@ -82,7 +81,10 @@ class VulnDetails extends React.Component {
             </Table>
 
           <br />
-            <h6>References</h6>
+            <Typography variant="h6" sx={{fontWeight: 'bold'}}>
+              References
+            </Typography>
+            <Typography variant="body1">
             {row.References.map((ref, i) => (
               <div key={i}>
                 <li>
@@ -90,6 +92,7 @@ class VulnDetails extends React.Component {
                 </li>
               </div>
             ))}
+            </Typography>
             <Divider sx={{marginTop: 2, marginBottom: 2}} />
 
           </Card>

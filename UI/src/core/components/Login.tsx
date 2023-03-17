@@ -1,6 +1,6 @@
 // in src/Login.js
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLogin, useNotify, Notification } from 'react-admin';
 
 import { alpha, styled } from '@mui/material/styles';
@@ -26,82 +26,78 @@ const AutoPlaySwipeableViews = autoPlay(SwipeableViews);
 
 import LinearProgress, { linearProgressClasses, LinearProgressProps } from '@mui/material/LinearProgress';
 
-import FilledInput from '@mui/material/FilledInput';
-import FormControl from '@mui/material/FormControl';
-import FormHelperText from '@mui/material/FormHelperText';
-import Input from '@mui/material/Input';
-import InputLabel from '@mui/material/InputLabel';
-import OutlinedInput from '@mui/material/OutlinedInput';
-
-
-import green from '@mui/material/colors/green';
-
 
 import loginbg from '../../assets/loginbg.jpg';
 import siriusscan from '../../assets/sirius-scan.png';
+
+import config from '../../../config.json';
 
 const Login = ({ theme }) => {
     const [initialStartup, setInitialStartup] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [progress, setProgress] = React.useState(0);
+    const [progress, setProgress] = useState(0);
+    const [serverProgress, setServerProgress] = useState(0);
+    const [phase, setPhase] = useState('');
     const login = useLogin();
     const notify = useNotify();
 
 
     //Check if first time startup
-    React.useEffect(() => {
-        var checktime = 1000;
+    useEffect(() => {
+        setInitialStartup(true);
+        var checktime = 5000;
         //Make API get request to get current system status
         setInterval(() => {
-            fetch('http://localhost:8080/api/status')
+            fetch('http://' + config.server.host + ':' + config.server.port + '/api/status')
             .then((response) => response.json())
             .then((data) => {
-                if (data.status == "Initializing") {
-                    setInitialStartup(true);
+                if (data.status == "Initializing" || data.status == "init") {
+                    console.log(data.tasks[0].task_name);
+                    setServerProgress(data.tasks[0].task_progress);
+                    setPhase(data.tasks[0].task_name)
+                } else if (data.status == "init") {
+                    console.log(data.status);
                 } else {
                     setInitialStartup(false);
-                    checktime = 10000;
+                    checktime = 60000;
                 }
                 console.log(data);
             });
         }, checktime);
+        
     }, [])
 
 
-    React.useEffect(() => {
+    useEffect(() => {
         const timer = setInterval(() => {
-          setProgress((prevProgress) => (prevProgress >= 99 ? 1 : prevProgress + 1));
-        }, 200);
+            console.log("Progress: " + progress + " Server Progress: " + serverProgress)
+            if (progress < serverProgress) {
+                setProgress((prevProgress) => prevProgress + 1);
+            }
+        }, 1000);
         return () => {
-          clearInterval(timer);
-        };
-      }, []);
+            clearInterval(timer);
+          };
+      }, [progress, serverProgress]);
 
-
-
-
-      React.useEffect(() => {
-        const timer = setInterval(() => {
-            setInitialStartup(false);
-        }, 20000);
-        return () => {
-          clearInterval(timer);
-        };
-      }, []);
 
     const handleSubmit = e => {
         e.preventDefault();
-        login({ email, password }).catch(() =>
+        if (email === 'admin' && password === 'sirius') {
+            login({ email, password }).catch(() =>
+                notify('Invalid email or password')
+            );
+        } else {
             notify('Invalid email or password')
-        );
+        }
     };
 
     return (
       <Container sx={{backgroundImage: `url(${loginbg})`, backgroundPosition: "center", backgroundSize: "cover", minWidth: "100vw", minHeight: "100vh", alignItems: "center", justifyContent: "center", display: "flex", position: "absolute"}}  component="main">
         {/* Show Loading Bar & Modal if first time startup */}
         
-        { initialStartup ? <FirstTimeStartup value={progress} startup={initialStartup} /> :
+        { initialStartup ? <FirstTimeStartup value={progress} phase={phase} startup={initialStartup} /> :
         <Container component="main" maxWidth="xs">
             <Box
                 sx={{
@@ -119,7 +115,7 @@ const Login = ({ theme }) => {
                     backdropFilter: "blur(10px)",
                     justifyContent: "center",
                     width: "450px",
-                    height: "450px",
+                    height: "500px",
                     color: "white",
                 }}
             > 
@@ -215,7 +211,7 @@ const Login = ({ theme }) => {
 export default Login;
 
 // First Time Component
-const FirstTimeStartup = (props: LinearProgressProps & { value: number }) => {
+const FirstTimeStartup = (props: LinearProgressProps & { value: number } & {phase: string}) => {
 
     return (
         <>
@@ -240,7 +236,7 @@ const FirstTimeStartup = (props: LinearProgressProps & { value: number }) => {
                             top: -60,
                             color: '#f7c1ac',
                         }}>
-                            Downloading Vulnerability Data From NVD...
+                            {props.phase}
                         </Typography>
                         <br />
                         <LoadingBar value={props.value} />

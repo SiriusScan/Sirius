@@ -18,9 +18,9 @@ import (
 	APIHandler "github.com/0sm0s1z/Sirius-Scan/API"
 	agentsAPI "github.com/0sm0s1z/Sirius-Scan/API/agents"
 	dataAPI "github.com/0sm0s1z/Sirius-Scan/API/data"
-	scanAPI "github.com/0sm0s1z/Sirius-Scan/API/scan"
 	svdbAPI "github.com/0sm0s1z/Sirius-Scan/API/svdb"
 	siriusDB "github.com/0sm0s1z/Sirius-Scan/lib/db"
+	siriusMQ "github.com/0sm0s1z/Sirius-Scan/lib/mq"
 	//siriusNVD "github.com/0sm0s1z/Sirius-Scan/lib/nvd"
 	//3rd Party Dependencies
 )
@@ -36,6 +36,11 @@ type host struct {
 // SVDBEntry represents data about a target SVDBEntry.
 
 func main() {
+
+	//Begin ScanQueue
+	go siriusMQ.ScanQueue()
+
+	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins: []string{"*"},
@@ -45,6 +50,7 @@ func main() {
 
 	//Sirius Core API
 	router.GET("/api/status", APIHandler.GetStatus)
+	router.POST("/api/test", APIHandler.TestFunction)
 
 	//Sirius Host API
 	router.GET("/api/get/hosts", getHosts)
@@ -78,7 +84,8 @@ func main() {
 	router.GET("/api/data/cpe_vendors", svdbAPI.GetCPEVendors)
 
 	//Scanner APIs
-	router.POST("/api/scan/new", scanAPI.NewScan)
+	router.POST("/api/scan/new", APIHandler.NewScan)
+	router.POST("/api/scan/report", APIHandler.GetScanReport)
 
 	router.Run(":8080")
 }

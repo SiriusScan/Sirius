@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log"
 
-	core "github.com/0sm0s1z/Sirius-Scan/Engine/core"
-	lib "github.com/0sm0s1z/Sirius-Scan/Engine/lib"
 	"github.com/streadway/amqp"
+
+	core "github.com/0sm0s1z/Sirius-Scan/Engine/core"
+	scanners "github.com/0sm0s1z/Sirius-Scan/Engine/core/scanners"
+	sirius "github.com/0sm0s1z/Sirius-Scan/Engine/lib"
 )
 
 func failOnError(err error, msg string) {
@@ -61,7 +63,7 @@ func main() {
 	go func() {
 		for d := range msgs {
 			// Execute & Manage scans based on massage contents
-			var scanRequest lib.ScanRequest
+			var scanRequest sirius.ScanRequest
 			err := json.Unmarshal(d.Body, &scanRequest)
 			if err != nil {
 				fmt.Println("JSON Unmarshal format error!", err)
@@ -76,15 +78,9 @@ func main() {
 				go func() {
 					core.NewScan(scanRequest)
 				}()
-			case "report":
-				// Stop the scan
-				log.Println("Scan Stopped")
-			case "scanDiscovery":
-				// Stop the scan
-				log.Println("Scan Stopped")
 			case "scanVulnerability":
-				// Stop the scan
-				log.Println("Scan Stopped")
+				log.Println("=== Vulnerability Scanning: " + scanRequest.ScanReport.ScanResults[len(scanRequest.ScanReport.ScanResults)-1].IP + " ===")
+				go scanners.VulnerabilityScanner(scanRequest)
 			}
 		}
 	}()

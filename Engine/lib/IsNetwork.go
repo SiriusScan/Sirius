@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"log"
 	"net"
 )
 
@@ -9,7 +8,7 @@ import (
 func IsNetwork(target string) bool {
 	ipv4Addr, ipv4Net, err := net.ParseCIDR(target)
 	if err != nil {
-		log.Fatal(err)
+		return false
 	} else {
 		return true
 	}

@@ -11,6 +11,8 @@ import AnalyticsIcon from '@mui/icons-material/Analytics';
 
 import Scanner from "./containers/Scanner";
 
+import config from '../../config.json';
+
 interface TabPanelProps {
     children?: React.ReactNode;
     index: number;
@@ -23,7 +25,7 @@ export default function ScanControl() {
 
   React.useEffect(() => {
   //Get the list of hosts
-  fetch('http://localhost:8080/api/get/hosts')
+  fetch('http://' + config.server.host + ':' + config.server.port + '/api/get/hosts')
     .then((response) => response.json())
     .then((data) => {
       setHostList(data);
@@ -35,7 +37,7 @@ export default function ScanControl() {
   };
 
   return (
-      <Container sx={{marginTop: 8, marginLeft: 3}}>
+      <Container>
         <Card>
           {/* Navigator Tab Headers */}
           {value == 0 ?

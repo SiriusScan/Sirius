@@ -19,12 +19,13 @@ import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import SettingsIcon from '@mui/icons-material/Settings';
+import NotificationIcon from '@mui/icons-material/Notifications';
 
 import Header from './Header';
 
-import logo from '../../assets/sirius.png';
+import logo from '../../assets/sirius-logo.png';
 
-const drawerWidth = 240;
+const drawerWidth = 280;
 
 const openedMixin = (theme: Theme): CSSObject => ({
   width: drawerWidth,
@@ -130,7 +131,7 @@ export default function MiniDrawer() {
                         <Box display="flex" alignItems="center">
                             <Box
                                 component="img"
-                                sx={{ marginRight: '1em', height: 30 }}
+                                sx={{ marginRight: '1em', height: 35 }}
                                 src={logo}
                             />
                             <Typography component="span" variant="h5">
@@ -155,6 +156,10 @@ export default function MiniDrawer() {
                         </Box>
                         */}
                         <Box display="flex">
+                          <NotificationIcon sx={{
+                                marginTop: 1.2,
+                                cursor: 'pointer',
+                            }} />
                             <LoadingIndicator
                                 sx={{
                                     '& .RaLoadingIndicator-loader': {
@@ -162,6 +167,7 @@ export default function MiniDrawer() {
                                     },
                                 }}
                             />
+
                             <UserMenu>
                                 <Logout />
                                 <MenuItem

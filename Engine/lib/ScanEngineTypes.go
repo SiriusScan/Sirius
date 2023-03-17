@@ -8,9 +8,10 @@ type ScanRequest struct {
 }
 
 type ScanReport struct {
-	ScanID       string
-	ScanType     string
-	ScanStatus   string
-	ScanProgress int
-	ScanResults  []SVDBHost
+	ScanID         string
+	ScanType       string
+	ScanStatus     string
+	CompletedHosts []string
+	ScanProgress   int
+	ScanResults    []SVDBHost
 }

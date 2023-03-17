@@ -12,6 +12,8 @@ import AnalyticsIcon from '@mui/icons-material/Analytics';
 
 import VulnDetails from "./VulnDetails";
 
+import config from '../../../config.json';
+
 interface TabPanelProps {
     children?: React.ReactNode;
     index: number;
@@ -31,7 +33,7 @@ export default function VulnReportTabs() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ CVE: [queryParameters.get("id")] })
     };
-    fetch('http://localhost:8080/api/svdb/get/finding', requestOptions)
+    fetch('http://' + config.server.host + ':' + config.server.port + '/api/svdb/get/finding', requestOptions)
       .then((response) => response.json())
       .then((data) => {
           setVulnList(data);
@@ -44,18 +46,17 @@ export default function VulnReportTabs() {
   };
 
   return (
-      <div sx={{marginTop: 0, width: '100%'}}>
-        <Card>
-          {/* Navigator Tab Headers */}
+    <div sx={{ marginTop: 0, width: '100%' }}>
+      <Card>
+        {/* Navigator Tab Headers */}
 
-          <CardContent>
-              <HostTabs value={value} handleChange={handleChange} />
-          </CardContent>
+        <CardContent>
+          <HostTabs value={value} handleChange={handleChange} />
+        </CardContent>
 
-          {/* Navigator Tab Contents */}
-          {value == 0 ? 
-              <VulnDetails vulnList={vulnList}/>
-          : null}
+        {/* Navigator Tab Contents */}
+        <VulnDetails vulnList={vulnList} hidden={value !== 0} />
+        {/* Add other components for other tabs here with similar hidden attribute logic */}
       </Card>
     </div>
   );
@@ -72,15 +73,6 @@ function HostTabs({value, handleChange}) {
             <Tab label="Statistics" {...a11yProps(2)} />
           </Tabs>
         </Box>
-        <TabPanel value={value} index={0}>
-            
-        </TabPanel>
-        <TabPanel value={value} index={1}>
-          Item Two
-        </TabPanel>
-        <TabPanel value={value} index={2}>
-          Item Three
-        </TabPanel>
       </Box>
     );
   }

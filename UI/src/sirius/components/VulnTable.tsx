@@ -1,33 +1,24 @@
-import React, { Component, useCallback } from 'react';
+import React, { Component, useCallback, useMemo } from 'react';
 import {useHistory} from 'react-router-dom';
 import {useNavigate} from 'react-router-dom';
 import { Link } from 'react-router-dom';
 
-import Paper from '@mui/material/Paper';
-import Card from '@mui/material/Card';
-import Badge from '@mui/material/Badge';
-import CardActions from '@mui/material/CardActions';
-import CardContent from '@mui/material/CardContent';
-import Typography from '@mui/material/Typography';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import Collapse from '@mui/material/Collapse';
-import IconButton from '@mui/material/IconButton';
 import Box from '@mui/material/Box';
 
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import AddBox from '@mui/icons-material/AddBox';
-import IndeterminateCheckBoxIcon from '@mui/icons-material/IndeterminateCheckBox';
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
+import MaterialReactTable, {
+  MRT_ShowHideColumnsButton,
+  MRT_FullScreenToggleButton,
+  MRT_ToggleDensePaddingButton,
 
-import { createMuiTheme } from 'material-ui/styles';
+} from 'material-react-table';
 
-type VulnerabilityList = {
+import { SeverityBadge } from './VulnerabililtyTable/SeverityBadge';
+import { VulnerabilityTableSearch } from './VulnerabililtyTable/VulnerabilityTableSearch';
+
+import WifiTetheringErrorRoundedSharpIcon from '@mui/icons-material/WifiTetheringErrorRoundedSharp';
+import NumbersIcon from '@mui/icons-material/Numbers';
+
+type VulnerabilityList = [{
   CVEDataMeta: {
     ID: string,
     ASSIGNER: string,
@@ -46,73 +37,140 @@ type VulnerabilityList = {
       },
     },
   },
-};
+}];
 
-class VulnTable extends React.Component {
-  constructor(props) {
-    super(props);
-    
-    this.state = {
-      open: false,
-      setOpen: false,
-    };
-  }
-
-  render() {
-    return (
-      <div className="rightcard">
-        <TableContainer component={Paper}>
-          <Table aria-label="collapsible table">
-            <TableHead>
-              <TableRow>
-                <TableCell>Vulnerability</TableCell>
-                <TableCell align="left">Description</TableCell>
-                {this.props.allHosts ? <TableCell align="left">Affected Systems</TableCell> : null }
-                <TableCell align="center">Severity</TableCell>
-                <TableCell align="center">CVSSv3</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {Array.isArray(this.props.vulnList) && this.props.vulnList.map((row: VulnerabilityList) => (
-                <Row key={row.CVEDataMeta.ID} row={row} />
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </div>
-    );
-  }
-}
-export default VulnTable;
-
-function hostClick(row) {  
-  console.log(row.ip);
-}
-
-{/* HostTable */}
-function Row(props) {
-  const { row } = props;
-  const [open, setOpen] = React.useState(false);
-  const navigate = useNavigate();
-  const handleOnClick = useCallback((row) => navigate('/report/vulnerability?id=' + row.CVEDataMeta.ID, {replace: true}), [navigate]);
-
+export default function VulnTable(props: any) {
+  //Re-order the vulnList by severity
+  const vulnList = (props.vulnList || []).sort((a, b) => {
+    if (a.CVSSV3.baseSeverity < b.CVSSV3.baseSeverity) {
+      return 1;
+    }
+    if (a.CVSSV3.baseSeverity > b.CVSSV3.baseSeverity) {
+      return -1;
+    }
+    return 0;
+  });
+  
 
   return (
-    <>  
-        <TableRow sx={{ '&:last-child td, &:last-child th': { border: 0 } }} onClick={() => handleOnClick(row)} sx={{ '& > *': { borderBottom: 'unset' } }}>
-          <TableCell width="20%" component="th" scope="row">
-            {row.CVEDataMeta.ID} 
-          </TableCell>
-          <TableCell width="65%" align="left">
-            <Box sx={{ textOverflow: 'ellipsis' }}>
-              {row.Description.description_data[0].value.slice(0,75)}...
-            </Box>
-          </TableCell>
-          {row.AffectedHosts ? <TableCell width="5%" align="left">{row.AffectedHosts.length}</TableCell> : null}
-          
-          <TableCell width="5%" align="center">{row.CVSSV3.baseSeverity}</TableCell>
-          <TableCell width="5%" align="center">{row.CVSSV3.baseScore}</TableCell>
-        </TableRow>
-    </>
+    <div className="rightcard">
+      <VulnerabilityTable data={vulnList} />
+    </div>
   );
 }
+
+const VulnerabilityTable = (props: any) => {
+  const [filter, setFilter] = React.useState('');
+  const navigate = useNavigate();
+  const handleOnClick = useCallback((id: string) => navigate('/report/vulnerability?id=' + id, {replace: false}), [navigate]);
+
+  //should be memoized or stable
+  const columns = useMemo(
+    () => [
+      {
+        accessorFn: (row) => `${row.CVSSV3.baseSeverity}`, 
+        accessorKey: 'CVSSV3.baseSeverity',
+        header: <WifiTetheringErrorRoundedSharpIcon />,
+        size: 10,
+        enableSorting: true,
+        sortAscFirst: true,
+        enableGlobalFilter: false,
+        Cell: ({renderedCellValue, row}) => (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              cursor: 'pointer',
+            }}
+            onClick={() => handleOnClick(row.original.CVEDataMeta.ID)}
+          >
+            <SeverityBadge severity={row.original.CVSSV3.baseSeverity} />
+          </Box>
+        ),
+      },
+      {
+        accessorKey: 'CVEDataMeta.ID', //access nested data with dot notation
+        header: 'Vulnerability',
+        size: 50,
+        Cell: ({renderedCellValue, row}) => (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              cursor: 'pointer',
+            }}
+            onClick={() => handleOnClick(row.original.CVEDataMeta.ID)}
+          >
+            {renderedCellValue}
+          </Box>
+        ),
+      },
+      {
+        accessorFn: (row) => `${row.Description.description_data[0].value.slice(0,75)}...`, 
+        header: 'Description',
+        size: 500,
+        Cell: ({ renderedCellValue, row }) => (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              cursor: 'pointer',
+            }}
+            onClick={() => handleOnClick(row.original.CVEDataMeta.ID)}
+          >
+            <span>{renderedCellValue}</span>
+          </Box>
+        ),
+      },
+      {
+        accessorKey: 'AffectedHosts.length',
+        header: <NumbersIcon />,
+        size: 10,
+      },
+      {
+        accessorKey: 'CVSSV3.baseScore',
+        header: 'CVSS',
+        size: 10,
+      },
+    ],
+    [],
+  );
+
+  return <MaterialReactTable 
+    columns={columns} 
+    data={props.data} 
+    enableColumnActions={false}
+    enableSelectAll={true}
+    enableRowSelection
+    state={{
+      globalFilter: filter,
+    }}
+    muiTableHeadCellProps={{
+      //simple styling with the `sx` prop, works just like a style prop in this example
+      sx: {
+        fontWeight: 'bold',
+        fontSize: '14px',
+      },
+    }}
+    renderToolbarInternalActions={({ table }) => (
+      <>
+        {/* add your own custom print button or something */}
+
+        {/* built-in buttons (must pass in table prop for them to work!) */}
+        <MRT_ShowHideColumnsButton table={table} />
+        <MRT_FullScreenToggleButton table={table} />
+        <MRT_ToggleDensePaddingButton table={table} />
+      </>
+    )}
+    //add custom action buttons to top-left of top toolbar
+    renderTopToolbarCustomActions={({ table }) => (
+      <Box sx={{ display: 'flex', gap: '1rem', p: '4px' }}>
+        <VulnerabilityTableSearch setFilter={setFilter} />
+
+      </Box>
+    )}
+  />;
+};

@@ -9,7 +9,7 @@ func BuildTargetMatrix(job ScanRequest) []string {
 		//If host, add to targetMatrix
 		//If network, generate host list and add to targetMatrix
 		if IsHost(target) {
-			targetMatrix = append(targetMatrix, ExpandNetwork(target)...)
+			targetMatrix = append(targetMatrix, target)
 		} else if IsNetwork(target) {
 			//Generate Host List
 			//Add to targetMatrix

@@ -1,34 +1,51 @@
 package coreAPI
 
 import (
+	"context"
 	_ "encoding/json"
 	_ "errors"
-	"log"
+	"fmt"
 
-	coreAPI "github.com/0sm0s1z/Sirius-Scan/API/core"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+
 	svdbAPI "github.com/0sm0s1z/Sirius-Scan/API/svdb"
 )
 
 //GetStatus collects the status from the database and returns it to the caller
-func GetStatus() coreAPI.SystemStatus {
-	log.Println("Getting System Status")
-
+func GetStatus() SystemStatus {
 	//Connect to the Database
-	client := svdbAPI.DatabaseConnect()
+	client, ctx := svdbAPI.DatabaseConnect()
 
 	//Get the status collection
-	
+	statusCollection := client.Database("Sirius").Collection("Status")
 
-	//statusCollection := client.Database("sirius").Collection("status")
+	var status SystemStatus
+	err := statusCollection.FindOne(context.TODO(), bson.D{{"profile", "root"}}).Decode(&status)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			// Set the status to Initializing
+			fmt.Println("Initializing the vulnerability database")
 
+			initStatus := SystemStatus{
+				Profile: "root",
+				Status:  "init",
+				Tasks: []SystemTask{
+					{
+						TaskID:       "1",
+						TaskName:     "Initializing",
+						TaskStatus:   "Downloading Base Vulnerability Database from NVD...",
+						TaskProgress: 10,
+					},
+				},
+			}
 
+			SetStatus(initStatus)
+			//status = SystemStatus{Status: "Initializing"}
+		}
+	}
+	defer client.Disconnect(ctx)
 
 	//Get the status of the API from the database
-	var result coreAPI.SystemStatus
-
-
-
-	//Hardcode result for now
-	result = coreAPI.SystemStatus{Status: "OK"}
-	return result
+	return status
 }

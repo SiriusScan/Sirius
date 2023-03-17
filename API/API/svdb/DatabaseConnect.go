@@ -9,9 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-
-
-func DatabaseConnect() *mongo.Client {
+func DatabaseConnect() (*mongo.Client, context.Context) {
 	//DB Connection
 	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
 	if err != nil {
@@ -22,6 +20,6 @@ func DatabaseConnect() *mongo.Client {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer client.Disconnect(ctx)
-	return client
+
+	return client, ctx
 }

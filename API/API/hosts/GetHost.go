@@ -28,7 +28,7 @@ import (
 	//3rd Party Dependencies
 )
 
-func GetHost(hostRequest siriusDB.SVDBHost) siriusDB.SVDBHost {
+func GetHost(hostRequest siriusDB.SVDBHost) (siriusDB.SVDBHost, error) {
 
 	//Get the host data from the database
 	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://mongo:27017"))
@@ -56,5 +56,5 @@ func GetHost(hostRequest siriusDB.SVDBHost) siriusDB.SVDBHost {
 		}
 	}
 
-	return result
+	return result, err
 }

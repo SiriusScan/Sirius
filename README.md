@@ -26,4 +26,7 @@ The system is composed of the following services:
 ## Usage 
 To use Sirius, first start all of the services by running `docker-compose up`. Then, access the web UI at `localhost:5173`.
 
+### Remote Scanner
+If you would like to setup Sirius Scan on a remote machine and access it you must modify the `./UI/config.json` file to include your server details.
+
 **Good Luck! Have Fun! Happy Hacking!**

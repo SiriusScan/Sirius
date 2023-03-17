@@ -6,9 +6,17 @@ WORKDIR /engine
 COPY .air.toml .air.toml
 
 # Dependencies
-RUN apt-get update
-RUN apt install -y build-essential
-RUN apt install -y libpcap-dev ndiff libssl-dev libssh-dev
+# Go API Dockerfile
+
+FROM golang:1.20-bullseye
+WORKDIR /engine
+
+COPY .air.toml .air.toml
+
+# Dependencies
+RUN apt-get update -y && \
+    apt-get upgrade -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential libpcap-dev ndiff libssl-dev libssh-dev
 
 WORKDIR /tmp
 RUN wget https://nmap.org/dist/nmap-7.92.tar.bz2

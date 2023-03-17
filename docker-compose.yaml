@@ -35,7 +35,7 @@ services:
       mongo:
         condition: service_started
       rabbitmq:
-        condition: service_started
+        condition: service_healthy
 
   sirius-web:
     build: ./UI/
@@ -56,4 +56,4 @@ services:
       - ./Engine:/engine
     depends_on:
       rabbitmq:
-        condition: service_started
+        condition: service_healthy

@@ -25,7 +25,7 @@ function InventoryHost(props) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {props.hostList.map((row) => (
+            {props.hostList && props.hostList.map((row) => (
               <Row key={row.ip} row={row} />
             ))}
           </TableBody>

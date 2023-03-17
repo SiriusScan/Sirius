@@ -13,4 +13,17 @@ docker-compose up
 ```
 
 ### Logging in
-The default username and password for Sirius is: `sirius/sirius`
+The default username and password for Sirius is: `admin/sirius`
+
+## Services 
+The system is composed of the following services: 
+- Mongo: a NoSQL database used to store data. 
+- RabbitMQ: a message broker used to manage communication between services. 
+- Sirius API: the API service which provides access to the data stored in Mongo. 
+- Sirius Web: the web UI which allows users to view and manage their data pipelines. 
+- Sirius Engine: the engine service which manages the execution of data pipelines. 
+
+## Usage 
+To use Sirius, first start all of the services by running `docker-compose up`. Then, access the web UI at `localhost:5173`.
+
+**Good Luck! Have Fun! Happy Hacking!**

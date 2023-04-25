@@ -1,0 +1,1046 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/local/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.92 scan initiated Wed Apr 19 16:58:11 2023 as: nmap -T4 -sV -O -&#45;script=vuln,vulners,safe,default,smb-os-discovery -oX /tmp/sirius/scan-vAyBfveOpn/10.0.50.20-nmapportscan.xml 10.0.50.20 -->
+<nmaprun scanner="nmap" args="nmap -T4 -sV -O -&#45;script=vuln,vulners,safe,default,smb-os-discovery -oX /tmp/sirius/scan-vAyBfveOpn/10.0.50.20-nmapportscan.xml 10.0.50.20" start="1681923491" startstr="Wed Apr 19 16:58:11 2023" version="7.92" xmloutputversion="1.05">
+<scaninfo type="syn" protocol="tcp" numservices="1000" services="1,3-4,6-7,9,13,17,19-26,30,32-33,37,42-43,49,53,70,79-85,88-90,99-100,106,109-111,113,119,125,135,139,143-144,146,161,163,179,199,211-212,222,254-256,259,264,280,301,306,311,340,366,389,406-407,416-417,425,427,443-445,458,464-465,481,497,500,512-515,524,541,543-545,548,554-555,563,587,593,616-617,625,631,636,646,648,666-668,683,687,691,700,705,711,714,720,722,726,749,765,777,783,787,800-801,808,843,873,880,888,898,900-903,911-912,981,987,990,992-993,995,999-1002,1007,1009-1011,1021-1100,1102,1104-1108,1110-1114,1117,1119,1121-1124,1126,1130-1132,1137-1138,1141,1145,1147-1149,1151-1152,1154,1163-1166,1169,1174-1175,1183,1185-1187,1192,1198-1199,1201,1213,1216-1218,1233-1234,1236,1244,1247-1248,1259,1271-1272,1277,1287,1296,1300-1301,1309-1311,1322,1328,1334,1352,1417,1433-1434,1443,1455,1461,1494,1500-1501,1503,1521,1524,1533,1556,1580,1583,1594,1600,1641,1658,1666,1687-1688,1700,1717-1721,1723,1755,1761,1782-1783,1801,1805,1812,1839-1840,1862-1864,1875,1900,1914,1935,1947,1971-1972,1974,1984,1998-2010,2013,2020-2022,2030,2033-2035,2038,2040-2043,2045-2049,2065,2068,2099-2100,2103,2105-2107,2111,2119,2121,2126,2135,2144,2160-2161,2170,2179,2190-2191,2196,2200,2222,2251,2260,2288,2301,2323,2366,2381-2383,2393-2394,2399,2401,2492,2500,2522,2525,2557,2601-2602,2604-2605,2607-2608,2638,2701-2702,2710,2717-2718,2725,2800,2809,2811,2869,2875,2909-2910,2920,2967-2968,2998,3000-3001,3003,3005-3007,3011,3013,3017,3030-3031,3052,3071,3077,3128,3168,3211,3221,3260-3261,3268-3269,3283,3300-3301,3306,3322-3325,3333,3351,3367,3369-3372,3389-3390,3404,3476,3493,3517,3527,3546,3551,3580,3659,3689-3690,3703,3737,3766,3784,3800-3801,3809,3814,3826-3828,3851,3869,3871,3878,3880,3889,3905,3914,3918,3920,3945,3971,3986,3995,3998,4000-4006,4045,4111,4125-4126,4129,4224,4242,4279,4321,4343,4443-4446,4449,4550,4567,4662,4848,4899-4900,4998,5000-5004,5009,5030,5033,5050-5051,5054,5060-5061,5080,5087,5100-5102,5120,5190,5200,5214,5221-5222,5225-5226,5269,5280,5298,5357,5405,5414,5431-5432,5440,5500,5510,5544,5550,5555,5560,5566,5631,5633,5666,5678-5679,5718,5730,5800-5802,5810-5811,5815,5822,5825,5850,5859,5862,5877,5900-5904,5906-5907,5910-5911,5915,5922,5925,5950,5952,5959-5963,5987-5989,5998-6007,6009,6025,6059,6100-6101,6106,6112,6123,6129,6156,6346,6389,6502,6510,6543,6547,6565-6567,6580,6646,6666-6669,6689,6692,6699,6779,6788-6789,6792,6839,6881,6901,6969,7000-7002,7004,7007,7019,7025,7070,7100,7103,7106,7200-7201,7402,7435,7443,7496,7512,7625,7627,7676,7741,7777-7778,7800,7911,7920-7921,7937-7938,7999-8002,8007-8011,8021-8022,8031,8042,8045,8080-8090,8093,8099-8100,8180-8181,8192-8194,8200,8222,8254,8290-8292,8300,8333,8383,8400,8402,8443,8500,8600,8649,8651-8652,8654,8701,8800,8873,8888,8899,8994,9000-9003,9009-9011,9040,9050,9071,9080-9081,9090-9091,9099-9103,9110-9111,9200,9207,9220,9290,9415,9418,9485,9500,9502-9503,9535,9575,9593-9595,9618,9666,9876-9878,9898,9900,9917,9929,9943-9944,9968,9998-10004,10009-10010,10012,10024-10025,10082,10180,10215,10243,10566,10616-10617,10621,10626,10628-10629,10778,11110-11111,11967,12000,12174,12265,12345,13456,13722,13782-13783,14000,14238,14441-14442,15000,15002-15004,15660,15742,16000-16001,16012,16016,16018,16080,16113,16992-16993,17877,17988,18040,18101,18988,19101,19283,19315,19350,19780,19801,19842,20000,20005,20031,20221-20222,20828,21571,22939,23502,24444,24800,25734-25735,26214,27000,27352-27353,27355-27356,27715,28201,30000,30718,30951,31038,31337,32768-32785,33354,33899,34571-34573,35500,38292,40193,40911,41511,42510,44176,44442-44443,44501,45100,48080,49152-49161,49163,49165,49167,49175-49176,49400,49999-50003,50006,50300,50389,50500,50636,50800,51103,51493,52673,52822,52848,52869,54045,54328,55055-55056,55555,55600,56737-56738,57294,57797,58080,60020,60443,61532,61900,62078,63331,64623,64680,65000,65129,65389"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<prescript><script id="eap-info" output="please specify an interface with -e"/><script id="broadcast-igmp-discovery" output="&#xa;  172.22.0.1&#xa;    Interface: eth0&#xa;    Version: 2&#xa;    Group: 224.0.0.106&#xa;    Description: All-Snoopers (rfc4286)&#xa;  Use the newtargets script-arg to add the results as targets&#xa;"/><script id="hostmap-robtex" output="*TEMPORARILY DISABLED* due to changes in Robtex&apos;s API. See https://www.robtex.com/api/"/><script id="targets-asn" output="&#xa;  targets-asn.asn is a mandatory parameter&#xa;"/><script id="http-robtex-shared-ns" output="*TEMPORARILY DISABLED* due to changes in Robtex&apos;s API. See https://www.robtex.com/api/"/></prescript><hosthint><status state="up" reason="unknown-response" reason_ttl="0"/>
+<address addr="10.0.50.20" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+</hosthint>
+<host starttime="1681923533" endtime="1681923875"><status state="up" reason="reset" reason_ttl="37"/>
+<address addr="10.0.50.20" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+<ports><extraports state="closed" count="997">
+<extrareasons reason="reset" count="997" proto="tcp" ports="1,3-4,6-7,9,13,17,19-20,23-26,30,32-33,37,42-43,49,53,70,79,81-85,88-90,99-100,106,109-111,113,119,125,135,139,143-144,146,161,163,179,199,211-212,222,254-256,259,264,280,301,306,311,340,366,389,406-407,416-417,425,427,443-445,458,464-465,481,497,500,512-515,524,541,543-545,548,554-555,563,587,593,616-617,625,631,636,646,648,666-668,683,687,691,700,705,711,714,720,722,726,749,765,777,783,787,800-801,808,843,873,880,888,898,900-903,911-912,981,987,990,992-993,995,999-1002,1007,1009-1011,1021-1100,1102,1104-1108,1110-1114,1117,1119,1121-1124,1126,1130-1132,1137-1138,1141,1145,1147-1149,1151-1152,1154,1163-1166,1169,1174-1175,1183,1185-1187,1192,1198-1199,1201,1213,1216-1218,1233-1234,1236,1244,1247-1248,1259,1271-1272,1277,1287,1296,1300-1301,1309-1311,1322,1328,1334,1352,1417,1433-1434,1443,1455,1461,1494,1500-1501,1503,1521,1524,1533,1556,1580,1583,1594,1600,1641,1658,1666,1687-1688,1700,1717-1721,1723,1755,1761,1782-1783,1801,1805,1812,1839-1840,1862-1864,1875,1900,1914,1935,1947,1971-1972,1974,1984,1998-2010,2013,2020-2022,2030,2033-2035,2038,2040-2043,2045-2049,2065,2068,2099-2100,2103,2105-2107,2111,2119,2121,2126,2135,2144,2160-2161,2170,2179,2190-2191,2196,2200,2222,2251,2260,2288,2301,2323,2366,2381-2383,2393-2394,2399,2401,2492,2500,2522,2525,2557,2601-2602,2604-2605,2607-2608,2638,2701-2702,2710,2717-2718,2725,2800,2809,2811,2869,2875,2909-2910,2920,2967-2968,2998,3000-3001,3003,3005-3007,3011,3013,3017,3030-3031,3052,3071,3077,3128,3168,3211,3221,3260-3261,3268-3269,3283,3300-3301,3306,3322-3325,3333,3351,3367,3369-3372,3389-3390,3404,3476,3493,3517,3527,3546,3551,3580,3659,3689-3690,3703,3737,3766,3784,3800-3801,3809,3814,3826-3828,3851,3869,3871,3878,3880,3889,3905,3914,3918,3920,3945,3971,3986,3995,3998,4000-4006,4045,4111,4125-4126,4129,4224,4242,4279,4321,4343,4443-4446,4449,4550,4567,4662,4848,4899-4900,4998,5000-5004,5009,5030,5033,5050-5051,5054,5060-5061,5080,5087,5100-5102,5120,5190,5200,5214,5221-5222,5225-5226,5269,5280,5298,5357,5405,5414,5431-5432,5440,5500,5510,5544,5550,5555,5560,5566,5631,5633,5666,5678-5679,5718,5730,5800-5802,5810-5811,5815,5822,5825,5850,5859,5862,5877,5900-5904,5906-5907,5910-5911,5915,5922,5925,5950,5952,5959-5963,5987-5989,5998-6007,6009,6025,6059,6100-6101,6106,6112,6123,6129,6156,6346,6389,6502,6510,6543,6547,6565-6567,6580,6646,6666-6669,6689,6692,6699,6779,6788-6789,6792,6839,6881,6901,6969,7000-7002,7004,7007,7019,7025,7070,7100,7103,7106,7200-7201,7402,7435,7443,7496,7512,7625,7627,7676,7741,7777-7778,7800,7911,7920-7921,7937-7938,7999-8002,8007-8011,8021-8022,8031,8042,8045,8080-8090,8093,8099-8100,8180-8181,8192-8194,8200,8222,8254,8290-8292,8300,8333,8383,8400,8402,8443,8500,8600,8649,8651-8652,8654,8701,8800,8873,8888,8899,8994,9000-9003,9009-9011,9040,9050,9071,9080-9081,9090-9091,9099-9103,9110-9111,9200,9207,9220,9290,9415,9418,9485,9500,9502-9503,9535,9575,9593-9595,9618,9666,9876-9878,9898,9900,9917,9929,9943-9944,9968,9998-10004,10009-10010,10012,10024-10025,10082,10180,10215,10243,10566,10616-10617,10621,10626,10628-10629,10778,11110-11111,11967,12000,12174,12265,12345,13456,13722,13782-13783,14000,14238,14441-14442,15000,15002-15004,15660,15742,16000-16001,16012,16016,16018,16080,16113,16992-16993,17877,17988,18040,18101,18988,19101,19283,19315,19350,19780,19801,19842,20000,20005,20031,20221-20222,20828,21571,22939,23502,24444,24800,25734-25735,26214,27000,27352-27353,27355-27356,27715,28201,30000,30718,30951,31038,31337,32768-32785,33354,33899,34571-34573,35500,38292,40193,40911,41511,42510,44176,44442-44443,44501,45100,48080,49152-49161,49163,49165,49167,49175-49176,49400,49999-50003,50006,50300,50389,50500,50636,50800,51103,51493,52673,52822,52848,52869,54045,54328,55055-55056,55555,55600,56737-56738,57294,57797,58080,60020,60443,61532,61900,62078,63331,64623,64680,65000,65129,65389"/>
+</extraports>
+<port protocol="tcp" portid="21"><state state="open" reason="syn-ack" reason_ttl="37"/><service name="ftp" product="vsftpd" version="3.0.3" ostype="Unix" method="probed" conf="10"><cpe>cpe:/a:vsftpd:vsftpd:3.0.3</cpe></service><script id="banner" output="220 (vsFTPd 3.0.3)"/><script id="ftp-syst" output="&#xa;  STAT: &#xa;FTP server status:&#xa;     Connected to ::ffff:10.20.76.17&#xa;     Logged in as ftp&#xa;     TYPE: ASCII&#xa;     No session bandwidth limit&#xa;     Session timeout in seconds is 300&#xa;     Control connection is plain text&#xa;     Data connections will be plain text&#xa;     At session startup, client count was 8&#xa;     vsFTPd 3.0.3 - secure, fast, stable&#xa;End of status"><elem key="STAT">&#xa;FTP server status:&#xa;     Connected to ::ffff:10.20.76.17&#xa;     Logged in as ftp&#xa;     TYPE: ASCII&#xa;     No session bandwidth limit&#xa;     Session timeout in seconds is 300&#xa;     Control connection is plain text&#xa;     Data connections will be plain text&#xa;     At session startup, client count was 8&#xa;     vsFTPd 3.0.3 - secure, fast, stable&#xa;End of status</elem>
+</script><script id="ftp-anon" output="Anonymous FTP login allowed (FTP code 230)&#xa;-rwxrwxrwx    1 0        0             418 Nov 14  2017 index.php [NSE: writeable]&#xa;-rw-r-&#45;r-&#45;    1 0        0              15 Sep 20  2018 internal-security-blog.php&#xa;-rwxrwxrwx    1 0        0           19930 Nov 14  2017 license.txt [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0            7195 Nov 14  2017 readme.html [NSE: writeable]&#xa;-rw-r-&#45;r-&#45;    1 33       0              94 Feb 21  2018 robots.txt&#xa;-rwxrwxrwx    1 0        0            4951 Nov 14  2017 wp-activate.php [NSE: writeable]&#xa;drwxrwxrwx    9 0        0            4096 Sep 19  2022 wp-admin [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0             271 Nov 14  2017 wp-blog-header.php [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0            5008 Nov 14  2017 wp-comments-post.php [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0            2749 Nov 14  2017 wp-config-sample.php [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0            2830 Nov 19  2017 wp-config.php [NSE: writeable]&#xa;drwxrwxrwx    5 0        0            4096 Sep 19  2022 wp-content [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0            2956 Nov 14  2017 wp-cron.php [NSE: writeable]&#xa;drwxrwxrwx   12 0        0            4096 Sep 19  2022 wp-includes [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0            2380 Nov 14  2017 wp-links-opml.php [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0            2714 Nov 14  2017 wp-load.php [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0           33435 Nov 14  2017 wp-login.php [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0            8252 Nov 14  2017 wp-mail.php [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0           11115 Nov 14  2017 wp-settings.php [NSE: writeable]&#xa;-rwxrwxrwx    1 0        0           25152 Nov 14  2017 wp-signup.php [NSE: writeable]&#xa;Only 20 shown. Use -&#45;script-args ftp-anon.maxlist=-1 to see all."/></port>
+<port protocol="tcp" portid="22"><state state="open" reason="syn-ack" reason_ttl="37"/><service name="ssh" product="OpenSSH" version="7.2p2 Ubuntu 4ubuntu2.2" extrainfo="Ubuntu Linux; protocol 2.0" ostype="Linux" method="probed" conf="10"><cpe>cpe:/a:openbsd:openssh:7.2p2</cpe><cpe>cpe:/o:linux:linux_kernel</cpe></service><script id="vulners" output="&#xa;  cpe:/a:openbsd:openssh:7.2p2: &#xa;    &#x9;PACKETSTORM:140070&#x9;7.8&#x9;https://vulners.com/packetstorm/PACKETSTORM:140070&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:5BCA798C6BA71FAE29334297EC0B6A09&#x9;7.8&#x9;https://vulners.com/exploitpack/EXPLOITPACK:5BCA798C6BA71FAE29334297EC0B6A09&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:40888&#x9;7.8&#x9;https://vulners.com/exploitdb/EDB-ID:40888&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2016-8858&#x9;7.8&#x9;https://vulners.com/cve/CVE-2016-8858&#xa;    &#x9;CVE-2016-6515&#x9;7.8&#x9;https://vulners.com/cve/CVE-2016-6515&#xa;    &#x9;1337DAY-ID-26494&#x9;7.8&#x9;https://vulners.com/zdt/1337DAY-ID-26494&#x9;*EXPLOIT*&#xa;    &#x9;SSV:92579&#x9;7.5&#x9;https://vulners.com/seebug/SSV:92579&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2016-10009&#x9;7.5&#x9;https://vulners.com/cve/CVE-2016-10009&#xa;    &#x9;1337DAY-ID-26576&#x9;7.5&#x9;https://vulners.com/zdt/1337DAY-ID-26576&#x9;*EXPLOIT*&#xa;    &#x9;SSV:92582&#x9;7.2&#x9;https://vulners.com/seebug/SSV:92582&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2016-10012&#x9;7.2&#x9;https://vulners.com/cve/CVE-2016-10012&#xa;    &#x9;CVE-2015-8325&#x9;7.2&#x9;https://vulners.com/cve/CVE-2015-8325&#xa;    &#x9;SSV:92580&#x9;6.9&#x9;https://vulners.com/seebug/SSV:92580&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2016-10010&#x9;6.9&#x9;https://vulners.com/cve/CVE-2016-10010&#xa;    &#x9;1337DAY-ID-26577&#x9;6.9&#x9;https://vulners.com/zdt/1337DAY-ID-26577&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:98FE96309F9524B8C84C508837551A19&#x9;5.8&#x9;https://vulners.com/exploitpack/EXPLOITPACK:98FE96309F9524B8C84C508837551A19&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:5330EA02EBDE345BFC9D6DDDD97F9E97&#x9;5.8&#x9;https://vulners.com/exploitpack/EXPLOITPACK:5330EA02EBDE345BFC9D6DDDD97F9E97&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:46516&#x9;5.8&#x9;https://vulners.com/exploitdb/EDB-ID:46516&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:46193&#x9;5.8&#x9;https://vulners.com/exploitdb/EDB-ID:46193&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2019-6111&#x9;5.8&#x9;https://vulners.com/cve/CVE-2019-6111&#xa;    &#x9;1337DAY-ID-32328&#x9;5.8&#x9;https://vulners.com/zdt/1337DAY-ID-32328&#x9;*EXPLOIT*&#xa;    &#x9;1337DAY-ID-32009&#x9;5.8&#x9;https://vulners.com/zdt/1337DAY-ID-32009&#x9;*EXPLOIT*&#xa;    &#x9;SSV:91041&#x9;5.5&#x9;https://vulners.com/seebug/SSV:91041&#x9;*EXPLOIT*&#xa;    &#x9;PACKETSTORM:140019&#x9;5.5&#x9;https://vulners.com/packetstorm/PACKETSTORM:140019&#x9;*EXPLOIT*&#xa;    &#x9;PACKETSTORM:136234&#x9;5.5&#x9;https://vulners.com/packetstorm/PACKETSTORM:136234&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:F92411A645D85F05BDBD274FD222226F&#x9;5.5&#x9;https://vulners.com/exploitpack/EXPLOITPACK:F92411A645D85F05BDBD274FD222226F&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:9F2E746846C3C623A27A441281EAD138&#x9;5.5&#x9;https://vulners.com/exploitpack/EXPLOITPACK:9F2E746846C3C623A27A441281EAD138&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:1902C998CBF9154396911926B4C3B330&#x9;5.5&#x9;https://vulners.com/exploitpack/EXPLOITPACK:1902C998CBF9154396911926B4C3B330&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:40858&#x9;5.5&#x9;https://vulners.com/exploitdb/EDB-ID:40858&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:40119&#x9;5.5&#x9;https://vulners.com/exploitdb/EDB-ID:40119&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:39569&#x9;5.5&#x9;https://vulners.com/exploitdb/EDB-ID:39569&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2016-3115&#x9;5.5&#x9;https://vulners.com/cve/CVE-2016-3115&#xa;    &#x9;SSH_ENUM&#x9;5.0&#x9;https://vulners.com/canvas/SSH_ENUM&#x9;*EXPLOIT*&#xa;    &#x9;PACKETSTORM:150621&#x9;5.0&#x9;https://vulners.com/packetstorm/PACKETSTORM:150621&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:F957D7E8A0CC1E23C3C649B764E13FB0&#x9;5.0&#x9;https://vulners.com/exploitpack/EXPLOITPACK:F957D7E8A0CC1E23C3C649B764E13FB0&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:EBDBC5685E3276D648B4D14B75563283&#x9;5.0&#x9;https://vulners.com/exploitpack/EXPLOITPACK:EBDBC5685E3276D648B4D14B75563283&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:45939&#x9;5.0&#x9;https://vulners.com/exploitdb/EDB-ID:45939&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:45233&#x9;5.0&#x9;https://vulners.com/exploitdb/EDB-ID:45233&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2018-15919&#x9;5.0&#x9;https://vulners.com/cve/CVE-2018-15919&#xa;    &#x9;CVE-2018-15473&#x9;5.0&#x9;https://vulners.com/cve/CVE-2018-15473&#xa;    &#x9;CVE-2017-15906&#x9;5.0&#x9;https://vulners.com/cve/CVE-2017-15906&#xa;    &#x9;CVE-2016-10708&#x9;5.0&#x9;https://vulners.com/cve/CVE-2016-10708&#xa;    &#x9;1337DAY-ID-31730&#x9;5.0&#x9;https://vulners.com/zdt/1337DAY-ID-31730&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2021-41617&#x9;4.4&#x9;https://vulners.com/cve/CVE-2021-41617&#xa;    &#x9;EXPLOITPACK:802AF3229492E147A5F09C7F2B27C6DF&#x9;4.3&#x9;https://vulners.com/exploitpack/EXPLOITPACK:802AF3229492E147A5F09C7F2B27C6DF&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:5652DDAA7FE452E19AC0DC1CD97BA3EF&#x9;4.3&#x9;https://vulners.com/exploitpack/EXPLOITPACK:5652DDAA7FE452E19AC0DC1CD97BA3EF&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:40136&#x9;4.3&#x9;https://vulners.com/exploitdb/EDB-ID:40136&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:40113&#x9;4.3&#x9;https://vulners.com/exploitdb/EDB-ID:40113&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2020-14145&#x9;4.3&#x9;https://vulners.com/cve/CVE-2020-14145&#xa;    &#x9;CVE-2016-6210&#x9;4.3&#x9;https://vulners.com/cve/CVE-2016-6210&#xa;    &#x9;1337DAY-ID-25440&#x9;4.3&#x9;https://vulners.com/zdt/1337DAY-ID-25440&#x9;*EXPLOIT*&#xa;    &#x9;1337DAY-ID-25438&#x9;4.3&#x9;https://vulners.com/zdt/1337DAY-ID-25438&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2019-6110&#x9;4.0&#x9;https://vulners.com/cve/CVE-2019-6110&#xa;    &#x9;CVE-2019-6109&#x9;4.0&#x9;https://vulners.com/cve/CVE-2019-6109&#xa;    &#x9;CVE-2018-20685&#x9;2.6&#x9;https://vulners.com/cve/CVE-2018-20685&#xa;    &#x9;SSV:92581&#x9;2.1&#x9;https://vulners.com/seebug/SSV:92581&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2016-10011&#x9;2.1&#x9;https://vulners.com/cve/CVE-2016-10011&#xa;    &#x9;PACKETSTORM:151227&#x9;0.0&#x9;https://vulners.com/packetstorm/PACKETSTORM:151227&#x9;*EXPLOIT*&#xa;    &#x9;PACKETSTORM:140261&#x9;0.0&#x9;https://vulners.com/packetstorm/PACKETSTORM:140261&#x9;*EXPLOIT*&#xa;    &#x9;PACKETSTORM:138006&#x9;0.0&#x9;https://vulners.com/packetstorm/PACKETSTORM:138006&#x9;*EXPLOIT*&#xa;    &#x9;PACKETSTORM:137942&#x9;0.0&#x9;https://vulners.com/packetstorm/PACKETSTORM:137942&#x9;*EXPLOIT*&#xa;    &#x9;MSF:AUXILIARY-SCANNER-SSH-SSH_ENUMUSERS-&#x9;0.0&#x9;https://vulners.com/metasploit/MSF:AUXILIARY-SCANNER-SSH-SSH_ENUMUSERS-&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2023-29323&#x9;0.0&#x9;https://vulners.com/cve/CVE-2023-29323&#xa;    &#x9;1337DAY-ID-30937&#x9;0.0&#x9;https://vulners.com/zdt/1337DAY-ID-30937&#x9;*EXPLOIT*"><table key="cpe:/a:openbsd:openssh:7.2p2">
+<table>
+<elem key="id">PACKETSTORM:140070</elem>
+<elem key="cvss">7.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">packetstorm</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:5BCA798C6BA71FAE29334297EC0B6A09</elem>
+<elem key="cvss">7.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:40888</elem>
+<elem key="cvss">7.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-8858</elem>
+<elem key="cvss">7.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-6515</elem>
+<elem key="cvss">7.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-26494</elem>
+<elem key="cvss">7.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">SSV:92579</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">seebug</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-10009</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-26576</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">SSV:92582</elem>
+<elem key="cvss">7.2</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">seebug</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-10012</elem>
+<elem key="cvss">7.2</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2015-8325</elem>
+<elem key="cvss">7.2</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">SSV:92580</elem>
+<elem key="cvss">6.9</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">seebug</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-10010</elem>
+<elem key="cvss">6.9</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-26577</elem>
+<elem key="cvss">6.9</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:98FE96309F9524B8C84C508837551A19</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:5330EA02EBDE345BFC9D6DDDD97F9E97</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:46516</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:46193</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-6111</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-32328</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-32009</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">SSV:91041</elem>
+<elem key="cvss">5.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">seebug</elem>
+</table>
+<table>
+<elem key="id">PACKETSTORM:140019</elem>
+<elem key="cvss">5.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">packetstorm</elem>
+</table>
+<table>
+<elem key="id">PACKETSTORM:136234</elem>
+<elem key="cvss">5.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">packetstorm</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:F92411A645D85F05BDBD274FD222226F</elem>
+<elem key="cvss">5.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:9F2E746846C3C623A27A441281EAD138</elem>
+<elem key="cvss">5.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:1902C998CBF9154396911926B4C3B330</elem>
+<elem key="cvss">5.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:40858</elem>
+<elem key="cvss">5.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:40119</elem>
+<elem key="cvss">5.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:39569</elem>
+<elem key="cvss">5.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-3115</elem>
+<elem key="cvss">5.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">SSH_ENUM</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">canvas</elem>
+</table>
+<table>
+<elem key="id">PACKETSTORM:150621</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">packetstorm</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:F957D7E8A0CC1E23C3C649B764E13FB0</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:EBDBC5685E3276D648B4D14B75563283</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:45939</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:45233</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-15919</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-15473</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2017-15906</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-10708</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-31730</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">CVE-2021-41617</elem>
+<elem key="cvss">4.4</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:802AF3229492E147A5F09C7F2B27C6DF</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:5652DDAA7FE452E19AC0DC1CD97BA3EF</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:40136</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:40113</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">CVE-2020-14145</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-6210</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-25440</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-25438</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-6110</elem>
+<elem key="cvss">4.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-6109</elem>
+<elem key="cvss">4.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-20685</elem>
+<elem key="cvss">2.6</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">SSV:92581</elem>
+<elem key="cvss">2.1</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">seebug</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-10011</elem>
+<elem key="cvss">2.1</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">PACKETSTORM:151227</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">packetstorm</elem>
+</table>
+<table>
+<elem key="id">PACKETSTORM:140261</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">packetstorm</elem>
+</table>
+<table>
+<elem key="id">PACKETSTORM:138006</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">packetstorm</elem>
+</table>
+<table>
+<elem key="id">PACKETSTORM:137942</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">packetstorm</elem>
+</table>
+<table>
+<elem key="id">MSF:AUXILIARY-SCANNER-SSH-SSH_ENUMUSERS-</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">metasploit</elem>
+</table>
+<table>
+<elem key="id">CVE-2023-29323</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-30937</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+</table>
+</script><script id="ssh-hostkey" output="&#xa;  2048 08:9e:2e:5b:2b:f2:9e:e7:74:88:3c:4b:2e:0d:27:b4 (RSA)&#xa;  256 d1:d0:5c:4a:e4:e5:e5:05:76:6c:88:39:02:60:ce:be (ECDSA)&#xa;  256 fa:dc:f5:fa:cb:b2:eb:e2:c1:b9:2c:96:bf:d0:e5:0b (ED25519)"><table>
+<elem key="bits">2048</elem>
+<elem key="key">AAAAB3NzaC1yc2EAAAADAQABAAABAQDY3TMeLjZE+RMUzZ9tNAIh0QmLh0TA50fTIzzjOzypJh9LNyvqOMGtrPToeR0+BBh6eGXj0jrFH9xZauk8qgS2gsIvJyOXyK0tnHRfewoMphRY42vdILJopbFmKej8cs3ZhD2Mknc1Imylb5Tur9I/2vg348FctHoL7TVGWQGp/wS4Q68JP9NJw/mqMfloUhSFENgmkTCUzSIhH0GXgTsx5ibXZHh8oI5orVhg6gqPFppQ3CjnuU5YbTYiSqIf9HQl6UU/sLrZl1Va1wi7Hyk6bZyI9ZaU/F2lFScM3DJiRGrumG8zKntnIio2RyubcaNERn6oaTVOMmp1yeFfSF9D</elem>
+<elem key="type">ssh-rsa</elem>
+<elem key="fingerprint">089e2e5b2bf29ee774883c4b2e0d27b4</elem>
+</table>
+<table>
+<elem key="bits">256</elem>
+<elem key="key">AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNBtenyfnWr6uKpUtVNCDT0P6goDDLf/PtsjFaxAsLNpJRzujDhfDbjrJR/rDjp32MhiBofFT5MAsvFayIuxocw=</elem>
+<elem key="type">ecdsa-sha2-nistp256</elem>
+<elem key="fingerprint">d1d05c4ae4e5e505766c88390260cebe</elem>
+</table>
+<table>
+<elem key="bits">256</elem>
+<elem key="key">AAAAC3NzaC1lZDI1NTE5AAAAIPJCFFF9beKs/GJq1j+z+n3ixOGc4u9NxU2AHXDHLXCA</elem>
+<elem key="type">ssh-ed25519</elem>
+<elem key="fingerprint">fadcf5facbb2ebe2c1b92c96bfd0e50b</elem>
+</table>
+</script><script id="banner" output="SSH-2.0-OpenSSH_7.2p2 Ubuntu-4ubuntu2.2"/><script id="ssh2-enum-algos" output="&#xa;  kex_algorithms: (6)&#xa;  server_host_key_algorithms: (5)&#xa;  encryption_algorithms: (6)&#xa;  mac_algorithms: (10)&#xa;  compression_algorithms: (2)"><table key="kex_algorithms">
+<elem>curve25519-sha256@libssh.org</elem>
+<elem>ecdh-sha2-nistp256</elem>
+<elem>ecdh-sha2-nistp384</elem>
+<elem>ecdh-sha2-nistp521</elem>
+<elem>diffie-hellman-group-exchange-sha256</elem>
+<elem>diffie-hellman-group14-sha1</elem>
+</table>
+<table key="server_host_key_algorithms">
+<elem>ssh-rsa</elem>
+<elem>rsa-sha2-512</elem>
+<elem>rsa-sha2-256</elem>
+<elem>ecdsa-sha2-nistp256</elem>
+<elem>ssh-ed25519</elem>
+</table>
+<table key="encryption_algorithms">
+<elem>chacha20-poly1305@openssh.com</elem>
+<elem>aes128-ctr</elem>
+<elem>aes192-ctr</elem>
+<elem>aes256-ctr</elem>
+<elem>aes128-gcm@openssh.com</elem>
+<elem>aes256-gcm@openssh.com</elem>
+</table>
+<table key="mac_algorithms">
+<elem>umac-64-etm@openssh.com</elem>
+<elem>umac-128-etm@openssh.com</elem>
+<elem>hmac-sha2-256-etm@openssh.com</elem>
+<elem>hmac-sha2-512-etm@openssh.com</elem>
+<elem>hmac-sha1-etm@openssh.com</elem>
+<elem>umac-64@openssh.com</elem>
+<elem>umac-128@openssh.com</elem>
+<elem>hmac-sha2-256</elem>
+<elem>hmac-sha2-512</elem>
+<elem>hmac-sha1</elem>
+</table>
+<table key="compression_algorithms">
+<elem>none</elem>
+<elem>zlib@openssh.com</elem>
+</table>
+</script></port>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="37"/><service name="http" product="Apache httpd" version="2.4.18" extrainfo="(Ubuntu)" method="probed" conf="10"><cpe>cpe:/a:apache:http_server:2.4.18</cpe></service><script id="http-generator" output="WordPress 4.1.2"/><script id="http-comments-displayer" output="&#xa;Spidering limited to: maxdepth=3; maxpagecount=20; withinhost=10.0.50.20&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 179&#xa;    Comment: &#xa;        &lt;!-&#45; #primary-sidebar -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 77&#xa;    Comment: &#xa;        &lt;!-&#45; #masthead -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 182&#xa;    Comment: &#xa;        &lt;!-&#45; #main -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 108&#xa;    Comment: &#xa;        &lt;!-&#45; #content -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 191&#xa;    Comment: &#xa;        &lt;!-&#45; #page -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 190&#xa;    Comment: &#xa;        &lt;!-&#45; #colophon -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 106&#xa;    Comment: &#xa;        &lt;!-&#45; #post-## -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 8&#xa;    Comment: &#xa;        &lt;!-&#45;[if !(IE 7) &amp; !(IE 8)]&gt;&lt;!-&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 109&#xa;    Comment: &#xa;        &lt;!-&#45; #primary -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 104&#xa;    Comment: &#xa;        &lt;!-&#45; .entry-content -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 189&#xa;    Comment: &#xa;        &lt;!-&#45; .site-info -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 5&#xa;    Comment: &#xa;        &lt;!-&#45;[if IE 8]&gt;&#xa;        &lt;html class=&quot;ie ie8&quot; lang=&quot;en-US&quot;&gt;&#xa;        &lt;![endif]-&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 180&#xa;    Comment: &#xa;        &lt;!-&#45; #secondary -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 94&#xa;    Comment: &#xa;        &lt;!-&#45; .entry-meta -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 95&#xa;    Comment: &#xa;        &lt;!-&#45; .entry-header -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 27&#xa;    Comment: &#xa;        &lt;!-&#45;[if lt IE 9]&gt;&#xa;        &lt;link rel=&apos;stylesheet&apos; id=&apos;twentyfourteen-ie-css&apos;  href=&apos;http://wp.sec460.com/wp-content/themes/twentyfourteen/css/ie.css?ver=20131205&apos; type=&apos;text/css&apos; media=&apos;all&apos; /&gt;&#xa;        &lt;![endif]-&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 17&#xa;    Comment: &#xa;        &lt;!-&#45;[if lt IE 9]&gt;&#xa;        &#x9;&lt;script src=&quot;http://wp.sec460.com/wp-content/themes/twentyfourteen/js/html5.js&quot;&gt;&lt;/script&gt;&#xa;        &#x9;&lt;![endif]-&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 110&#xa;    Comment: &#xa;        &lt;!-&#45; #main-content -&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 10&#xa;    Comment: &#xa;        &lt;!-&#45;&lt;![endif]-&#45;&gt;&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Line number: 2&#xa;    Comment: &#xa;        &lt;!-&#45;[if IE 7]&gt;&#xa;        &lt;html class=&quot;ie ie7&quot; lang=&quot;en-US&quot;&gt;&#xa;        &lt;![endif]-&#45;&gt;&#xa;"/><script id="http-mobileversion-checker" output="No mobile version detected."/><script id="http-referer-checker" output="&#xa;Spidering limited to: maxpagecount=30&#xa;  http://wp.sec460.com:80/wp-content/themes/twentyfourteen/js/html5.js&#xa;  http://wp.sec460.com:80/wp-content/themes/twentyfourteen/js/functions.js?ver=20140616&#xa;"/><script id="http-robots.txt" output="3 disallowed entries &#xa;/wp-login.php /internal-security-blog.php /admin/"/><script id="http-title" output="Ellingson Mineral | Put a tiger in your tank"><elem key="title">Ellingson Mineral | Put a tiger in your tank</elem>
+</script><script id="http-dombased-xss" output="Couldn&apos;t find any DOM based XSS."/><script id="http-xssed" output="No previously reported XSS vuln."/><script id="http-useragent-tester" output="&#xa;  Status for browser useragent: 200&#xa;  Allowed User Agents: &#xa;    Mozilla/5.0 (compatible; Nmap Scripting Engine; https://nmap.org/book/nse.html)&#xa;    libwww&#xa;    lwp-trivial&#xa;    libcurl-agent/1.0&#xa;    PHP/&#xa;    Python-urllib/2.5&#xa;    GT::WWW&#xa;    Snoopy&#xa;    MFC_Tear_Sample&#xa;    HTTP::Lite&#xa;    PHPCrawl&#xa;    URI::Fetch&#xa;    Zend_Http_Client&#xa;    http client&#xa;    PECL::HTTP&#xa;    Wget/1.13.4 (linux-gnu)&#xa;    WWW-Mechanize/1.34"><elem key="Status for browser useragent">200</elem>
+<table key="Allowed User Agents">
+<elem>Mozilla/5.0 (compatible; Nmap Scripting Engine; https://nmap.org/book/nse.html)</elem>
+<elem>libwww</elem>
+<elem>lwp-trivial</elem>
+<elem>libcurl-agent/1.0</elem>
+<elem>PHP/</elem>
+<elem>Python-urllib/2.5</elem>
+<elem>GT::WWW</elem>
+<elem>Snoopy</elem>
+<elem>MFC_Tear_Sample</elem>
+<elem>HTTP::Lite</elem>
+<elem>PHPCrawl</elem>
+<elem>URI::Fetch</elem>
+<elem>Zend_Http_Client</elem>
+<elem>http client</elem>
+<elem>PECL::HTTP</elem>
+<elem>Wget/1.13.4 (linux-gnu)</elem>
+<elem>WWW-Mechanize/1.34</elem>
+</table>
+</script><script id="http-csrf" output="&#xa;Spidering limited to: maxdepth=3; maxpagecount=20; withinhost=10.0.50.20&#xa;  Found the following possible CSRF vulnerabilities: &#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Form id: &#xa;    Form action: http://wp.sec460.com/&#xa;    &#xa;    Path: http://10.0.50.20:80/&#xa;    Form id: &#xa;    Form action: http://wp.sec460.com/&#xa;"/><script id="vulners" output="&#xa;  cpe:/a:apache:http_server:2.4.18: &#xa;    &#x9;PACKETSTORM:171631&#x9;7.5&#x9;https://vulners.com/packetstorm/PACKETSTORM:171631&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:51193&#x9;7.5&#x9;https://vulners.com/exploitdb/EDB-ID:51193&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2022-31813&#x9;7.5&#x9;https://vulners.com/cve/CVE-2022-31813&#xa;    &#x9;CVE-2022-23943&#x9;7.5&#x9;https://vulners.com/cve/CVE-2022-23943&#xa;    &#x9;CVE-2022-22720&#x9;7.5&#x9;https://vulners.com/cve/CVE-2022-22720&#xa;    &#x9;CVE-2021-44790&#x9;7.5&#x9;https://vulners.com/cve/CVE-2021-44790&#xa;    &#x9;CVE-2021-39275&#x9;7.5&#x9;https://vulners.com/cve/CVE-2021-39275&#xa;    &#x9;CVE-2021-26691&#x9;7.5&#x9;https://vulners.com/cve/CVE-2021-26691&#xa;    &#x9;CVE-2017-7679&#x9;7.5&#x9;https://vulners.com/cve/CVE-2017-7679&#xa;    &#x9;CVE-2017-3169&#x9;7.5&#x9;https://vulners.com/cve/CVE-2017-3169&#xa;    &#x9;CVE-2017-3167&#x9;7.5&#x9;https://vulners.com/cve/CVE-2017-3167&#xa;    &#x9;CNVD-2022-73123&#x9;7.5&#x9;https://vulners.com/cnvd/CNVD-2022-73123&#xa;    &#x9;CNVD-2022-03225&#x9;7.5&#x9;https://vulners.com/cnvd/CNVD-2022-03225&#xa;    &#x9;CNVD-2021-102386&#x9;7.5&#x9;https://vulners.com/cnvd/CNVD-2021-102386&#xa;    &#x9;1337DAY-ID-38427&#x9;7.5&#x9;https://vulners.com/zdt/1337DAY-ID-38427&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:44C5118F831D55FAF4259C41D8BDA0AB&#x9;7.2&#x9;https://vulners.com/exploitpack/EXPLOITPACK:44C5118F831D55FAF4259C41D8BDA0AB&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:46676&#x9;7.2&#x9;https://vulners.com/exploitdb/EDB-ID:46676&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2019-0211&#x9;7.2&#x9;https://vulners.com/cve/CVE-2019-0211&#xa;    &#x9;1337DAY-ID-32502&#x9;7.2&#x9;https://vulners.com/zdt/1337DAY-ID-32502&#x9;*EXPLOIT*&#xa;    &#x9;FDF3DFA1-ED74-5EE2-BF5C-BA752CA34AE8&#x9;6.8&#x9;https://vulners.com/githubexploit/FDF3DFA1-ED74-5EE2-BF5C-BA752CA34AE8&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2021-40438&#x9;6.8&#x9;https://vulners.com/cve/CVE-2021-40438&#xa;    &#x9;CVE-2020-35452&#x9;6.8&#x9;https://vulners.com/cve/CVE-2020-35452&#xa;    &#x9;CVE-2018-1312&#x9;6.8&#x9;https://vulners.com/cve/CVE-2018-1312&#xa;    &#x9;CVE-2017-15715&#x9;6.8&#x9;https://vulners.com/cve/CVE-2017-15715&#xa;    &#x9;CVE-2016-5387&#x9;6.8&#x9;https://vulners.com/cve/CVE-2016-5387&#xa;    &#x9;CNVD-2022-03224&#x9;6.8&#x9;https://vulners.com/cnvd/CNVD-2022-03224&#xa;    &#x9;8AFB43C5-ABD4-52AD-BB19-24D7884FF2A2&#x9;6.8&#x9;https://vulners.com/githubexploit/8AFB43C5-ABD4-52AD-BB19-24D7884FF2A2&#x9;*EXPLOIT*&#xa;    &#x9;4810E2D9-AC5F-5B08-BFB3-DDAFA2F63332&#x9;6.8&#x9;https://vulners.com/githubexploit/4810E2D9-AC5F-5B08-BFB3-DDAFA2F63332&#x9;*EXPLOIT*&#xa;    &#x9;4373C92A-2755-5538-9C91-0469C995AA9B&#x9;6.8&#x9;https://vulners.com/githubexploit/4373C92A-2755-5538-9C91-0469C995AA9B&#x9;*EXPLOIT*&#xa;    &#x9;0095E929-7573-5E4A-A7FA-F6598A35E8DE&#x9;6.8&#x9;https://vulners.com/githubexploit/0095E929-7573-5E4A-A7FA-F6598A35E8DE&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2022-28615&#x9;6.4&#x9;https://vulners.com/cve/CVE-2022-28615&#xa;    &#x9;CVE-2021-44224&#x9;6.4&#x9;https://vulners.com/cve/CVE-2021-44224&#xa;    &#x9;CVE-2019-10082&#x9;6.4&#x9;https://vulners.com/cve/CVE-2019-10082&#xa;    &#x9;CVE-2017-9788&#x9;6.4&#x9;https://vulners.com/cve/CVE-2017-9788&#xa;    &#x9;CVE-2019-0217&#x9;6.0&#x9;https://vulners.com/cve/CVE-2019-0217&#xa;    &#x9;CVE-2022-22721&#x9;5.8&#x9;https://vulners.com/cve/CVE-2022-22721&#xa;    &#x9;CVE-2020-1927&#x9;5.8&#x9;https://vulners.com/cve/CVE-2020-1927&#xa;    &#x9;CVE-2019-10098&#x9;5.8&#x9;https://vulners.com/cve/CVE-2019-10098&#xa;    &#x9;1337DAY-ID-33577&#x9;5.8&#x9;https://vulners.com/zdt/1337DAY-ID-33577&#x9;*EXPLOIT*&#xa;    &#x9;SSV:96537&#x9;5.0&#x9;https://vulners.com/seebug/SSV:96537&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:C8C256BE0BFF5FE1C0405CB0AA9C075D&#x9;5.0&#x9;https://vulners.com/exploitpack/EXPLOITPACK:C8C256BE0BFF5FE1C0405CB0AA9C075D&#x9;*EXPLOIT*&#xa;    &#x9;EXPLOITPACK:2666FB0676B4B582D689921651A30355&#x9;5.0&#x9;https://vulners.com/exploitpack/EXPLOITPACK:2666FB0676B4B582D689921651A30355&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:42745&#x9;5.0&#x9;https://vulners.com/exploitdb/EDB-ID:42745&#x9;*EXPLOIT*&#xa;    &#x9;EDB-ID:40909&#x9;5.0&#x9;https://vulners.com/exploitdb/EDB-ID:40909&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2022-30556&#x9;5.0&#x9;https://vulners.com/cve/CVE-2022-30556&#xa;    &#x9;CVE-2022-29404&#x9;5.0&#x9;https://vulners.com/cve/CVE-2022-29404&#xa;    &#x9;CVE-2022-28614&#x9;5.0&#x9;https://vulners.com/cve/CVE-2022-28614&#xa;    &#x9;CVE-2022-26377&#x9;5.0&#x9;https://vulners.com/cve/CVE-2022-26377&#xa;    &#x9;CVE-2022-22719&#x9;5.0&#x9;https://vulners.com/cve/CVE-2022-22719&#xa;    &#x9;CVE-2021-34798&#x9;5.0&#x9;https://vulners.com/cve/CVE-2021-34798&#xa;    &#x9;CVE-2021-33193&#x9;5.0&#x9;https://vulners.com/cve/CVE-2021-33193&#xa;    &#x9;CVE-2021-26690&#x9;5.0&#x9;https://vulners.com/cve/CVE-2021-26690&#xa;    &#x9;CVE-2020-1934&#x9;5.0&#x9;https://vulners.com/cve/CVE-2020-1934&#xa;    &#x9;CVE-2019-17567&#x9;5.0&#x9;https://vulners.com/cve/CVE-2019-17567&#xa;    &#x9;CVE-2019-0220&#x9;5.0&#x9;https://vulners.com/cve/CVE-2019-0220&#xa;    &#x9;CVE-2019-0196&#x9;5.0&#x9;https://vulners.com/cve/CVE-2019-0196&#xa;    &#x9;CVE-2018-17199&#x9;5.0&#x9;https://vulners.com/cve/CVE-2018-17199&#xa;    &#x9;CVE-2018-17189&#x9;5.0&#x9;https://vulners.com/cve/CVE-2018-17189&#xa;    &#x9;CVE-2018-1333&#x9;5.0&#x9;https://vulners.com/cve/CVE-2018-1333&#xa;    &#x9;CVE-2018-1303&#x9;5.0&#x9;https://vulners.com/cve/CVE-2018-1303&#xa;    &#x9;CVE-2017-9798&#x9;5.0&#x9;https://vulners.com/cve/CVE-2017-9798&#xa;    &#x9;CVE-2017-15710&#x9;5.0&#x9;https://vulners.com/cve/CVE-2017-15710&#xa;    &#x9;CVE-2016-8743&#x9;5.0&#x9;https://vulners.com/cve/CVE-2016-8743&#xa;    &#x9;CVE-2016-8740&#x9;5.0&#x9;https://vulners.com/cve/CVE-2016-8740&#xa;    &#x9;CVE-2016-4979&#x9;5.0&#x9;https://vulners.com/cve/CVE-2016-4979&#xa;    &#x9;CNVD-2022-73122&#x9;5.0&#x9;https://vulners.com/cnvd/CNVD-2022-73122&#xa;    &#x9;CNVD-2022-53584&#x9;5.0&#x9;https://vulners.com/cnvd/CNVD-2022-53584&#xa;    &#x9;CNVD-2022-53582&#x9;5.0&#x9;https://vulners.com/cnvd/CNVD-2022-53582&#xa;    &#x9;CNVD-2022-03223&#x9;5.0&#x9;https://vulners.com/cnvd/CNVD-2022-03223&#xa;    &#x9;1337DAY-ID-28573&#x9;5.0&#x9;https://vulners.com/zdt/1337DAY-ID-28573&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2020-11985&#x9;4.3&#x9;https://vulners.com/cve/CVE-2020-11985&#xa;    &#x9;CVE-2019-10092&#x9;4.3&#x9;https://vulners.com/cve/CVE-2019-10092&#xa;    &#x9;CVE-2018-1302&#x9;4.3&#x9;https://vulners.com/cve/CVE-2018-1302&#xa;    &#x9;CVE-2018-1301&#x9;4.3&#x9;https://vulners.com/cve/CVE-2018-1301&#xa;    &#x9;CVE-2018-11763&#x9;4.3&#x9;https://vulners.com/cve/CVE-2018-11763&#xa;    &#x9;CVE-2016-4975&#x9;4.3&#x9;https://vulners.com/cve/CVE-2016-4975&#xa;    &#x9;CVE-2016-1546&#x9;4.3&#x9;https://vulners.com/cve/CVE-2016-1546&#xa;    &#x9;4013EC74-B3C1-5D95-938A-54197A58586D&#x9;4.3&#x9;https://vulners.com/githubexploit/4013EC74-B3C1-5D95-938A-54197A58586D&#x9;*EXPLOIT*&#xa;    &#x9;1337DAY-ID-33575&#x9;4.3&#x9;https://vulners.com/zdt/1337DAY-ID-33575&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2018-1283&#x9;3.5&#x9;https://vulners.com/cve/CVE-2018-1283&#xa;    &#x9;CVE-2016-8612&#x9;3.3&#x9;https://vulners.com/cve/CVE-2016-8612&#xa;    &#x9;PACKETSTORM:152441&#x9;0.0&#x9;https://vulners.com/packetstorm/PACKETSTORM:152441&#x9;*EXPLOIT*&#xa;    &#x9;CVE-2023-25690&#x9;0.0&#x9;https://vulners.com/cve/CVE-2023-25690&#xa;    &#x9;CVE-2022-37436&#x9;0.0&#x9;https://vulners.com/cve/CVE-2022-37436&#xa;    &#x9;CVE-2022-36760&#x9;0.0&#x9;https://vulners.com/cve/CVE-2022-36760&#xa;    &#x9;CVE-2006-20001&#x9;0.0&#x9;https://vulners.com/cve/CVE-2006-20001"><table key="cpe:/a:apache:http_server:2.4.18">
+<table>
+<elem key="id">PACKETSTORM:171631</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">packetstorm</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:51193</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-31813</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-23943</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-22720</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2021-44790</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2021-39275</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2021-26691</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2017-7679</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2017-3169</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2017-3167</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CNVD-2022-73123</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cnvd</elem>
+</table>
+<table>
+<elem key="id">CNVD-2022-03225</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cnvd</elem>
+</table>
+<table>
+<elem key="id">CNVD-2021-102386</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cnvd</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-38427</elem>
+<elem key="cvss">7.5</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:44C5118F831D55FAF4259C41D8BDA0AB</elem>
+<elem key="cvss">7.2</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:46676</elem>
+<elem key="cvss">7.2</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-0211</elem>
+<elem key="cvss">7.2</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-32502</elem>
+<elem key="cvss">7.2</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">FDF3DFA1-ED74-5EE2-BF5C-BA752CA34AE8</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">githubexploit</elem>
+</table>
+<table>
+<elem key="id">CVE-2021-40438</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2020-35452</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-1312</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2017-15715</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-5387</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CNVD-2022-03224</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cnvd</elem>
+</table>
+<table>
+<elem key="id">8AFB43C5-ABD4-52AD-BB19-24D7884FF2A2</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">githubexploit</elem>
+</table>
+<table>
+<elem key="id">4810E2D9-AC5F-5B08-BFB3-DDAFA2F63332</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">githubexploit</elem>
+</table>
+<table>
+<elem key="id">4373C92A-2755-5538-9C91-0469C995AA9B</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">githubexploit</elem>
+</table>
+<table>
+<elem key="id">0095E929-7573-5E4A-A7FA-F6598A35E8DE</elem>
+<elem key="cvss">6.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">githubexploit</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-28615</elem>
+<elem key="cvss">6.4</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2021-44224</elem>
+<elem key="cvss">6.4</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-10082</elem>
+<elem key="cvss">6.4</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2017-9788</elem>
+<elem key="cvss">6.4</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-0217</elem>
+<elem key="cvss">6.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-22721</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2020-1927</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-10098</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-33577</elem>
+<elem key="cvss">5.8</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">SSV:96537</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">seebug</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:C8C256BE0BFF5FE1C0405CB0AA9C075D</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EXPLOITPACK:2666FB0676B4B582D689921651A30355</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitpack</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:42745</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">EDB-ID:40909</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">exploitdb</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-30556</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-29404</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-28614</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-26377</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-22719</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2021-34798</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2021-33193</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2021-26690</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2020-1934</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-17567</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-0220</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-0196</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-17199</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-17189</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-1333</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-1303</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2017-9798</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2017-15710</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-8743</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-8740</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-4979</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CNVD-2022-73122</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cnvd</elem>
+</table>
+<table>
+<elem key="id">CNVD-2022-53584</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cnvd</elem>
+</table>
+<table>
+<elem key="id">CNVD-2022-53582</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cnvd</elem>
+</table>
+<table>
+<elem key="id">CNVD-2022-03223</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cnvd</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-28573</elem>
+<elem key="cvss">5.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">CVE-2020-11985</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2019-10092</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-1302</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-1301</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-11763</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-4975</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-1546</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">4013EC74-B3C1-5D95-938A-54197A58586D</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">githubexploit</elem>
+</table>
+<table>
+<elem key="id">1337DAY-ID-33575</elem>
+<elem key="cvss">4.3</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">zdt</elem>
+</table>
+<table>
+<elem key="id">CVE-2018-1283</elem>
+<elem key="cvss">3.5</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2016-8612</elem>
+<elem key="cvss">3.3</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">PACKETSTORM:152441</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">true</elem>
+<elem key="type">packetstorm</elem>
+</table>
+<table>
+<elem key="id">CVE-2023-25690</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-37436</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2022-36760</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+<table>
+<elem key="id">CVE-2006-20001</elem>
+<elem key="cvss">0.0</elem>
+<elem key="is_exploit">false</elem>
+<elem key="type">cve</elem>
+</table>
+</table>
+</script><script id="http-server-header" output="Apache/2.4.18 (Ubuntu)"><elem>Apache/2.4.18 (Ubuntu)</elem>
+</script><script id="http-security-headers" output=""></script><script id="http-stored-xss" output="Couldn&apos;t find any stored XSS vulnerabilities."/><script id="http-fetch" output="Please enter the complete path of the directory to save data in."><elem key="ERROR">Please enter the complete path of the directory to save data in.</elem>
+</script><script id="http-headers" output="&#xa;  Date: Wed, 19 Apr 2023 16:59:33 GMT&#xa;  Server: Apache/2.4.18 (Ubuntu)&#xa;  X-Pingback: http://wp.sec460.com/xmlrpc.php&#xa;  Connection: close&#xa;  Content-Type: text/html; charset=UTF-8&#xa;  &#xa;  (Request type: HEAD)&#xa;"/><script id="http-date" output="Wed, 19 Apr 2023 16:59:33 GMT; +6s from local time."><elem key="date">2023-04-19T16:59:33+00:00</elem>
+<elem key="delta">6.0</elem>
+</script><script id="http-enum" output="&#xa;  /wp-login.php: Possible admin folder&#xa;  /robots.txt: Robots file&#xa;  /readme.html: Wordpress version: 2 &#xa;  /: WordPress version: 4.1.2&#xa;  /wp-includes/images/rss.png: Wordpress version 2.2 found.&#xa;  /wp-includes/js/jquery/suggest.js: Wordpress version 2.5 found.&#xa;  /wp-includes/images/blank.gif: Wordpress version 2.6 found.&#xa;  /wp-includes/js/comment-reply.js: Wordpress version 2.7 found.&#xa;  /wp-login.php: Wordpress login page.&#xa;  /wp-admin/upgrade.php: Wordpress login page.&#xa;  /readme.html: WordPress version 4.1.2&#xa;"/></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="21"/>
+<portused state="closed" proto="tcp" portid="1"/>
+<portused state="closed" proto="udp" portid="31553"/>
+<osfingerprint fingerprint="OS:SCAN(V=7.92%E=4%D=4/19%OT=21%CT=1%CU=31553%PV=Y%DS=4%DC=I%G=Y%TM=64401F2&#xa;OS:3%P=aarch64-unknown-linux-gnu)SEQ(SP=7C%GCD=1%ISR=87%TI=RD%CI=RI%TS=U)OP&#xa;OS:S(O1=M5B4W2L%O2=M5B4W2L%O3=M5B4W2L%O4=M5B4W2L%O5=M5B4W2L%O6=M5B4)WIN(W1=&#xa;OS:FFFF%W2=FFFF%W3=FFFF%W4=FFFF%W5=FFFF%W6=FFFF)ECN(R=Y%DF=N%T=28%W=FFFF%O=&#xa;OS:M5B4W2L%CC=N%Q=)T1(R=Y%DF=N%T=28%S=O%A=S+%F=AS%RD=0%Q=)T2(R=N)T3(R=N)T4(&#xa;OS:R=Y%DF=N%T=28%W=0%S=A%A=S%F=AR%O=%RD=0%Q=)T5(R=Y%DF=N%T=28%W=0%S=A%A=S+%&#xa;OS:F=AR%O=%RD=0%Q=)T6(R=Y%DF=N%T=28%W=0%S=A%A=S%F=AR%O=%RD=0%Q=)T7(R=N)U1(R&#xa;OS:=Y%DF=N%T=28%IPL=164%UN=0%RIPL=4801%RID=F42%RIPCK=I%RUCK=EC7B%RUD=G)IE(R&#xa;OS:=N)&#xa;"/>
+</os>
+<distance value="4"/>
+<tcpsequence index="128" difficulty="Good luck!" values="1AFE24AE,1AFE6939,1AFE5A0F,1AFE1A0A"/>
+<ipidsequence class="Randomized" values="4691,E287,D3D8,F19E"/>
+<tcptssequence class="none returned (unsupported)"/>
+<hostscript><script id="fcrdns" output="FAIL (No PTR record)"><table key="&lt;none&gt;">
+<elem key="status">fail</elem>
+<elem key="reason">No PTR record</elem>
+</table>
+</script><script id="dns-blacklist" output="&#xa;  SPAM&#xa;    bl.nszones.com - FAIL&#xa;    l2.apews.org - FAIL&#xa;"/><script id="clock-skew" output="5s"><elem key="median">5</elem>
+<elem key="count">1</elem>
+<elem key="mean">5</elem>
+<elem key="stddev">0</elem>
+</script><script id="port-states" output="&#xa;  tcp: &#xa;    open: 21-22,80&#xa;    closed: 1,3-4,6-7,9,13,17,19-20,23-26,30,32-33,37,42-43,49,53,70,79,81-85,88-90,99-100,106,109-111,113,119,125,135,139,143-144,146,161,163,179,199,211-212,222,254-256,259,264,280,301,306,311,340,366,389,406-407,416-417,425,427,443-445,458,464-465,481,497,500,512-515,524,541,543-545,548,554-555,563,587,593,616-617,625,631,636,646,648,666-668,683,687,691,700,705,711,714,720,722,726,749,765,777,783,787,800-801,808,843,873,880,888,898,900-903,911-912,981,987,990,992-993,995,999-1002,1007,1009-1011,1021-1100,1102,1104-1108,1110-1114,1117,1119,1121-1124,1126,1130-1132,1137-1138,1141,1145,1147-1149,1151-1152,1154,1163-1166,1169,1174-1175,1183,1185-1187,1192,1198-1199,1201,1213,1216-1218,1233-1234,1236,1244,1247-1248,1259,1271-1272,1277,1287,1296,1300-1301,1309-1311,1322,1328,1334,1352,1417,1433-1434,1443,1455,1461,1494,1500-1501,1503,1521,1524,1533,1556,1580,1583,1594,1600,1641,1658,1666,1687-1688,1700,1717-1721,1723,1755,1761,1782-1783,1801,1805,1812,1839-1840,1862-1864,1875,1900,1914,1935,1947,1971-1972,1974,1984,1998-2010,2013,2020-2022,2030,2033-2035,2038,2040-2043,2045-2049,2065,2068,2099-2100,2103,2105-2107,2111,2119,2121,2126,2135,2144,2160-2161,2170,2179,2190-2191,2196,2200,2222,2251,2260,2288,2301,2323,2366,2381-2383,2393-2394,2399,2401,2492,2500,2522,2525,2557,2601-2602,2604-2605,2607-2608,2638,2701-2702,2710,2717-2718,2725,2800,2809,2811,2869,2875,2909-2910,2920,2967-2968,2998,3000-3001,3003,3005-3007,3011,3013,3017,3030-3031,3052,3071,3077,3128,3168,3211,3221,3260-3261,3268-3269,3283,3300-3301,3306,3322-3325,3333,3351,3367,3369-3372,3389-3390,3404,3476,3493,3517,3527,3546,3551,3580,3659,3689-3690,3703,3737,3766,3784,3800-3801,3809,3814,3826-3828,3851,3869,3871,3878,3880,3889,3905,3914,3918,3920,3945,3971,3986,3995,3998,4000-4006,4045,4111,4125-4126,4129,4224,4242,4279,4321,4343,4443-4446,4449,4550,4567,4662,4848,4899-4900,4998,5000-5004,5009,5030,5033,5050-5051,5054,5060-5061,5080,5087,5100-5102,5120,5190,5200,5214,5221-5222,5225-5226,5269,5280,5298,5357,5405,5414,5431-5432,5440,5500,5510,5544,5550,5555,5560,5566,5631,5633,5666,5678-5679,5718,5730,5800-5802,5810-5811,5815,5822,5825,5850,5859,5862,5877,5900-5904,5906-5907,5910-5911,5915,5922,5925,5950,5952,5959-5963,5987-5989,5998-6007,6009,6025,6059,6100-6101,6106,6112,6123,6129,6156,6346,6389,6502,6510,6543,6547,6565-6567,6580,6646,6666-6669,6689,6692,6699,6779,6788-6789,6792,6839,6881,6901,6969,7000-7002,7004,7007,7019,7025,7070,7100,7103,7106,7200-7201,7402,7435,7443,7496,7512,7625,7627,7676,7741,7777-7778,7800,7911,7920-7921,7937-7938,7999-8002,8007-8011,8021-8022,8031,8042,8045,8080-8090,8093,8099-8100,8180-8181,8192-8194,8200,8222,8254,8290-8292,8300,8333,8383,8400,8402,8443,8500,8600,8649,8651-8652,8654,8701,8800,8873,8888,8899,8994,9000-9003,9009-9011,9040,9050,9071,9080-9081,9090-9091,9099-9103,9110-9111,9200,9207,9220,9290,9415,9418,9485,9500,9502-9503,9535,9575,9593-9595,9618,9666,9876-9878,9898,9900,9917,9929,9943-9944,9968,9998-10004,10009-10010,10012,10024-10025,10082,10180,10215,10243,10566,10616-10617,10621,10626,10628-10629,10778,11110-11111,11967,12000,12174,12265,12345,13456,13722,13782-13783,14000,14238,14441-14442,15000,15002-15004,15660,15742,16000-16001,16012,16016,16018,16080,16113,16992-16993,17877,17988,18040,18101,18988,19101,19283,19315,19350,19780,19801,19842,20000,20005,20031,20221-20222,20828,21571,22939,23502,24444,24800,25734-25735,26214,27000,27352-27353,27355-27356,27715,28201,30000,30718,30951,31038,31337,32768-32785,33354,33899,34571-34573,35500,38292,40193,40911,41511,42510,44176,44442-44443,44501,45100,48080,49152-49161,49163,49165,49167,49175-49176,49400,49999-50003,50006,50300,50389,50500,50636,50800,51103,51493,52673,52822,52848,52869,54045,54328,55055-55056,55555,55600,56737-56738,57294,57797,58080,60020,60443,61532,61900,62078,63331,64623,64680,65000,65129,65389"><table key="tcp">
+<elem key="open">21-22,80</elem>
+<elem key="closed">1,3-4,6-7,9,13,17,19-20,23-26,30,32-33,37,42-43,49,53,70,79,81-85,88-90,99-100,106,109-111,113,119,125,135,139,143-144,146,161,163,179,199,211-212,222,254-256,259,264,280,301,306,311,340,366,389,406-407,416-417,425,427,443-445,458,464-465,481,497,500,512-515,524,541,543-545,548,554-555,563,587,593,616-617,625,631,636,646,648,666-668,683,687,691,700,705,711,714,720,722,726,749,765,777,783,787,800-801,808,843,873,880,888,898,900-903,911-912,981,987,990,992-993,995,999-1002,1007,1009-1011,1021-1100,1102,1104-1108,1110-1114,1117,1119,1121-1124,1126,1130-1132,1137-1138,1141,1145,1147-1149,1151-1152,1154,1163-1166,1169,1174-1175,1183,1185-1187,1192,1198-1199,1201,1213,1216-1218,1233-1234,1236,1244,1247-1248,1259,1271-1272,1277,1287,1296,1300-1301,1309-1311,1322,1328,1334,1352,1417,1433-1434,1443,1455,1461,1494,1500-1501,1503,1521,1524,1533,1556,1580,1583,1594,1600,1641,1658,1666,1687-1688,1700,1717-1721,1723,1755,1761,1782-1783,1801,1805,1812,1839-1840,1862-1864,1875,1900,1914,1935,1947,1971-1972,1974,1984,1998-2010,2013,2020-2022,2030,2033-2035,2038,2040-2043,2045-2049,2065,2068,2099-2100,2103,2105-2107,2111,2119,2121,2126,2135,2144,2160-2161,2170,2179,2190-2191,2196,2200,2222,2251,2260,2288,2301,2323,2366,2381-2383,2393-2394,2399,2401,2492,2500,2522,2525,2557,2601-2602,2604-2605,2607-2608,2638,2701-2702,2710,2717-2718,2725,2800,2809,2811,2869,2875,2909-2910,2920,2967-2968,2998,3000-3001,3003,3005-3007,3011,3013,3017,3030-3031,3052,3071,3077,3128,3168,3211,3221,3260-3261,3268-3269,3283,3300-3301,3306,3322-3325,3333,3351,3367,3369-3372,3389-3390,3404,3476,3493,3517,3527,3546,3551,3580,3659,3689-3690,3703,3737,3766,3784,3800-3801,3809,3814,3826-3828,3851,3869,3871,3878,3880,3889,3905,3914,3918,3920,3945,3971,3986,3995,3998,4000-4006,4045,4111,4125-4126,4129,4224,4242,4279,4321,4343,4443-4446,4449,4550,4567,4662,4848,4899-4900,4998,5000-5004,5009,5030,5033,5050-5051,5054,5060-5061,5080,5087,5100-5102,5120,5190,5200,5214,5221-5222,5225-5226,5269,5280,5298,5357,5405,5414,5431-5432,5440,5500,5510,5544,5550,5555,5560,5566,5631,5633,5666,5678-5679,5718,5730,5800-5802,5810-5811,5815,5822,5825,5850,5859,5862,5877,5900-5904,5906-5907,5910-5911,5915,5922,5925,5950,5952,5959-5963,5987-5989,5998-6007,6009,6025,6059,6100-6101,6106,6112,6123,6129,6156,6346,6389,6502,6510,6543,6547,6565-6567,6580,6646,6666-6669,6689,6692,6699,6779,6788-6789,6792,6839,6881,6901,6969,7000-7002,7004,7007,7019,7025,7070,7100,7103,7106,7200-7201,7402,7435,7443,7496,7512,7625,7627,7676,7741,7777-7778,7800,7911,7920-7921,7937-7938,7999-8002,8007-8011,8021-8022,8031,8042,8045,8080-8090,8093,8099-8100,8180-8181,8192-8194,8200,8222,8254,8290-8292,8300,8333,8383,8400,8402,8443,8500,8600,8649,8651-8652,8654,8701,8800,8873,8888,8899,8994,9000-9003,9009-9011,9040,9050,9071,9080-9081,9090-9091,9099-9103,9110-9111,9200,9207,9220,9290,9415,9418,9485,9500,9502-9503,9535,9575,9593-9595,9618,9666,9876-9878,9898,9900,9917,9929,9943-9944,9968,9998-10004,10009-10010,10012,10024-10025,10082,10180,10215,10243,10566,10616-10617,10621,10626,10628-10629,10778,11110-11111,11967,12000,12174,12265,12345,13456,13722,13782-13783,14000,14238,14441-14442,15000,15002-15004,15660,15742,16000-16001,16012,16016,16018,16080,16113,16992-16993,17877,17988,18040,18101,18988,19101,19283,19315,19350,19780,19801,19842,20000,20005,20031,20221-20222,20828,21571,22939,23502,24444,24800,25734-25735,26214,27000,27352-27353,27355-27356,27715,28201,30000,30718,30951,31038,31337,32768-32785,33354,33899,34571-34573,35500,38292,40193,40911,41511,42510,44176,44442-44443,44501,45100,48080,49152-49161,49163,49165,49167,49175-49176,49400,49999-50003,50006,50300,50389,50500,50636,50800,51103,51493,52673,52822,52848,52869,54045,54328,55055-55056,55555,55600,56737-56738,57294,57797,58080,60020,60443,61532,61900,62078,63331,64623,64680,65000,65129,65389</elem>
+</table>
+</script><script id="qscan" output="&#xa;PORT  FAMILY  MEAN (us)  STDDEV     LOSS (%)&#xa;1     0       150143.80  192005.53  0.0%&#xa;21    0       125762.60  62432.54   0.0%&#xa;22    0       91441.10   56428.29   0.0%&#xa;80    0       138407.80  88430.32   0.0%&#xa;"/><script id="path-mtu" output="PMTU == 1500"/><script id="ipidseq" output="ERROR: Script execution failed (use -d to debug)"/></hostscript><times srtt="58653" rttvar="44716" to="237517"/>
+</host>
+<postscript><script id="reverse-index" output="&#xa;  21/tcp: 10.0.50.20&#xa;  22/tcp: 10.0.50.20&#xa;  80/tcp: 10.0.50.20"><table key="21/tcp">
+<elem>10.0.50.20</elem>
+</table>
+<table key="22/tcp">
+<elem>10.0.50.20</elem>
+</table>
+<table key="80/tcp">
+<elem>10.0.50.20</elem>
+</table>
+</script></postscript><runstats><finished time="1681923875" timestr="Wed Apr 19 17:04:35 2023" summary="Nmap done at Wed Apr 19 17:04:35 2023; 1 IP address (1 host up) scanned in 384.41 seconds" elapsed="384.41" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>

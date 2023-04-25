@@ -23,7 +23,6 @@ services:
       timeout: 15s
       retries: 5
 
-
   sirius-api:
     build: ./API/
     restart: always
@@ -32,10 +31,8 @@ services:
     volumes:
       - ./API:/api
     depends_on:
-      mongo:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
+      - mongo
+      - rabbitmq
 
   sirius-web:
     build: ./UI/
@@ -55,5 +52,4 @@ services:
     volumes:
       - ./Engine:/engine
     depends_on:
-      rabbitmq:
-        condition: service_healthy
+      - rabbitmq

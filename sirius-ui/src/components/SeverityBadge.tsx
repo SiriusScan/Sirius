@@ -1,0 +1,34 @@
+interface SeverityBadgeProps {
+  severity: string;
+}
+
+export const SeverityBadge: React.FC<SeverityBadgeProps> = ({ severity }) => {
+  console.log("SeverityBadge: severity: ", severity);
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case "Critical":
+        return "bg-red-700";
+      case "High":
+        return "bg-orange-700";
+      case "Medium":
+        return "bg-yellow-700";
+      case "Low":
+        return "bg-green-700";
+      case "Informational":
+        return "bg-blue-700";
+      default:
+        return "bg-gray-700";
+    }
+  };
+  //Force add tailwind styles (nextjs + tailwind won't automatically add style classes that are generated dynamically)
+  //bg-red-200 dark:bg-red-700 bg-orange-200 dark:bg-orange-700 bg-yellow-200 dark:bg-yellow-700 bg-green-200 dark:bg-green-700 bg-blue-200 dark:bg-blue-700
+  const color = getSeverityColor(severity);
+  console.log(color, severity);
+  return (
+    <span
+      className={`mr-1 rounded-md p-[.35rem] text-xs font-semibold text-white ${color}`}
+    >
+      {severity}
+    </span>
+  );
+};

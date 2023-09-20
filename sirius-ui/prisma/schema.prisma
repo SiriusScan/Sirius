@@ -3,6 +3,7 @@
 
 generator client {
     provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -49,13 +50,15 @@ model Session {
 
 model User {
     id            String    @id @default(cuid())
-    name          String?
+    name          String    @unique
+    password      String
     email         String?   @unique
     emailVerified DateTime?
     image         String?
     accounts      Account[]
     sessions      Session[]
 }
+
 
 model VerificationToken {
     identifier String

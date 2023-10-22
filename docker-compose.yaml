@@ -31,8 +31,10 @@ services:
     volumes:
       - ./API:/api
     depends_on:
-      - mongo
-      - rabbitmq
+      mongo:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
   sirius-web:
     build: ./UI/
@@ -52,4 +54,5 @@ services:
     volumes:
       - ./Engine:/engine
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy

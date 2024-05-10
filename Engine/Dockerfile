@@ -31,8 +31,8 @@ RUN cp nmap-os-db /usr/local/bin/../share/nmap/nmap-os-db
 
 WORKDIR /engine
 #DEV Dependencies
-RUN go install github.com/cosmtrek/air@latest
-
+#RUN go install github.com/cosmtrek/air@latest
+RUN curl -sSfL https://raw.githubusercontent.com/cosmtrek/air/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
 # Invoke air to run the server after volume mount
 ENTRYPOINT [ "air" ]  
 

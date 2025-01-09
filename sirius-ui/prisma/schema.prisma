@@ -21,6 +21,7 @@ model Example {
     updatedAt DateTime @updatedAt
 }
 
+
 // Necessary for Next auth
 model Account {
     id                String  @id @default(cuid())

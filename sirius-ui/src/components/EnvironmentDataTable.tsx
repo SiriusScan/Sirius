@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 
 import { Button } from "~/components/lib/ui/button";
 import { Input } from "~/components/lib/SearchInput";
@@ -59,9 +58,10 @@ export function EnvironmentDataTable<TData, TValue>({
   const [tableData, setTableData] = useState(data); // Replace data with your actual data
   const [originalData, setOriginalData] = useState(data); // Keep a copy of all rows for filtering
 
-  useEffect(() => {
-    setOriginalData(data); // Update originalData whenever data changes
-  }, [data]);
+  // Looks like I hand no idea about useQuery cache invalidation when I wrote this... leaving commented for now
+  // useEffect(() => {
+  //   setOriginalData(data); // Update originalData whenever data changes
+  // }, [data]);
 
   const handleSearch = (event) => {
     const searchValue = event.target.value.toLowerCase();
@@ -81,8 +81,12 @@ export function EnvironmentDataTable<TData, TValue>({
     setTableData(filteredRows);
   };
 
-  const handleRowClick = (ip) => {
-    router.push(`/host?id=${ip}`);
+  const handleRowClick = async (ip: string) => {
+    try {
+      await router.push(`/host?id=${ip}`);
+    } catch (error) {
+      console.error("Failed to navigate to the host page", error);
+    }
   };
 
   const table = useReactTable({

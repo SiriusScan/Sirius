@@ -48,7 +48,7 @@ export default function Home() {
           <meta name="description" content="The Sirius Vulnerability Scanner" />
           <link rel="icon" href="/sirius-logo-square.png" />
         </Head>
-        <div className="relative mt-[-35px] flex h-[450px] w-[450px] flex-col items-center rounded-lg rounded-xl border-2 border-[#f7c1ac]/40 bg-transparent px-4 py-6 text-white shadow-lg backdrop-blur-md">
+        <div className="relative mt-[-35px] flex h-[450px] w-[450px] flex-col items-center rounded-xl border-2 border-[#f7c1ac]/40 bg-transparent px-4 py-6 text-white shadow-lg backdrop-blur-md">
           <img src="/sirius-scan.png" alt="sirius-scan" className="h-[90px]" />
 
           <form onSubmit={handleLogin} className="w-full">

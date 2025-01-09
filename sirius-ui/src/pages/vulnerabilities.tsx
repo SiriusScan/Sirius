@@ -8,16 +8,42 @@ import {
 } from "~/components/VulnerabilityDataTableColumns";
 import { VulnerabilityDataTable } from "~/components/VulnerabilityDataTable";
 
+import { api } from "~/utils/api";
+
 type Props = {};
 
 const Vulnerabilities = (props: Props) => {
   const [darkMode, setDarkMode] = useState(false);
+  const [vulnerabilityList, setVulnerabilityList] = useState<
+    VulnerabilityTableData[]
+  >([]);
 
   const hexgradClass = darkMode ? "hexgrad" : "light-hexgrad";
   useEffect(() => {
     const isDark = window.localStorage.getItem("darkMode") === "true";
     setDarkMode(isDark);
   }, []);
+
+  // tRPC State Management
+  const { data: vuln } = api.vulnerability.getAllVulnerabilities.useQuery();
+  console.log(vuln);
+
+  useEffect(() => {
+    if (vuln) {
+      // Map vuln to VulnerabilityTableData
+      const vulnTableData: VulnerabilityTableData[] = vuln.map((v) => {
+        return {
+          cve: v.cve,
+          cvss: v.cvss,
+          description: v.description,
+          published: v.published,
+          severity: v.severity,
+          count: v.count,
+        };
+      });
+      setVulnerabilityList(vulnTableData);
+    }
+  }, [vuln]);
 
   return (
     <Layout>
@@ -30,7 +56,7 @@ const Vulnerabilities = (props: Props) => {
         <div className="m-auto justify-center">
           <VulnerabilitySeverityCardsHorizontal
             counts={{
-              critical: 12,
+              critical: 120,
               high: 7,
               medium: 15,
               low: 4,

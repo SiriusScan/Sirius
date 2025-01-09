@@ -97,7 +97,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           fill="none"
         />
       ),
-      href: "/scanner",
+      href: "/agent",
       current: false,
     },
   ];

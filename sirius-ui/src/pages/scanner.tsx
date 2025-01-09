@@ -13,6 +13,9 @@ import { Input } from "~/components/lib/ui/input";
 import { Button } from "~/components/lib/ui/button";
 import { Form } from "~/components/lib/ui/form";
 
+import { api } from "~/utils/api";
+import { sendMsg } from "~/utils/sirius";
+
 const Scanner: React.FC = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [targetList, setTargetList] = useState<string[]>([]);
@@ -43,9 +46,22 @@ const Scanner: React.FC = () => {
     }
   };
 
-  const startScan = () => {
+  // client-side code
+  const startScan = async () => {
     console.log("Starting scan...");
-    console.log("Targets: ", targetList);
+
+    for (const target of targetList) {
+      const payload = {
+        message: target,
+      };
+
+      try {
+        const response = await sendMsg(payload);
+        console.log("Scan started successfully:", response);
+      } catch (error) {
+        console.error("Failed to start scan:", error);
+      }
+    }
   };
 
   return (
@@ -74,7 +90,7 @@ const Scanner: React.FC = () => {
                 </Form>
                 <Button
                   className="mt-4 rounded-r-md border-violet-100/30 bg-violet-500 text-violet-100 hover:bg-violet-100 hover:text-black"
-                  onClick={() => startScan(inputValue)}
+                  onClick={startScan}
                 >
                   Start Scan
                 </Button>

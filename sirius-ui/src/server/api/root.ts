@@ -1,4 +1,7 @@
 import { exampleRouter } from "~/server/api/routers/example";
+import { hostRouter } from "~/server/api/routers/host";
+import { vulnerabilityRouter } from "~/server/api/routers/vulnerability";
+//import { queueRouter } from "~/server/api/routers/queue";
 import { createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -8,6 +11,9 @@ import { createTRPCRouter } from "~/server/api/trpc";
  */
 export const appRouter = createTRPCRouter({
   example: exampleRouter,
+  host: hostRouter,
+  vulnerability: vulnerabilityRouter,
+  //queue: queueRouter,
 });
 
 // export type definition of API

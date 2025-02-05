@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/SiriusScan/go-api/sirius/queue"
 	"github.com/gofiber/fiber/v2"
@@ -11,8 +10,6 @@ import (
 func AppHandler(c *fiber.Ctx) error {
 	// Get the app name from the URL parameter
 	appName := c.Params("appName")
-
-	fmt.Println("asdf")
 
 	// Get the message body from the POST request
 	var message map[string]interface{}
@@ -28,7 +25,7 @@ func AppHandler(c *fiber.Ctx) error {
 
 	// Send the message to the queue
 	if err := queue.Send(appName, messageStr); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to send message"})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to send message in queue"})
 	}
 
 	// Return a success response

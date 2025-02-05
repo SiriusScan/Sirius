@@ -1,39 +1,37 @@
-version: "3.9"
+name: sirius
 
 services:
-  mongo:
-    command: mongod --quiet --logpath /dev/null
-    image: mongo
+  sirius-rabbitmq:
+    image: rabbitmq:3.7.3-management
     restart: always
+    container_name: sirius-rabbitmq
+    hostname: sirius-rabbitmq
     ports:
-      - 27017:27017
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+       - ./rabbit-mq/rabbitmq.conf:/etc/rabbitmq.conf:ro
+    healthcheck:
+       test: ["CMD", "rabbitmqctl", "status"]
+       interval: 30s
+       timeout: 15s
+       retries: 5
 
-  #  rabbitmq:
-  #    image: rabbitmq:3-management
-  #    restart: always
-  #    logging:
-  #      driver: none
-  #    ports:
-  #      - 5672:5672
-  #      - 15672:15672
-  #    volumes:
-  #      - ./rabbit-mq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-  #    healthcheck:
-  #      test: ["CMD", "rabbitmqctl", "status"]
-  #      interval: 30s
-  #      timeout: 15s
-  #      retries: 5
+  sirius-libsql:
+    image: ghcr.io/tursodatabase/libsql-server:latest
+    restart: always
+    container_name: sirius-libsql
+    hostname: sirius-libsql
+    ports:
+      - "9010:8080"
 
-  # sirius-api:
-  #   build: ./sirius-api/
-  #   restart: always
-  #   ports:
-  #     - "8080:8080"
-  #   volumes:
-  #     - ./sirius-api:/api
-  #   depends_on:
-  #     - mongo
-  #     - rabbitmq
+  sirius-valkey:
+    image: valkey/valkey:latest
+    restart: always
+    container_name: sirius-valkey
+    hostname: sirius-valkey
+    ports:
+      - "6379:6379"
 
   sirius-ui:
     build:
@@ -41,18 +39,41 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_CLIENTVAR: "clientvar"
+    container_name: sirius-ui
+    hostname: sirius-ui
+    restart: always
+    image: sirius-ui
     working_dir: /app
     ports:
       - "3000:3000"
+      - "3001:3001"
     volumes:
       - ./sirius-ui:/app
-      - /ui/node_modules
-#  sirius-engine:
-#    build: ./sirius-engine/
-#    restart: always
-#    ports:
-#      - "5174:5174"
-#    volumes:
-#      - ./sirius-engine:/engine
-#    depends_on:
-#      - rabbitmq
+      - /app/node_modules
+
+  sirius-api:
+    build: ./sirius-api/
+    container_name: sirius-api
+    hostname: sirius-api
+    restart: always
+    image: sirius-api
+    ports:
+      - "9001:9001"
+    volumes:
+      - ./sirius-api:/api
+      - ../minor-projects/go-api:/go-api
+
+  sirius-engine:
+    build: ./sirius-engine/
+    container_name: sirius-engine
+    hostname: sirius-engine
+    restart: always
+    image: sirius-engine
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./sirius-engine:/engine
+      - ../minor-projects/go-api:/go-api
+      - ../minor-projects/app-scanner:/app-scanner
+    # depends_on:
+    #   - rabbitmq

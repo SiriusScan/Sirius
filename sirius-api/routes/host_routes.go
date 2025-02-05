@@ -20,3 +20,4 @@ func (h *HostRouteSetter) SetupRoutes(app *fiber.App) {
 	hostRoutes.Post("/delete", handlers.DeleteHost)
 	hostRoutes.Get("/vulnerabilities/all", handlers.GetAllVulnerabilities)
 }
+

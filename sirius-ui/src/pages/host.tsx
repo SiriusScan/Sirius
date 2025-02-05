@@ -65,15 +65,29 @@ const Host = () => {
     ]) ?? [];
 
   // Map Vulnerabilities to VulnTableRow
+  function determineSeverity(cvssScore: number) {
+    if (cvssScore >= 9.0) {
+      return "critical";
+    } else if (cvssScore >= 7.0) {
+      return "high";
+    } else if (cvssScore >= 4.0) {
+      return "medium";
+    } else if (cvssScore > 0) {
+      return "low";
+    } else {
+      return "informational";
+    }
+  }
   const vulnData = host?.vulnerabilities?.map((vuln) => ({
     id: vuln.vid,
-    severity: vuln.severity,
-    cvss: vuln.cvss,
-    cve: vuln.cve ?? "N/A",
+    severity: determineSeverity(vuln.riskScore),
+    cvss: vuln.riskScore,
+    cve: vuln.vid ?? "N/A",
     count: 1,
     description: vuln.description,
     published: vuln.published,
   })) as VulnTableRow[] ?? [];
+  
 
   const vulnStats = api.host.getHostStatistics.useQuery({ hid: "1" }) || [];
   const vulnMetrics = {

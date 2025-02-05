@@ -1,6 +1,7 @@
 import axios from "axios";
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { env } from "~/env.mjs";
 
 import {
   mockHostData,
@@ -10,7 +11,7 @@ import {
 
 // Create an axios instance
 const httpClient = axios.create({
-  baseURL: "http://127.0.0.1:9001/",
+  baseURL: env.SIRIUS_API_URL,
   timeout: 1000,
 });
 
@@ -58,7 +59,7 @@ type Service = {
 
 type Vulnerability = {
   vid: string;
-  cvss: number;
+  riskScore: number;
   cve?: string;
   description: string;
   published: string;
@@ -110,9 +111,9 @@ export const hostRouter = createTRPCRouter({
       // Call to Go API
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostList = response.data;
-      
+
       // Map SiriusHost[] to EnvironmentTableData[]
-      const tableData: EnvironmentTableData[] = hostList.map((host) => {
+      const tableData: EnvironmentTableData[] = hostList?.map((host) => {
         return {
           hostname: host.hostname,
           ip: host.ip,
@@ -122,10 +123,15 @@ export const hostRouter = createTRPCRouter({
           tags: host.tags ?? [],
         };
       });
-  
+
       // Optionally, if you want them in reverse order:
       // tableData.reverse();
-      return tableData;
+      if (tableData?.length > 0) {
+        return tableData;
+      } else {
+        return [];
+      }
+
       // return mockEnvironmentSummaryData;
     } catch (error) {
       // Handle the error accordingly

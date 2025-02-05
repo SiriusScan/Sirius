@@ -3,21 +3,18 @@ package handlers
 import (
 	"encoding/json"
 	"log"
-	"fmt"
 
+	"github.com/SiriusScan/go-api/nvd"
 	"github.com/SiriusScan/go-api/sirius"
 	"github.com/SiriusScan/go-api/sirius/host"
+	"github.com/SiriusScan/go-api/sirius/vulnerability"
+	"github.com/fatih/color"
 	"github.com/gofiber/fiber/v2"
 )
 
 // GetHost handles the GET /host/{id} route
 func GetHost(c *fiber.Ctx) error {
-	log.Println("Adding host")
-	
 	hostID := c.Params("id")
-
-	log.Println("WTFasdfsdds")
-	log.Println("Host ID:", hostID)
 
 	// Use your GetHost function from the host package
 	hostData, err := host.GetHost(hostID)
@@ -27,15 +24,12 @@ func GetHost(c *fiber.Ctx) error {
 		})
 	}
 
-	fmt.Printf("Host Data: ", hostData)
-
 	// Return the host data as JSON
 	return c.JSON(hostData)
 }
 
 // GetAllHosts handles the GET /host route
 func GetAllHosts(c *fiber.Ctx) error {
-	log.Println("Retrieving all hosts")
 	hosts, err := host.GetAllHosts()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -48,8 +42,10 @@ func GetAllHosts(c *fiber.Ctx) error {
 
 // GetAllVulnerabilities handles the GET /host/vulnerabilities route
 func GetAllVulnerabilities(c *fiber.Ctx) error {
+	// log.Println("Host_Handler: GetAllVulnerabilities")
 	vulnerabilities, err := host.GetAllVulnerabilities()
 	if err != nil {
+		log.Panicln("Error: Host_Handler => An error occured when executing the GetAllVulnerabilities proceedure (/host/vulnerabities route)")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Error getting vulnerabilities: " + err.Error(),
 		})
@@ -75,7 +71,45 @@ func AddHost(c *fiber.Ctx) error {
 			"error": "Error parsing request body: " + err.Error(),
 		})
 	}
-	log.Println("Adding host", newHost.IP)
+	color.Green("Adding Host: %s", newHost.IP)
+
+	// Check all host vulns to confirm that they all exist in the database. If they do not, add them.
+	// log.Println(newHost.Vulnerabilities)
+	for _, vuln := range newHost.Vulnerabilities {
+		if !vulnerability.CheckVulnerabilityExists(vuln.VID) {
+			log.Println("Vulnerability does not exist in database. Adding", vuln.VID)
+
+			cve, err := nvd.GetCVE(vuln.VID)
+			if err != nil {
+				log.Println("Failed to get CVE data for", vuln.VID)
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Failed to get CVE data for " + vuln.VID,
+				})
+			}
+			// riskScore := sirius.RiskScore{
+			// 	CVSSV3: sirius.BaseMetricV3{
+			// 		CVSSV3: sirius.CVSSV3{
+			// 			BaseScore: cve.Metrics.CvssMetricV31[0].CvssData.BaseScore,
+			// 		},
+			// 	},
+			// }
+			//
+
+			vuln = sirius.Vulnerability{
+				VID:         vuln.VID,
+				Description: cve.Descriptions[0].Value,
+				Title:       cve.ID,
+				RiskScore:   cve.Metrics.CvssMetricV31[0].CvssData.BaseScore,
+			}
+
+			err = vulnerability.AddVulnerability(vuln)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": "Error adding vulnerability: " + err.Error(),
+				})
+			}
+		}
+	}
 
 	err = host.AddHost(newHost)
 	if err != nil {

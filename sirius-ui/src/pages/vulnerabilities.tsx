@@ -10,9 +10,7 @@ import { VulnerabilityDataTable } from "~/components/VulnerabilityDataTable";
 
 import { api } from "~/utils/api";
 
-type Props = {};
-
-const Vulnerabilities = (props: Props) => {
+const Vulnerabilities = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [vulnerabilityList, setVulnerabilityList] = useState<
     VulnerabilityTableData[]
@@ -33,12 +31,12 @@ const Vulnerabilities = (props: Props) => {
       // Map vuln to VulnerabilityTableData
       const vulnTableData: VulnerabilityTableData[] = vuln.map((v) => {
         return {
-          cve: v.cve,
-          cvss: v.cvss,
+          cve: v.vid,
+          cvss: v.riskScore,
           description: v.description,
           published: v.published,
           severity: v.severity,
-          count: v.count,
+          count: v.hostCount,
         };
       });
       setVulnerabilityList(vulnTableData);

@@ -1,24 +1,24 @@
-FROM node:16-alpine3.17
+# sirius-ui Dockerfile
+
+FROM oven/bun:latest
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY package*.json ./
+COPY package*.json bun.lockb ./
 COPY .env ./
-RUN npm install
+COPY prisma ./prisma
+RUN bun install
+
+RUN bunx prisma generate
 
 # Bundle app source
 COPY . /app
-
-# Copy Prisma schema file
-COPY prisma/schema.prisma ./prisma/schema.prisma
-# Generate Prisma Client
-RUN npx prisma generate
 
 # Set the environment variable to skip environment variable validation
 ENV SKIP_ENV_VALIDATION=1
 
 # Run the development server
-CMD ["npm", "run", "dev"]
+CMD ["bun", "run", "dev"]
 
 EXPOSE 3000
 EXPOSE 3001

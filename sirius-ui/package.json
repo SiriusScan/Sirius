@@ -78,5 +78,8 @@
   },
   "ct3aMetadata": {
     "initVersion": "7.18.0"
+  },
+  "prisma": {
+    "seed": "bun prisma/seed.ts"
   }
 }

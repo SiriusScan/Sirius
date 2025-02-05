@@ -9,7 +9,9 @@ COPY .env ./
 COPY prisma ./prisma
 RUN bun install
 
-RUN bunx prisma generate
+# RUN bunx prisma generate
+# RUN bunx prisma db push
+# RUN bunx prisma db seed
 
 # Bundle app source
 COPY . /app

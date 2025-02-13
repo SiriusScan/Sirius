@@ -9,7 +9,7 @@ To run Sirius clone this repository and invoke the containers with `docker-compo
 ```
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
-docker-compose up
+docker compose up
 ```
 
 ### Logging in

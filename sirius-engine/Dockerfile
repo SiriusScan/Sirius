@@ -32,8 +32,8 @@ RUN cargo install --git https://github.com/RustScan/RustScan.git --branch master
 WORKDIR /
 RUN git clone https://github.com/SiriusScan/app-scanner.git
 RUN git clone https://github.com/SiriusScan/go-api.git
-WORKDIR /app-scanner
-RUN go build -o /engine/apps/bin/scanner main.go
+# WORKDIR /app-scanner
+# RUN go build -o /engine/apps/bin/scanner main.go
 
 WORKDIR /app-scanner
 #DEV Dependencies

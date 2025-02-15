@@ -5,10 +5,10 @@ go 1.22.0
 toolchain go1.23.5
 
 //replace github.com/SiriusScan/go-api => ../../minor-project/go-api
-replace github.com/SiriusScan/go-api => /go-api
+//replace github.com/SiriusScan/go-api => /go-api
 
 require (
-	github.com/SiriusScan/go-api v0.0.2
+	github.com/SiriusScan/go-api v0.0.3
 	github.com/fatih/color v1.18.0
 	github.com/gofiber/fiber/v2 v2.49.2
 )

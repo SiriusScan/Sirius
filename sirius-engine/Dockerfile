@@ -26,7 +26,7 @@ RUN cp nmap-os-db /usr/local/bin/../share/nmap/nmap-os-db
 WORKDIR /tmp
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN wget cargo install --git https://github.com/RustScan/RustScan.git --branch master
+RUN cargo install --git https://github.com/RustScan/RustScan.git --branch master
 
 
 WORKDIR /

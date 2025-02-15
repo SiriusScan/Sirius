@@ -40,6 +40,6 @@ WORKDIR /app-scanner
 RUN go install github.com/air-verse/air@latest
 
 # Invoke air to run the server after volume mount
-CMD ["air", "-c", ".air.toml"]
+CMD ["air", "."]
 
 EXPOSE 5672

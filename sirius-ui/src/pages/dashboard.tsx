@@ -1,5 +1,3 @@
-import { map } from "@trpc/server/observable";
-import { getSession, signIn, signOut, useSession } from "next-auth/react";
 import React, { useEffect, useState } from "react";
 import DashNumberCard from "~/components/DashNumberCard";
 import Layout from "~/components/Layout";
@@ -11,12 +9,31 @@ import AgentIcon from "~/components/icons/AgentIcon";
 import { api } from "~/utils/api";
 import { VulnerabilitySeverityCardsVertical } from "~/components/VulnerabilitySeverityCards";
 import { ScanBar } from "~/components/ScanBar";
-import VulnerabilityTableBasic from "~/components/VulnerabilityTableBasic";
+import DataTable, { type ColumnDefinition } from "~/components/VulnerabilityTableBasic";
+import {
+  type ScanResult,
+  type VulnerabilitySummary,
+  ScanStatus,
+  type VulnerabilitySeverityCardsProps,
+} from "~/components/scanner/ScanStatus";
+import { SeverityBadge } from "~/components/SeverityBadge";
+import { render } from "react-dom";
+import { ThreatBar } from "~/components/vulnerabilityReport/ThreatBar";
 
-type Props = {};
+function b64Decode(base64String: string) {
+  if (!base64String) {
+    return null;
+  }
+  try {
+    const decodedString = atob(base64String);
+    return JSON.parse(decodedString) as ScanResult;
+  } catch (error) {
+    console.error("Failed to decode Base64 JSON:", error);
+    return null;
+  }
+}
 
-//Hardcoded data for VulnerabilityTableBasic => Pull from API response in future
-const latestVulnerabilityData = [
+const mockVulnerabilityData = [
   {
     id: 1,
     name: "Cross-Site Scripting",
@@ -41,15 +58,36 @@ const latestVulnerabilityData = [
     severity: "High",
     dateFound: "2023-07-10",
   },
-  // ... more data
 ];
 
-const Dashboard = (props: Props) => {
-  // Dummy data for DashNumberCard
-  const data = [
+
+const Dashboard = () => {
+  const { data: hosts } = api.host.getAllHosts.useQuery();
+  const { data: latestScan } = api.store.getValue.useQuery({ key: "currentScan" });
+  const scanResults = b64Decode(latestScan ?? "")!;
+  
+  const { data: vuln } = api.vulnerability.getAllVulnerabilities.useQuery();
+  const severityCount = {
+    critical: vuln?.filter((v) => v.severity === "critical").length ?? 0,
+    high: vuln?.filter((v) => v.severity === "high").length ?? 0,
+    medium: vuln?.filter((v) => v.severity === "medium").length ?? 0,
+    low: vuln?.filter((v) => v.severity === "low").length ?? 0,
+    informational: vuln?.filter((v) => v.severity === "informational")
+      .length ?? 0,
+  }
+
+  const assetSummary = [
+    {
+      title: "Hosts",
+      number: scanResults?.hosts.length,
+      color: "blue",
+      icon: (
+        <HostsIcon className="h-4 w-4 fill-gray-700 text-white" fill="white" />
+      ),
+    },
     {
       title: "Vulnerabilities",
-      number: 1082,
+      number: scanResults?.vulnerabilities.length,
       color: "red",
       icon: (
         <VulnerabilityIcon
@@ -59,16 +97,8 @@ const Dashboard = (props: Props) => {
       ),
     },
     {
-      title: "Hosts",
-      number: 134,
-      color: "blue",
-      icon: (
-        <HostsIcon className="h-4 w-4 fill-gray-700 text-white" fill="white" />
-      ),
-    },
-    {
       title: "Agents",
-      number: 56,
+      number: 0,
       color: "#1ff498",
       icon: <AgentIcon className="h-4 w-4 text-white" fill="none" />,
     },
@@ -82,22 +112,14 @@ const Dashboard = (props: Props) => {
   }, []);
 
   const hexgradClass = darkMode ? "hexgrad" : "light-hexgrad";
-
+  
   return (
     <Layout>
       <div className="relative z-20 mb-5 h-56">
         <div className={hexgradClass} key={hexgradClass}></div>
-        <div className="z-10 flex flex-row items-center">
-          <DashboardIcon className="ml-4 mt-7 flex dark:fill-white" />
-          <h1 className="ml-3 mt-5 flex text-4xl font-extralight ">
-            Dashboard
-          </h1>
-          <div className="ml-12 mt-3 min-w-[300px]">
-            <ScanBar progress={55} />
-          </div>
-        </div>
+        <DashboardHeader />
         <div className="ml-4 mt-6 flex gap-8">
-          {data.map((item) => (
+          {assetSummary.map((item) => (
             <DashNumberCard
               key={item.title}
               title={item.title}
@@ -108,38 +130,93 @@ const Dashboard = (props: Props) => {
           ))}
         </div>
       </div>
-      <div className="flex flex-row">
+      {/* <div className="flex flex-row">
         <VulnerabilitiesOverTimeChart />
-      </div>
+      </div> */}
 
       <div className="mb-8 mt-[-30px] flex flex-row">
         <VulnerabilitySeverityCardsVertical
           counts={{
-            critical: 12,
-            high: 7,
-            medium: 15,
-            low: 4,
-            informational: 10,
+            critical: severityCount.critical,
+            high: severityCount.high,
+            medium: severityCount.medium,
+            low: severityCount.low,
+            informational: severityCount.informational,
           }}
         />
-        <VulnerabilityTableBasic
-          title="Latest Vulnerabilities"
-          data={latestVulnerabilityData}
-        />
-        <VulnerabilityTableBasic
-          title="Top Threats"
-          data={latestVulnerabilityData}
-        />
+
+        <HostVulnOverview scanResults={scanResults} />
+
       </div>
-      <div className="mb-8 ml-4 border-b border-violet-100/20 pb-2">
+      {/* <div className="mb-8 ml-4 border-b border-violet-100/20 pb-2">
         <span className="text-2xl font-extralight">Environment Overview</span>
-      </div>
-      <EnvironmentOverview />
+      </div> */}
+      {/* <EnvironmentOverview /> */}
     </Layout>
   );
 };
 
 export default Dashboard;
+
+interface HostVulnOverviewProps {
+  scanResults: ScanResult;
+}
+
+const HostVulnOverview: React.FC<HostVulnOverviewProps> = ({ scanResults }) => {
+  interface Vulnerability {
+    name: string;
+    severity: string;
+    dateFound: string;
+  }
+  const vulnerabilityColumns: ColumnDefinition<Vulnerability>[] = [
+    {
+      header: "Name",
+      accessor: "name",
+    },
+    {
+      header: "Severity",
+      render: (vuln) => <SeverityBadge severity={vuln.severity} />,
+    },
+    {
+      header: "Date Found",
+      accessor: "dateFound",
+    },
+  ];
+  const vulnerabilities: Vulnerability[] =
+      scanResults?.vulnerabilities
+        ?.slice(0, 5)
+        .map((vulnerability) => ({
+          name: vulnerability.title,
+          severity: vulnerability.severity,
+          dateFound: scanResults.status,
+        })) ?? [];
+
+      
+
+  return (
+    <>
+      <DataTable
+        title="Latest Vulnerabilities"
+        data={vulnerabilities}
+        columns={vulnerabilityColumns}
+      />
+    </>
+  );
+};
+
+
+
+const DashboardHeader = () => {
+  return (
+    <div className="z-10 flex flex-row items-center">
+      <DashboardIcon className="ml-4 mt-7 flex dark:fill-white" />
+      <h1 className="ml-3 mt-5 flex text-4xl font-extralight ">Dashboard</h1>
+      {/* <div className="ml-12 mt-3 min-w-[300px]">
+        <ScanBar hosts={100} hostsCompleted={80} />
+      </div> */}
+    </div>
+  );
+};
 
 const EnvironmentOverview = () => {
   return (

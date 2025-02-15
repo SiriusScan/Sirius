@@ -55,7 +55,7 @@ export function EnvironmentDataTable<TData, TValue>({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState({});
-  const [tableData, setTableData] = useState(data); // Replace data with your actual data
+  const [tableData, setTableData] = useState<Array<TData>>(data ?? []);
   const [originalData, setOriginalData] = useState(data); // Keep a copy of all rows for filtering
 
   // Looks like I hand no idea about useQuery cache invalidation when I wrote this... leaving commented for now
@@ -116,6 +116,8 @@ export function EnvironmentDataTable<TData, TValue>({
     count: "2%",
     actions: "1%",
   };
+  
+  const rowModel = table?.getRowModel?.() || { rows: [] };
 
   return (
     <div>
@@ -176,8 +178,8 @@ export function EnvironmentDataTable<TData, TValue>({
           </TableHeader>
 
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
+            {rowModel?.rows?.length ? (
+              rowModel.rows.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}

@@ -7,7 +7,12 @@ interface ScanBarProps {
 export const ScanBar: React.FC<ScanBarProps> = ({ hosts, hostsCompleted }) => {
   const [darkMode, setDarkMode] = useState(false);
   
-  const progress = hosts > 0 ? (hostsCompleted / (hosts*2)) * 100 : 0;
+  let progress = hosts > 0 ? (hostsCompleted / (hosts)) * 100 : 0;
+  if (hosts == 0) {
+    progress = 10;
+  } else if (hosts  == 1 && hostsCompleted < hosts) {
+    progress = 20;
+  }
   const gradientColors = darkMode
     ? "linear-gradient(90deg, #2c3e50, #4ca1af)"
     : "linear-gradient(90deg, #38bdf8, #0369a1)";
@@ -32,7 +37,7 @@ export const ScanBar: React.FC<ScanBarProps> = ({ hosts, hostsCompleted }) => {
           className={`absolute h-3 rounded ${scanningClass}`}
         />
       </div>
-      <div className="mt-3 flex flex-col text-center">Scanning {(hostsCompleted/2)}/{hosts} Hosts</div>
+      <div className="mt-3 flex flex-col text-center">Scanning {(hostsCompleted)}/{hosts} Hosts</div>
     </div>
   );
 };

@@ -5,16 +5,16 @@ interface SeverityBadgeProps {
 export const SeverityBadge: React.FC<SeverityBadgeProps> = ({ severity }) => {
   // console.log("SeverityBadge: severity: ", severity);
   const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case "Critical":
+    switch (severity?.toLowerCase()) {
+      case "critical":
         return "bg-red-700";
-      case "High":
+      case "high":
         return "bg-orange-700";
-      case "Medium":
+      case "medium":
         return "bg-yellow-700";
-      case "Low":
+      case "low":
         return "bg-green-700";
-      case "Informational":
+      case "informational":
         return "bg-blue-700";
       default:
         return "bg-gray-700";

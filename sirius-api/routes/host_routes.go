@@ -19,5 +19,8 @@ func (h *HostRouteSetter) SetupRoutes(app *fiber.App) {
 	hostRoutes.Post("/", handlers.AddHost)
 	hostRoutes.Post("/delete", handlers.DeleteHost)
 	hostRoutes.Get("/vulnerabilities/all", handlers.GetAllVulnerabilities)
+	hostRoutes.Get("/statistics/:id", handlers.GetHostStatistics)
+	hostRoutes.Get("/severity/:id", handlers.GetHostVulnerabilitySeverityCounts)
+	
 }
 

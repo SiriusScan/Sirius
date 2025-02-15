@@ -84,7 +84,7 @@ export type ScanResult = {
   id: string;
   status: string;
   targets: string[];
-  hosts: string[];
+  hosts: string[]; // Prob not right
   hostsCompleted: number;
   vulnerabilities: VulnerabilitySummary[];
 };
@@ -109,7 +109,7 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({ results }) => {
     {}
   );
   return (
-    <div className=" rounded border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
+    <div className="">
       <div className="flex items-center gap-4">
         <div className="flex w-[800px] items-center gap-10">
           <VulnerabilitySeverityCards
@@ -121,14 +121,14 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({ results }) => {
               informational: severityCounts?.informational ?? 0,
             }}
           />
-          <ScanBar hosts={results?.hosts.length} hostsCompleted={results?.hostsCompleted} />
+          <ScanBar hosts={results?.hosts?.length} hostsCompleted={results?.hostsCompleted} />
         </div>
         
       </div>
       <div className="mt-2 flex gap-6 p-4">
         <div className="flex flex-col border-r border-violet-100/40 pr-6">
           <div className="text-xs font-light text-violet-100">Hosts</div>
-          <div className="mt-2 text-5xl font-light text-violet-100">{results?.hosts.length}</div>
+          <div className="mt-2 text-5xl font-light text-violet-100">{results?.hosts?.length}</div>
         </div>
         <div className="flex flex-col border-r border-violet-100/40 pr-6">
           <div className="text-xs font-light text-violet-100">

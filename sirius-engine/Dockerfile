@@ -26,7 +26,8 @@ RUN cp nmap-os-db /usr/local/bin/../share/nmap/nmap-os-db
 WORKDIR /tmp
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN wget https://github.com/RustScan/RustScan/releases/download/2.3.0/rustscan-2.3.0-x86_64-linux.tar.xz
+RUN wget cargo install --git https://github.com/RustScan/RustScan.git --branch master
+
 
 WORKDIR /
 RUN git clone https://github.com/SiriusScan/app-scanner.git

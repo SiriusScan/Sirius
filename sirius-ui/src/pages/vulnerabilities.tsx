@@ -9,6 +9,7 @@ import {
 import { VulnerabilityDataTable } from "~/components/VulnerabilityDataTable";
 
 import { api } from "~/utils/api";
+import { type ScanResult } from "~/components/scanner/ScanStatus";
 
 const Vulnerabilities = () => {
   const [darkMode, setDarkMode] = useState(false);
@@ -25,6 +26,15 @@ const Vulnerabilities = () => {
   // tRPC State Management
   const { data: vuln } = api.vulnerability.getAllVulnerabilities.useQuery();
   console.log(vuln);
+  
+  const severityCount = {
+    critical: vuln?.filter((v) => v.severity === "critical").length ?? 0,
+    high: vuln?.filter((v) => v.severity === "high").length ?? 0,
+    medium: vuln?.filter((v) => v.severity === "medium").length ?? 0,
+    low: vuln?.filter((v) => v.severity === "low").length ?? 0,
+    informational: vuln?.filter((v) => v.severity === "informational")
+      .length ?? 0,
+  }
 
   useEffect(() => {
     if (vuln) {
@@ -54,11 +64,11 @@ const Vulnerabilities = () => {
         <div className="m-auto justify-center">
           <VulnerabilitySeverityCardsHorizontal
             counts={{
-              critical: 120,
-              high: 7,
-              medium: 15,
-              low: 4,
-              informational: 10,
+              critical: severityCount.critical,
+              high: severityCount.high,
+              medium: severityCount.medium,
+              low: severityCount.low,
+              informational: severityCount.informational,
             }}
           />
         </div>
@@ -254,3 +264,16 @@ const vulnerabilityList: VulnerabilityTableData[] = [
     count: 1,
   },
 ];
+
+function b64Decode(base64String: string) {
+  if (!base64String) {
+    return null;
+  }
+  try {
+    const decodedString = atob(base64String);
+    return JSON.parse(decodedString) as ScanResult;
+  } catch (error) {
+    console.error("Failed to decode Base64 JSON:", error);
+    return null;
+  }
+}

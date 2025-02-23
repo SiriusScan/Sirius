@@ -61,7 +61,7 @@ services:
       - "9001:9001"
     volumes:
       - ./sirius-api:/api
-      # - ../minor-projects/go-api:/go-api
+      - ../minor-projects/go-api:/go-api # Local Development
 
   sirius-engine:
     build: ./sirius-engine/
@@ -73,7 +73,8 @@ services:
       - "5174:5174"
     volumes:
       - ./sirius-engine:/engine
-      # - ../minor-projects/go-api:/go-api
-      # - ../minor-projects/app-scanner:/app-scanner
+      - ../minor-projects/go-api:/go-api # Local Development
+      - ../minor-projects/app-scanner:/app-scanner # Local Development
+      - ../minor-projects/app-terminal:/app-terminal # Local Development
     # depends_on:
     #   - rabbitmq

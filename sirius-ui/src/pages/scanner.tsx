@@ -11,9 +11,13 @@ import {
   type VulnerabilityTableData,
 } from "~/types/scanTypes";
 import { useScanResults } from "~/hooks/useScanResults";
-import { useStartScan } from "~/hooks/useStartScan"; // Updated import
+import { useStartScan } from "~/hooks/useStartScan";
 import ScanForm from "~/components/scanner/ScanForm";
 import { Button } from "~/components/lib/ui/button";
+import { type TargetType } from "~/hooks/useStartScan";
+import { TemplatePicker } from "~/components/scanner/TemplatePicker";
+import { TargetInput } from "~/components/scanner/TargetInput";
+import { type ScanTemplate } from "~/types/scanTypes";
 
 interface ScanNavigatorProps {
   handleViewNavigator: (view: string) => void;
@@ -53,7 +57,6 @@ const Scanner: React.FC = () => {
   const [activeTable, setActiveTable] = useState<"host-table" | "vuln-table">(
     "host-table"
   );
-  const [darkMode, setDarkMode] = useState(false);
   const [targets, setTargets] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [hostList, setHostList] = useState<EnvironmentTableData[]>([]);
@@ -61,20 +64,21 @@ const Scanner: React.FC = () => {
     VulnerabilityTableData[]
   >([]);
   const [displayScanDetails, setDisplayScanDetails] = useState(true);
-
-  const { scanResult, hosts, vulnerabilities, scanStatusQuery } = useScanResults();
-    const startScanForTarget = useStartScan(); 
+  const [target, setTarget] = useState("");
+  const { initiateScan, isLoading, error } = useStartScan();
+  const scanResults = useScanResults();
+  const [selectedTemplate, setSelectedTemplate] = useState<ScanTemplate>("quick");
 
   // Update table data based on live scan results.
   useEffect(() => {
-    if (hosts.length === 0) {
+    if (scanResults.hosts.length === 0) {
       setHostList([]);
       setVulnerabilityList([]);
       return;
     }
 
     // Map hosts into table data
-    const mappedHosts = hosts.map((host) => ({
+    const mappedHosts = scanResults.hosts.map((host) => ({
       hostname: host,
       ip: host,
       os: "linux",
@@ -85,7 +89,7 @@ const Scanner: React.FC = () => {
     setHostList(mappedHosts);
 
     // Map vulnerabilities into table data
-    const mappedVulnerabilities = vulnerabilities.map((vuln) => ({
+    const mappedVulnerabilities = scanResults.vulnerabilities.map((vuln) => ({
       cve: vuln.title,
       cvss: 0,
       description: vuln.description,
@@ -94,64 +98,91 @@ const Scanner: React.FC = () => {
       count: 0,
     }));
     setVulnerabilityList(mappedVulnerabilities);
-  }, [hosts, vulnerabilities]);
+  }, [scanResults.hosts, scanResults.vulnerabilities]);
 
-  // Handler to start scan (iterating over targets)
-  const startScan = useCallback(async () => {
-    setHostList([]);
-    setVulnerabilityList([]);
-    setDisplayScanDetails(true);
-
-    for (const target of targets) {
-      try {
-        await startScanForTarget(target);
-        console.log("Scan started for target:", target);
-      } catch (error) {
-        console.error("Scan start error:", error);
+  const handleScan = async () => {
+    try {
+      if (!targets.length) {
+        throw new Error("No targets specified");
       }
+
+      await initiateScan(
+        targets.map(target => ({
+          value: target,
+          type: determineTargetType(target)
+        })),
+        selectedTemplate
+      );
+    } catch (err) {
+      console.error("Scan failed:", err);
     }
-  }, [targets, startScanForTarget]);
+  };
 
-  const addTarget = useCallback((newTarget: string) => {
-    setTargets((prev) =>
-      prev.includes(newTarget) ? prev : [...prev, newTarget]
-    );
-  }, []);
+  const determineTargetType = (value: string): TargetType => {
+    // CIDR pattern (e.g., 192.168.1.0/24)
+    const cidrPattern = /^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+    
+    // IP Range pattern (e.g., 192.168.1.1-192.168.1.255)
+    const ipRangePattern = /^(?:\d{1,3}\.){3}\d{1,3}-(?:\d{1,3}\.){3}\d{1,3}$/;
+    
+    // Single IP pattern
+    const singleIpPattern = /^(?:\d{1,3}\.){3}\d{1,3}$/;
 
-  useEffect(() => {
-    const isDark = window.localStorage.getItem("darkMode") === "true";
-    setDarkMode(isDark);
-  }, []);
+    if (cidrPattern.test(value)) {
+      return "cidr";
+    }
+    
+    if (ipRangePattern.test(value)) {
+      return "ip_range";
+    }
+    
+    if (singleIpPattern.test(value)) {
+      return "single_ip";
+    }
 
-  const hexgradClass = darkMode ? "hexgrad" : "light-hexgrad";
+    // If none of the above, assume it's a DNS name
+    return "dns_name";
+  };
+
 
   const handleViewChange = useCallback((newView: string) => {
     setActiveView(newView);
   }, []);
 
+  const handleAddTarget = (target: string) => {
+    setTargets([...targets, target]);
+  };
+
+  const handleRemoveTarget = (target: string) => {
+    setTargets(targets.filter(t => t !== target));
+  };
+
   return (
     <Layout>
       <div className="relative z-20 mb-5 mt-[-40px] h-56">
-        <div className={hexgradClass} />
         <div className="z-10 flex flex-row items-center">
           <div className="bg-paper ml-8 mt-4 flex flex-col gap-4 rounded-md">
             <ScanForm
               inputValue={inputValue}
               setInputValue={setInputValue}
               targetList={targets}
-              addTarget={addTarget}
-              startScan={startScan}
+              addTarget={handleAddTarget}
+              removeTarget={handleRemoveTarget}
+              startScan={handleScan}
+              selectedTemplate={selectedTemplate}
+              setSelectedTemplate={setSelectedTemplate}
             />
             <ScanNavigator
               view={activeView}
               handleViewNavigator={handleViewChange}
             />
+
             <div className="py-4">
               {activeView === "scan" && (
                 <>
                   <div className="rounded border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
-                    {scanResult ? (
-                      <ScanStatus results={scanResult} />
+                    {scanResults.scanResult ? (
+                      <ScanStatus results={scanResults.scanResult} />
                     ) : (
                       <div>Loading scan status…</div>
                     )}

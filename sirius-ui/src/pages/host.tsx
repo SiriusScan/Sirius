@@ -125,7 +125,6 @@ const Host = () => {
     };
   }, [vulnStats]);
 
-  const hexgradClass = "hexgrad";
   const userHeaders = ["Username", "Type", "Details"];
 
   const handleViewNavigator = useCallback((view: string) => {
@@ -164,7 +163,6 @@ const Host = () => {
   return (
     <Layout>
       <div className="relative z-20 mb-5 h-56">
-        <div className={hexgradClass}></div>
         <div className="z-10 flex flex-row items-center">
           <div className="ml-4 mt-7 flex dark:fill-white">{osIcon}</div>
           <h1 className="ml-3 mt-5 flex text-4xl font-extralight">

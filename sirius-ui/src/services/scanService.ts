@@ -1,22 +1,32 @@
 // src/services/scanService.ts
 import { api } from "~/utils/api";
 import { type ScanResult } from "~/types/scanTypes";
+import type { ScanRequest } from "../hooks/useStartScan";
 
-export async function startScanForTarget(target: string) {
-  const { mutateAsync: sendMessage } = api.queue.sendMsg.useMutation();
-  const { mutateAsync: updateScan } = api.store.setValue.useMutation();
+export const startScan = async (request: ScanRequest) => {
+  const utils = api.useContext();
+  const sendMessage = api.queue.sendMsg.useMutation();
+  const updateScan = api.store.setValue.useMutation();
 
-  const message = JSON.stringify({ message: target });
-  await sendMessage({ message, queue: "scan" });
+  const message = JSON.stringify(request);
+  await sendMessage.mutateAsync({ message, queue: "scan" });
 
   const scan: ScanResult = {
-    id: "1",
+    id: request.id,
     status: "running",
-    targets: [target],
+    targets: request.targets.map(t => t.value),
     hosts: [],
     hostsCompleted: 0,
     vulnerabilities: [],
   };
 
-  await updateScan({ key: "currentScan", value: btoa(JSON.stringify(scan)) });
-}
+  await updateScan.mutateAsync({
+    key: "currentScan",
+    value: btoa(JSON.stringify(scan))
+  });
+
+  // Invalidate queries if needed
+  await utils.store.getValue.invalidate();
+};
+
+export type { ScanRequest, ScanResult };

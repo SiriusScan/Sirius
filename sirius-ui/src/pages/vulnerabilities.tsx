@@ -9,19 +9,12 @@ import {
 import { VulnerabilityDataTable } from "~/components/VulnerabilityDataTable";
 
 import { api } from "~/utils/api";
-import { type ScanResult } from "~/components/scanner/ScanStatus";
+import { type ScanResult } from "~/types/scanTypes";
 
 const Vulnerabilities = () => {
-  const [darkMode, setDarkMode] = useState(false);
   const [vulnerabilityList, setVulnerabilityList] = useState<
     VulnerabilityTableData[]
   >([]);
-
-  const hexgradClass = darkMode ? "hexgrad" : "light-hexgrad";
-  useEffect(() => {
-    const isDark = window.localStorage.getItem("darkMode") === "true";
-    setDarkMode(isDark);
-  }, []);
 
   // tRPC State Management
   const { data: vuln } = api.vulnerability.getAllVulnerabilities.useQuery();
@@ -55,7 +48,6 @@ const Vulnerabilities = () => {
 
   return (
     <Layout>
-      <div className={hexgradClass} key={hexgradClass}></div>
       <div className="z-10 mb-10 flex flex-row items-center">
         <VulnerabilityIcon className="ml-4 flex" />
         <h1 className="ml-3 flex text-4xl font-extralight ">

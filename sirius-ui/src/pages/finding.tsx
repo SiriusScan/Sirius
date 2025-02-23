@@ -18,7 +18,6 @@ import { type SiriusVulnerability } from "~/server/api/routers/vulnerability";
 import { api } from "~/utils/api";
 
 const Finding = () => {
-  const [darkMode, setDarkMode] = useState(false);
   const [siriusVuln, setSiriusVuln] = useState<SiriusVulnerability>();
   const [isMobile, setIsMobile] = useState(false);
 
@@ -39,12 +38,7 @@ const Finding = () => {
     setSiriusVuln(vuln);
   }, [vuln]);
 
-  useEffect(() => {
-    const isDark = window.localStorage.getItem("darkMode") === "true";
-    setDarkMode(isDark);
-  }, []);
 
-  const hexgradClass = darkMode ? "hexgrad" : "light-hexgrad";
   if (isLoading) {
     return <div>Loading...</div>; // Loading state handler
   }
@@ -59,7 +53,6 @@ const Finding = () => {
   return (
     <Layout>
       <div className="relative z-20 mb-5 h-56">
-        <div className={hexgradClass} key={hexgradClass}></div>
         <div className="mb-2 mt-2 max-w-min rounded-md border-violet-700/10 p-2 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
           {siriusVuln?.cve ? (
             <ReportBody siriusVuln={siriusVuln} isMobile={isMobile} />

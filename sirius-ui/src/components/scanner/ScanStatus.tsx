@@ -3,6 +3,7 @@ import { ScanBar } from "../ScanBar";
 import ScanIcon from "../icons/ScanIcon";
 import { Badge } from "../lib/ui/badge";
 import { Result } from "postcss";
+import { type ScanResult, type VulnerabilitySummary } from "~/types/scanTypes";
 
 interface VulnerabilityCountProps {
   count: number;
@@ -80,34 +81,19 @@ export const VulnerabilitySeverityCards: React.FC<
   );
 };
 
-export type ScanResult = {
-  id: string;
-  status: string;
-  targets: string[];
-  hosts: string[]; // Prob not right
-  hostsCompleted: number;
-  vulnerabilities: VulnerabilitySummary[];
-};
-export type VulnerabilitySummary = {
-  id: string;
-  severity: string;
-  title: string;
-  description: string;
-};
-
 interface ScanStatusProps {
   results: ScanResult;
 }
 
 export const ScanStatus: React.FC<ScanStatusProps> = ({ results }) => {
   // Count vulnerabilities by severity
-  const severityCounts = results?.vulnerabilities?.reduce<Record<string, number>>(
-    (acc, vuln) => {
-      acc[vuln.severity] = (acc[vuln.severity] ?? 0) + 1;
-      return acc;
-    },
-    {}
-  );
+  const severityCounts = results?.vulnerabilities?.reduce<
+    Record<string, number>
+  >((acc, vuln) => {
+    acc[vuln.severity] = (acc[vuln.severity] ?? 0) + 1;
+    return acc;
+  }, {});
+
   return (
     <div className="">
       <div className="flex items-center gap-4">
@@ -121,31 +107,50 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({ results }) => {
               informational: severityCounts?.informational ?? 0,
             }}
           />
-          <ScanBar hosts={results?.hosts?.length} hostsCompleted={results?.hostsCompleted} />
+          <ScanBar
+            isScanning={results?.status === "running"}
+            hasRun={results?.status === "completed"}
+            // hosts={results?.hosts?.length}
+            // hostsCompleted={results?.hosts_completed}
+          />
         </div>
-        
       </div>
       <div className="mt-2 flex gap-6 p-4">
         <div className="flex flex-col border-r border-violet-100/40 pr-6">
           <div className="text-xs font-light text-violet-100">Hosts</div>
-          <div className="mt-2 text-5xl font-light text-violet-100">{results?.hosts?.length}</div>
+          <div className="mt-2 text-5xl font-light text-violet-100">
+            {results?.hosts?.length}
+          </div>
         </div>
         <div className="flex flex-col border-r border-violet-100/40 pr-6">
           <div className="text-xs font-light text-violet-100">
             Vulnerabilities
           </div>
-          <div className="mt-2 text-5xl font-light text-violet-100">{results?.vulnerabilities?.length}</div>
+          <div className="mt-2 text-5xl font-light text-violet-100">
+            {results?.vulnerabilities?.length}
+          </div>
         </div>
-        <div className="flex h-[85px] flex-col">
+        <div className="flex flex-col">
+          <div className="text-xs font-light text-violet-100">Time</div>
+          <div className="mt-2 text-sm text-violet-100">
+            Start: {new Date(results?.start_time).toLocaleString()}
+          </div>
+          {results?.end_time && (
+            <div className="text-sm text-violet-100">
+              Latest: {new Date(results?.end_time).toLocaleString()}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col border-l border-violet-100/40 pl-6">
           <div className="mb-2 text-xs font-light text-violet-100">Targets</div>
-          <div className="text-md w-60 text-violet-100">
+          <div className="mb-4 flex flex-wrap gap-2">
             {results?.targets?.map((target) => (
-              <Badge
+              <div
                 key={target}
-                className="mb-1 mr-2 bg-violet-200 font-mono font-light"
+                className="rounded bg-violet-700/10 px-2 py-1 font-mono text-sm text-violet-100"
               >
                 {target}
-              </Badge>
+              </div>
             ))}
           </div>
         </div>

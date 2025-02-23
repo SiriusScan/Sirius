@@ -41,43 +41,47 @@ import {
 } from "~/components/lib/ui/table";
 import { useRouter } from "next/router";
 
-interface EnvironmentDataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
+interface EnvironmentTableData {
+  os: string;
+  ip: string;
+  hostname: string;
+  tags: string[];
+  groups: string[];
+}
+
+interface EnvironmentDataTableProps<TData extends EnvironmentTableData> {
+  columns: ColumnDef<TData, any>[];
   data: TData[];
 }
 
-export function EnvironmentDataTable<TData, TValue>({
+export function EnvironmentDataTable<TData extends EnvironmentTableData>({
   columns,
   data,
-}: EnvironmentDataTableProps<TData, TValue>) {
+}: EnvironmentDataTableProps<TData>) {
   const router = useRouter();
 
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [rowSelection, setRowSelection] = useState({});
-  const [tableData, setTableData] = useState<Array<TData>>(data ?? []);
-  const [originalData, setOriginalData] = useState(data); // Keep a copy of all rows for filtering
+  const [tableData, setTableData] = useState<TData[]>(data);
 
-  // Looks like I hand no idea about useQuery cache invalidation when I wrote this... leaving commented for now
-  // useEffect(() => {
-  //   setOriginalData(data); // Update originalData whenever data changes
-  // }, [data]);
+  useEffect(() => {
+    setTableData(data);
+  }, [data]);
 
-  const handleSearch = (event) => {
+  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
     const searchValue = event.target.value.toLowerCase();
-
-    // Manually filter rows based on the search value
-    const filteredRows = originalData.filter((row) => {
+    
+    const filteredRows = data.filter((row) => {
       return (
-        row.os.includes(searchValue) ||
-        row.ip.includes(searchValue) ||
-        row.hostname.includes(searchValue) ||
-        row.tags.includes(searchValue) ||
-        row.groups.includes(searchValue)
+        row.os.toLowerCase().includes(searchValue) ||
+        row.ip.toLowerCase().includes(searchValue) ||
+        row.hostname.toLowerCase().includes(searchValue) ||
+        row.tags.some(tag => tag.toLowerCase().includes(searchValue)) ||
+        row.groups.some(group => group.toLowerCase().includes(searchValue))
       );
     });
 
-    // Update the displayed rows
     setTableData(filteredRows);
   };
 
@@ -96,7 +100,7 @@ export function EnvironmentDataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
-    getSortedRowModel: getSortedRowModel(), // This one made me cry
+    getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onRowSelectionChange: setRowSelection,
     state: {

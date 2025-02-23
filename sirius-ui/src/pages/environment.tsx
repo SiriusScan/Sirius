@@ -8,12 +8,10 @@ import { api } from "~/utils/api";
 
 const Environment = () => {
   const hosts = api.host.getAllHosts.useQuery() || [];
-  const hexgradClass = "hexgrad";
 
   return (
     <Layout>
       <div className="relative z-20 mb-5 h-56">
-        <div className={hexgradClass} key={hexgradClass}></div>
         <div className="z-10 flex flex-row items-center">
           <div className="ml-4 mt-7 flex dark:fill-white">
             <EnvironmentIcon width="35px" height="35px" fill="white" />

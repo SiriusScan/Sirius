@@ -11,7 +11,6 @@ export const queueRouter = createTRPCRouter({
       const { queue, message } = input;
       try {
         await handleSendMsg(queue, message);
-        console.log("Scan started successfully");
       } catch (error) {
         console.error("Error setting value:", error);
       }
@@ -20,15 +19,75 @@ export const queueRouter = createTRPCRouter({
     }),
 });
 
-async function handleSendMsg(queue: string, message: string): Promise<void> {
-  const connection: Connection = await amqp.connect("amqp://guest:guest@sirius-rabbitmq:5672/");
+// Update queue settings to match Go
+export const QUEUE_OPTIONS = {
+  durable: false, // Match Go settings
+  autoDelete: false,
+  exclusive: false,
+};
+
+export async function handleSendMsg(
+  queue: string,
+  message: string
+): Promise<void> {
+  const connection: Connection = await amqp.connect(
+    "amqp://guest:guest@sirius-rabbitmq:5672/"
+  );
   const channel: Channel = await connection.createChannel();
 
-  // await channel.assertQueue(queue, { durable: true });
-  channel.sendToQueue(queue, Buffer.from(message));
-  console.log(`Message sent to queue [${queue}]: ${message}`);
+  try {
+    await channel.assertQueue(queue, {
+      durable: false,
+      autoDelete: false,
+      exclusive: false,
+    });
 
-  setTimeout(() => {
-    connection.close();
-  }, 500);
+    channel.sendToQueue(queue, Buffer.from(message));
+  } finally {
+    setTimeout(() => {
+      connection.close();
+    }, 500);
+  }
+}
+
+export async function waitForResponse(queue: string): Promise<string> {
+  const connection: Connection = await amqp.connect(
+    "amqp://guest:guest@sirius-rabbitmq:5672/"
+  );
+  const channel: Channel = await connection.createChannel();
+
+  try {
+    // Assert queue first
+    await channel.assertQueue(queue, {
+      durable: false,
+      autoDelete: false,
+      exclusive: false,
+    });
+
+    // Purge existing messages from the queue
+    await channel.purgeQueue(queue);
+
+    // Set up consumer after purging
+    const responsePromise = new Promise<string>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Command timed out"));
+      }, 10000);
+
+      channel.consume(queue, (msg) => {
+        if (msg) {
+          clearTimeout(timeout);
+          channel.ack(msg);
+          resolve(msg.content.toString());
+        }
+      });
+    });
+
+    return await responsePromise;
+  } finally {
+    try {
+      await connection.close();
+    } catch (error) {
+      console.error("[Queue] Error closing connection:", error);
+    }
+  }
 }

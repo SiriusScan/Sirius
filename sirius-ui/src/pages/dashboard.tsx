@@ -212,8 +212,8 @@ const DashboardHeader = ({ scanResults }: { scanResults: ScanResult }) => {
       <h1 className="ml-3 mt-5 flex text-4xl font-extralight ">Dashboard</h1>
       <div className="ml-12 mt-3 min-w-[300px]">
         <ScanBar
-          isScanning={scanResults.status === "running"}
-          hasRun={scanResults.status === "completed"}
+          isScanning={scanResults?.status === "running"}
+          hasRun={scanResults?.status === "completed"}
         />
       </div>
     </div>

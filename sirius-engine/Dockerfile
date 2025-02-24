@@ -5,10 +5,13 @@ WORKDIR /engine
 
 COPY .air.toml .air.toml
 
+RUN apt-get update -y
+RUN apt-get upgrade -y
+RUN apt-get install -y libpcap-dev libicu-dev
+
 # Dependencies
 # NMAP
-RUN apt-get update -y && \
-    apt-get upgrade -y && \
+RUN apt-get upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential libpcap-dev ndiff libssl-dev libssh-dev
 
 WORKDIR /tmp
@@ -28,40 +31,43 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN cargo install --git https://github.com/RustScan/RustScan.git --branch master
 
-
-WORKDIR /
-RUN git clone https://github.com/SiriusScan/app-scanner.git
-# RUN git clone https://github.com/SiriusScan/app-terminal.git
-RUN git clone https://github.com/SiriusScan/go-api.git
-# WORKDIR /app-scanner
-# RUN go build -o /engine/apps/bin/scanner main.go
-
-
-# PowerShell
-# wget https://github.com/PowerShell/PowerShell/releases/download/v7.5.0/powershell_7.5.0-1.deb_amd64.deb
-# dpkg -i powershell_7.5.0-1.deb_amd64.deb
-# apt-get install -f
-
-RUN mkdir -p /opt/microsoft/powershell
+# PowerShell Installation - Architecture specific
 WORKDIR /opt/microsoft/powershell
-# ARM64 ONLY
-RUN wget https://github.com/PowerShell/PowerShell/releases/download/v7.5.0/powershell-7.5.0-linux-arm64.tar.gz 
-RUN tar -xvf powershell-7.5.0-linux-arm64.tar.gz
 
-# AMD64 ONLY (check if valid)
-# RUN wget https://github.com/PowerShell/PowerShell/releases/download/v7.5.0/powershell-7.5.0-linux-amd64.tar.gz
-# RUN tar -xvf powershell-7.5.0-linux-amd64.tar.gz
+# Detect architecture and download appropriate PowerShell package
+RUN ARCH=$(uname -m) && \
+    case "$ARCH" in \
+    "aarch64") \
+    echo "Installing ARM64 version" && \
+    wget https://github.com/PowerShell/PowerShell/releases/download/v7.5.0/powershell-7.5.0-linux-arm64.tar.gz && \
+    tar -xvf powershell-7.5.0-linux-arm64.tar.gz \
+    ;; \
+    "x86_64") \
+    echo "Installing AMD64 version" && \
+    wget https://github.com/PowerShell/PowerShell/releases/download/v7.5.0/powershell-7.5.0-linux-x64.tar.gz && \
+    tar -xvf powershell-7.5.0-linux-x64.tar.gz \
+    ;; \
+    *) \
+    echo "Unsupported architecture: $ARCH" && exit 1 \
+    ;; \
+    esac
 
 RUN chmod +x /opt/microsoft/powershell/pwsh
 RUN ln -s /opt/microsoft/powershell/pwsh /usr/bin/pwsh
+
+# App Repos
+WORKDIR /
+RUN git clone https://github.com/SiriusScan/app-scanner.git
+RUN git clone https://github.com/SiriusScan/app-terminal.git
+RUN git clone https://github.com/SiriusScan/go-api.git
 
 WORKDIR /app-scanner
 #DEV Dependencies
 RUN go install github.com/air-verse/air@latest
 
-# Invoke air to run the server after volume mount
-# CMD ["air", "."]
+# Add startup script and make it the entrypoint
 ADD start.sh /
 RUN chmod +x /start.sh
 
-CMD ["/start.sh"]
+# Remove specific workdir and cmd
+ENTRYPOINT ["/start.sh"]

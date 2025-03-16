@@ -17,13 +17,22 @@ services:
        timeout: 15s
        retries: 5
 
-  sirius-libsql:
-    image: ghcr.io/tursodatabase/libsql-server:latest
+  sirius-postgres:
+    image: postgres:15-alpine
     restart: always
-    container_name: sirius-libsql
-    hostname: sirius-libsql
+    container_name: sirius-postgres
+    hostname: sirius-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sirius
     ports:
-      - "9010:8080"
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   sirius-valkey:
     image: valkey/valkey:latest
@@ -76,5 +85,6 @@ services:
       # - ../minor-projects/go-api:/go-api # Local Development
       # - ../minor-projects/app-scanner:/app-scanner # Local Development
       # - ../minor-projects/app-terminal:/app-terminal # Local Development
+      # - ../minor-projects/nmap-db:/nmap-db # Local Development
     # depends_on:
     #   - rabbitmq

@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
+import { Toaster } from "~/components/lib/ui/sonner";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -51,6 +52,8 @@ const Layout = ({ children, title = "Sirius Scan" }: LayoutProps) => {
           </div>
         </main>
       </div>
+
+      <Toaster />
     </div>
   );
 };

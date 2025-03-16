@@ -14,16 +14,19 @@ RUN apt-get install -y libpcap-dev libicu-dev
 RUN apt-get upgrade -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential libpcap-dev ndiff libssl-dev libssh-dev
 
-WORKDIR /tmp
-RUN wget https://nmap.org/dist/nmap-7.92.tar.bz2
-RUN tar xf nmap-7.92.tar.bz2
+# WORKDIR /tmp
+# RUN wget https://nmap.org/dist/nmap-7.92.tar.bz2
+# RUN tar xf nmap-7.92.tar.bz2
 
-WORKDIR /tmp/nmap-7.92
-RUN ./configure
-RUN make
-RUN make install
-RUN cp nmap /usr/bin/nmap
-RUN cp nmap-os-db /usr/local/bin/../share/nmap/nmap-os-db
+# WORKDIR /tmp/nmap-7.92
+# RUN ./configure
+# RUN make
+# RUN make install
+# RUN cp nmap /usr/bin/nmap
+# RUN cp nmap-os-db /usr/local/bin/../share/nmap/nmap-os-db
+
+# NMAP
+RUN apt-get install -y nmap
 
 # Rust Scan
 WORKDIR /tmp
@@ -54,6 +57,11 @@ RUN ARCH=$(uname -m) && \
 
 RUN chmod +x /opt/microsoft/powershell/pwsh
 RUN ln -s /opt/microsoft/powershell/pwsh /usr/bin/pwsh
+
+# Set up NSE directory structure
+RUN mkdir -p /opt/sirius/nse && \
+    chown -R 1000:1000 /opt/sirius && \
+    chmod -R 755 /opt/sirius
 
 # App Repos
 WORKDIR /

@@ -3,6 +3,12 @@
 FROM oven/bun:latest
 WORKDIR /app
 
+# Container Setup
+# RUN echo "alias npm='bun'" >> /root/.bashrc
+
+# RUN apt-get update && apt-get install -y \
+#     npm
+
 # Copy package files and install dependencies
 COPY package*.json bun.lockb ./
 COPY .env ./

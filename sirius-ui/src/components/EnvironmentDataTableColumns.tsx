@@ -1,7 +1,20 @@
 "use client";
 
-import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import React from "react";
+import { createColumnHelper } from "@tanstack/react-table";
+import { type EnvironmentTableData } from "~/server/api/routers/host";
+import { VulnerabilityBarGraphCompact } from "~/components/VulnerabilityBarGraph";
+import { calculateHostRiskScore } from "~/utils/vulnerability-service";
+import { type HostVulnerabilityCounts } from "~/types/vulnerabilityTypes";
+
+import {
+  ArrowUp,
+  ArrowDown,
+  Circle,
+  MoreHorizontal,
+  ShieldAlert,
+  ShieldCheck,
+} from "lucide-react";
 
 import { Button } from "~/components/lib/ui/button";
 import { Checkbox } from "~/components/lib/ui/checkbox";
@@ -9,7 +22,6 @@ import { Checkbox } from "~/components/lib/ui/checkbox";
 import AppleIcon from "~/components/icons/AppleIcon";
 import LinuxIcon from "~/components/icons/LinuxIcon";
 import WindowsIcon from "~/components/icons/WindowsIcon";
-
 
 import {
   DropdownMenu,
@@ -20,211 +32,429 @@ import {
   DropdownMenuTrigger,
 } from "~/components/lib/ui/dropdown-menu";
 
-import { type EnvironmentTableData } from "~/server/api/routers/host";
+import { cn } from "~/components/lib/utils";
+import { HostRowActions } from "~/components/HostRowActions";
 
-export const columns: ColumnDef<EnvironmentTableData>[] = [
-  {
-    id: "select",
-    header: ({ table }) => (
-      <Checkbox
-        checked={table.getIsAllPageRowsSelected()}
-        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-        aria-label="Select all"
-      />
-    ),
-    cell: ({ row }) => (
-      <Checkbox
-        checked={row.getIsSelected()}
-        onCheckedChange={(value) => row.toggleSelected(!!value)}
-        aria-label="Select row"
-      />
-    ),
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    accessorKey: "os",
-    header: ({ column }) => {
+// Calculate risk score based on vulnerability distribution
+function calculateRiskScore(host: EnvironmentTableData): number {
+  // Calculate risk score directly from the vulnerability count
+  // Uses a logarithmic scale to represent diminishing returns on risk
+  // (e.g., 100 vulnerabilities isn't 10x as risky as 10)
+  const count = host.vulnerabilityCount || 0;
+  if (count === 0) return 0;
+
+  // Simple formula: base points per vulnerability with diminishing returns
+  return Math.min(Math.round(20 * Math.log10(count + 1)), 100);
+}
+
+// Helper for OS icons
+const OSIconSelector = ({ os }: { os: string }) => {
+  // Normalize OS name for matching
+  const osLower = os?.toLowerCase() || "";
+
+  if (osLower.includes("windows")) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-blue-500"
+      >
+        <rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect>
+        <path d="M16 8h.01"></path>
+        <path d="M8 8h.01"></path>
+        <path d="M8 16h.01"></path>
+        <path d="M16 16h.01"></path>
+      </svg>
+    );
+  } else if (
+    osLower.includes("linux") ||
+    osLower.includes("ubuntu") ||
+    osLower.includes("debian") ||
+    osLower.includes("centos")
+  ) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-orange-500"
+      >
+        <path d="M12 21a9 9 0 0 1-9-9 9 9 0 0 1 9-9 9 9 0 0 1 9 9 9 9 0 0 1-9 9z"></path>
+        <path d="M12 3v4"></path>
+        <path d="M12 12h4"></path>
+      </svg>
+    );
+  } else if (
+    osLower.includes("mac") ||
+    osLower.includes("darwin") ||
+    osLower.includes("ios")
+  ) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-gray-500"
+      >
+        <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
+        <path d="m2 12 20 0"></path>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+      </svg>
+    );
+  } else {
+    // Default unknown OS icon
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-gray-400"
+      >
+        <circle cx="12" cy="12" r="10"></circle>
+        <path d="M12 16v-4"></path>
+        <path d="M12 8h.01"></path>
+      </svg>
+    );
+  }
+};
+
+// Helper for OS name display
+const OSSelector = ({ os }: { os: string }) => {
+  return (
+    <div className="flex items-center">
+      <span className="mr-2">
+        <OSIconSelector os={os} />
+      </span>
+      <span>{os || "Unknown"}</span>
+    </div>
+  );
+};
+
+// Risk score badge with color coding
+const RiskScoreBadge = ({ score }: { score: number }) => {
+  let colorClass = "bg-gray-100 text-gray-800";
+
+  if (score >= 80) {
+    colorClass = "bg-red-100 text-red-800";
+  } else if (score >= 60) {
+    colorClass = "bg-orange-100 text-orange-800";
+  } else if (score >= 40) {
+    colorClass = "bg-yellow-100 text-yellow-800";
+  } else if (score >= 20) {
+    colorClass = "bg-green-100 text-green-800";
+  } else if (score > 0) {
+    colorClass = "bg-blue-100 text-blue-800";
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colorClass}`}
+    >
+      {score}
+    </span>
+  );
+};
+
+// Cell renderer for the vulnerabilities column
+function VulnerabilitiesCell({ host }: { host: EnvironmentTableData }) {
+  // Directly fetch and display vulnerability data using the host ID
+  return (
+    <div className="min-w-[200px]">
+      <VulnerabilityBarGraphCompact hostId={host.ip} />
+    </div>
+  );
+}
+
+// Create our column helper with the EnvironmentTableData type
+const columnHelper = createColumnHelper<EnvironmentTableData>();
+
+// Utility function to render a status badge
+const StatusBadge = ({ status }: { status: string }) => {
+  const colorMap: Record<
+    string,
+    { bg: string; text: string; icon: JSX.Element }
+  > = {
+    online: {
+      bg: "bg-green-100 dark:bg-green-900/20",
+      text: "text-green-800 dark:text-green-300",
+      icon: <Circle className="h-2 w-2 fill-green-500 text-green-500" />,
+    },
+    offline: {
+      bg: "bg-red-100 dark:bg-red-900/20",
+      text: "text-red-800 dark:text-red-300",
+      icon: <Circle className="h-2 w-2 fill-red-500 text-red-500" />,
+    },
+    warning: {
+      bg: "bg-yellow-100 dark:bg-yellow-900/20",
+      text: "text-yellow-800 dark:text-yellow-300",
+      icon: <ShieldAlert className="h-3 w-3 text-yellow-500" />,
+    },
+    secure: {
+      bg: "bg-green-100 dark:bg-green-900/20",
+      text: "text-green-800 dark:text-green-300",
+      icon: <ShieldCheck className="h-3 w-3 text-green-500" />,
+    },
+  };
+
+  const config = colorMap[status?.toLowerCase()] || colorMap.warning;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-1.5 rounded-full px-2 py-0.5",
+        config.bg
+      )}
+    >
+      {config?.icon}
+      <span className={cn("text-xs font-medium", config?.text)}>
+        {status?.charAt(0).toUpperCase() + status?.slice(1)}
+      </span>
+    </div>
+  );
+};
+
+// Utility function to render a risk badge
+const RiskBadge = ({ risk }: { risk: string }) => {
+  const colorMap: Record<string, { bg: string; text: string }> = {
+    critical: {
+      bg: "bg-red-100 dark:bg-red-900/20",
+      text: "text-red-800 dark:text-red-300",
+    },
+    high: {
+      bg: "bg-orange-100 dark:bg-orange-900/20",
+      text: "text-orange-800 dark:text-orange-300",
+    },
+    medium: {
+      bg: "bg-yellow-100 dark:bg-yellow-900/20",
+      text: "text-yellow-800 dark:text-yellow-300",
+    },
+    low: {
+      bg: "bg-green-100 dark:bg-green-900/20",
+      text: "text-green-800 dark:text-green-300",
+    },
+    info: {
+      bg: "bg-blue-100 dark:bg-blue-900/20",
+      text: "text-blue-800 dark:text-blue-300",
+    },
+  };
+
+  const config = colorMap[risk.toLowerCase()] || colorMap.medium;
+
+  return (
+    <div className={cn("rounded-full px-2 py-0.5 text-center", config.bg)}>
+      <span className={cn("text-xs font-medium", config.text)}>
+        {risk.charAt(0).toUpperCase() + risk.slice(1)}
+      </span>
+    </div>
+  );
+};
+
+// Function to render vulnerability count with color coding
+const VulnerabilityCount = ({ count }: { count: number }) => {
+  let colorClass = "text-green-600 dark:text-green-400";
+
+  if (count > 50) {
+    colorClass = "text-red-600 dark:text-red-400";
+  } else if (count > 20) {
+    colorClass = "text-orange-600 dark:text-orange-400";
+  } else if (count > 5) {
+    colorClass = "text-yellow-600 dark:text-yellow-400";
+  }
+
+  return <span className={colorClass}>{count}</span>;
+};
+
+// Function to determine host risk level based on vulnerability count
+const getRiskLevel = (vulnerabilityCount: number): string => {
+  if (vulnerabilityCount > 50) return "critical";
+  if (vulnerabilityCount > 20) return "high";
+  if (vulnerabilityCount > 5) return "medium";
+  if (vulnerabilityCount > 0) return "low";
+  return "info";
+};
+
+// Define the columns
+export const columns = [
+  // Host column with hostname and IP
+  columnHelper.accessor((row) => ({ hostname: row.hostname, ip: row.ip }), {
+    id: "host",
+    header: "Host",
+    cell: ({ getValue }) => {
+      const { hostname, ip } = getValue();
+      const status = determineHostStatus(getValue());
       return (
-        <Button
-          variant="ghost"
-          className="pl-0 pr-0 hover:bg-transparent"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          OS
-          {column.getIsSorted() === "asc" ? (
-            <span className="ml-2 h-4 w-4">
-              <ArrowUp className="ml-2 h-4 w-4" />
-            </span>
-          ) : column.getIsSorted() === "desc" ? (
-            <span className="ml-2 h-4 w-4">
-              <ArrowDown className="ml-2 h-4 w-4" />
-            </span>
-          ) : null}
-        </Button>
+        <div className="flex flex-col">
+          <div className="font-medium">{hostname || ip}</div>
+          {hostname && <div className="text-xs text-gray-500">{ip}</div>}
+          <div className="text-xs text-gray-500">{status}</div>
+        </div>
       );
     },
+  }),
+
+  // OS column
+  columnHelper.accessor("os", {
+    header: "Operating System",
+    cell: ({ getValue }) => <OSSelector os={getValue()} />,
+  }),
+
+  // Vulnerabilities column
+  columnHelper.accessor("vulnerabilityCount", {
+    id: "vulnerabilities",
+    header: "Vulnerabilities",
     cell: ({ row }) => {
-      const os = row.getValue("os");
-      return <OSSelector os={os} />;
+      const host = row.original;
+      return <VulnerabilitiesCell host={host} />;
     },
-  },
-  {
-    accessorKey: "hostname",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          className="pl-0 pr-0 hover:bg-transparent"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Hostname
-          {column.getIsSorted() === "asc" ? (
-            <span className="ml-2 h-4 w-4">
-              <ArrowUp className="ml-2 h-4 w-4" />
-            </span>
-          ) : column.getIsSorted() === "desc" ? (
-            <span className="ml-2 h-4 w-4">
-              <ArrowDown className="ml-2 h-4 w-4" />
-            </span>
-          ) : null}
-        </Button>
-      );
+  }),
+
+  // Risk score column
+  columnHelper.accessor((row) => row, {
+    id: "riskScore",
+    header: "Risk Level",
+    cell: ({ getValue, table }) => {
+      const host = getValue();
+      const riskLevel = getRiskLevel(host.vulnerabilityCount || 0);
+      return <RiskBadge risk={riskLevel} />;
     },
-  },
-  {
-    accessorKey: "ip",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          className="pl-0 pr-0 hover:bg-transparent"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Address
-          {column.getIsSorted() === "asc" ? (
-            <span className="ml-2 h-4 w-4">
-              <ArrowUp className="ml-2 h-4 w-4" />
-            </span>
-          ) : column.getIsSorted() === "desc" ? (
-            <span className="ml-2 h-4 w-4">
-              <ArrowDown className="ml-2 h-4 w-4" />
-            </span>
-          ) : null}
-        </Button>
-      );
-    },
-  },
-  {
-    accessorKey: "groups",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          className="pl-0 pr-0 hover:bg-transparent"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Asset Groups
-          {column.getIsSorted() === "desc" ? (
-            <span className="ml-2 h-4 w-4">
-              <ArrowUp className="ml-2 h-4 w-4" />
-            </span>
-          ) : column.getIsSorted() === "asc" ? (
-            <span className="ml-2 h-4 w-4">
-              <ArrowDown className="ml-2 h-4 w-4" />
-            </span>
-          ) : null}
-        </Button>
-      );
-    },
-  },
-  {
-    accessorKey: "tags",
-    header: ({ column }) => {
-      return (
-        <Button
-          variant="ghost"
-          className="pl-0 pr-0 hover:bg-transparent"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Asset Tags
-          {column.getIsSorted() === "desc" ? (
-            <span className="ml-2 h-4 w-4">
-              <ArrowUp className="ml-2 h-4 w-4" />
-            </span>
-          ) : column.getIsSorted() === "asc" ? (
-            <span className="ml-2 h-4 w-4">
-              <ArrowDown className="ml-2 h-4 w-4" />
-            </span>
-          ) : null}
-        </Button>
-      );
-    },
-  },
-  {
-    id: "actions",
-    header: "Actions",
-    cell: ({ row }) => {
-      const vulnerability = row.original;
+  }),
+
+  // Tags column
+  columnHelper.accessor("tags", {
+    header: "Tags",
+    cell: ({ getValue }) => {
+      const tags = getValue() || [];
+      if (tags.length === 0) return null;
 
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <div className="flex items-center justify-end">
-              <Button
-                variant="ghost"
-                className="h-8 w-8 p-0 hover:text-violet-300/80"
-              >
-                <span className="sr-only">Open menu</span>
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 15 15"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M6.85357 3.85355L7.65355 3.05353C8.2981 2.40901 9.42858 1.96172 10.552 1.80125C11.1056 1.72217 11.6291 1.71725 12.0564 1.78124C12.4987 1.84748 12.7698 1.97696 12.8965 2.10357C13.0231 2.23018 13.1526 2.50125 13.2188 2.94357C13.2828 3.37086 13.2779 3.89439 13.1988 4.44801C13.0383 5.57139 12.591 6.70188 11.9464 7.34645L7.49999 11.7929L6.35354 10.6465C6.15827 10.4512 5.84169 10.4512 5.64643 10.6465C5.45117 10.8417 5.45117 11.1583 5.64643 11.3536L7.14644 12.8536C7.34171 13.0488 7.65829 13.0488 7.85355 12.8536L8.40073 12.3064L9.57124 14.2572C9.65046 14.3893 9.78608 14.4774 9.9389 14.4963C10.0917 14.5151 10.2447 14.4624 10.3535 14.3536L12.3535 12.3536C12.4648 12.2423 12.5172 12.0851 12.495 11.9293L12.0303 8.67679L12.6536 8.05355C13.509 7.19808 14.0117 5.82855 14.1887 4.58943C14.2784 3.9618 14.2891 3.33847 14.2078 2.79546C14.1287 2.26748 13.9519 1.74482 13.6035 1.39645C13.2552 1.04809 12.7325 0.871332 12.2045 0.792264C11.6615 0.710945 11.0382 0.721644 10.4105 0.8113C9.17143 0.988306 7.80189 1.491 6.94644 2.34642L6.32322 2.96968L3.07071 2.50504C2.91492 2.48278 2.75773 2.53517 2.64645 2.64646L0.646451 4.64645C0.537579 4.75533 0.484938 4.90829 0.50375 5.0611C0.522563 5.21391 0.61073 5.34954 0.742757 5.42876L2.69364 6.59928L2.14646 7.14645C2.0527 7.24022 2.00002 7.3674 2.00002 7.50001C2.00002 7.63261 2.0527 7.75979 2.14646 7.85356L3.64647 9.35356C3.84173 9.54883 4.15831 9.54883 4.35357 9.35356C4.54884 9.1583 4.54884 8.84172 4.35357 8.64646L3.20712 7.50001L3.85357 6.85356L6.85357 3.85355ZM10.0993 13.1936L9.12959 11.5775L11.1464 9.56067L11.4697 11.8232L10.0993 13.1936ZM3.42251 5.87041L5.43935 3.85356L3.17678 3.53034L1.80638 4.90074L3.42251 5.87041ZM2.35356 10.3535C2.54882 10.1583 2.54882 9.8417 2.35356 9.64644C2.1583 9.45118 1.84171 9.45118 1.64645 9.64644L0.646451 10.6464C0.451188 10.8417 0.451188 11.1583 0.646451 11.3535C0.841713 11.5488 1.1583 11.5488 1.35356 11.3535L2.35356 10.3535ZM3.85358 11.8536C4.04884 11.6583 4.04885 11.3417 3.85359 11.1465C3.65833 10.9512 3.34175 10.9512 3.14648 11.1465L1.14645 13.1464C0.95119 13.3417 0.951187 13.6583 1.14645 13.8535C1.34171 14.0488 1.65829 14.0488 1.85355 13.8536L3.85358 11.8536ZM5.35356 13.3535C5.54882 13.1583 5.54882 12.8417 5.35356 12.6464C5.1583 12.4512 4.84171 12.4512 4.64645 12.6464L3.64645 13.6464C3.45119 13.8417 3.45119 14.1583 3.64645 14.3535C3.84171 14.5488 4.1583 14.5488 4.35356 14.3535L5.35356 13.3535ZM9.49997 6.74881C10.1897 6.74881 10.7488 6.1897 10.7488 5.5C10.7488 4.8103 10.1897 4.25118 9.49997 4.25118C8.81026 4.25118 8.25115 4.8103 8.25115 5.5C8.25115 6.1897 8.81026 6.74881 9.49997 6.74881Z"
-                    fill="currentColor"
-                    fillRule="evenodd"
-                    clipRule="evenodd"
-                  ></path>
-                </svg>
-              </Button>
-            </div>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() =>
-                void navigator.clipboard.writeText(vulnerability.cve)
-              }
+        <div className="flex flex-wrap gap-1">
+          {tags.slice(0, 3).map((tag, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800"
             >
-              Copy CVE
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>View Vulnerability Details</DropdownMenuItem>
-            <DropdownMenuItem>Mark as Resolved</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {tag}
+            </span>
+          ))}
+          {tags.length > 3 && (
+            <span className="text-xs text-gray-500">
+              +{tags.length - 3} more
+            </span>
+          )}
+        </div>
       );
     },
-  },
+  }),
+
+  // Status column
+  columnHelper.accessor("status", {
+    header: "Status",
+    cell: ({ getValue }) => <StatusBadge status={getValue()} />,
+  }),
+
+  // IP addresses column
+  columnHelper.accessor("ipAddresses", {
+    header: "IP Addresses",
+    cell: ({ getValue }) => {
+      const ipAddresses = getValue() || [];
+      return (
+        <div>
+          {ipAddresses.slice(0, 2).join(", ")}
+          {ipAddresses.length > 2 && ` +${ipAddresses.length - 2} more`}
+        </div>
+      );
+    },
+  }),
+
+  // Last scan date column
+  columnHelper.accessor("lastScanDate", {
+    header: "Last Scan",
+    cell: ({ getValue }) => {
+      const lastScanDate = getValue();
+      if (!lastScanDate) return <span className="text-gray-500">Never</span>;
+
+      // Format the date (implement your preferred date formatting)
+      const formattedDate = new Date(lastScanDate).toLocaleString();
+      return <span>{formattedDate}</span>;
+    },
+  }),
+
+  // Actions column
+  columnHelper.accessor((row) => row, {
+    id: "actions",
+    header: "",
+    cell: ({ row }) => {
+      return (
+        <div className="flex justify-end">
+          <HostRowActions
+            host={row.original}
+            onScan={(host) => {
+              console.log("Scanning host:", host.ip);
+              // Implement scan logic
+            }}
+            onTag={(host) => {
+              console.log("Managing tags for host:", host.ip);
+              // Implement tag management logic
+            }}
+            onDelete={(host) => {
+              console.log("Deleting host:", host.ip);
+              // Implement delete logic with confirmation
+              if (
+                confirm(
+                  `Are you sure you want to remove ${
+                    host.hostname || host.ip
+                  } from the environment?`
+                )
+              ) {
+                // Delete logic here
+              }
+            }}
+          />
+        </div>
+      );
+    },
+  }),
 ];
 
-const OSIconSelector = ({ os }) => {
-  if (os === "linux") {
-    return <>asdf</>;
-  }
-};
+// Helper function to determine host status - in a real app, this would use actual data
+function determineHostStatus(host: EnvironmentTableData): string {
+  // This is a placeholder - in a real application you'd determine this based on actual data
+  if (!host) return "unknown";
 
-const OSSelector = ({ os }) => {
-  switch (os) {
-    case "windows":
-      return <WindowsIcon />;
-    case "macos":
-      return <AppleIcon />;
-    case "linux":
-      return <LinuxIcon />;
+  // Example logic - you'd replace this with real logic based on your data
+  if (host.vulnerabilityCount > 20) return "warning";
+  if (
+    host.lastScanDate &&
+    new Date(host.lastScanDate).getTime() > Date.now() - 86400000
+  ) {
+    return host.vulnerabilityCount > 0 ? "warning" : "secure";
   }
-};
+
+  // Default to online
+  return "online";
+}

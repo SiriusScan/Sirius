@@ -30,7 +30,7 @@ const ScanForm: React.FC<ScanFormProps> = ({
     // CIDR validation
     const cidrPattern = /^(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
     if (cidrPattern.test(value)) {
-      const [ip, mask] = value.split('/');
+      const [ip, mask] = value.split("/");
       if (!mask || parseInt(mask) < 0 || parseInt(mask) > 32) {
         setError("Invalid CIDR mask (must be between 0 and 32)");
         return false;
@@ -47,8 +47,8 @@ const ScanForm: React.FC<ScanFormProps> = ({
     // Single IP validation
     const singleIpPattern = /^(?:\d{1,3}\.){3}\d{1,3}$/;
     if (singleIpPattern.test(value)) {
-      const parts = value.split('.');
-      const valid = parts.every(part => {
+      const parts = value.split(".");
+      const valid = parts.every((part) => {
         const num = parseInt(part);
         return num >= 0 && num <= 255;
       });
@@ -60,7 +60,8 @@ const ScanForm: React.FC<ScanFormProps> = ({
     }
 
     // DNS name validation
-    const dnsPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
+    const dnsPattern =
+      /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
     if (dnsPattern.test(value)) {
       return true;
     }
@@ -91,14 +92,18 @@ const ScanForm: React.FC<ScanFormProps> = ({
     <div className="flex flex-col gap-4 pt-4">
       <div className="flex items-start gap-4">
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-violet-100">Add Target</label>
+          <label className="text-sm font-medium text-violet-100">
+            Add Target
+          </label>
           <div className="flex">
             <Input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Enter IP, Range, or CIDR"
-              className={`h-12 w-72 max-w-md rounded-l-md rounded-r-none border-violet-100/30 bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-offset-0 ${error ? 'border-red-500' : ''}`}
+              className={`h-12 w-72 max-w-md rounded-l-md rounded-r-none border-violet-100/30 bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-offset-0 ${
+                error ? "border-red-500" : ""
+              }`}
             />
             <Button
               variant="outline"
@@ -128,11 +133,9 @@ const ScanForm: React.FC<ScanFormProps> = ({
               Start Scan
             </Button>
           </div>
-          {error && (
-            <div className="text-sm text-red-500">{error}</div>
-          )}
+          {error && <div className="text-sm text-red-500">{error}</div>}
         </div>
-        <TemplatePicker 
+        <TemplatePicker
           value={selectedTemplate}
           onChange={setSelectedTemplate}
         />
@@ -143,7 +146,7 @@ const ScanForm: React.FC<ScanFormProps> = ({
             key={target}
             className="flex items-center gap-2 rounded-md bg-violet-700/10 px-2 py-1"
           >
-            <span className="text-sm font-mono text-violet-100">{target}</span>
+            <span className="font-mono text-sm text-violet-100">{target}</span>
             <button
               onClick={() => removeTarget(target)}
               className="text-violet-100 hover:text-violet-200"

@@ -1,0 +1,75 @@
+/* Custom styles for the editor */
+.monaco-editor .margin {
+  background-color: rgba(24, 24, 37, 0.95) !important; /* Mantle color */
+}
+
+.monaco-editor-background {
+  background-color: rgba(30, 30, 46, 0.98) !important; /* Base color */
+}
+
+/* Ensure the editor container has proper z-index handling */
+.monaco-editor {
+  z-index: 1;
+}
+
+/* Editor container */
+.monaco-editor .overflow-guard {
+  border-radius: 0.375rem;
+}
+
+/* Line number styling */
+.monaco-editor .line-numbers {
+  color: rgba(108, 112, 134, 0.8) !important; /* Overlay0 */
+}
+
+/* Selection background */
+.monaco-editor .selected-text {
+  background-color: rgba(203, 166, 247, 0.3) !important; /* Mauve with opacity */
+}
+
+/* Current line highlight */
+.monaco-editor .current-line {
+  border: none !important;
+  background-color: rgba(49, 50, 68, 0.6) !important; /* Surface0 */
+}
+
+/* Make sure the editor takes full height of its container */
+.monaco-editor, 
+.monaco-editor .overflow-guard,
+.monaco-editor-background {
+  height: 100% !important;
+}
+
+/* Improve scrollbar visibility */
+.monaco-editor .scrollbar .slider {
+  background: rgba(108, 112, 134, 0.4) !important; /* Overlay0 */
+}
+
+.monaco-editor .scrollbar .slider:hover {
+  background: rgba(108, 112, 134, 0.6) !important; /* Overlay0 */
+}
+
+/* Bracket pair colorization */
+.monaco-editor .bracket-highlighting-0 {
+  color: #f5c2e7 !important; /* Pink */
+}
+
+.monaco-editor .bracket-highlighting-1 {
+  color: #cba6f7 !important; /* Mauve */
+}
+
+.monaco-editor .bracket-highlighting-2 {
+  color: #89b4fa !important; /* Blue */
+}
+
+.monaco-editor .bracket-highlighting-3 {
+  color: #a6e3a1 !important; /* Green */
+}
+
+.monaco-editor .bracket-highlighting-4 {
+  color: #f9e2af !important; /* Yellow */
+}
+
+.monaco-editor .bracket-highlighting-5 {
+  color: #fab387 !important; /* Peach */
+} 

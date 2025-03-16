@@ -41,12 +41,12 @@ func GetAllHosts(c *fiber.Ctx) error {
 }
 
 // GetHostStatistics handles the GET /host/statistics route
-func GetHostStatistics(c *fiber.Ctx) error { 
+func GetHostStatistics(c *fiber.Ctx) error {
 	hostID := c.Params("id")
 	log.Println("Host_Handler: GetHostStatistics")
 	stats, err := host.GetHostRiskStatistics(hostID)
 	if err != nil {
-		log.Panicln("Error: Host_Handler => An error occured when executing the GetHostStatistics procedure (/host/vulnerabities route)") 
+		log.Panicln("Error: Host_Handler => An error occured when executing the GetHostStatistics procedure (/host/vulnerabities route)")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Error getting vulnerabilities: " + err.Error(),
 		})
@@ -55,7 +55,7 @@ func GetHostStatistics(c *fiber.Ctx) error {
 }
 
 // GetHostStatistics handles the GET /host/statistics route
-func GetHostVulnerabilitySeverityCounts(c *fiber.Ctx) error { 
+func GetHostVulnerabilitySeverityCounts(c *fiber.Ctx) error {
 	hostID := c.Params("id")
 	log.Println("Host_Handler: GetHostVulnerabilitySeverityCounts")
 	stats, err := host.GetHostVulnerabilitySeverityCounts(hostID)
@@ -67,7 +67,6 @@ func GetHostVulnerabilitySeverityCounts(c *fiber.Ctx) error {
 	}
 	return c.JSON(stats)
 }
-	
 
 // GetAllVulnerabilities handles the GET /host/vulnerabilities route
 func GetAllVulnerabilities(c *fiber.Ctx) error {

@@ -2,6 +2,8 @@ import axios from "axios";
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { env } from "~/env.mjs";
+import { storeMockHosts } from "./shared-mock-data";
+import { type VulnerabilitySeverityCounts } from "~/components/VulnerabilityBarGraph";
 
 import {
   mockHostData,
@@ -12,7 +14,7 @@ import {
 // Create an axios instance
 const httpClient = axios.create({
   baseURL: env.SIRIUS_API_URL,
-  timeout: 1000,
+  timeout: 5000,
 });
 
 export type SiriusHost = {
@@ -57,7 +59,7 @@ type Service = {
   version: string;
 };
 
-type Vulnerability = {
+export type Vulnerability = {
   vid: string;
   riskScore: number;
   cve?: string;
@@ -67,12 +69,14 @@ type Vulnerability = {
 };
 
 export interface EnvironmentTableData {
+  hid: string;
   hostname: string;
   ip: string;
   os: string;
   vulnerabilityCount: number;
   groups: string[];
   tags: string[];
+  vulnerabilities: Vulnerability[];
 }
 
 export type HostStatistics = {
@@ -87,6 +91,92 @@ export type HostStatistics = {
     informational: number;
   };
 };
+
+// Helper function to generate mock vulnerabilities for testing
+function generateMockVulnerabilities(count: number): Vulnerability[] {
+  const severities = [
+    "critical",
+    "high",
+    "medium",
+    "low",
+    "informational",
+  ] as const;
+  const vulnerabilities: Vulnerability[] = [];
+
+  for (let i = 0; i < count; i++) {
+    // Pick a severity from the array - we need a non-null severity value
+    const severityIndex = Math.floor(Math.random() * severities.length);
+    const severity = severities[severityIndex];
+
+    vulnerabilities.push({
+      vid: `VID-${Math.floor(Math.random() * 10000)}`,
+      riskScore:
+        severity === "critical"
+          ? 9.5
+          : severity === "high"
+          ? 7.5
+          : severity === "medium"
+          ? 5.5
+          : severity === "low"
+          ? 3.5
+          : 1.5,
+      cve: `CVE-${Math.floor(Math.random() * 10000)}-${Math.floor(
+        Math.random() * 10000
+      )}`,
+      description: `This is a ${severity} vulnerability that affects system security.`,
+      published: new Date().toISOString(),
+      severity: severity, // This is now guaranteed to be a non-undefined string
+    });
+  }
+
+  return vulnerabilities;
+}
+
+// Helper function to fetch host statistics directly
+async function fetchHostStatistics(
+  hid: string
+): Promise<HostStatistics | null> {
+  try {
+    if (!hid || hid.trim() === "") {
+      console.warn("fetchHostStatistics called with invalid ID");
+      // Return default empty statistics instead of throwing
+      return {
+        vulnerabilityCount: 0,
+        totalRiskScore: 0,
+        averageRiskScore: 0,
+        hostSeverityCounts: {
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+          informational: 0,
+        },
+      };
+    }
+    const response = await httpClient.get<HostStatistics>(
+      `host/statistics/${hid}`
+    );
+    return response.data;
+  } catch (error) {
+    console.error(
+      `Error fetching host statistics (routers/host.ts): ${hid}`,
+      error
+    );
+    // Return default empty statistics
+    return {
+      vulnerabilityCount: 0,
+      totalRiskScore: 0,
+      averageRiskScore: 0,
+      hostSeverityCounts: {
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        informational: 0,
+      },
+    };
+  }
+}
 
 export const hostRouter = createTRPCRouter({
   getHost: publicProcedure
@@ -113,48 +203,141 @@ export const hostRouter = createTRPCRouter({
     .input(z.object({ hid: z.string() }))
     .query(async ({ input }) => {
       const { hid } = input;
-      try {
-        if (!hid) {
-          throw new Error("No ID provided");
-        }
-        const response = await httpClient.get<HostStatistics>(`host/statistics/${hid}`);
-        const statistics = response.data;
-        return statistics;
-      } catch (error) {
-        console.error("Error fetching host statistics (routers/host.ts):", hid);
-        return null;
-      }
+      return fetchHostStatistics(hid);
     }),
+
+  // Retrieve a EnvironmentTableData[] with the statistics for each host
+  getEnvironmentSummary: publicProcedure.query(async () => {
+    try {
+      const response = await httpClient.get<SiriusHost[]>("host/");
+      const hostList = response.data;
+
+      // For each host, get the statistics
+      const hostStatistics = await Promise.all(
+        hostList.map(async (host) => {
+          try {
+            // Check if host.hid is valid before proceeding
+            if (!host || !host.hid) {
+              return null;
+            }
+
+            const statistics = await fetchHostStatistics(host.hid);
+            return {
+              hostId: host.hid,
+              statistics,
+            };
+          } catch (hostError) {
+            return null;
+          }
+        })
+      );
+
+      // Map vulnerability info from host.vulnerabilities to our VulnerabilitySeverityCounts structure
+      const vulnerabilitiesMap: Record<string, VulnerabilitySeverityCounts> =
+        {};
+
+      hostList.forEach((host) => {
+        if (!host.vulnerabilities || host.vulnerabilities.length === 0) return;
+
+        const counts: VulnerabilitySeverityCounts = {
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+          informational: 0,
+        };
+
+        // Count vulnerabilities by severity
+        host.vulnerabilities.forEach((vuln) => {
+          const severity = vuln.severity?.toLowerCase();
+          if (severity === "critical") counts.critical++;
+          else if (severity === "high") counts.high++;
+          else if (severity === "medium") counts.medium++;
+          else if (severity === "low") counts.low++;
+          else if (severity === "informational" || severity === "info")
+            counts.informational++;
+        });
+
+        vulnerabilitiesMap[host.hid] = counts;
+      });
+
+      // Convert hostStatistics and hostList to EnvironmentTableData[]
+      const environmentTableData: EnvironmentTableData[] = hostList.map(
+        (host) => {
+          // Find matching statistics for this host
+          const hostStats = hostStatistics.find(
+            (stat) => stat?.hostId === host.hid
+          )?.statistics;
+
+          // Get vulnerability counts either from our processed map or from host statistics
+          const vulnCounts = vulnerabilitiesMap[host.hid] || {
+            critical: hostStats?.hostSeverityCounts?.critical || 0,
+            high: hostStats?.hostSeverityCounts?.high || 0,
+            medium: hostStats?.hostSeverityCounts?.medium || 0,
+            low: hostStats?.hostSeverityCounts?.low || 0,
+            informational: hostStats?.hostSeverityCounts?.informational || 0,
+          };
+
+          return {
+            hid: host.hid || `host-${host.ip.replace(/\./g, "-")}`, // Ensure we always have an ID
+            hostname: host.hostname || "Unknown",
+            ip: host.ip || "0.0.0.0",
+            os: host.os || "Unknown",
+            vulnerabilityCount:
+              hostStats?.vulnerabilityCount ||
+              host.vulnerabilities?.length ||
+              0,
+            groups: host.tags || [],
+            tags: host.tags || [],
+            // Make sure we have properly structured Vulnerability objects
+            vulnerabilities: host.vulnerabilities || [],
+          };
+        }
+      );
+
+      return environmentTableData;
+    } catch (error) {
+      return [];
+    }
+  }),
 
   // Retrieve all host/environment data
   getAllHosts: publicProcedure.query(async () => {
-    // Modify into getEnvironmentSummary => We need a query to provide the environment table without getting all data from every host
     try {
       // Call to Go API
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostList = response.data;
 
-      // Map SiriusHost[] to EnvironmentTableData[]
-      const tableData: EnvironmentTableData[] = hostList?.map((host) => {
-        return {
-          hostname: host.hostname,
-          ip: host.ip,
-          os: host.os ?? "unknown",
-          vulnerabilityCount: host.vulnerabilities?.length ?? 0,
-          groups: host.tags ?? [],
-          tags: host.tags ?? [],
-        };
-      });
+      // Log the host IDs for debugging
+      console.log(
+        "getAllHosts: Received hosts with IDs:",
+        hostList.map((h) => h.hid || "missing-id")
+      );
 
-      // Optionally, if you want them in reverse order:
-      // tableData.reverse();
+      // Map SiriusHost[] to EnvironmentTableData[]
+      const tableData: EnvironmentTableData[] = hostList
+        .filter((host) => !!host) // Filter out null hosts
+        .map((host) => {
+          return {
+            hid: host.hid || `host-${host.ip.replace(/\./g, "-")}`, // Ensure we always have an ID
+            hostname: host.hostname || "Unknown",
+            ip: host.ip || "0.0.0.0",
+            os: host.os ?? "unknown",
+            vulnerabilityCount: host.vulnerabilities?.length ?? 0,
+            groups: host.tags ?? [],
+            tags: host.tags ?? [],
+            vulnerabilities: host.vulnerabilities
+              ? [...host.vulnerabilities]
+              : [],
+          };
+        });
+
+      // Return the actual data from the API
       if (tableData?.length > 0) {
         return tableData;
       } else {
         return [];
       }
-
-      // return mockEnvironmentSummaryData;
     } catch (error) {
       // Handle the error accordingly
       console.error("Error fetching hosts:", error);
@@ -163,29 +346,27 @@ export const hostRouter = createTRPCRouter({
   }),
 });
 
-
-
-
-
-
-
 /// MOCK DATA ///
 const mockHostList: EnvironmentTableData[] = [
   {
+    hid: "host1-id",
     hostname: "host1",
     ip: "192.168.1.10",
     os: "Linux",
     vulnerabilityCount: 5,
     groups: ["group1", "group2"],
     tags: ["tag1", "tag2"],
+    vulnerabilities: generateMockVulnerabilities(5),
   },
   {
+    hid: "host2-id",
     hostname: "host2",
     ip: "192.168.1.11",
     os: "Windows",
     vulnerabilityCount: 3,
     groups: ["group1"],
     tags: ["tag3"],
+    vulnerabilities: generateMockVulnerabilities(3),
   },
 ];
 

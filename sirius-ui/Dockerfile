@@ -24,6 +24,7 @@ COPY . /app
 
 WORKDIR /app
 RUN bun install
+RUN bun install sonner
 
 # Set the environment variable to skip environment variable validation
 ENV SKIP_ENV_VALIDATION=1

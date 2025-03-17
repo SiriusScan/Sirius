@@ -74,7 +74,9 @@ WORKDIR /app-scanner
 RUN go install github.com/air-verse/air@latest
 
 # Add startup script and make it the entrypoint
-ADD start.sh /
+RUN apt install dos2unix
+COPY start.sh /
+RUN dos2unix /start.sh
 RUN chmod +x /start.sh
 
 # Remove specific workdir and cmd

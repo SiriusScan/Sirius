@@ -12,6 +12,7 @@ WORKDIR /api
 #DEV Dependencies
 RUN go install github.com/air-verse/air@latest
 
+
 # Invoke air to run the server after volume mount
 CMD ["air", "-c", ".air.toml"]
 

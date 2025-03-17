@@ -10,7 +10,7 @@ services:
       - "5672:5672"
       - "15672:15672"
     volumes:
-       - ./rabbit-mq/rabbitmq.conf:/etc/rabbitmq.conf:ro
+       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     healthcheck:
        test: ["CMD", "rabbitmqctl", "status"]
        interval: 30s
@@ -82,7 +82,7 @@ services:
       - "5174:5174"
     volumes:
       - ./sirius-engine:/engine
-      # - ../minor-projects/go-api:/go-api # Local Development
+      - ../minor-projects/go-api:/go-api # Local Development
       # - ../minor-projects/app-scanner:/app-scanner # Local Development
       # - ../minor-projects/app-terminal:/app-terminal # Local Development
       # - ../minor-projects/nmap-db:/nmap-db # Local Development

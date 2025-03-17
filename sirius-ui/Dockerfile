@@ -22,6 +22,9 @@ RUN bun install
 # Bundle app source
 COPY . /app
 
+WORKDIR /app
+RUN bun install
+
 # Set the environment variable to skip environment variable validation
 ENV SKIP_ENV_VALIDATION=1
 

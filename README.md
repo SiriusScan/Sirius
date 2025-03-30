@@ -17,8 +17,8 @@ For detailed setup instructions, visit our [Installation Guide](https://sirius.p
 
    ```bash
    # Clone the repository
-   git clone https://github.com/SiriusScan/Sirius.git
-   cd Sirius
+   git clone git@github.com:SiriusScan/website.git
+   cd website
 
    # Start all services
    docker compose up -d
@@ -39,7 +39,7 @@ For a comprehensive walkthrough of all features, visit our [Interface Tour](http
 
 ### Dashboard
 
-![Sirius Scan Dashboard](/dash-dark.gif)
+![Sirius Scan Dashboard](/documentation/dash-dark.gif)
 
 The Dashboard serves as your central command center, providing:
 
@@ -52,7 +52,7 @@ The Dashboard serves as your central command center, providing:
 
 ### Scanning Interface
 
-![Scanning Interface](/docs/scanner.jpg)
+![Scanning Interface](/documentation/scanner.jpg)
 
 The Scan page is where you control vulnerability assessments:
 
@@ -66,7 +66,7 @@ The Scan page is where you control vulnerability assessments:
 
 ### Vulnerability Navigator
 
-![Vulnerability Navigator](/docs/vulnerability-navigator.jpg)
+![Vulnerability Navigator](/documentation/vulnerability-navigator.jpg)
 
 Comprehensive platform for managing discovered vulnerabilities:
 
@@ -82,7 +82,7 @@ Comprehensive platform for managing discovered vulnerabilities:
 
 ### Environment Overview
 
-![Environment Overview](/docs/environment.jpg)
+![Environment Overview](/documentation/environment.jpg)
 
 Complete visibility into your infrastructure:
 
@@ -96,7 +96,7 @@ Complete visibility into your infrastructure:
 
 ### Host Details
 
-![Host Details](/docs/host.jpg)
+![Host Details](/documentation/host.jpg)
 
 Detailed view of individual systems:
 
@@ -110,7 +110,7 @@ Detailed view of individual systems:
 
 ### Terminal Interface
 
-![Terminal Interface](/docs/terminal.jpg)
+![Terminal Interface](/documentation/terminal.jpg)
 
 Direct access to Sirius backend:
 

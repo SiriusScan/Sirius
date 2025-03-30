@@ -1,144 +1,204 @@
 # Sirius Scan
 
-Sirius is the first truly open-source general purpose vulnerability scanner. Today, the information security community remains the best and most expedient source for cybersecurity intelligence. The community itself regularly outperforms commercial vendors. This is the primary advantage Sirius Scan intends to leverage.
+Sirius is an open-source general purpose vulnerability scanner that leverages community-driven security intelligence. Get started in minutes with our Docker-based setup.
 
-The framework is built around four general vulnerability identification concepts: The vulnerability database, network vulnerability scanning, agent-based discovery, and custom assessor analysis. With these powers combined around an easy to use interface Sirius hopes to enable industry evolution.
+## Quick Start Guide
 
-## Getting Started
+1. **Prerequisites**
 
-To run Sirius clone this repository and invoke the containers with `docker-compose`. Note that both `docker` and `docker-compose` must be installed to do this.
+   - Docker Engine 20.10.0+
+   - Docker Compose V2
+   - 4GB RAM minimum
+   - 10GB free disk space
 
-```
-git clone https://github.com/SiriusScan/Sirius.git
-cd Sirius
-docker compose up
-```
+2. **Installation**
 
-### Logging in
+   ```bash
+   # Clone the repository
+   git clone https://github.com/SiriusScan/Sirius.git
+   cd Sirius
 
-The default username and password for Sirius is: `admin/sirius`
+   # Start all services
+   docker compose up -d
 
-## Services
+   # Access the web interface
+   open http://localhost:3000
+   ```
 
-The system is composed of the following services:
+3. **Login**
+   - Username: `admin`
+   - Password: `password`
 
-- Mongo: a NoSQL database used to store data.
-- RabbitMQ: a message broker used to manage communication between services.
-- Sirius API: the API service which provides access to the data stored in Mongo.
-- Sirius Web: the web UI which allows users to view and manage their data pipelines.
-- Sirius Engine: the engine service which manages the execution of data pipelines.
+That's it! Your Sirius Scan instance is now running. Read on to explore its features.
 
-## Usage
+## Interface Tour
 
-To use Sirius, first start all of the services by running `docker-compose up`. Then, access the web UI at `localhost:3000`.
+### Dashboard
 
-### Remote Scanner
+![Sirius Scan Dashboard](/dash-dark.gif)
 
-If you would like to setup Sirius Scan on a remote machine and access it you must modify the `./UI/config.json` file to include your server details.
+The Dashboard serves as your central command center, providing:
 
-## Testing
+- Real-time scanning activity and progress
+- Latest vulnerability discoveries and trends
+- System performance metrics
+- Quick-access controls for common actions
 
-The project contains a comprehensive testing framework designed to be run in Docker containers.
+### Scanning Interface
 
-### Test Organization
+![Scanning Interface](/documentation/scanner.jpg)
 
-- `/tests`: Central directory for all project-wide test scripts and utilities
-- `/go-api/tests`: Go API-specific tests including models and API endpoints
+The Scan page is where you control vulnerability assessments:
 
-### Running Tests
+- Visual module editor for custom workflows
+- Real-time scan progress monitoring
+- Automated scanning schedules
+- Fine-tuned scanning parameters
+- Custom scan profiles and templates
 
-Use the master test script for all testing operations:
+### Vulnerability Navigator
+
+![Vulnerability Navigator](/documentation/vulnerability-navigator.jpg)
+
+Comprehensive platform for managing discovered vulnerabilities:
+
+- Dynamic vulnerability listing with real-time updates
+- Advanced search and filtering capabilities
+- Multiple view options (list, grid, severity-based)
+- Detailed vulnerability reports including:
+  - CVE/CPE mapping
+  - CVSS scoring breakdown
+  - Step-by-step remediation instructions
+
+### Environment Overview
+
+![Environment Overview](/documentation/environment.jpg)
+
+Complete visibility into your infrastructure:
+
+- Full host inventory management
+- Risk scoring and security metrics
+- Interactive network topology visualization
+- Detailed system information
+- Service enumeration and version tracking
+
+### Host Details
+
+![Host Details](/documentation/host.jpg)
+
+Detailed view of individual systems:
+
+- Complete system specifications
+- Port and service enumeration
+- Vulnerability counts by severity
+- Historical scan findings
+- Security risk indicators
+
+### Terminal Interface
+
+![Terminal Interface](/documentation/terminal.jpg)
+
+Direct access to Sirius backend:
+
+- PowerShell environment for advanced operations
+- Custom script execution
+- Agent deployment and management
+- System diagnostics
+- Batch operations support
+
+## System Architecture
+
+Sirius operates through several microservices:
+
+| Service         | Description             | Port(s)                         |
+| --------------- | ----------------------- | ------------------------------- |
+| sirius-ui       | Web interface (Next.js) | 3000 (HTTP), 3001 (Dev)         |
+| sirius-api      | Backend API service     | 9001                            |
+| sirius-engine   | Scanning engine         | 5174                            |
+| sirius-rabbitmq | Message broker          | 5672 (AMQP), 15672 (Management) |
+| sirius-postgres | Database                | 5432                            |
+| sirius-valkey   | Key-value store         | 6379                            |
+
+## Development
+
+1. **Configure Development Environment**
+
+   ```yaml
+   volumes:
+     - ../minor-projects/go-api:/go-api
+     - ../minor-projects/app-scanner:/app-scanner
+     - ../minor-projects/app-terminal:/app-terminal
+     - ../minor-projects/nmap-db:/nmap-db
+   ```
+
+2. **Run Tests**
+
+   ```bash
+   # Show test options
+   ./run_tests.sh --help
+
+   # Run all tests
+   ./run_tests.sh --all
+
+   # Run specific suites
+   ./run_tests.sh --models  # Model tests
+   ./run_tests.sh --ui      # UI tests
+   ```
+
+## Troubleshooting
+
+### Service Status
 
 ```bash
-# Show all available test options
-./run_tests.sh --help
+# Check all services
+docker compose ps
 
-# Run all tests
-./run_tests.sh --all
+# View logs
+docker compose logs
 
-# Run only model tests
-./run_tests.sh --models
-
-# Run UI verification tests
-./run_tests.sh --ui
-
-# Reset the database
-./run_tests.sh --reset
-
-# Clean up test data
-./run_tests.sh --cleanup
+# Check specific service
+docker compose logs sirius-api
 ```
 
-### Docker Container Tests
+### Common Issues
 
-Tests are designed to run inside Docker containers, with the exception of Turso database operations which must be run from the host. The containers used for testing are:
+1. **Service Fails to Start**
 
-- **sirius-api**: The Go API service
-- **sirius-engine**: The processing engine
-- **sirius-ui**: The frontend UI
+   - Check logs: `docker compose logs <service-name>`
+   - Verify ports: `netstat -tuln`
+   - Check system resources
 
-For more details on testing, see the documentation in the `/tests` and `/go-api/tests` directories.
+2. **Database Connection Issues**
 
-**Good Luck! Have Fun! Happy Hacking!**
+   - Verify PostgreSQL: `docker compose ps sirius-postgres`
+   - Check logs: `docker compose logs sirius-postgres`
+   - Verify credentials
 
-# UI Notes
+3. **Message Queue Problems**
+   - Check RabbitMQ: http://localhost:15672
+   - View logs: `docker compose logs sirius-rabbitmq`
 
-Environment variables are passed into the container via the .env file
+## Security Notice
 
-# Docker Test Fix for Sirius API
+For production deployments:
 
-This repository contains scripts to fix and run tests for the Sirius API in Docker containers.
+- Change all default credentials
+- Secure your services
+- Update environment variables
+- Configure firewall rules
 
-## Problem Summary
+## Support & Resources
 
-The tests were failing due to two main issues:
+- [Documentation](/documentation)
+- [GitHub Issues](https://github.com/SiriusScan/Sirius/issues)
+- [Discord Community](/community)
+- [FAQ](/documentation/community/faq)
+- [Contributing Guide](/documentation/community/contributing)
 
-1. **SQL Keyword Conflict**: The `references` table name was causing conflicts with the SQL `REFERENCES` keyword.
-2. **Column Name Mismatch**: The Go model used `VID` as the field name, but GORM was mapping it to `v_id` in the database, while the tests were looking for `vid`.
+## License
 
-## Solution
+This project is licensed under the terms specified in the LICENSE file.
 
-The final solution addresses both issues:
+---
 
-1. **SQL Keyword Fix**: Properly quote the `"references"` table name in SQL statements.
-2. **Column Name Fix**: Update the SQL queries in the test files to use `v_id` instead of `vid`.
-3. **Auto-Migration**: Add auto-migration to the test setup to ensure all tables exist with the correct schema.
-
-## Scripts
-
-- `final_solution.sh`: The complete solution that fixes all issues and runs the tests successfully.
-- `setup.sql`: The SQL script to set up the database schema with proper column names.
-- `fix_test_files.sh`: A script to fix the test files in the container.
-- `complete_fix.sh`: An earlier attempt at fixing the issues.
-- `fixed_test_runner.sh`: Another attempt at fixing the issues.
-
-## Usage
-
-To run the tests with all fixes applied:
-
-```bash
-./final_solution.sh
-```
-
-## How It Works
-
-The final solution script:
-
-1. Resets the database completely, dropping all tables and views.
-2. Fixes the test files in the container to use `v_id` instead of `vid`.
-3. Creates a new `db_reset.sql` file in the container.
-4. Creates a modified `init_test.go` file that includes auto-migration.
-5. Runs the tests.
-
-## Common Issues
-
-- **SQL Keyword Conflicts**: Always quote table or column names that might conflict with SQL keywords.
-- **GORM Naming Conventions**: GORM converts camelCase field names to snake_case column names by default.
-- **Auto-Migration**: Make sure to auto-migrate your models before running tests to ensure the correct schema.
-
-## Lessons Learned
-
-1. **SQL Reserved Keywords**: Be careful with table and column names that might conflict with SQL keywords.
-2. **GORM Naming Conventions**: Understand how GORM maps Go struct field names to database column names.
-3. **Test Environment Setup**: Ensure proper test environment setup, including database schema and data.
-4. **Error Handling**: Pay attention to error messages, as they often provide clues to the underlying issues.
+**Note**: For production deployments, ensure you change all default credentials and properly secure your services.

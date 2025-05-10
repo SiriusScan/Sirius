@@ -1,0 +1,44 @@
+name: Go Submodule CI - go-api
+
+on:
+  push:
+    branches: [ main ] # Or your default branch
+  pull_request:
+    branches: [ main ] # Or your default branch
+
+jobs:
+  test-and-lint:
+    name: Test & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+          cache: true
+
+      - name: Install Dependencies
+        run: go mod download
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2 # Or latest version
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Lint
+        run: golangci-lint run ./...
+
+      - name: Test
+        run: go test -v -race ./...
+
+      - name: Send repository_dispatch to Sirius main repo
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' # Only on merge/push to main
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.MAIN_REPO_ACCESS_TOKEN }} # PAT stored in submodule's secrets
+          repository: SiriusScan/Sirius # Target repository
+          event-type: submodule-update # Custom event type
+          client-payload: '{ "submodule": "${{ github.repository }}", "commit_sha": "${{ github.sha }}", "ref": "${{ github.ref }}" }' 

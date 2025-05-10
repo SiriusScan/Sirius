@@ -51,12 +51,13 @@ export async function handleSendMsg(
 }
 
 export async function waitForResponse(queue: string): Promise<string> {
-  const connection: Connection = await amqp.connect(
-    "amqp://guest:guest@sirius-rabbitmq:5672/"
-  );
-  const channel: Channel = await connection.createChannel();
+  let connection: Connection | null = null;
+  let channel: Channel | null = null;
 
   try {
+    connection = await amqp.connect("amqp://guest:guest@sirius-rabbitmq:5672/");
+    channel = await connection.createChannel();
+
     // Assert queue first
     await channel.assertQueue(queue, {
       durable: false,
@@ -64,28 +65,43 @@ export async function waitForResponse(queue: string): Promise<string> {
       exclusive: false,
     });
 
-    // Purge existing messages from the queue
-    await channel.purgeQueue(queue);
+    // Capture channel in closure to ensure type safety
+    const currentChannel = channel;
 
-    // Set up consumer after purging
+    // Set up consumer before purging to avoid race conditions
     const responsePromise = new Promise<string>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error("Command timed out"));
-      }, 10000);
+      }, 30000); // Increased timeout to 30 seconds for debugging
 
-      channel.consume(queue, (msg) => {
+      if (!currentChannel) {
+        clearTimeout(timeout);
+        reject(new Error("Channel is not available"));
+        return;
+      }
+
+      currentChannel.consume(queue, (msg) => {
         if (msg) {
           clearTimeout(timeout);
-          channel.ack(msg);
+          currentChannel.ack(msg);
           resolve(msg.content.toString());
         }
       });
     });
 
+    // Purge existing messages from the queue
+    await currentChannel.purgeQueue(queue);
+
     return await responsePromise;
   } finally {
     try {
-      await connection.close();
+      // Clean up resources
+      if (channel) {
+        await channel.close();
+      }
+      if (connection) {
+        await connection.close();
+      }
     } catch (error) {
       console.error("[Queue] Error closing connection:", error);
     }

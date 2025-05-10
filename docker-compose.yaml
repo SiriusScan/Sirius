@@ -80,8 +80,10 @@ services:
     image: sirius-engine
     ports:
       - "5174:5174"
+      - "50051:50051" # Agent gRPC
     volumes:
       - ./sirius-engine:/engine
+      - ../minor-projects/app-agent:/app-agent
       # - ../minor-projects/go-api:/go-api # Local Development
       # - ../minor-projects/app-scanner:/app-scanner # Local Development
       # - ../minor-projects/app-terminal:/app-terminal # Local Development

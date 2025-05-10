@@ -1,0 +1,218 @@
+[
+  {
+    "id": "0",
+    "title": "PHASE 0: Foundation (Prep Work)",
+    "description": "Lay the groundwork for the CI/CD pipeline by defining environment modes and standardizing directory structures.",
+    "details": "Key Outputs: Environment definitions, .env structure, conditional docker-compose mounts documented, standardized local dev folder layout, relative paths in docker-compose.yaml.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": [],
+    "subtasks": [
+      {
+        "id": "0.1",
+        "title": "Define Environment Modes",
+        "description": "Decide on naming/handling for dev, staging, production modes.",
+        "details": "Finalize .env structure and variable toggles per environment. Document conditional docker-compose mounts in README. Define modes: dev (local mounts, .env.local), ci/testing (no mounts, .env.ci, ephemeral DB), staging (GHCR images, .env.staging), production (similar to staging, production-grade configs).",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Review documentation and .env templates for clarity and completeness."
+      },
+      {
+        "id": "0.2",
+        "title": "Align Directory Structure",
+        "description": "Standardize local dev folder layout across Sirius, go-api, and all app-* repos.",
+        "details": "Ensure all submodules are configured with relative paths in docker-compose.yaml to match CI checkout structure (e.g., Sirius/, minor-projects/go-api/). CI will use commit SHAs passed as build args to Dockerfiles for submodule versioning.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Verify docker-compose.yaml paths and CI checkout scripts."
+      }
+    ]
+  },
+  {
+    "id": "1",
+    "title": "PHASE 1: Submodule CI Setup",
+    "description": "Establish CI pipelines for each submodule (go-api, app-scanner, app-terminal, app-agent, sirius-nse) to ensure individual health and trigger main repo builds.",
+    "details": "Key Outputs: Unit testing in submodules, repository_dispatch triggers to Sirius main repo on submodule changes.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["0"],
+    "subtasks": [
+      {
+        "id": "1.1",
+        "title": "Create .github/workflows/ci.yml in each submodule",
+        "description": "Implement CI workflows for go-api, app-scanner, app-terminal, app-agent, and sirius-nse.",
+        "details": "Include checkout, setup (Go or runtime), run basic tests. Add optional linting (e.g., golangci-lint). Include repository_dispatch trigger back to SiriusScan/Sirius on merge to main. For sirius-nse: lint Lua, validate manifest.json schema, then dispatch.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["0.2"],
+        "testStrategy": "Successful workflow run in each submodule repo, dispatch received by Sirius repo."
+      },
+      {
+        "id": "1.2",
+        "title": "Configure GitHub Secrets in Submodule Repos",
+        "description": "Add REPO_ACCESS_TOKEN with write access to SiriusScan/Sirius.",
+        "details": "Use a PAT with 'repo' scope or 'actions:write' if needed. Store as MAIN_REPO_ACCESS_TOKEN in submodule secrets.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["1.1"],
+        "testStrategy": "Test repository_dispatch trigger from a submodule to the main Sirius repo."
+      },
+      {
+        "id": "1.3",
+        "title": "Add Labels/Filters (Optional)",
+        "description": "Tag PRs with ci, submodule, etc. using GitHub Actions metadata.",
+        "details": "Helps in organizing and filtering CI runs.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": ["1.1"],
+        "testStrategy": "Verify labels are applied to PRs as expected."
+      }
+    ]
+  },
+  {
+    "id": "2",
+    "title": "PHASE 2: Main Repo CI/CD (Sirius)",
+    "description": "Develop the main CI/CD pipeline in the Sirius repository to build, test, and prepare the application for deployment.",
+    "details": "Key Outputs: Submodule version integration in main build, automated environment switching for Docker Compose, smoke tests, and optional image push to GHCR.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["1"],
+    "subtasks": [
+      {
+        "id": "2.1",
+        "title": "Add ci.yml in .github/workflows/",
+        "description": "Create main CI workflow triggered on push, PR, and repository_dispatch.",
+        "details": "Handle repository_dispatch payload to get submodule commit SHAs. Modify Dockerfiles (e.g., sirius-engine/Dockerfile) to accept these SHAs as ARGs and checkout specific submodule commits (e.g., ARG GO_API_COMMIT_SHA=main; git clone ... && git checkout $GO_API_COMMIT_SHA). For sirius-api, update its go.mod to use the specific go-api commit SHA.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["1.1"],
+        "testStrategy": "CI workflow triggers correctly and uses dispatched commit SHAs for submodule checkouts."
+      },
+      {
+        "id": "2.2",
+        "title": "Add Container Build & Compose Job",
+        "description": "Build service images using docker compose with BUILDKIT.",
+        "details": "Tag images: PRs (e.g., <service>-pr-${{ github.event.number }}), main branch/dispatch (e.g., <service>-beta or <service>-latest). Pass submodule commit SHAs as --build-arg.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["2.1"],
+        "testStrategy": "Successful build of all service images with correct tags."
+      },
+      {
+        "id": "2.3",
+        "title": "Automate Environment Switching",
+        "description": "Script toggling of mounts/envs in docker-compose.yaml or use override files.",
+        "details": "Use docker-compose.yml (base), docker-compose.ci.yml (CI overrides), docker-compose.staging.yml (staging overrides, references GHCR images). Use GitHub Actions secrets for .env.ci / .env.staging content.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["0.1", "2.2"],
+        "testStrategy": "Verify correct docker-compose configuration is used for CI and staging scenarios."
+      },
+      {
+        "id": "2.4",
+        "title": "Add Smoke Test Stage",
+        "description": "Run docker compose up and perform basic health checks.",
+        "details": "Use 'docker compose -f ... up -d'. Script to poll 'docker compose ps' or healthcheck endpoints (e.g., /api/health for sirius-ui, sirius-api) with a timeout. Ensure services define healthchecks in docker-compose.yml.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["2.2", "2.3"],
+        "testStrategy": "All services become healthy within the specified timeout during CI run."
+      },
+      {
+        "id": "2.5",
+        "title": "Optional: Push Image to Registry",
+        "description": "Tag and push images to GHCR using secrets.GITHUB_TOKEN.",
+        "details": "Login to GHCR, then push sirius-ui, sirius-api, sirius-engine images. Ensure appropriate secrets and configurations for login.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["2.4"],
+        "testStrategy": "Images are successfully pushed to GHCR with correct tags."
+      }
+    ]
+  },
+  {
+    "id": "3",
+    "title": "PHASE 3: Staging Deploy (Optional but Recommended)",
+    "description": "Implement SSH-based deployment to a staging environment.",
+    "details": "Key Outputs: CI/CD pipeline deploys updated containers to a live testbed.",
+    "status": "pending",
+    "priority": "medium",
+    "dependencies": ["2"],
+    "subtasks": [
+      {
+        "id": "3.1",
+        "title": "Set up SSH-based Staging Deploy",
+        "description": "Add deploy@staging credentials via GH Actions Secrets and write scp + ssh job.",
+        "details": "Use appleboy/ssh-action. Staging server needs Docker & Docker Compose. Workflow: 1. Generate docker-compose.staging.yaml in CI (referencing GHCR image tags). 2. Generate .env.staging. 3. scp files to server. 4. SSH to server: docker login, docker-compose pull, docker-compose up. Implement database migration step before 'docker compose up' (e.g., 'docker exec service go run main.go migrate up').",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["2.5", "0.1"],
+        "testStrategy": "Successful deployment to staging server, services running with new images."
+      }
+    ]
+  },
+  {
+    "id": "4",
+    "title": "PHASE 4: Testing and Observability",
+    "description": "Enhance the pipeline with test reporting and prepare for future observability integrations.",
+    "details": "Key Outputs: Smoke test logs, error tracking (future), test reporting in GitHub UI.",
+    "status": "pending",
+    "priority": "medium",
+    "dependencies": ["2", "3"],
+    "subtasks": [
+      {
+        "id": "4.1",
+        "title": "Setup Test Reporting",
+        "description": "Emit Go test output as JUnit XML for GitHub summary. Show failing tests in PR UI.",
+        "details": "Go: 'go test -v ./... -json | go-junit-report > report.xml'. Use dorny/test-reporter action. For sirius-ui (Bun/Next.js): ensure Jest/Vitest output JUnit XML.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["1.1", "2.4"],
+        "testStrategy": "Test reports are visible in GitHub Actions summary and PR checks."
+      },
+      {
+        "id": "4.2",
+        "title": "Future Enhancement (Observability)",
+        "description": "Plan for UI testing and Sentry/ELK hooks for staging.",
+        "details": "Add basic UI testing (e.g., with bun, playwright) against the CI-deployed stack. Integrate Sentry or ELK for staging environment error tracking and log aggregation.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": ["3.1"],
+        "testStrategy": "N/A for initial implementation. Future: successful E2E test run, logs appearing in observability platform."
+      }
+    ]
+  },
+  {
+    "id": "5",
+    "title": "PHASE 5: Documentation & Dev Experience",
+    "description": "Finalize documentation for developer onboarding and prepare for versioning.",
+    "details": "Key Outputs: Internal CI documentation, clear developer onboarding process, tagging system for releases.",
+    "status": "pending",
+    "priority": "medium",
+    "dependencies": ["0", "1", "2", "3", "4"],
+    "subtasks": [
+      {
+        "id": "5.1",
+        "title": "Developer Onboarding Documentation",
+        "description": "Add docs/dev/ci-overview.md.",
+        "details": "Contents: Repo structure, how to trigger builds (including repository_dispatch), how staging is simulated/deployed, how .env/volumes/mounts switch between environments, interpreting build logs, submodule version pinning.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["0.1", "1.1", "2.1", "3.1"],
+        "testStrategy": "Developer can understand and use the CI/CD pipeline based on the documentation."
+      },
+      {
+        "id": "5.2",
+        "title": "Tagging & Versioning Prep (Later)",
+        "description": "Add semver tagging support via git tag on stable branches. Tie tags to container releases.",
+        "details": "Future: When Sirius/main is git tagged (e.g., v1.0.0), a release workflow builds services, tags Docker images with this version (e.g., sirius-ui:v1.0.0, sirius-ui:latest), pushes to GHCR, and creates a GitHub Release.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": ["2.5"],
+        "testStrategy": "N/A for initial implementation. Future: successful release workflow triggered by git tag."
+      }
+    ]
+  }
+]

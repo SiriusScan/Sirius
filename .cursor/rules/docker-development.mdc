@@ -1,0 +1,182 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Docker Container Development Rules
+
+## container_development
+
+### description
+Best practices for developing inside Docker containers for the Sirius project.
+
+### filter
+glob: Dockerfile
+glob: docker-compose.yml
+glob: .dockerignore
+glob: **/*.go
+glob: go-api/tests/**/*
+
+### action
+When working with Docker containers in Sirius, follow these core practices:
+
+1. **Environment Consistency**:
+   - Make changes inside the container when possible to ensure consistency
+   - Use volume mounts for development files to persist changes
+   - Be aware that the Go API is located at the root of each container at `/go-api/`
+
+2. **Container-Specific Code & Tests**:
+   - Run tests inside the containers using `docker-compose exec <container-name> bash -c "<command>"`
+   - For sirius-api: `docker-compose exec sirius-api bash -c "cd /go-api/tests && go test ./models -v"`
+   - For a specific test: `docker-compose exec sirius-api bash -c "cd /go-api/tests && go test -v ./models -run TestName"`
+
+3. **Database Operations**:
+   - For Turso operations, interact from the host: `turso db shell http://127.0.0.1:9010 < db_reset.sql`
+   - Always quote SQL keywords in table names: `DROP TABLE IF EXISTS "references";`
+   - Be aware of GORM's naming convention (e.g., `VID` -> `v_id`)
+
+4. **Test Data Management**:
+   - Reset the database before running tests
+   - Clean up test data after testing is complete
+   - For UI testing, use recognizable naming patterns like `UI-Test-Host-1`
+
+### metadata
+priority: high
+tags: [docker, container, development, best-practices]
+
+## container_vs_host_operations
+
+### description
+Guidelines for which operations should be performed in the container vs on the host.
+
+### filter
+glob: **/*.sh
+glob: docker-compose.yml
+glob: Dockerfile
+
+### action
+When working with Docker containers, determine whether to run commands inside container or on host:
+
+**Run inside container:**
+- Go code execution: `docker-compose exec sirius-api bash -c "go run /go-api/cmd/main.go"`
+- Test execution: `docker-compose exec sirius-api bash -c "cd /go-api/tests && go test ./models"`
+- Package installation: `docker-compose exec sirius-api bash -c "go get some-package"`
+- Filesystem operations on application directories
+
+**Run on host:**
+- Turso database operations: `turso db shell http://127.0.0.1:9010 < db_reset.sql`
+- Git operations
+- Docker container management commands
+- IDE and editor interactions
+
+**Script creation best practices:**
+- When creating scripts, use dynamic container name detection:
+  ```bash
+  CONTAINER_NAME=$(docker-compose ps | grep -E 'api|sirius-api' | awk '{print $1}')
+  docker-compose exec -T $CONTAINER_NAME bash -c "cd /go-api/tests && go test ./models -v"
+  ```
+
+### metadata
+priority: medium
+tags: [operations, best-practices]
+
+## common_container_issues
+
+### description
+Common issues encountered during Docker container development and how to resolve them.
+
+### filter
+glob: Dockerfile
+glob: docker-compose.yml
+glob: go-api/tests/**/*
+
+### action
+Be aware of these common issues when developing with containers:
+
+1. **SQL Reserved Keywords**:
+   - Problem: Table names like `references` cause syntax errors
+   - Solution: Always quote SQL keywords: `DROP TABLE IF EXISTS "references";`
+
+2. **GORM Naming Conventions**:
+   - Problem: GORM converts `VID` in model to `v_id` in database
+   - Solution: Use database column names in SQL, check actual schema with:
+     `turso db shell http://127.0.0.1:9010 "PRAGMA table_info(vulnerabilities);"`
+
+3. **Junction Tables vs Direct Relationships**:
+   - Problem: Both relationship types may exist simultaneously
+   - Solution: Validate and sync both relationship types
+   ```sql
+   UPDATE ports
+   SET host_id = (SELECT host_id FROM host_ports WHERE host_ports.port_id = ports.id LIMIT 1)
+   WHERE id IN (1, 2, 3);
+   ```
+
+4. **File Access Between Host and Container**:
+   - Problem: Files created on host may not be accessible in container
+   - Solution: Copy files into container:
+     `cat setup.sql | docker-compose exec -T sirius-api bash -c "cat > /go-api/tests/db_reset.sql"`
+
+5. **Foreign Key Constraints in Testing**:
+   - Problem: Tests may fail if they don't respect foreign key constraints
+   - Solution: Disable foreign keys during setup, re-enable afterward:
+   ```sql
+   PRAGMA foreign_keys=OFF;
+   -- Drop tables...
+   PRAGMA foreign_keys=ON;
+   ```
+
+### metadata
+priority: high
+tags: [debugging, troubleshooting]
+
+## container_performance_debugging
+
+### description
+Strategies for debugging performance issues in containers.
+
+### filter
+glob: docker-compose.yml
+glob: Dockerfile
+glob: go-api/**/*
+
+### action
+When debugging performance issues in Docker containers:
+
+1. **Monitor Resource Usage**:
+   - View container stats: `docker stats sirius-api sirius-engine sirius-ui`
+   - Check container logs: `docker-compose logs -f sirius-api`
+
+2. **Profile CPU and Memory**:
+   - Enable Go profiling in your application
+   - Extract profiles from container:
+     ```bash
+     docker cp sirius-api:/tmp/cpu.prof ./cpu.prof
+     go tool pprof -http=:8080 ./cpu.prof
+     ```
+
+3. **Analyze Disk I/O**:
+   - Check I/O usage: `docker stats --format "{{.Name}}: {{.BlockIO}}"`
+   - For detailed analysis:
+     ```bash
+     docker-compose exec sirius-api bash -c "dd if=/dev/zero of=/tmp/test bs=1M count=1024 oflag=direct"
+     ```
+
+4. **Network Performance**:
+   - Test network between containers:
+     ```bash
+     docker-compose exec sirius-api bash -c "ping -c 5 sirius-ui"
+     ```
+   - Check DNS resolution:
+     ```bash
+     docker-compose exec sirius-api bash -c "nslookup sirius-ui"
+     ```
+
+5. **Database Query Performance**:
+   - Analyze slow queries with:
+     ```bash
+     turso db shell http://127.0.0.1:9010 "EXPLAIN QUERY PLAN SELECT * FROM hosts JOIN host_vulnerabilities ON hosts.id = host_vulnerabilities.host_id;"
+     ```
+
+### metadata
+priority: medium
+tags: [performance, profiling] 

@@ -44,7 +44,7 @@
         "title": "Create .github/workflows/ci.yml in each submodule",
         "description": "Implement CI workflows for go-api, app-scanner, app-terminal, app-agent, and sirius-nse.",
         "details": "Include checkout, setup (Go or runtime), run basic tests. Add optional linting (e.g., golangci-lint). Include repository_dispatch trigger back to SiriusScan/Sirius on merge to main. For sirius-nse: lint Lua, validate manifest.json schema, then dispatch.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": ["0.2"],
         "testStrategy": "Successful workflow run in each submodule repo, dispatch received by Sirius repo."
@@ -54,7 +54,7 @@
         "title": "Configure GitHub Secrets in Submodule Repos",
         "description": "Add REPO_ACCESS_TOKEN with write access to SiriusScan/Sirius.",
         "details": "Use a PAT with 'repo' scope or 'actions:write' if needed. Store as MAIN_REPO_ACCESS_TOKEN in submodule secrets.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": ["1.1"],
         "testStrategy": "Test repository_dispatch trigger from a submodule to the main Sirius repo."
@@ -85,7 +85,7 @@
         "title": "Add ci.yml in .github/workflows/",
         "description": "Create main CI workflow triggered on push, PR, and repository_dispatch.",
         "details": "Handle repository_dispatch payload to get submodule commit SHAs. Modify Dockerfiles (e.g., sirius-engine/Dockerfile) to accept these SHAs as ARGs and checkout specific submodule commits (e.g., ARG GO_API_COMMIT_SHA=main; git clone ... && git checkout $GO_API_COMMIT_SHA). For sirius-api, update its go.mod to use the specific go-api commit SHA.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": ["1.1"],
         "testStrategy": "CI workflow triggers correctly and uses dispatched commit SHAs for submodule checkouts."
@@ -95,7 +95,7 @@
         "title": "Add Container Build & Compose Job",
         "description": "Build service images using docker compose with BUILDKIT.",
         "details": "Tag images: PRs (e.g., <service>-pr-${{ github.event.number }}), main branch/dispatch (e.g., <service>-beta or <service>-latest). Pass submodule commit SHAs as --build-arg.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": ["2.1"],
         "testStrategy": "Successful build of all service images with correct tags."

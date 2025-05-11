@@ -3,6 +3,12 @@
 FROM golang:latest
 WORKDIR /engine
 
+# Build arguments for submodule commit SHAs
+ARG GO_API_COMMIT_SHA=main
+ARG APP_SCANNER_COMMIT_SHA=main
+ARG APP_TERMINAL_COMMIT_SHA=main
+ARG SIRIUS_NSE_COMMIT_SHA=main
+
 COPY .air.toml .air.toml
 
 RUN apt-get update -y
@@ -63,11 +69,24 @@ RUN mkdir -p /opt/sirius/nse && \
     chown -R 1000:1000 /opt/sirius && \
     chmod -R 755 /opt/sirius
 
-# App Repos
+# App Repos - Clone with specific commit SHAs
 WORKDIR /
-RUN git clone https://github.com/SiriusScan/app-scanner.git
-RUN git clone https://github.com/SiriusScan/app-terminal.git
-RUN git clone https://github.com/SiriusScan/go-api.git
+RUN git clone https://github.com/SiriusScan/app-scanner.git && \
+    cd /app-scanner && \
+    git checkout ${APP_SCANNER_COMMIT_SHA}
+
+RUN git clone https://github.com/SiriusScan/app-terminal.git && \
+    cd /app-terminal && \
+    git checkout ${APP_TERMINAL_COMMIT_SHA}
+
+RUN git clone https://github.com/SiriusScan/go-api.git && \
+    cd /go-api && \
+    git checkout ${GO_API_COMMIT_SHA}
+
+# Optionally clone sirius-nse if needed
+RUN git clone https://github.com/SiriusScan/sirius-nse.git && \
+    cd /sirius-nse && \
+    git checkout ${SIRIUS_NSE_COMMIT_SHA}
 
 WORKDIR /app-scanner
 #DEV Dependencies

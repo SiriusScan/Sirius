@@ -1,0 +1,131 @@
+---
+description: Standards for TypeScript and React component development in Sirius UI
+globs: *.tsx, *.ts
+---
+# TypeScript and React Development Standards
+
+Rules for creating and working with TypeScript and React files in the Sirius UI codebase.
+
+<rule>
+name: typescript_react_standards
+description: Standards for developing TypeScript and React components in Sirius UI
+filters:
+  # Match TypeScript and React TypeScript files
+  - type: file_extension
+    pattern: "\\.(ts|tsx)$"
+  # Match file creation events
+  - type: event
+    pattern: "file_create|file_modify"
+
+actions:
+  - type: suggest
+    message: |
+      When creating TypeScript and React files:
+
+      1. Component Structure:
+         ```tsx
+         import React, { useState, useCallback } from 'react';
+         import { cn } from '~/components/lib/utils';
+         
+         interface ComponentProps {
+           // Props definition with explicit types
+         }
+         
+         export const Component: React.FC<ComponentProps> = ({
+           // Destructured props
+         }) => {
+           // Component logic
+           return (
+             // JSX with Tailwind classes
+           );
+         };
+         ```
+
+      2. Follow the naming conventions:
+         - Use PascalCase for component names
+         - Use camelCase for variables, functions, and instances
+         - Event handlers should be prefixed with "handle" (e.g., handleClick)
+         - Use descriptive names that clearly indicate purpose
+
+      3. Type definitions:
+         - Use explicit interfaces for component props
+         - Use type for complex type definitions
+         - Export shared types for reuse
+         - Avoid using 'any' type whenever possible
+
+      4. Component organization:
+         - Place components in appropriate directories:
+           - Shared components in src/components/ui/
+           - Feature-specific components in feature directories
+           - Pages in src/pages/
+         - Split complex components into smaller, focused components
+
+      5. React patterns:
+         - Use functional components with hooks
+         - Use React.FC<Props> type for components
+         - Memoize callbacks with useCallback
+         - Memoize expensive calculations with useMemo
+         - Use React.memo for pure components that render often
+
+      6. Styling guidelines:
+         - Use Tailwind CSS classes for styling
+         - Use the cn() utility for conditional class names
+         - Avoid inline styles and CSS files
+         - Use the established color tokens from tailwind.config.js
+
+      7. Accessibility requirements:
+         - Interactive elements must have appropriate ARIA attributes
+         - Ensure proper keyboard navigation (tabIndex, keyDown handlers)
+         - Use semantic HTML elements
+         - Provide proper form labels and error states
+
+examples:
+  - input: |
+      # Bad: Component without proper typing
+      ```tsx
+      const SomeComponent = (props) => {
+        return <div onClick={props.onClick}>{props.children}</div>;
+      };
+      export default SomeComponent;
+      ```
+
+      # Good: Well-typed component with proper structure
+      ```tsx
+      import React from 'react';
+      import { cn } from '~/components/lib/utils';
+      
+      interface ButtonProps {
+        onClick: () => void;
+        children: React.ReactNode;
+        variant?: 'primary' | 'secondary';
+      }
+      
+      export const Button: React.FC<ButtonProps> = ({
+        onClick,
+        children,
+        variant = 'primary',
+      }) => {
+        const handleClick = () => {
+          onClick();
+        };
+        
+        return (
+          <button
+            className={cn(
+              "px-4 py-2 rounded",
+              variant === 'primary' ? "bg-primary text-white" : "bg-secondary text-gray-800"
+            )}
+            onClick={handleClick}
+            aria-label="Button"
+          >
+            {children}
+          </button>
+        );
+      };
+      ```
+    output: "Properly structured TypeScript React component"
+
+metadata:
+  priority: high
+  version: 1.0
+</rule> 

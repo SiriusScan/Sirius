@@ -1,0 +1,8 @@
+---
+description: Understanding the project or coding style
+globs: 
+---
+
+We're working on an open-source vulnerability scanner: Sirius Scan
+
+We want to leverage ideal programming paradigms like DRY where possible. Use, call out, and recommend programing patterns such as strategy patterns, factories, hooks, and more. Prefer language idiomatic design choices. We program in Typescript and Go.

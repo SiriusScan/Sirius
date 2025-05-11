@@ -1,0 +1,66 @@
+# Docker Testing Rules for Sirius
+
+This document provides guidelines for running tests in the Sirius Docker environment.
+
+## Container Environment
+
+The Sirius application runs in several Docker containers:
+
+- `sirius-engine`: Main scanner engine container (Go)
+- `sirius-api`: API server container
+- `sirius-ui`: Frontend UI container
+- `sirius-valkey`: ValKey (Redis-compatible) container
+- `sirius-postgres`: PostgreSQL database container
+- `sirius-rabbitmq`: RabbitMQ message queue container
+
+For NSE (Nmap Script Engine) testing, we primarily work with the `sirius-engine` container.
+
+## Running Tests in Docker
+
+To run test commands in the Docker environment, use the following pattern:
+
+```bash
+# Execute a command in the running container
+docker exec -it sirius-engine go run cmd/<test-program>/main.go
+
+# For NSE tests specifically
+docker exec -it sirius-engine go run cmd/nse-scan-test/main.go
+```
+
+## Important Paths
+
+Inside the Docker container:
+
+- Working directory: `/app-scanner`
+- NSE base directory: `/opt/sirius/nse`
+- NSE repository: `/opt/sirius/nse/sirius-nse`
+- Scripts directory: `/app-scanner/scripts`
+
+## Common Testing Scenarios
+
+### Testing NSE Integration
+
+```bash
+# Run the NSE scan test against the test target
+docker exec -it sirius-engine go run cmd/nse-scan-test/main.go
+
+# Build and run the test (if using built binaries)
+docker exec -it sirius-engine /bin/bash -c "cd /app-scanner && go build -o bin/nse-scan-test cmd/nse-scan-test/main.go && ./bin/nse-scan-test"
+```
+
+### Debugging Tips
+
+- Use the `docker logs sirius-engine` command to view container logs
+- For interactive debugging, use `docker exec -it sirius-engine /bin/bash`
+- NSE scripts can be inspected at `/opt/sirius/nse/sirius-nse/scripts`
+- ValKey data can be inspected using the `redis-cli` within the ValKey container:
+  ```bash
+  docker exec -it sirius-valkey redis-cli
+  ```
+
+## Best Practices
+
+1. Always ensure the necessary directories exist before running tests
+2. Use appropriate error handling to provide clear feedback
+3. Test in the Docker environment before merging changes
+4. Use emojis in log output for better visibility during testing 

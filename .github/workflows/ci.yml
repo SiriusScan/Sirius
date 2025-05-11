@@ -266,7 +266,7 @@ jobs:
                 "${{ needs.detect-changes.outputs.sirius_engine_changes }}" == "true" ]]; then
             
             echo "Starting services for smoke test..."
-            docker-compose -f docker-compose.ci.yml up -d sirius-postgres sirius-rabbitmq sirius-valkey
+            docker compose -f docker-compose.ci.yml up -d sirius-postgres sirius-rabbitmq sirius-valkey
             
             # Wait for infrastructure services to be ready
             echo "Waiting for infrastructure services..."
@@ -274,15 +274,15 @@ jobs:
             
             # Start application services based on what changed
             if [ "${{ needs.detect-changes.outputs.sirius_api_changes }}" == "true" ]; then
-              docker-compose -f docker-compose.ci.yml up -d sirius-api
+              docker compose -f docker-compose.ci.yml up -d sirius-api
             fi
             
             if [ "${{ needs.detect-changes.outputs.sirius_engine_changes }}" == "true" ]; then
-              docker-compose -f docker-compose.ci.yml up -d sirius-engine
+              docker compose -f docker-compose.ci.yml up -d sirius-engine
             fi
             
             if [ "${{ needs.detect-changes.outputs.sirius_ui_changes }}" == "true" ]; then
-              docker-compose -f docker-compose.ci.yml up -d sirius-ui
+              docker compose -f docker-compose.ci.yml up -d sirius-ui
             fi
             
             # Wait for services to start
@@ -290,16 +290,16 @@ jobs:
             sleep 30
             
             # Check service health
-            docker-compose -f docker-compose.ci.yml ps
+            docker compose -f docker-compose.ci.yml ps
             
             # Basic connectivity checks
             if [ "${{ needs.detect-changes.outputs.sirius_api_changes }}" == "true" ]; then
-              docker-compose -f docker-compose.ci.yml exec -T sirius-api wget -q --spider --timeout=10 http://localhost:9001 || \
+              docker compose -f docker-compose.ci.yml exec -T sirius-api wget -q --spider --timeout=10 http://localhost:9001 || \
                 echo "Warning: API service not responding, but continuing the build"
             fi
             
             # Shut down services
-            docker-compose -f docker-compose.ci.yml down
+            docker compose -f docker-compose.ci.yml down
           else
             echo "No services need to be tested"
           fi

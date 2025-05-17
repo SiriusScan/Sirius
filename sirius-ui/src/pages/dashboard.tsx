@@ -56,16 +56,25 @@ const Dashboard: NextPage = () => {
   // Calculate vulnerability statistics
   const severityCount = {
     critical:
-      vuln?.vulnerabilities?.filter((v) => v.severity === "critical").length ??
-      0,
+      scanResults?.vulnerabilities?.filter(
+        (v: VulnerabilitySummary) => v.severity === "critical"
+      ).length ?? 0,
     high:
-      vuln?.vulnerabilities?.filter((v) => v.severity === "high").length ?? 0,
+      scanResults?.vulnerabilities?.filter(
+        (v: VulnerabilitySummary) => v.severity === "high"
+      ).length ?? 0,
     medium:
-      vuln?.vulnerabilities?.filter((v) => v.severity === "medium").length ?? 0,
-    low: vuln?.vulnerabilities?.filter((v) => v.severity === "low").length ?? 0,
+      scanResults?.vulnerabilities?.filter(
+        (v: VulnerabilitySummary) => v.severity === "medium"
+      ).length ?? 0,
+    low:
+      scanResults?.vulnerabilities?.filter(
+        (v: VulnerabilitySummary) => v.severity === "low"
+      ).length ?? 0,
     informational:
-      vuln?.vulnerabilities?.filter((v) => v.severity === "informational")
-        .length ?? 0,
+      scanResults?.vulnerabilities?.filter(
+        (v: VulnerabilitySummary) => v.severity === "informational"
+      ).length ?? 0,
   };
 
   // Calculate total vulnerability count

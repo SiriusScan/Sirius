@@ -88,5 +88,7 @@ services:
       # - ../minor-projects/app-scanner:/app-scanner # Local Development
       # - ../minor-projects/app-terminal:/app-terminal # Local Development
       # - ../minor-projects/nmap-db:/nmap-db # Local Development
-    # depends_on:
-    #   - rabbitmq
+    depends_on:
+      sirius-rabbitmq:
+        condition: service_healthy
+

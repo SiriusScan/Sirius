@@ -10,12 +10,12 @@ services:
       - "5672:5672"
       - "15672:15672"
     volumes:
-       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     healthcheck:
-       test: ["CMD", "rabbitmqctl", "status"]
-       interval: 30s
-       timeout: 15s
-       retries: 5
+      test: [ "CMD", "rabbitmqctl", "status" ]
+      interval: 30s
+      timeout: 15s
+      retries: 5
 
   sirius-postgres:
     image: postgres:15-alpine
@@ -85,8 +85,9 @@ services:
       - ./sirius-engine:/engine
       - ../minor-projects/app-agent:/app-agent
       # - ../minor-projects/go-api:/go-api # Local Development
-      # - ../minor-projects/app-scanner:/app-scanner # Local Development
+      - ../minor-projects/app-scanner:/app-scanner # Local Development
       # - ../minor-projects/app-terminal:/app-terminal # Local Development
       # - ../minor-projects/nmap-db:/nmap-db # Local Development
-    # depends_on:
-    #   - rabbitmq
+    depends_on:
+      sirius-rabbitmq:
+        condition: service_healthy

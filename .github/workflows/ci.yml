@@ -21,7 +21,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for all branches and tags
+          fetch-depth: 0 # Fetch all history for all branches and tags
 
       - name: Determine Changed Files
         id: changes
@@ -98,6 +98,8 @@ jobs:
     name: Build & Test Services
     needs: detect-changes
     runs-on: ubuntu-latest
+    outputs:
+      TAG_SUFFIX: ${{ steps.set_env.outputs.TAG_SUFFIX }}
     steps:
       - name: Checkout Sirius repository
         uses: actions/checkout@v4
@@ -108,6 +110,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Set environment variables
+        id: set_env
         run: |
           # Set submodule commit SHAs based on repository_dispatch or use 'main' as default
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
@@ -121,16 +124,19 @@ jobs:
             
             echo "Submodule $REPO_NAME commit SHA: $COMMIT_SHA"
           fi
-          
+
           # Set image tags based on event type
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             echo "TAG_SUFFIX=pr-${{ github.event.number }}" >> $GITHUB_ENV
           elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "TAG_SUFFIX=beta" >> $GITHUB_ENV
+            echo "TAG_SUFFIX=beta" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
             echo "TAG_SUFFIX=beta" >> $GITHUB_ENV
+            echo "TAG_SUFFIX=beta" >> $GITHUB_OUTPUT
           else
             echo "TAG_SUFFIX=dev" >> $GITHUB_ENV
+            echo "TAG_SUFFIX=dev" >> $GITHUB_OUTPUT
           fi
 
       - name: Build sirius-ui (if changed)
@@ -165,14 +171,14 @@ jobs:
       - name: Create CI environment config
         run: |
           mkdir -p .env-ci
-          
+
           # Create .env.ci file for each service
           cat > .env-ci/.env.ci.sirius-ui << EOL
           # Generated CI environment variables for sirius-ui
           NODE_ENV=test
           NEXT_PUBLIC_API_URL=http://sirius-api:9001
           EOL
-          
+
           cat > .env-ci/.env.ci.sirius-api << EOL
           # Generated CI environment variables for sirius-api
           GO_ENV=test
@@ -185,7 +191,7 @@ jobs:
           VALKEY_PORT=6379
           RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
           EOL
-          
+
           cat > .env-ci/.env.ci.sirius-engine << EOL
           # Generated CI environment variables for sirius-engine
           GO_ENV=test
@@ -200,7 +206,7 @@ jobs:
           ENGINE_MAIN_PORT=5174
           GRPC_AGENT_PORT=50051
           EOL
-          
+
           # Create docker-compose.ci.yml with CI-specific settings
           cat > docker-compose.ci.yml << EOL
           # Generated CI docker-compose configuration
@@ -252,7 +258,7 @@ jobs:
               image: valkey/valkey:latest
               networks:
                 - sirius_network
-          
+
           networks:
             sirius_network:
               driver: bridge
@@ -303,15 +309,53 @@ jobs:
           else
             echo "No services need to be tested"
           fi
-          
-  # Optional task to push images to registry
-  # push-images:
-  #   name: Push Images to Registry
-  #   needs: [build, detect-changes]
-  #   runs-on: ubuntu-latest
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'repository_dispatch'
-  #   steps:
-  #     ... (would go here)
+
+  push-images:
+    name: Push Images to GHCR
+    needs: [build, detect-changes]
+    runs-on: ubuntu-latest
+    # Only push images for 'beta' tags
+    if: needs.build.outputs.TAG_SUFFIX == 'beta' && (github.event_name == 'push' || github.event_name == 'repository_dispatch')
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and Push sirius-ui
+        if: needs.detect-changes.outputs.sirius_ui_changes == 'true'
+        run: |
+          IMAGE_BASENAME=sirius-ui
+          LOCAL_TAG=${{ needs.build.outputs.TAG_SUFFIX }}
+          GHCR_IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$IMAGE_BASENAME:$LOCAL_TAG
+          echo "Tagging $IMAGE_BASENAME:$LOCAL_TAG as $GHCR_IMAGE_NAME"
+          docker tag $IMAGE_BASENAME:$LOCAL_TAG $GHCR_IMAGE_NAME
+          echo "Pushing $GHCR_IMAGE_NAME"
+          docker push $GHCR_IMAGE_NAME
+
+      - name: Tag and Push sirius-api
+        if: needs.detect-changes.outputs.sirius_api_changes == 'true'
+        run: |
+          IMAGE_BASENAME=sirius-api
+          LOCAL_TAG=${{ needs.build.outputs.TAG_SUFFIX }}
+          GHCR_IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$IMAGE_BASENAME:$LOCAL_TAG
+          echo "Tagging $IMAGE_BASENAME:$LOCAL_TAG as $GHCR_IMAGE_NAME"
+          docker tag $IMAGE_BASENAME:$LOCAL_TAG $GHCR_IMAGE_NAME
+          echo "Pushing $GHCR_IMAGE_NAME"
+          docker push $GHCR_IMAGE_NAME
+
+      - name: Tag and Push sirius-engine
+        if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
+        run: |
+          IMAGE_BASENAME=sirius-engine
+          LOCAL_TAG=${{ needs.build.outputs.TAG_SUFFIX }}
+          GHCR_IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$IMAGE_BASENAME:$LOCAL_TAG
+          echo "Tagging $IMAGE_BASENAME:$LOCAL_TAG as $GHCR_IMAGE_NAME"
+          docker tag $IMAGE_BASENAME:$LOCAL_TAG $GHCR_IMAGE_NAME
+          echo "Pushing $GHCR_IMAGE_NAME"
+          docker push $GHCR_IMAGE_NAME
 
   update-task-status:
     name: Update Task Status
@@ -320,4 +364,4 @@ jobs:
     if: success()
     steps:
       - name: Check if Task 2.1 is complete
-        run: echo "Task 2.1 'Add ci.yml in .github/workflows/' completed successfully" 
+        run: echo "Task 2.1 'Add ci.yml in .github/workflows/' completed successfully"

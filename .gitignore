@@ -1,1 +1,52 @@
+# Cursor IDE
 ./.cursor/
+
+# Build artifacts and temporary files
+**/tmp/
+**/build/
+**/*.exe
+**/*.bin
+**/main
+**/build-errors.log
+
+# Go build artifacts
+**/*.o
+**/*.a
+**/*.so
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock

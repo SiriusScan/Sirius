@@ -1,53 +1,46 @@
-import React, { useState, useMemo } from "react";
-import { NextPage } from "next";
+import { type NextPage } from "next";
 import { api } from "~/utils/api";
-import Layout from "~/components/Layout";
-import DashNumberCard from "~/components/DashNumberCard";
-import VulnerabilitiesOverTimeChart from "~/components/VulnerabilitiesOverTimeChart";
-import DashboardIcon from "~/components/icons/DashboardIcon";
-import VulnerabilityIcon from "~/components/icons/VulnerabilityIcon";
-import HostsIcon from "~/components/icons/HostsIcon";
-import AgentIcon from "~/components/icons/AgentIcon";
-import { VulnerabilitySeverityCardsVertical } from "~/components/VulnerabilitySeverityCards";
-import { ScanBar } from "~/components/ScanBar";
-import DataTable, {
-  type ColumnDefinition,
-} from "~/components/VulnerabilityTableBasic";
-import { SeverityBadge } from "~/components/SeverityBadge";
-import { DashboardThreatBar } from "~/components/vulnerabilityReport/ThreatBar";
-import {
-  type ScanResult,
-  type Vulnerability as ScanVulnerability,
-  type VulnerabilitySummary,
-  ScanStatus,
-} from "~/components/scanner/ScanStatus";
-import { SiriusHost } from "~/server/api/routers/host";
+import Layout from "~/components/lib/Layout";
+import DashNumberCard from "~/components/lib/ui/DashNumberCard";
+import VulnerabilitySeverityCardsVertical from "~/components/vulnerability/VulnerabilitySeverityCardsVertical";
+import DataTable from "~/components/lib/ui/DataTable";
+import SeverityBadge from "~/components/vulnerability/SeverityBadge";
+import ScanBar from "~/components/scanner/general/ScanBar";
+import { useMemo } from "react";
+import type {
+  ScanVulnerability,
+  VulnerabilitySummary,
+  ColumnDefinition,
+} from "~/types/scanner";
 
-// Helper function for base64 decoding (preserved from original)
+// Icons
+import DashboardIcon from "~/components/icons/DashboardIcon";
+import HostsIcon from "~/components/icons/HostsIcon";
+import VulnerabilityIcon from "~/components/icons/VulnerabilityIcon";
+import ScanIcon from "~/components/icons/ScanIcon";
+import SettingsIcon from "~/components/icons/SettingsIcon";
+import { Button } from "~/components/lib/ui/button";
+import { useRouter } from "next/router";
+
+// Base64 decode function
 function b64Decode(base64String: string) {
-  if (typeof window === "undefined") {
-    return null;
-  }
   try {
-    const decodedString = atob(base64String);
-    return JSON.parse(decodedString) as ScanResult;
+    if (!base64String) return null;
+    const jsonString = atob(base64String);
+    return JSON.parse(jsonString);
   } catch (error) {
-    console.error("Failed to decode Base64 JSON:", error);
+    console.error("Error decoding base64 scan results:", error);
     return null;
   }
 }
 
-// Dashboard component
 const Dashboard: NextPage = () => {
-  const [timeRange, setTimeRange] = useState<"week" | "month" | "quarter">(
-    "week"
-  );
+  const router = useRouter();
 
-  // Fetch data using existing API endpoints
-  const { data: hosts } = api.host.getAllHosts.useQuery();
-  const { data: latestScan } = api.store.getValue.useQuery({
-    key: "currentScan",
-  });
+  // Get latest scan results
+  const { data: latestScan } = api.scanner.getLatestScan.useQuery();
+
+  // Get vulnerability data from API
   const { data: vuln } = api.vulnerability.getAllVulnerabilities.useQuery();
 
   // Parse scan results
@@ -56,16 +49,25 @@ const Dashboard: NextPage = () => {
   // Calculate vulnerability statistics
   const severityCount = {
     critical:
-      vuln?.vulnerabilities?.filter((v) => v.severity === "critical").length ??
-      0,
+      scanResults?.vulnerabilities?.filter(
+        (v: VulnerabilitySummary) => v.severity === "critical"
+      ).length ?? 0,
     high:
-      vuln?.vulnerabilities?.filter((v) => v.severity === "high").length ?? 0,
+      scanResults?.vulnerabilities?.filter(
+        (v: VulnerabilitySummary) => v.severity === "high"
+      ).length ?? 0,
     medium:
-      vuln?.vulnerabilities?.filter((v) => v.severity === "medium").length ?? 0,
-    low: vuln?.vulnerabilities?.filter((v) => v.severity === "low").length ?? 0,
+      scanResults?.vulnerabilities?.filter(
+        (v: VulnerabilitySummary) => v.severity === "medium"
+      ).length ?? 0,
+    low:
+      scanResults?.vulnerabilities?.filter(
+        (v: VulnerabilitySummary) => v.severity === "low"
+      ).length ?? 0,
     informational:
-      vuln?.vulnerabilities?.filter((v) => v.severity === "informational")
-        .length ?? 0,
+      scanResults?.vulnerabilities?.filter(
+        (v: VulnerabilitySummary) => v.severity === "informational"
+      ).length ?? 0,
   };
 
   // Calculate total vulnerability count
@@ -247,99 +249,49 @@ const Dashboard: NextPage = () => {
             </h2>
             {criticalVulnerabilities.length > 0 ? (
               <DataTable
-                title="Highest Risk Issues"
-                data={criticalVulnerabilities as ScanVulnerability[]}
+                data={criticalVulnerabilities}
                 columns={vulnerabilityColumns}
+                className="max-h-96"
               />
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 p-8 text-center dark:border-gray-700">
-                <div className="text-green-500">
-                  <VulnerabilityIcon
-                    className="mx-auto h-12 w-12"
-                    fill="#10b981"
-                  />
-                </div>
-                <h3 className="mt-2 text-lg font-medium">
-                  No Critical Vulnerabilities!
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800">
+                <VulnerabilityIcon className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">
+                  No Critical Vulnerabilities
                 </h3>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Your environment has no critical vulnerabilities
+                <p className="text-gray-600 dark:text-gray-400">
+                  Great! No critical vulnerabilities were found in your latest
+                  scan.
                 </p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Vulnerable Hosts */}
-        <div className="mt-8">
-          <h2 className="mb-4 text-xl font-light">Most Vulnerable Hosts</h2>
-          {topVulnerableHosts.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-              {topVulnerableHosts.map((host, index) => (
-                <div
-                  key={index}
-                  className="rounded-lg border border-gray-200 p-4 dark:border-gray-700"
-                >
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">{host.hostname}</h4>
-                    {host.criticalCount > 0 && (
-                      <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
-                        {host.criticalCount} Critical
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-sm">
-                    <span className="text-gray-500">{host.ip}</span>
-                    <span>{host.vulnerabilityCount} issues</span>
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">{host.os}</div>
-                  <DashboardThreatBar
-                    count={host.vulnerabilityCount}
-                    critical={host.criticalCount}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 p-8 text-center dark:border-gray-700">
-              <div className="text-green-500">
-                <HostsIcon className="mx-auto h-12 w-12" fill="#10b981" />
-              </div>
-              <h3 className="mt-2 text-lg font-medium">No Vulnerable Hosts!</h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                No hosts with vulnerabilities detected
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Quick Actions */}
-        <div className="ml-4 mt-8">
-          <h2 className="mb-4 text-xl font-light">Quick Actions</h2>
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+        {/* Quick Actions Section */}
+        <div className="mt-12">
+          <h2 className="mb-6 text-2xl font-light">Quick Actions</h2>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             <ActionCard
-              title="Run Full Scan"
-              description="Perform a comprehensive scan of your environment"
-              icon={<HostsIcon className="h-5 w-5" fill="#6366f1" />}
+              title="Start New Scan"
+              description="Initiate a comprehensive security scan of your network"
+              icon={<ScanIcon className="h-6 w-6" />}
               buttonText="Start Scan"
-              buttonAction={() => console.log("Run full scan")}
+              buttonAction={() => router.push("/scanner")}
             />
-
             <ActionCard
-              title="Review Critical Findings"
-              description="Analyze and triage all critical vulnerabilities"
-              icon={<VulnerabilityIcon className="h-5 w-5" fill="#ef4444" />}
-              buttonText="View Report"
-              buttonAction={() => console.log("View critical findings")}
-              isDestructive={severityCount.critical > 0}
+              title="View All Hosts"
+              description="Browse and manage all discovered hosts in your network"
+              icon={<HostsIcon className="h-6 w-6" />}
+              buttonText="View Hosts"
+              buttonAction={() => router.push("/host")}
             />
-
             <ActionCard
-              title="Security Recommendations"
-              description="Get personalized security improvement suggestions"
-              icon={<AgentIcon className="h-5 w-5" />}
-              buttonText="Get Recommendations"
-              buttonAction={() => console.log("Get recommendations")}
+              title="Vulnerability Reports"
+              description="Generate detailed vulnerability assessment reports"
+              icon={<VulnerabilityIcon className="h-6 w-6" />}
+              buttonText="View Reports"
+              buttonAction={() => router.push("/vulnerability")}
             />
           </div>
         </div>
@@ -348,7 +300,9 @@ const Dashboard: NextPage = () => {
   );
 };
 
-// Helper component for action cards
+export default Dashboard;
+
+// Action Card Component
 interface ActionCardProps {
   title: string;
   description: string;
@@ -367,44 +321,23 @@ const ActionCard: React.FC<ActionCardProps> = ({
   isDestructive = false,
 }) => {
   return (
-    <div
-      className={`rounded-lg border p-4 ${
-        isDestructive
-          ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/50"
-          : ""
-      }`}
-    >
-      <div className="flex items-center space-x-4">
-        <div
-          className={`rounded-full p-2 ${
-            isDestructive
-              ? "bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-400"
-              : "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-400"
-          }`}
-        >
+    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
+      <div className="mb-4 flex items-center">
+        <div className="mr-3 rounded-lg bg-blue-100 p-2 dark:bg-blue-900">
           {icon}
         </div>
-        <div className="flex-1 space-y-1">
-          <h3 className="font-medium">{title}</h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {description}
-          </p>
-        </div>
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+          {title}
+        </h3>
       </div>
-      <div className="mt-4">
-        <button
-          onClick={buttonAction}
-          className={`w-full rounded-md px-4 py-2 text-sm font-medium text-white ${
-            isDestructive
-              ? "bg-red-600 hover:bg-red-700 focus:ring-red-500"
-              : "bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500"
-          } focus:outline-none focus:ring-2 focus:ring-offset-2`}
-        >
-          {buttonText}
-        </button>
-      </div>
+      <p className="mb-4 text-gray-600 dark:text-gray-400">{description}</p>
+      <Button
+        onClick={buttonAction}
+        variant={isDestructive ? "destructive" : "default"}
+        className="w-full"
+      >
+        {buttonText}
+      </Button>
     </div>
   );
 };
-
-export default Dashboard;

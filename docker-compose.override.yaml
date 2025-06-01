@@ -1,0 +1,49 @@
+# Docker Compose Override for Local Development
+# This file is automatically loaded by Docker Compose for local development
+# It maintains the current development setup with volume mounts and build contexts
+
+version: "3.8"
+
+services:
+  sirius-ui:
+    build:
+      context: ./sirius-ui/
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_CLIENTVAR: "clientvar"
+    volumes:
+      - ./sirius-ui:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - SKIP_ENV_VALIDATION=1
+      - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius
+      - NEXTAUTH_SECRET=your-secret-key-here
+      - NEXTAUTH_URL=http://localhost:3000
+      - SIRIUS_API_URL=http://sirius-api:9001
+      - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
+    depends_on:
+      sirius-postgres:
+        condition: service_healthy
+
+  sirius-api:
+    build: ./sirius-api/
+    volumes:
+      - ./sirius-api:/api
+      # Uncomment for local go-api development:
+      # - ../minor-projects/go-api:/go-api
+    environment:
+      - GO_ENV=development
+
+  sirius-engine:
+    build: ./sirius-engine/
+    volumes:
+      - ./sirius-engine:/engine
+      - ../minor-projects/app-agent:/app-agent
+      - ../minor-projects/app-scanner:/app-scanner
+      # Uncomment for additional local development:
+      # - ../minor-projects/go-api:/go-api
+      # - ../minor-projects/app-terminal:/app-terminal
+      # - ../minor-projects/nmap-db:/nmap-db
+    environment:
+      - GO_ENV=development

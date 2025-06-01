@@ -1,10 +1,11 @@
 import React from "react";
-import { type CveItem } from "~/types/cveTypes";
-import { VulnerabilityTable } from "~/components/VulnerabilityTable";
-import { columns } from "~/components/VulnerabilityTableColumns";
+import { type Vulnerability } from "~/server/api/routers/host";
+import DataTable from "~/components/VulnerabilityTableBasic";
+import { SeverityBadge } from "~/components/SeverityBadge";
+import type { ColumnDefinition } from "~/components/VulnerabilityTableBasic";
 
 interface HostVulnerabilitiesProps {
-  vulnerabilities: CveItem[];
+  vulnerabilities: Vulnerability[];
   isLoading: boolean;
 }
 
@@ -48,7 +49,33 @@ export const HostVulnerabilities: React.FC<HostVulnerabilitiesProps> = ({
     );
   }
 
-  return <VulnerabilityTable columns={columns} data={vulnerabilities} />;
+  // Define columns for the vulnerability table
+  const vulnerabilityColumns: ColumnDefinition<Vulnerability>[] = [
+    {
+      header: "CVE ID",
+      accessor: "cve",
+    },
+    {
+      header: "Description",
+      accessor: "description",
+    },
+    {
+      header: "Severity",
+      render: (vuln) => <SeverityBadge severity={vuln.severity || "unknown"} />,
+    },
+    {
+      header: "Risk Score",
+      render: (vuln) => <span>{vuln.riskScore?.toFixed(1) || "N/A"}</span>,
+    },
+  ];
+
+  return (
+    <DataTable
+      title="Host Vulnerabilities"
+      data={vulnerabilities}
+      columns={vulnerabilityColumns}
+    />
+  );
 };
 
 export default HostVulnerabilities;

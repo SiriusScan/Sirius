@@ -1,26 +1,30 @@
 import React from "react";
-import { type EnvironmentTableData } from "~/server/api/routers/host";
-import { type CveItem } from "~/types/cveTypes";
+import {
+  type EnvironmentTableData,
+  type Vulnerability,
+} from "~/server/api/routers/host";
 import { Shield, Server, Clock, AlertTriangle } from "lucide-react";
 
 interface HostOverviewProps {
   host: EnvironmentTableData;
-  vulnerabilities: CveItem[];
 }
 
-export const HostOverview: React.FC<HostOverviewProps> = ({
-  host,
-  vulnerabilities,
-}) => {
+export const HostOverview: React.FC<HostOverviewProps> = ({ host }) => {
+  const vulnerabilities = host.vulnerabilities || [];
+
   // Calculate vulnerability statistics
   const criticalCount = vulnerabilities.filter(
-    (v) => v.severity === "CRITICAL"
+    (v) => v.severity?.toLowerCase() === "critical"
   ).length;
-  const highCount = vulnerabilities.filter((v) => v.severity === "HIGH").length;
+  const highCount = vulnerabilities.filter(
+    (v) => v.severity?.toLowerCase() === "high"
+  ).length;
   const mediumCount = vulnerabilities.filter(
-    (v) => v.severity === "MEDIUM"
+    (v) => v.severity?.toLowerCase() === "medium"
   ).length;
-  const lowCount = vulnerabilities.filter((v) => v.severity === "LOW").length;
+  const lowCount = vulnerabilities.filter(
+    (v) => v.severity?.toLowerCase() === "low"
+  ).length;
 
   // Calculate risk score
   const riskScore = calculateRiskScore(vulnerabilities);
@@ -40,9 +44,6 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
           <div className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
             {host.os || "Unknown"}
           </div>
-          {host.osVersion && (
-            <div className="text-sm text-gray-500">{host.osVersion}</div>
-          )}
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -53,15 +54,8 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
             </div>
           </div>
           <div className="mt-1 text-xl font-semibold text-gray-900 dark:text-white">
-            {host.lastScanDate
-              ? new Date(host.lastScanDate).toLocaleDateString()
-              : "Never"}
+            Never
           </div>
-          {host.lastScanDate && (
-            <div className="text-sm text-gray-500">
-              {new Date(host.lastScanDate).toLocaleTimeString()}
-            </div>
-          )}
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
@@ -190,11 +184,12 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
 };
 
 // Helper functions
-function calculateRiskScore(vulnerabilities: CveItem[]): number {
+function calculateRiskScore(vulnerabilities: Vulnerability[]): number {
   // Calculate risk score based on vulnerability severity
-  const weights = { CRITICAL: 10, HIGH: 5, MEDIUM: 2, LOW: 1 };
+  const weights = { critical: 10, high: 5, medium: 2, low: 1 };
   const score = vulnerabilities.reduce((total, vuln) => {
-    return total + (weights[vuln.severity as keyof typeof weights] || 0);
+    const severity = vuln.severity?.toLowerCase() as keyof typeof weights;
+    return total + (weights[severity] || 0);
   }, 0);
 
   // Normalize to 0-100 scale

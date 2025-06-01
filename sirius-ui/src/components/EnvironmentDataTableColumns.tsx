@@ -221,7 +221,13 @@ const StatusBadge = ({ status }: { status: string }) => {
     },
   };
 
-  const config = colorMap[status?.toLowerCase()] || colorMap.warning;
+  const statusKey = status?.toLowerCase() || "warning";
+  const config = colorMap[statusKey] || colorMap.warning;
+
+  // Ensure config is never undefined
+  if (!config) {
+    throw new Error("Config should never be undefined");
+  }
 
   return (
     <div
@@ -230,8 +236,8 @@ const StatusBadge = ({ status }: { status: string }) => {
         config.bg
       )}
     >
-      {config?.icon}
-      <span className={cn("text-xs font-medium", config?.text)}>
+      {config.icon}
+      <span className={cn("text-xs font-medium", config.text)}>
         {status?.charAt(0).toUpperCase() + status?.slice(1)}
       </span>
     </div>
@@ -263,7 +269,13 @@ const RiskBadge = ({ risk }: { risk: string }) => {
     },
   };
 
-  const config = colorMap[risk.toLowerCase()] || colorMap.medium;
+  const riskKey = risk.toLowerCase();
+  const config = colorMap[riskKey] || colorMap.medium;
+
+  // Ensure config is never undefined
+  if (!config) {
+    throw new Error("Config should never be undefined");
+  }
 
   return (
     <div className={cn("rounded-full px-2 py-0.5 text-center", config.bg)}>
@@ -304,9 +316,9 @@ export const columns = [
   columnHelper.accessor((row) => ({ hostname: row.hostname, ip: row.ip }), {
     id: "host",
     header: "Host",
-    cell: ({ getValue }) => {
+    cell: ({ getValue, row }) => {
       const { hostname, ip } = getValue();
-      const status = determineHostStatus(getValue());
+      const status = determineHostStatus(row.original);
       return (
         <div className="flex flex-col">
           <div className="font-medium">{hostname || ip}</div>
@@ -371,36 +383,14 @@ export const columns = [
     },
   }),
 
-  // Status column
-  columnHelper.accessor("status", {
+  // Status column (computed from host data)
+  columnHelper.accessor((row) => row, {
+    id: "status",
     header: "Status",
-    cell: ({ getValue }) => <StatusBadge status={getValue()} />,
-  }),
-
-  // IP addresses column
-  columnHelper.accessor("ipAddresses", {
-    header: "IP Addresses",
     cell: ({ getValue }) => {
-      const ipAddresses = getValue() || [];
-      return (
-        <div>
-          {ipAddresses.slice(0, 2).join(", ")}
-          {ipAddresses.length > 2 && ` +${ipAddresses.length - 2} more`}
-        </div>
-      );
-    },
-  }),
-
-  // Last scan date column
-  columnHelper.accessor("lastScanDate", {
-    header: "Last Scan",
-    cell: ({ getValue }) => {
-      const lastScanDate = getValue();
-      if (!lastScanDate) return <span className="text-gray-500">Never</span>;
-
-      // Format the date (implement your preferred date formatting)
-      const formattedDate = new Date(lastScanDate).toLocaleString();
-      return <span>{formattedDate}</span>;
+      const host = getValue();
+      const status = determineHostStatus(host);
+      return <StatusBadge status={status} />;
     },
   }),
 
@@ -446,15 +436,10 @@ function determineHostStatus(host: EnvironmentTableData): string {
   // This is a placeholder - in a real application you'd determine this based on actual data
   if (!host) return "unknown";
 
-  // Example logic - you'd replace this with real logic based on your data
+  // Example logic based on available data
   if (host.vulnerabilityCount > 20) return "warning";
-  if (
-    host.lastScanDate &&
-    new Date(host.lastScanDate).getTime() > Date.now() - 86400000
-  ) {
-    return host.vulnerabilityCount > 0 ? "warning" : "secure";
-  }
+  if (host.vulnerabilityCount > 0) return "warning";
 
-  // Default to online
+  // Default to online if no vulnerabilities
   return "online";
 }

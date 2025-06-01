@@ -1,6 +1,6 @@
 import React from "react";
 import { type EnvironmentTableData } from "~/server/api/routers/host";
-import { Cpu, HardDrive, Memory, Layers, Server } from "lucide-react";
+import { Cpu, HardDrive, Database, Layers, Server } from "lucide-react";
 
 interface HostSystemInfoProps {
   host: EnvironmentTableData;
@@ -26,21 +26,15 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({ host }) => {
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">OS Version</h4>
-            <p className="text-gray-900 dark:text-white">
-              {host.osVersion || "Unknown"}
-            </p>
+            <p className="text-gray-900 dark:text-white">Unknown</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Kernel</h4>
-            <p className="text-gray-900 dark:text-white">
-              {host.kernel || "Unknown"}
-            </p>
+            <p className="text-gray-900 dark:text-white">Unknown</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Architecture</h4>
-            <p className="text-gray-900 dark:text-white">
-              {host.architecture || "Unknown"}
-            </p>
+            <p className="text-gray-900 dark:text-white">Unknown</p>
           </div>
         </div>
       </div>
@@ -56,29 +50,21 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({ host }) => {
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <h4 className="text-sm font-medium text-gray-500">CPU</h4>
-            <p className="text-gray-900 dark:text-white">
-              {host.cpu || "Unknown"}
-            </p>
+            <p className="text-gray-900 dark:text-white">Unknown</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Memory</h4>
-            <p className="text-gray-900 dark:text-white">
-              {host.memory ? `${host.memory} GB` : "Unknown"}
-            </p>
+            <p className="text-gray-900 dark:text-white">Unknown</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">Disk Space</h4>
-            <p className="text-gray-900 dark:text-white">
-              {host.diskSpace ? `${host.diskSpace} GB` : "Unknown"}
-            </p>
+            <p className="text-gray-900 dark:text-white">Unknown</p>
           </div>
           <div>
             <h4 className="text-sm font-medium text-gray-500">
               Virtualization
             </h4>
-            <p className="text-gray-900 dark:text-white">
-              {host.virtualization || "Unknown"}
-            </p>
+            <p className="text-gray-900 dark:text-white">Unknown</p>
           </div>
         </div>
       </div>
@@ -91,7 +77,7 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({ host }) => {
             Installed Software
           </h3>
         </div>
-        {host.installedSoftware && host.installedSoftware.length > 0 ? (
+        {false ? (
           <div className="max-h-96 overflow-y-auto">
             <table className="w-full">
               <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-300">
@@ -108,24 +94,7 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({ host }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {host.installedSoftware.map((software, index) => (
-                  <tr
-                    key={index}
-                    className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700"
-                  >
-                    <td className="px-4 py-2 text-gray-900 dark:text-white">
-                      {software.name}
-                    </td>
-                    <td className="px-4 py-2 text-gray-900 dark:text-white">
-                      {software.version}
-                    </td>
-                    <td className="px-4 py-2 text-gray-900 dark:text-white">
-                      {software.installedDate
-                        ? new Date(software.installedDate).toLocaleDateString()
-                        : "Unknown"}
-                    </td>
-                  </tr>
-                ))}
+                {/* No software available */}
               </tbody>
             </table>
           </div>
@@ -154,7 +123,7 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({ host }) => {
             System Users
           </h3>
         </div>
-        {host.users && host.users.length > 0 ? (
+        {false ? (
           <div className="max-h-96 overflow-y-auto">
             <table className="w-full">
               <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-300">
@@ -174,27 +143,7 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({ host }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {host.users.map((user, index) => (
-                  <tr
-                    key={index}
-                    className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700"
-                  >
-                    <td className="px-4 py-2 text-gray-900 dark:text-white">
-                      {user.username}
-                    </td>
-                    <td className="px-4 py-2 text-gray-900 dark:text-white">
-                      {user.uid}
-                    </td>
-                    <td className="px-4 py-2 text-gray-900 dark:text-white">
-                      {user.group}
-                    </td>
-                    <td className="px-4 py-2 text-gray-900 dark:text-white">
-                      {user.lastLogin
-                        ? new Date(user.lastLogin).toLocaleDateString()
-                        : "Unknown"}
-                    </td>
-                  </tr>
-                ))}
+                {/* No users available */}
               </tbody>
             </table>
           </div>
@@ -211,7 +160,7 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({ host }) => {
             System Services
           </h3>
         </div>
-        {host.services && host.services.length > 0 ? (
+        {false ? (
           <div className="max-h-96 overflow-y-auto">
             <table className="w-full">
               <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-300">
@@ -228,30 +177,7 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({ host }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {host.services.map((service, index) => (
-                  <tr
-                    key={index}
-                    className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700"
-                  >
-                    <td className="px-4 py-2 text-gray-900 dark:text-white">
-                      {service.name}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`rounded-full px-2 py-1 text-xs font-medium ${
-                          service.status === "running"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
-                            : "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300"
-                        }`}
-                      >
-                        {service.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-gray-900 dark:text-white">
-                      {service.port || "N/A"}
-                    </td>
-                  </tr>
-                ))}
+                {/* No services available */}
               </tbody>
             </table>
           </div>

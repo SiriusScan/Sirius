@@ -125,7 +125,7 @@
         "title": "Optional: Push Image to Registry",
         "description": "Tag and push images to GHCR using secrets.GITHUB_TOKEN.",
         "details": "Login to GHCR, then push sirius-ui, sirius-api, sirius-engine images. Ensure appropriate secrets and configurations for login.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": ["2.4"],
         "testStrategy": "Images are successfully pushed to GHCR with correct tags."
@@ -137,7 +137,7 @@
     "title": "PHASE 3: Staging Deploy (Optional but Recommended)",
     "description": "Implement SSH-based deployment to a staging environment.",
     "details": "Key Outputs: CI/CD pipeline deploys updated containers to a live testbed.",
-    "status": "pending",
+    "status": "skipped",
     "priority": "medium",
     "dependencies": ["2"],
     "subtasks": [
@@ -146,7 +146,7 @@
         "title": "Set up SSH-based Staging Deploy",
         "description": "Add deploy@staging credentials via GH Actions Secrets and write scp + ssh job.",
         "details": "Use appleboy/ssh-action. Staging server needs Docker & Docker Compose. Workflow: 1. Generate docker-compose.staging.yaml in CI (referencing GHCR image tags). 2. Generate .env.staging. 3. scp files to server. 4. SSH to server: docker login, docker-compose pull, docker-compose up. Implement database migration step before 'docker compose up' (e.g., 'docker exec service go run main.go migrate up').",
-        "status": "pending",
+        "status": "skipped",
         "priority": "medium",
         "dependencies": ["2.5", "0.1"],
         "testStrategy": "Successful deployment to staging server, services running with new images."
@@ -198,7 +198,7 @@
         "title": "Developer Onboarding Documentation",
         "description": "Add docs/dev/ci-overview.md.",
         "details": "Contents: Repo structure, how to trigger builds (including repository_dispatch), how staging is simulated/deployed, how .env/volumes/mounts switch between environments, interpreting build logs, submodule version pinning.",
-        "status": "pending",
+        "status": "done",
         "priority": "medium",
         "dependencies": ["0.1", "1.1", "2.1", "3.1"],
         "testStrategy": "Developer can understand and use the CI/CD pipeline based on the documentation."

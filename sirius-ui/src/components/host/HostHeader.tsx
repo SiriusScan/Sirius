@@ -26,17 +26,17 @@ export const HostHeader: React.FC<HostHeaderProps> = ({
             </h1>
             <div className="flex items-center text-sm text-gray-500">
               <span>{host.ip}</span>
-              {host.status && (
-                <span
-                  className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
-                    host.status === "online"
-                      ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
-                      : "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300"
-                  }`}
-                >
-                  {host.status}
-                </span>
-              )}
+              <span
+                className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+                  host.vulnerabilityCount === 0
+                    ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
+                    : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300"
+                }`}
+              >
+                {host.vulnerabilityCount === 0
+                  ? "Secure"
+                  : `${host.vulnerabilityCount} vulnerabilities`}
+              </span>
             </div>
           </div>
         </div>

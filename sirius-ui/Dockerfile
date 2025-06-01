@@ -15,16 +15,11 @@ RUN apt-get update && \
 
 # Copy package files and install dependencies
 COPY package*.json bun.lockb ./
-COPY .env ./
 COPY prisma ./prisma
 RUN bun install
 
-# Generate Prisma client
-RUN bunx prisma generate
-# Push schema to database
-RUN bunx prisma db push
-# Seed the database with initial data
-RUN bunx prisma db seed
+# Generate Prisma client (will be done at runtime)
+# Note: Prisma commands moved to startup script
 
 # Bundle app source
 COPY . /app
@@ -33,11 +28,15 @@ WORKDIR /app
 RUN bun install
 RUN bun install sonner
 
+# Copy startup script and make it executable
+COPY startup.sh /app/startup.sh
+RUN chmod +x /app/startup.sh
+
 # Set the environment variable to skip environment variable validation
 ENV SKIP_ENV_VALIDATION=1
 
-# Run the development server
-CMD ["bun", "run", "dev"]
+# Run the startup script
+CMD ["/app/startup.sh"]
 
 EXPOSE 3000
 EXPOSE 3001

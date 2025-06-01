@@ -1,11 +1,11 @@
 import { type NextPage } from "next";
 import { api } from "~/utils/api";
-import Layout from "~/components/lib/Layout";
-import DashNumberCard from "~/components/lib/ui/DashNumberCard";
-import VulnerabilitySeverityCardsVertical from "~/components/vulnerability/VulnerabilitySeverityCardsVertical";
-import DataTable from "~/components/lib/ui/DataTable";
-import SeverityBadge from "~/components/vulnerability/SeverityBadge";
-import ScanBar from "~/components/scanner/general/ScanBar";
+import Layout from "~/components/Layout";
+import DashNumberCard from "~/components/DashNumberCard";
+import { VulnerabilitySeverityCardsVertical } from "~/components/VulnerabilitySeverityCards";
+import DataTable from "~/components/VulnerabilityTableBasic";
+import { SeverityBadge } from "~/components/SeverityBadge";
+import { ScanBar } from "~/components/ScanBar";
 import { useMemo } from "react";
 import type {
   ScanVulnerability,

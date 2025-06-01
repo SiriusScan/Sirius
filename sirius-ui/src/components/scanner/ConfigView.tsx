@@ -16,7 +16,7 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
   const [aggressiveMode, setAggressiveMode] = useState(false);
   const [parallelScans, setParallelScans] = useState(true);
   const [excludePorts, setExcludePorts] = useState("22,3389");
-  
+
   const handleSaveConfig = () => {
     // Save configuration logic
     console.log("Saving configuration:", {
@@ -25,7 +25,7 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
       timeoutSeconds,
       aggressiveMode,
       parallelScans,
-      excludePorts
+      excludePorts,
     });
   };
 
@@ -34,12 +34,12 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
       <h2 className="mb-4 text-xl font-extralight text-white">
         Scanner Configuration
       </h2>
-      
+
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label 
-              htmlFor="portRange" 
+            <Label
+              htmlFor="portRange"
               className="mb-2 block text-sm font-semibold text-gray-400"
             >
               Port Range
@@ -56,10 +56,10 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
               Comma-separated list of ports or port ranges to scan
             </span>
           </div>
-          
+
           <div>
-            <Label 
-              htmlFor="excludePorts" 
+            <Label
+              htmlFor="excludePorts"
               className="mb-2 block text-sm font-semibold text-gray-400"
             >
               Exclude Ports
@@ -77,10 +77,10 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
             </span>
           </div>
         </div>
-        
+
         <div>
-          <Label 
-            htmlFor="maxRetries" 
+          <Label
+            htmlFor="maxRetries"
             className="mb-2 block text-sm font-semibold text-gray-400"
           >
             Max Retries: {maxRetries}
@@ -91,14 +91,14 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
             max={10}
             min={1}
             step={1}
-            onValueChange={(value) => setMaxRetries(value[0])}
+            onValueChange={(value) => setMaxRetries(value[0] ?? 3)}
             className="w-full"
           />
         </div>
-        
+
         <div>
-          <Label 
-            htmlFor="timeout" 
+          <Label
+            htmlFor="timeout"
             className="mb-2 block text-sm font-semibold text-gray-400"
           >
             Timeout (seconds): {timeoutSeconds}
@@ -113,15 +113,15 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
             className="w-full"
           />
         </div>
-        
+
         <div className="flex items-center space-x-3">
           <Switch
             id="aggressiveMode"
             checked={aggressiveMode}
             onCheckedChange={setAggressiveMode}
           />
-          <Label 
-            htmlFor="aggressiveMode" 
+          <Label
+            htmlFor="aggressiveMode"
             className="text-sm font-semibold text-gray-400"
           >
             Aggressive Scan Mode
@@ -130,15 +130,15 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
             (More accurate but noisier and slower)
           </span>
         </div>
-        
+
         <div className="flex items-center space-x-3">
           <Switch
             id="parallelScans"
             checked={parallelScans}
             onCheckedChange={setParallelScans}
           />
-          <Label 
-            htmlFor="parallelScans" 
+          <Label
+            htmlFor="parallelScans"
             className="text-sm font-semibold text-gray-400"
           >
             Enable Parallel Scanning
@@ -147,8 +147,8 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
             (Faster but more resource intensive)
           </span>
         </div>
-        
-        <Button 
+
+        <Button
           onClick={handleSaveConfig}
           className="mt-4 rounded-md bg-violet-600/20 px-4 py-2 text-white transition-colors hover:bg-violet-600/30"
         >
@@ -159,4 +159,4 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
   );
 };
 
-export default ConfigView; 
+export default ConfigView;

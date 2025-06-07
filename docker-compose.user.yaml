@@ -1,9 +1,13 @@
+# Simplified Docker Compose Configuration for End Users
+# Use with: docker compose -f docker-compose.user.yaml up -d
+# This configuration removes all development complexity for a clean user experience
+
 name: sirius
 
 services:
   sirius-rabbitmq:
     image: rabbitmq:3.7.3-management
-    restart: always
+    restart: unless-stopped
     container_name: sirius-rabbitmq
     hostname: sirius-rabbitmq
     ports:
@@ -19,7 +23,7 @@ services:
 
   sirius-postgres:
     image: postgres:15-alpine
-    restart: always
+    restart: unless-stopped
     container_name: sirius-postgres
     hostname: sirius-postgres
     environment:
@@ -28,6 +32,8 @@ services:
       POSTGRES_DB: sirius
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -36,11 +42,13 @@ services:
 
   sirius-valkey:
     image: valkey/valkey:latest
-    restart: always
+    restart: unless-stopped
     container_name: sirius-valkey
     hostname: sirius-valkey
     ports:
       - "6379:6379"
+    volumes:
+      - valkey_data:/data
 
   sirius-ui:
     build:
@@ -50,16 +58,15 @@ services:
         NEXT_PUBLIC_CLIENTVAR: "clientvar"
     container_name: sirius-ui
     hostname: sirius-ui
-    restart: always
+    restart: unless-stopped
     image: sirius-ui
     ports:
       - "3000:3000"
-      - "3001:3001"
     environment:
       - NODE_ENV=production
       - SKIP_ENV_VALIDATION=1
       - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius
-      - NEXTAUTH_SECRET=change-this-in-production
+      - NEXTAUTH_SECRET=change-this-secret-in-production-please
       - NEXTAUTH_URL=http://localhost:3000
       - SIRIUS_API_URL=http://sirius-api:9001
       - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
@@ -71,7 +78,7 @@ services:
     build: ./sirius-api/
     container_name: sirius-api
     hostname: sirius-api
-    restart: always
+    restart: unless-stopped
     image: sirius-api
     ports:
       - "9001:9001"
@@ -96,11 +103,11 @@ services:
     build: ./sirius-engine/
     container_name: sirius-engine
     hostname: sirius-engine
-    restart: always
+    restart: unless-stopped
     image: sirius-engine
     ports:
       - "5174:5174"
-      - "50051:50051" # Agent gRPC
+      - "50051:50051"
     environment:
       - GO_ENV=production
       - ENGINE_MAIN_PORT=5174
@@ -116,3 +123,14 @@ services:
     depends_on:
       sirius-rabbitmq:
         condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
+  valkey_data:
+    driver: local
+
+networks:
+  default:
+    name: sirius_user
+    driver: bridge 

@@ -8,6 +8,7 @@ ARG GO_API_COMMIT_SHA=main
 ARG APP_SCANNER_COMMIT_SHA=main
 ARG APP_TERMINAL_COMMIT_SHA=main
 ARG SIRIUS_NSE_COMMIT_SHA=main
+ARG APP_AGENT_COMMIT_SHA=main
 
 COPY .air.toml .air.toml
 
@@ -69,7 +70,7 @@ RUN mkdir -p /opt/sirius/nse && \
     chown -R 1000:1000 /opt/sirius && \
     chmod -R 755 /opt/sirius
 
-# App Repos - Clone with specific commit SHAs
+# App Repos - Clone with specific commit SHAs for production use
 WORKDIR /
 RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     cd /app-scanner && \
@@ -83,13 +84,32 @@ RUN git clone https://github.com/SiriusScan/go-api.git && \
     cd /go-api && \
     git checkout ${GO_API_COMMIT_SHA}
 
+RUN git clone https://github.com/SiriusScan/app-agent.git && \
+    cd /app-agent && \
+    git checkout ${APP_AGENT_COMMIT_SHA}
+
 # Optionally clone sirius-nse if needed
 RUN git clone https://github.com/SiriusScan/sirius-nse.git && \
     cd /sirius-nse && \
     git checkout ${SIRIUS_NSE_COMMIT_SHA}
 
+# Install Go dependencies for cloned repositories
 WORKDIR /app-scanner
-#DEV Dependencies
+RUN go mod download
+
+WORKDIR /app-terminal  
+RUN go mod download
+
+WORKDIR /go-api
+RUN go mod download
+
+WORKDIR /app-agent
+RUN go mod download
+
+# Go back to main workdir
+WORKDIR /engine
+
+# DEV Dependencies
 RUN go install github.com/air-verse/air@latest
 
 # Add startup script and make it the entrypoint
@@ -98,5 +118,9 @@ COPY start.sh /
 RUN dos2unix /start.sh
 RUN chmod +x /start.sh
 
-# Remove specific workdir and cmd
-ENTRYPOINT ["/start.sh"]
+# Create an enhanced startup script that handles both development and production modes
+COPY start-enhanced.sh /
+RUN dos2unix /start-enhanced.sh
+RUN chmod +x /start-enhanced.sh
+
+ENTRYPOINT ["/start-enhanced.sh"]

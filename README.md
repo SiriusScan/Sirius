@@ -6,30 +6,51 @@ Sirius is an open-source general purpose vulnerability scanner that leverages co
 
 For detailed setup instructions, visit our [Installation Guide](https://sirius.publickey.io/docs/getting-started/installation).
 
-1. **Prerequisites**
+### Prerequisites
 
-   - Docker Engine 20.10.0+
-   - Docker Compose V2
-   - 4GB RAM minimum
-   - 10GB free disk space
+- Docker Engine 20.10.0+
+- Docker Compose V2
+- 4GB RAM minimum
+- 10GB free disk space
 
-2. **Installation**
+### Installation Options
 
-   ```bash
-   # Clone the repository
-   git clone git@github.com:SiriusScan/website.git
-   cd website
+#### Option 1: Standard Setup (Recommended)
 
-   # Start all services
-   docker compose up -d
+```bash
+# Clone the repository
+git clone https://github.com/SiriusScan/Sirius.git
+cd Sirius
 
-   # Access the web interface
-   open http://localhost:3000
-   ```
+# Start all services
+docker compose up -d
 
-3. **Login**
-   - Username: `admin`
-   - Password: `password`
+# Access the web interface
+open http://localhost:3000
+```
+
+#### Option 2: Simplified User Setup
+
+For the cleanest experience without development files:
+
+```bash
+# Clone the repository
+git clone https://github.com/SiriusScan/Sirius.git
+cd Sirius
+
+# Use the simplified configuration
+docker compose -f docker-compose.user.yaml up -d
+
+# Access the web interface
+open http://localhost:3000
+```
+
+### Login Credentials
+
+- Username: `admin`
+- Password: `password`
+
+**⚠️ Security Notice**: Change these default credentials in production environments.
 
 That's it! Your Sirius Scan instance is now running. For a complete walkthrough of the system, visit our [Quick Start Guide](https://sirius.publickey.io/docs/getting-started/quick-start).
 
@@ -141,29 +162,68 @@ For detailed configuration options, visit our [Configuration Guide](https://siri
 
 For complete development setup instructions, visit our [Contributing Guide](https://sirius.publickey.io/docs/community/contributing).
 
-1. **Configure Development Environment**
+### End User Setup (Default)
 
-   ```yaml
-   volumes:
-     - ../minor-projects/go-api:/go-api
-     - ../minor-projects/app-scanner:/app-scanner
-     - ../minor-projects/app-terminal:/app-terminal
-     - ../minor-projects/nmap-db:/nmap-db
-   ```
+The default configuration is ready to use out-of-the-box:
 
-2. **Run Tests**
+```bash
+git clone https://github.com/SiriusScan/Sirius.git
+cd Sirius
+docker compose up -d
+```
+
+This will start all services using the built-in configurations without requiring additional repositories.
+
+### Developer Setup (Advanced)
+
+For active development, you can mount local directories for live code editing:
+
+1. **Optional: Clone Additional Repositories**
 
    ```bash
-   # Show test options
-   ./run_tests.sh --help
+   # Create directory structure for development (optional)
+   mkdir -p ../minor-projects
+   cd ../minor-projects
 
-   # Run all tests
-   ./run_tests.sh --all
-
-   # Run specific suites
-   ./run_tests.sh --models  # Model tests
-   ./run_tests.sh --ui      # UI tests
+   # Clone repositories you want to develop on:
+   git clone https://github.com/SiriusScan/go-api.git
+   git clone https://github.com/SiriusScan/app-scanner.git
+   git clone https://github.com/SiriusScan/app-terminal.git
+   git clone https://github.com/SiriusScan/app-agent.git
    ```
+
+2. **Enable Development Volume Mounts**
+
+   Edit `docker-compose.override.yaml` and uncomment the volume mounts you need:
+
+   ```yaml
+   # Uncomment only the repositories you have cloned:
+   # - ../minor-projects/app-agent:/app-agent
+   # - ../minor-projects/app-scanner:/app-scanner
+   # - ../minor-projects/go-api:/go-api
+   # - ../minor-projects/app-terminal:/app-terminal
+   ```
+
+3. **Start Development Environment**
+
+   ```bash
+   cd Sirius
+   docker compose up -d
+   ```
+
+### Testing
+
+```bash
+# Show test options
+./run_tests.sh --help
+
+# Run all tests
+./run_tests.sh --all
+
+# Run specific suites
+./run_tests.sh --models  # Model tests
+./run_tests.sh --ui      # UI tests
+```
 
 ## API Integration
 

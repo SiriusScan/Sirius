@@ -2,8 +2,6 @@
 # This file is automatically loaded by Docker Compose for local development
 # It maintains the current development setup with volume mounts and build contexts
 
-version: "3.8"
-
 services:
   sirius-ui:
     build:
@@ -18,7 +16,7 @@ services:
       - NODE_ENV=development
       - SKIP_ENV_VALIDATION=1
       - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius
-      - NEXTAUTH_SECRET=your-secret-key-here
+      - NEXTAUTH_SECRET=dev-secret-key-change-in-production
       - NEXTAUTH_URL=http://localhost:3000
       - SIRIUS_API_URL=http://sirius-api:9001
       - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
@@ -30,20 +28,42 @@ services:
     build: ./sirius-api/
     volumes:
       - ./sirius-api:/api
-      # Uncomment for local go-api development:
+      # Uncomment for local go-api development (requires ../minor-projects/go-api):
       # - ../minor-projects/go-api:/go-api
     environment:
       - GO_ENV=development
+      - API_PORT=9001
+      - POSTGRES_HOST=sirius-postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=sirius
+      - POSTGRES_PORT=5432
+      - VALKEY_HOST=sirius-valkey
+      - VALKEY_PORT=6379
+      - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+      - LOG_LEVEL=debug
 
   sirius-engine:
     build: ./sirius-engine/
     volumes:
       - ./sirius-engine:/engine
-      - ../minor-projects/app-agent:/app-agent
-      - ../minor-projects/app-scanner:/app-scanner
-      # Uncomment for additional local development:
+      # Development volume mounts (require ../minor-projects/ structure):
+      # Uncomment only if you have the corresponding repositories in ../minor-projects/
+      # - ../minor-projects/app-agent:/app-agent
+      # - ../minor-projects/app-scanner:/app-scanner
       # - ../minor-projects/go-api:/go-api
       # - ../minor-projects/app-terminal:/app-terminal
       # - ../minor-projects/nmap-db:/nmap-db
     environment:
       - GO_ENV=development
+      - ENGINE_MAIN_PORT=5174
+      - GRPC_AGENT_PORT=50051
+      - POSTGRES_HOST=sirius-postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=sirius
+      - POSTGRES_PORT=5432
+      - VALKEY_HOST=sirius-valkey
+      - VALKEY_PORT=6379
+      - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+      - LOG_LEVEL=debug

@@ -24,13 +24,15 @@ services:
     environment:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
-      - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/postgres
+      # Override to use SQLite for authentication as defined in schema.prisma
+      - DATABASE_URL=file:./dev.db
       - NEXTAUTH_SECRET=development-secret-key
       - NEXTAUTH_URL=http://localhost:3000
     ports:
       - "3000:3000"
-    depends_on:
-      - sirius-postgres
+    # Removed PostgreSQL dependency - using SQLite for authentication
+    # depends_on:
+    #   - sirius-postgres
 
   sirius-api:
     build: ./sirius-api/
@@ -59,9 +61,9 @@ services:
       - ./sirius-engine:/engine
       # Development volume mounts (require ../minor-projects/ structure):
       # Uncomment only if you have the corresponding repositories in ../minor-projects/
-      - ../minor-projects/app-agent:/app-agent
-      - ../minor-projects/app-scanner:/app-scanner
-      - ../minor-projects/app-terminal:/app-terminal
+      # - ../minor-projects/app-agent:/app-agent
+      # - ../minor-projects/app-scanner:/app-scanner
+      # - ../minor-projects/app-terminal:/app-terminal
       # - ../minor-projects/go-api:/go-api
       # - ../minor-projects/nmap-db:/nmap-db
     environment:

@@ -26,6 +26,10 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Local Docker Compose overrides (for development)
+docker-compose.local.yaml
+docker-compose.*.local.yaml
+
 # IDE files
 .vscode/
 .idea/

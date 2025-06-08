@@ -1,7 +1,5 @@
 # Docker Compose Configuration for Staging Environment
-# Use with: docker compose -f docker-compose.yaml -f docker-compose.staging.yaml --env-file environments/.env.staging up -d
-
-version: "3.8"
+# Use with: docker compose -f docker-compose.yaml -f docker-compose.staging.yaml up -d
 
 services:
   sirius-ui:
@@ -11,11 +9,14 @@ services:
     environment:
       - NODE_ENV=staging
       - SKIP_ENV_VALIDATION=0 # Enable validation in staging
-      - SIRIUS_API_URL=${SIRIUS_API_URL}
-      - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL}
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+      - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
+      - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-http://localhost:9001}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-staging-secret-change-this}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://staging.yourdomain.com}
+      # Use SQLite for authentication as defined in schema.prisma
+      # - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@${POSTGRES_HOST:-sirius-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-sirius}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-dummy_client_id}
+      - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-dummy_client_secret}
     restart: unless-stopped
 
   sirius-api:
@@ -25,14 +26,14 @@ services:
     environment:
       - GO_ENV=staging
       - API_PORT=${API_PORT:-9001}
-      - POSTGRES_HOST=${POSTGRES_HOST}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - VALKEY_HOST=${VALKEY_HOST}
-      - VALKEY_PORT=${VALKEY_PORT}
-      - RABBITMQ_URL=${RABBITMQ_URL}
+      - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-sirius}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - VALKEY_HOST=${VALKEY_HOST:-sirius-valkey}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
       - LOG_LEVEL=${LOG_LEVEL:-debug} # More verbose logging for staging
       - LOG_FORMAT=${LOG_FORMAT:-json}
     restart: unless-stopped
@@ -45,23 +46,23 @@ services:
       - GO_ENV=staging
       - ENGINE_MAIN_PORT=${ENGINE_MAIN_PORT:-5174}
       - GRPC_AGENT_PORT=${GRPC_AGENT_PORT:-50051}
-      - POSTGRES_HOST=${POSTGRES_HOST}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - VALKEY_HOST=${VALKEY_HOST}
-      - VALKEY_PORT=${VALKEY_PORT}
-      - RABBITMQ_URL=${RABBITMQ_URL}
+      - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-sirius}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - VALKEY_HOST=${VALKEY_HOST:-sirius-valkey}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
       - LOG_LEVEL=${LOG_LEVEL:-debug} # More verbose logging for staging
       - LOG_FORMAT=${LOG_FORMAT:-json}
     restart: unless-stopped
 
   sirius-postgres:
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sirius}
     volumes:
       - postgres_data_staging:/var/lib/postgresql/data
     restart: unless-stopped

@@ -38,6 +38,7 @@ declare module "next-auth" {
  * @see https://next-auth.js.org/configuration/options
  */
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET || "change-this-secret-in-production-please",
   session: {
     strategy: "jwt",
     maxAge: 100 * 365 * 24 * 60 * 60, // 100 years in seconds - effectively indefinite

@@ -56,6 +56,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_CLIENTVAR: "clientvar"
+      target: production
     container_name: sirius-ui
     hostname: sirius-ui
     restart: unless-stopped
@@ -64,15 +65,13 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - SKIP_ENV_VALIDATION=1
-      - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius
       - NEXTAUTH_SECRET=change-this-secret-in-production-please
       - NEXTAUTH_URL=http://localhost:3000
       - SIRIUS_API_URL=http://sirius-api:9001
       - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
-    depends_on:
-      sirius-postgres:
-        condition: service_healthy
+      - DISCORD_CLIENT_ID=dummy_client_id
+      - DISCORD_CLIENT_SECRET=dummy_client_secret
+    depends_on: []
 
   sirius-api:
     build: ./sirius-api/

@@ -61,11 +61,11 @@ Examples:
     $0 production v1.2.3        # Deploy production with specific version
     $0 staging beta-2024.01.15  # Deploy staging with beta version
 
-Environment Files:
-    The script looks for environment files in: $ENVIRONMENTS_DIR/
-    - .env.development
-    - .env.staging
-    - .env.production
+Environment Configuration:
+    All environments use defaults in compose files with override capability:
+    - Development: Uses docker-compose.override.yaml
+    - Staging/Production: Uses sensible defaults with ${VAR:-default} syntax
+    - Override any variable: export POSTGRES_PASSWORD=mypassword
 
 Docker Compose Files:
     - docker-compose.yaml (base configuration)
@@ -94,22 +94,15 @@ validate_environment() {
     esac
 }
 
-# Check if environment file exists
+# Check if environment file exists (now using defaults in compose files)
 check_env_file() {
-    local env_file="$ENVIRONMENTS_DIR/.env.$ENVIRONMENT"
-    
     if [[ "$ENVIRONMENT" == "development" ]]; then
         log_info "Development environment uses docker-compose.override.yaml"
         return 0
     fi
     
-    if [[ ! -f "$env_file" ]]; then
-        log_error "Environment file not found: $env_file"
-        log_error "Please create the environment file based on .env.example"
-        exit 1
-    fi
-    
-    log_success "Environment file found: $env_file"
+    log_info "Using defaults from compose files (no separate env file needed)"
+    log_info "Override variables with: export POSTGRES_PASSWORD=yourpassword"
 }
 
 # Check if Docker Compose files exist
@@ -187,10 +180,8 @@ build_compose_command() {
             ;;
     esac
     
-    # Add environment file for non-development environments
-    if [[ "$ENVIRONMENT" != "development" ]]; then
-        cmd="$cmd --env-file $ENVIRONMENTS_DIR/.env.$ENVIRONMENT"
-    fi
+    # Environment variables are handled with defaults in compose files
+    # No separate env files needed
     
     # Set project name
     cmd="$cmd -p ${COMPOSE_PROJECT_NAME}_${ENVIRONMENT}"

@@ -29,18 +29,19 @@ docker compose up --build
 ./scripts/deploy.sh production v1.2.3
 ```
 
-## Environment Files
+## Environment Configuration
 
-Create environment-specific configuration files:
+No separate files needed! All environments have sensible defaults:
 
 ```bash
-# Copy template and customize
-cp environments/.env.example environments/.env.staging
-cp environments/.env.example environments/.env.production
+# Use defaults (works out of the box)
+./scripts/deploy.sh staging
+./scripts/deploy.sh production v1.2.3
 
-# Edit with your specific values
-nano environments/.env.staging
-nano environments/.env.production
+# Override specific variables
+export POSTGRES_PASSWORD=secure-password
+export NEXTAUTH_SECRET=production-secret
+./scripts/deploy.sh production v1.2.3
 ```
 
 ## Key Benefits
@@ -63,10 +64,7 @@ Sirius/
 ├── docker-compose.override.yaml     # Development (auto-loaded)
 ├── docker-compose.staging.yaml      # Staging environment
 ├── docker-compose.production.yaml   # Production environment
-├── environments/
-│   ├── .env.example                 # Template
-│   ├── .env.staging                 # Staging config
-│   └── .env.production              # Production config
+├── docker-compose.user.yaml         # Simplified user setup
 └── scripts/
     └── deploy.sh                    # Deployment script
 ```
@@ -101,11 +99,13 @@ Sirius/
 chmod +x scripts/deploy.sh
 ```
 
-**Missing environment file:**
+**Need custom configuration:**
 
 ```bash
-cp environments/.env.example environments/.env.staging
-# Edit the file with your values
+# Override variables before deployment
+export POSTGRES_PASSWORD=mypassword
+export NEXTAUTH_SECRET=mysecret
+./scripts/deploy.sh staging
 ```
 
 **Docker not running:**

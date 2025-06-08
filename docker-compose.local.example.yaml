@@ -1,0 +1,31 @@
+# Local Development Overrides Template
+# Copy this file to docker-compose.local.yaml (git-ignored) and uncomment what you need
+# Usage: docker-compose -f docker-compose.yaml -f docker-compose.override.yaml -f docker-compose.local.yaml up -d
+
+version: "3.8"
+
+services:
+  sirius-engine:
+    volumes:
+      # Uncomment the repositories you want to develop locally:
+      # - ../minor-projects/app-agent:/app-agent
+      # - ../minor-projects/app-scanner:/app-scanner
+      # - ../minor-projects/app-terminal:/app-terminal
+      # - ../minor-projects/go-api:/go-api
+      # - ../minor-projects/sirius-nse:/sirius-nse
+
+  # Example: Override environment variables for local development
+  sirius-ui:
+    environment:
+      # - NEXT_PUBLIC_API_URL=http://localhost:9001
+      # - DEBUG_MODE=true
+
+  # Example: Add local database for testing
+  # test-postgres:
+  #   image: postgres:15
+  #   environment:
+  #     POSTGRES_DB: test_sirius
+  #     POSTGRES_USER: test
+  #     POSTGRES_PASSWORD: test
+  #   ports:
+  #     - "5433:5432"

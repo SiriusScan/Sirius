@@ -1,17 +1,19 @@
 # Multi-stage Dockerfile for sirius-engine
 # Stage 1: Build stage with all dependencies
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24-bullseye AS builder
 
 # Set working directory
 WORKDIR /build
 
 # Install build dependencies
-RUN apk add --no-cache \
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
     git \
     ca-certificates \
     tzdata \
-    build-base \
-    libpcap-dev
+    build-essential \
+    libpcap-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Build arguments for submodule commit SHAs
 ARG GO_API_COMMIT_SHA=main
@@ -49,7 +51,10 @@ RUN git clone https://github.com/SiriusScan/app-agent.git && \
     git checkout ${APP_AGENT_COMMIT_SHA} && \
     go mod tidy && \
     go mod download && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o agent cmd/agent/main.go
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o agent cmd/agent/main.go && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server cmd/server/main.go && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o command-receiver cmd/command-receiver/main.go && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o command-sender cmd/command-sender/main.go
 
 # Clone sirius-nse
 RUN git clone https://github.com/SiriusScan/sirius-nse.git && \
@@ -82,11 +87,13 @@ RUN apt-get update && \
 # Install air for live reloading (from new repository)
 RUN go install github.com/air-verse/air@latest
 
-# Install Rust and RustScan
+# Install Rust and RustScan to /usr/local/bin for system-wide access
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y && \
     . ~/.cargo/env && \
-    cargo install --git https://github.com/RustScan/RustScan.git --branch master
-ENV PATH="/root/.cargo/bin:${PATH}"
+    cargo install --git https://github.com/RustScan/RustScan.git --branch master && \
+    cp ~/.cargo/bin/rustscan /usr/local/bin/ && \
+    chmod +x /usr/local/bin/rustscan
+ENV PATH="/usr/local/bin:${PATH}"
 
 # Install PowerShell for development stage
 RUN mkdir -p /opt/microsoft/powershell && \
@@ -165,11 +172,13 @@ RUN apt-get update && \
     dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust and RustScan
+# Install Rust and RustScan to /usr/local/bin for system-wide access
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y && \
     . ~/.cargo/env && \
-    cargo install --git https://github.com/RustScan/RustScan.git --branch master
-ENV PATH="/root/.cargo/bin:${PATH}"
+    cargo install --git https://github.com/RustScan/RustScan.git --branch master && \
+    cp ~/.cargo/bin/rustscan /usr/local/bin/ && \
+    chmod +x /usr/local/bin/rustscan
+ENV PATH="/usr/local/bin:${PATH}"
 
 # Install PowerShell - Architecture specific
 WORKDIR /opt/microsoft/powershell
@@ -208,6 +217,9 @@ COPY --from=builder /repos/app-scanner /app-scanner-src/
 COPY --from=builder /repos/app-terminal/terminal /app-terminal/
 COPY --from=builder /repos/app-terminal /app-terminal-src/
 COPY --from=builder /repos/app-agent/agent /app-agent/
+COPY --from=builder /repos/app-agent/server /app-agent/
+COPY --from=builder /repos/app-agent/command-receiver /app-agent/
+COPY --from=builder /repos/app-agent/command-sender /app-agent/
 COPY --from=builder /repos/app-agent /app-agent-src/
 COPY --from=builder /repos/go-api /go-api/
 COPY --from=builder /repos/sirius-nse /sirius-nse/
@@ -233,6 +245,6 @@ EXPOSE 5174 50051
 
 # Set environment variables
 ENV GO_ENV=production
-ENV PATH="/root/.cargo/bin:${PATH}"
+ENV PATH="/usr/local/bin:${PATH}"
 
 ENTRYPOINT ["/start-enhanced.sh"]

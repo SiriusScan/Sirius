@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# Pre-commit hook to automatically comment out volume mounts in docker-compose.override.yaml
+# This prevents accidental commits of local development configuration
+
+echo "🔍 Checking docker-compose.override.yaml for uncommented volume mounts..."
+
+OVERRIDE_FILE="docker-compose.override.yaml"
+
+if [ ! -f "$OVERRIDE_FILE" ]; then
+    exit 0
+fi
+
+# Check if there are any uncommented volume mounts
+if grep -E "^\s*-\s+\.\./minor-projects/" "$OVERRIDE_FILE" > /dev/null; then
+    echo "⚠️  Found uncommented volume mounts in $OVERRIDE_FILE"
+    echo "🔧 Automatically commenting them out..."
+    
+    # Create backup
+    cp "$OVERRIDE_FILE" "${OVERRIDE_FILE}.backup"
+    
+    # Comment out the volume mounts
+    sed -i.tmp 's/^\(\s*\)-\s\+\.\./\1# - \.\./' "$OVERRIDE_FILE"
+    rm "${OVERRIDE_FILE}.tmp" 2>/dev/null || true
+    
+    # Re-stage the fixed file
+    git add "$OVERRIDE_FILE"
+    
+    echo "✅ Volume mounts have been commented out automatically"
+    echo "💡 Your local copy has been backed up to ${OVERRIDE_FILE}.backup"
+    echo "💡 Use docker-compose.local.yaml for local development overrides"
+    echo ""
+fi
+
+echo "✅ Pre-commit validation passed" 

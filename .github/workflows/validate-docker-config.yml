@@ -1,0 +1,92 @@
+name: Validate Docker Configuration
+
+on:
+  pull_request:
+    paths:
+      - "docker-compose*.yaml"
+      - ".github/workflows/validate-docker-config.yml"
+  push:
+    branches: [main, develop]
+    paths:
+      - "docker-compose*.yaml"
+      - ".github/workflows/validate-docker-config.yml"
+
+jobs:
+  validate-docker-config:
+    name: Validate Docker Compose Configuration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate docker-compose.override.yaml
+        run: |
+          echo "🔍 Validating docker-compose.override.yaml configuration..."
+
+          # Check if volume mounts in sirius-engine are commented out
+          if grep -E "^\s*-\s+\.\./minor-projects/" docker-compose.override.yaml; then
+            echo "❌ FAIL: Volume mounts are uncommented in docker-compose.override.yaml"
+            echo "Found uncommented volume mounts:"
+            grep -E "^\s*-\s+\.\./minor-projects/" docker-compose.override.yaml
+            echo ""
+            echo "💡 These should be commented out with '#' to prevent accidental commits"
+            echo "💡 Use docker-compose.local.yaml for local development overrides"
+            exit 1
+          fi
+
+          # Check that the commented examples exist
+          if ! grep -E "^\s*#\s*-\s+\.\./minor-projects/" docker-compose.override.yaml; then
+            echo "⚠️  WARNING: No commented volume mount examples found"
+            echo "💡 Consider adding commented examples for developer reference"
+          fi
+
+          echo "✅ docker-compose.override.yaml validation passed"
+
+      - name: Validate no local files committed
+        run: |
+          echo "🔍 Checking for accidentally committed local files..."
+
+          # Check if any local override files were committed
+          if [ -f "docker-compose.local.yaml" ]; then
+            echo "❌ FAIL: docker-compose.local.yaml should not be committed"
+            echo "💡 This file is for local development only and should be git-ignored"
+            exit 1
+          fi
+
+          # Check for any other local override patterns
+          if ls docker-compose.*.local.yaml 2>/dev/null; then
+            echo "❌ FAIL: Local docker-compose files found:"
+            ls docker-compose.*.local.yaml
+            echo "💡 These files should be git-ignored"
+            exit 1
+          fi
+
+          echo "✅ No local override files found in repository"
+
+      - name: Validate example template exists
+        run: |
+          echo "🔍 Validating example template..."
+
+          if [ ! -f "docker-compose.local.example.yaml" ]; then
+            echo "❌ FAIL: docker-compose.local.example.yaml template is missing"
+            echo "💡 This template helps developers set up local overrides"
+            exit 1
+          fi
+
+          echo "✅ Example template exists"
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "🎉 All Docker configuration validations passed!"
+          echo ""
+          echo "📋 What was validated:"
+          echo "  ✅ Volume mounts are properly commented in docker-compose.override.yaml"
+          echo "  ✅ No local override files accidentally committed"
+          echo "  ✅ Example template file exists for developers"
+          echo ""
+          echo "💡 For local development, developers should:"
+          echo "  1. Run './scripts/dev-setup.sh init' to create local overrides"
+          echo "  2. Edit docker-compose.local.yaml (git-ignored) for their needs"
+          echo "  3. Use './scripts/dev-setup.sh start-extended' for extended development"

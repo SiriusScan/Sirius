@@ -59,8 +59,14 @@ CMD ["/app/start-dev.sh"]
 # Production builder stage
 FROM base AS builder
 
+# Accept build args
+ARG NEXT_PUBLIC_CLIENTVAR
+
 # Copy source code for building
 COPY . .
+
+# Remove .env files that interfere with Docker environment variables
+RUN rm -f .env .env.local .env.development .env.production
 
 # Install dependencies (production + dev for building)
 RUN npm install
@@ -70,7 +76,7 @@ RUN npx prisma generate
 
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV SKIP_ENV_VALIDATION=1
+ENV NEXT_PUBLIC_CLIENTVAR=${NEXT_PUBLIC_CLIENTVAR}
 
 # Create a temporary next.config.mjs with errors ignored for Docker building
 RUN cp next.config.mjs next.config.mjs.bak && \
@@ -95,11 +101,22 @@ WORKDIR /app
 
 # Copy built application from builder stage
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
 
-# Copy package.json for reference
+# Copy source files needed for runtime
+COPY --from=builder /app/src ./src
+
+# Copy Prisma files for runtime
+COPY --from=builder /app/prisma ./prisma
+
+# Copy configuration files
 COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/next.config.mjs ./next.config.mjs
+
+# Copy production startup script
+COPY start-prod.sh /app/start-prod.sh
+RUN chmod +x /app/start-prod.sh
 
 # Change ownership
 RUN chown -R nextjs:nodejs /app
@@ -114,5 +131,5 @@ EXPOSE 3000
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Start the application
-CMD ["node", "server.js"]
+# Start the application with database setup
+CMD ["/app/start-prod.sh"]

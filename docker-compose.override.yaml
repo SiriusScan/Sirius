@@ -5,24 +5,32 @@
 services:
   sirius-ui:
     build:
-      context: ./sirius-ui/
+      context: ./sirius-ui
       dockerfile: Dockerfile
+      target: development # Use development stage
       args:
         NEXT_PUBLIC_CLIENTVAR: "clientvar"
     volumes:
-      - ./sirius-ui:/app
-      - /app/node_modules
+      # Mount source code for live reloading
+      - ./sirius-ui/src:/app/src
+      - ./sirius-ui/public:/app/public
+      - ./sirius-ui/prisma:/app/prisma
+      - ./sirius-ui/next.config.mjs:/app/next.config.mjs
+      - ./sirius-ui/tailwind.config.ts:/app/tailwind.config.ts
+      - ./sirius-ui/package.json:/app/package.json
+      - ./sirius-ui/postcss.config.js:/app/postcss.config.js
+      # Preserve node_modules from container to avoid architecture conflicts
+      - node_modules:/app/node_modules
     environment:
       - NODE_ENV=development
-      - SKIP_ENV_VALIDATION=1
-      - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius
-      - NEXTAUTH_SECRET=dev-secret-key-change-in-production
+      - NEXT_TELEMETRY_DISABLED=1
+      - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/postgres
+      - NEXTAUTH_SECRET=development-secret-key
       - NEXTAUTH_URL=http://localhost:3000
-      - SIRIUS_API_URL=http://sirius-api:9001
-      - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
+    ports:
+      - "3000:3000"
     depends_on:
-      sirius-postgres:
-        condition: service_healthy
+      - sirius-postgres
 
   sirius-api:
     build: ./sirius-api/
@@ -44,15 +52,17 @@ services:
       - LOG_LEVEL=debug
 
   sirius-engine:
-    build: ./sirius-engine/
+    build:
+      context: ./sirius-engine/
+      target: development
     volumes:
       - ./sirius-engine:/engine
       # Development volume mounts (require ../minor-projects/ structure):
       # Uncomment only if you have the corresponding repositories in ../minor-projects/
-      # - ../minor-projects/app-agent:/app-agent
-      # - ../minor-projects/app-scanner:/app-scanner
+      - ../minor-projects/app-agent:/app-agent
+      - ../minor-projects/app-scanner:/app-scanner
+      - ../minor-projects/app-terminal:/app-terminal
       # - ../minor-projects/go-api:/go-api
-      # - ../minor-projects/app-terminal:/app-terminal
       # - ../minor-projects/nmap-db:/nmap-db
     environment:
       - GO_ENV=development
@@ -67,3 +77,6 @@ services:
       - VALKEY_PORT=6379
       - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
       - LOG_LEVEL=debug
+
+volumes:
+  node_modules:

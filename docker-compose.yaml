@@ -11,11 +11,15 @@ services:
       - "15672:15672"
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-    healthcheck:
-      test: ["CMD", "rabbitmqctl", "status"]
-      interval: 30s
-      timeout: 15s
-      retries: 5
+      - rabbitmq_data:/var/lib/rabbitmq
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
 
   sirius-postgres:
     image: postgres:15-alpine
@@ -23,16 +27,21 @@ services:
     container_name: sirius-postgres
     hostname: sirius-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: sirius
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sirius}
     ports:
       - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+        reservations:
+          memory: 512M
+          cpus: "0.25"
 
   sirius-valkey:
     image: valkey/valkey:latest
@@ -41,8 +50,19 @@ services:
     hostname: sirius-valkey
     ports:
       - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+        reservations:
+          memory: 128M
+          cpus: "0.1"
 
   sirius-ui:
+    image: ${IMAGE_REGISTRY:-ghcr.io/siriusscan}/sirius-ui:${IMAGE_TAG:-latest}
     build:
       context: ./sirius-ui/
       dockerfile: Dockerfile
@@ -51,68 +71,101 @@ services:
     container_name: sirius-ui
     hostname: sirius-ui
     restart: always
-    image: sirius-ui
     ports:
       - "3000:3000"
-      - "3001:3001"
     environment:
-      - NODE_ENV=production
-      - SKIP_ENV_VALIDATION=1
-      - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius
-      - NEXTAUTH_SECRET=change-this-in-production
-      - NEXTAUTH_URL=http://localhost:3000
-      - SIRIUS_API_URL=http://sirius-api:9001
-      - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
+      - NODE_ENV=${NODE_ENV:-production}
+      - SKIP_ENV_VALIDATION=${SKIP_ENV_VALIDATION:-1}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@sirius-postgres:5432/sirius}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-this-secret-in-production-please}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
+      - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-http://localhost:9001}
     depends_on:
-      sirius-postgres:
-        condition: service_healthy
+      - sirius-postgres
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+        reservations:
+          memory: 512M
+          cpus: "0.25"
 
   sirius-api:
+    image: ${IMAGE_REGISTRY:-ghcr.io/siriusscan}/sirius-api:${IMAGE_TAG:-latest}
     build: ./sirius-api/
     container_name: sirius-api
     hostname: sirius-api
     restart: always
-    image: sirius-api
     ports:
       - "9001:9001"
     environment:
-      - GO_ENV=production
-      - API_PORT=9001
-      - POSTGRES_HOST=sirius-postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=sirius
-      - POSTGRES_PORT=5432
-      - VALKEY_HOST=sirius-valkey
-      - VALKEY_PORT=6379
-      - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+      - GO_ENV=${GO_ENV:-production}
+      - API_PORT=${API_PORT:-9001}
+      - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-sirius}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - VALKEY_HOST=${VALKEY_HOST:-sirius-valkey}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
-      sirius-postgres:
-        condition: service_healthy
-      sirius-rabbitmq:
-        condition: service_healthy
+      - sirius-postgres
+      - sirius-rabbitmq
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
 
   sirius-engine:
+    image: ${IMAGE_REGISTRY:-ghcr.io/siriusscan}/sirius-engine:${IMAGE_TAG:-latest}
     build: ./sirius-engine/
     container_name: sirius-engine
     hostname: sirius-engine
     restart: always
-    image: sirius-engine
     ports:
       - "5174:5174"
       - "50051:50051" # Agent gRPC
     environment:
-      - GO_ENV=production
-      - ENGINE_MAIN_PORT=5174
-      - GRPC_AGENT_PORT=50051
-      - POSTGRES_HOST=sirius-postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=sirius
-      - POSTGRES_PORT=5432
-      - VALKEY_HOST=sirius-valkey
-      - VALKEY_PORT=6379
-      - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+      - GO_ENV=${GO_ENV:-production}
+      - ENGINE_MAIN_PORT=${ENGINE_MAIN_PORT:-5174}
+      - GRPC_AGENT_PORT=${GRPC_AGENT_PORT:-50051}
+      - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-sirius}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - VALKEY_HOST=${VALKEY_HOST:-sirius-valkey}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
-      sirius-rabbitmq:
-        condition: service_healthy
+      - sirius-rabbitmq
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
+
+volumes:
+  postgres_data:
+    driver: local
+  valkey_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  default:
+    name: sirius
+    driver: bridge

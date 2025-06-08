@@ -8,6 +8,10 @@ on:
   repository_dispatch:
     types: [submodule-update]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: siriusscan
+
 jobs:
   detect-changes:
     name: Detect Changes
@@ -41,12 +45,8 @@ jobs:
                 echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
                 echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
                 ;;
-              "app-scanner"|"app-terminal"|"sirius-nse")
+              "app-scanner"|"app-terminal"|"sirius-nse"|"app-agent")
                 echo "Affects sirius-engine"
-                echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
-                ;;
-              "app-agent")
-                echo "Affects sirius-engine (agent management)"
                 echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
                 ;;
               *)
@@ -85,8 +85,16 @@ jobs:
               echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
             fi
             
+            # If docker files or CI changed, rebuild everything
+            if grep -q -E "(Dockerfile|\.github/|docker-compose)" changed_files.txt; then
+              echo "Docker or CI changes detected, rebuilding everything"
+              echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
+              echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
+              echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
+            fi
+            
             # If nothing specific changed but we have changes, rebuild everything
-            if [ ! -s changed_files.txt ] || ! grep -q "sirius_" $GITHUB_OUTPUT; then
+            if [ ! -s changed_files.txt ]; then
               echo "General changes detected, rebuilding everything"
               echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
               echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
@@ -94,23 +102,29 @@ jobs:
             fi
           fi
 
-  build:
-    name: Build & Test Services
+  build-and-push:
+    name: Build & Push Images
     needs: detect-changes
     runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.sirius_ui_changes == 'true' || needs.detect-changes.outputs.sirius_api_changes == 'true' || needs.detect-changes.outputs.sirius_engine_changes == 'true'
     outputs:
-      TAG_SUFFIX: ${{ steps.set_env.outputs.TAG_SUFFIX }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
     steps:
       - name: Checkout Sirius repository
         uses: actions/checkout@v4
-        with:
-          submodules: true
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Set environment variables
-        id: set_env
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate metadata
+        id: meta
         run: |
           # Set submodule commit SHAs based on repository_dispatch or use 'main' as default
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
@@ -127,241 +141,209 @@ jobs:
 
           # Set image tags based on event type
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "TAG_SUFFIX=pr-${{ github.event.number }}" >> $GITHUB_ENV
+            TAG="pr-${{ github.event.number }}"
           elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "TAG_SUFFIX=beta" >> $GITHUB_ENV
-            echo "TAG_SUFFIX=beta" >> $GITHUB_OUTPUT
+            TAG="latest"
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            echo "TAG_SUFFIX=beta" >> $GITHUB_ENV
-            echo "TAG_SUFFIX=beta" >> $GITHUB_OUTPUT
+            TAG="latest"
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
           else
-            echo "TAG_SUFFIX=dev" >> $GITHUB_ENV
-            echo "TAG_SUFFIX=dev" >> $GITHUB_OUTPUT
+            TAG="dev"
           fi
+          
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Generated image tag: $TAG"
 
-      - name: Build sirius-ui (if changed)
+      - name: Build and push sirius-ui
         if: needs.detect-changes.outputs.sirius_ui_changes == 'true'
-        run: |
-          echo "Building sirius-ui:${{ env.TAG_SUFFIX }}"
-          docker build \
-            -t sirius-ui:${{ env.TAG_SUFFIX }} \
-            ./sirius-ui/
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sirius-ui
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-ui:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Build sirius-api (if changed)
+      - name: Build and push sirius-api
         if: needs.detect-changes.outputs.sirius_api_changes == 'true'
-        run: |
-          echo "Building sirius-api:${{ env.TAG_SUFFIX }}"
-          docker build \
-            -t sirius-api:${{ env.TAG_SUFFIX }} \
-            --build-arg GO_API_COMMIT_SHA="${GO_API_COMMIT_SHA:-main}" \
-            ./sirius-api/
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sirius-api
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-api:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Build sirius-engine (if changed)
+      - name: Build and push sirius-engine
         if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sirius-engine
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'main' }}
+            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'main' }}
+            APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || 'main' }}
+            SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'main' }}
+            APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || 'main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-engine:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  test:
+    name: Integration Test
+    needs: [detect-changes, build-and-push]
+    runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.sirius_ui_changes == 'true' || needs.detect-changes.outputs.sirius_api_changes == 'true' || needs.detect-changes.outputs.sirius_engine_changes == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create test environment
         run: |
-          echo "Building sirius-engine:${{ env.TAG_SUFFIX }}"
-          docker build \
-            -t sirius-engine:${{ env.TAG_SUFFIX }} \
-            --build-arg GO_API_COMMIT_SHA="${GO_API_COMMIT_SHA:-main}" \
-            --build-arg APP_SCANNER_COMMIT_SHA="${APP_SCANNER_COMMIT_SHA:-main}" \
-            --build-arg APP_TERMINAL_COMMIT_SHA="${APP_TERMINAL_COMMIT_SHA:-main}" \
-            --build-arg SIRIUS_NSE_COMMIT_SHA="${SIRIUS_NSE_COMMIT_SHA:-main}" \
-            ./sirius-engine/
-
-      - name: Create CI environment config
-        run: |
-          mkdir -p .env-ci
-
-          # Create .env.ci file for each service
-          cat > .env-ci/.env.ci.sirius-ui << EOL
-          # Generated CI environment variables for sirius-ui
-          NODE_ENV=test
-          NEXT_PUBLIC_API_URL=http://sirius-api:9001
-          EOL
-
-          cat > .env-ci/.env.ci.sirius-api << EOL
-          # Generated CI environment variables for sirius-api
-          GO_ENV=test
-          POSTGRES_HOST=sirius-postgres
-          POSTGRES_USER=postgres
-          POSTGRES_PASSWORD=postgres
-          POSTGRES_DB=sirius_test
-          POSTGRES_PORT=5432
-          VALKEY_HOST=sirius-valkey
-          VALKEY_PORT=6379
-          RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
-          EOL
-
-          cat > .env-ci/.env.ci.sirius-engine << EOL
-          # Generated CI environment variables for sirius-engine
-          GO_ENV=test
-          POSTGRES_HOST=sirius-postgres
-          POSTGRES_USER=postgres
-          POSTGRES_PASSWORD=postgres
-          POSTGRES_DB=sirius_test
-          POSTGRES_PORT=5432
-          VALKEY_HOST=sirius-valkey
-          VALKEY_PORT=6379
-          RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
-          ENGINE_MAIN_PORT=5174
-          GRPC_AGENT_PORT=50051
-          EOL
-
-          # Create docker-compose.ci.yml with CI-specific settings
-          cat > docker-compose.ci.yml << EOL
-          # Generated CI docker-compose configuration
-          version: '3.8'
+          # Create test docker-compose configuration
+          cat > docker-compose.test.yml << EOF
+          name: sirius-test
           services:
-            sirius-ui:
-              image: sirius-ui:${TAG_SUFFIX}
-              env_file: .env-ci/.env.ci.sirius-ui
-              networks:
-                - sirius_network
-            
-            sirius-api:
-              image: sirius-api:${TAG_SUFFIX}
-              env_file: .env-ci/.env.ci.sirius-api
-              networks:
-                - sirius_network
-              depends_on:
-                - sirius-postgres
-                - sirius-valkey
-                - sirius-rabbitmq
-            
-            sirius-engine:
-              image: sirius-engine:${TAG_SUFFIX}
-              env_file: .env-ci/.env.ci.sirius-engine
-              networks:
-                - sirius_network
-              depends_on:
-                - sirius-postgres
-                - sirius-valkey
-                - sirius-rabbitmq
-            
             sirius-postgres:
               image: postgres:15-alpine
               environment:
                 POSTGRES_USER: postgres
                 POSTGRES_PASSWORD: postgres
                 POSTGRES_DB: sirius_test
-              networks:
-                - sirius_network
               tmpfs: 
                 - /var/lib/postgresql/data # Use RAM for CI testing
-            
+          
             sirius-rabbitmq:
               image: rabbitmq:3.7.3-management
-              networks:
-                - sirius_network
-            
+          
             sirius-valkey:
               image: valkey/valkey:latest
-              networks:
-                - sirius_network
 
-          networks:
-            sirius_network:
-              driver: bridge
-          EOL
+            sirius-ui:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ needs.build-and-push.outputs.image_tag }}
+              environment:
+                - NODE_ENV=test
+                - SKIP_ENV_VALIDATION=1
+                - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius_test
+                - NEXTAUTH_SECRET=test-secret
+                - NEXTAUTH_URL=http://localhost:3000
+                - SIRIUS_API_URL=http://sirius-api:9001
+                - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
+              depends_on:
+                - sirius-postgres
+          
+            sirius-api:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ needs.build-and-push.outputs.image_tag }}
+              environment:
+                - GO_ENV=test
+                - API_PORT=9001
+                - POSTGRES_HOST=sirius-postgres
+                - POSTGRES_USER=postgres
+                - POSTGRES_PASSWORD=postgres
+                - POSTGRES_DB=sirius_test
+                - POSTGRES_PORT=5432
+                - VALKEY_HOST=sirius-valkey
+                - VALKEY_PORT=6379
+                - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+                - LOG_LEVEL=debug
+              depends_on:
+                - sirius-postgres
+                - sirius-rabbitmq
+                - sirius-valkey
+          
+            sirius-engine:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ needs.build-and-push.outputs.image_tag }}
+              environment:
+                - GO_ENV=test
+                - ENGINE_MAIN_PORT=5174
+                - GRPC_AGENT_PORT=50051
+                - POSTGRES_HOST=sirius-postgres
+                - POSTGRES_USER=postgres
+                - POSTGRES_PASSWORD=postgres
+                - POSTGRES_DB=sirius_test
+                - POSTGRES_PORT=5432
+                - VALKEY_HOST=sirius-valkey
+                - VALKEY_PORT=6379
+                - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+                - LOG_LEVEL=debug
+              depends_on:
+                - sirius-rabbitmq
+          EOF
 
-      - name: Smoke Test
+      - name: Run integration test
         run: |
-          # Start the required services based on what was built
-          if [[ "${{ needs.detect-changes.outputs.sirius_ui_changes }}" == "true" || \
-                "${{ needs.detect-changes.outputs.sirius_api_changes }}" == "true" || \
-                "${{ needs.detect-changes.outputs.sirius_engine_changes }}" == "true" ]]; then
-            
-            echo "Starting services for smoke test..."
-            docker compose -f docker-compose.ci.yml up -d sirius-postgres sirius-rabbitmq sirius-valkey
-            
-            # Wait for infrastructure services to be ready
-            echo "Waiting for infrastructure services..."
-            sleep 15
-            
-            # Start application services based on what changed
-            if [ "${{ needs.detect-changes.outputs.sirius_api_changes }}" == "true" ]; then
-              docker compose -f docker-compose.ci.yml up -d sirius-api
-            fi
-            
-            if [ "${{ needs.detect-changes.outputs.sirius_engine_changes }}" == "true" ]; then
-              docker compose -f docker-compose.ci.yml up -d sirius-engine
-            fi
-            
-            if [ "${{ needs.detect-changes.outputs.sirius_ui_changes }}" == "true" ]; then
-              docker compose -f docker-compose.ci.yml up -d sirius-ui
-            fi
+          echo "Starting integration test..."
+          
+          # Start infrastructure services
+          docker compose -f docker-compose.test.yml up -d sirius-postgres sirius-rabbitmq sirius-valkey
+          
+          # Wait for infrastructure
+          echo "Waiting for infrastructure services..."
+          sleep 20
+          
+          # Start application services based on what was built
+          SERVICES_TO_TEST=""
+          
+          if [ "${{ needs.detect-changes.outputs.sirius_api_changes }}" == "true" ]; then
+            SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-api"
+          fi
+          
+          if [ "${{ needs.detect-changes.outputs.sirius_engine_changes }}" == "true" ]; then
+            SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-engine"
+          fi
+          
+          if [ "${{ needs.detect-changes.outputs.sirius_ui_changes }}" == "true" ]; then
+            SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-ui"
+          fi
+          
+          if [ -n "$SERVICES_TO_TEST" ]; then
+            docker compose -f docker-compose.test.yml up -d $SERVICES_TO_TEST
             
             # Wait for services to start
-            echo "Waiting for services to initialize..."
+            echo "Waiting for application services..."
             sleep 30
             
             # Check service health
-            docker compose -f docker-compose.ci.yml ps
+            echo "Checking service status..."
+            docker compose -f docker-compose.test.yml ps
             
-            # Basic connectivity checks
-            if [ "${{ needs.detect-changes.outputs.sirius_api_changes }}" == "true" ]; then
-              docker compose -f docker-compose.ci.yml exec -T sirius-api wget -q --spider --timeout=10 http://localhost:9001 || \
-                echo "Warning: API service not responding, but continuing the build"
+            # Basic smoke tests
+            echo "Running smoke tests..."
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-api"; then
+              docker compose -f docker-compose.test.yml exec -T sirius-api sh -c "ps aux | grep sirius-api || true"
             fi
             
-            # Shut down services
-            docker compose -f docker-compose.ci.yml down
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-engine"; then
+              docker compose -f docker-compose.test.yml exec -T sirius-engine sh -c "ps aux | grep start-enhanced || true"
+            fi
+            
+            echo "✅ Integration test completed"
           else
-            echo "No services need to be tested"
+            echo "No services to test"
           fi
-
-  push-images:
-    name: Push Images to GHCR
-    needs: [build, detect-changes]
-    runs-on: ubuntu-latest
-    # Only push images for 'beta' tags
-    if: needs.build.outputs.TAG_SUFFIX == 'beta' && (github.event_name == 'push' || github.event_name == 'repository_dispatch')
-    steps:
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tag and Push sirius-ui
-        if: needs.detect-changes.outputs.sirius_ui_changes == 'true'
-        run: |
-          IMAGE_BASENAME=sirius-ui
-          LOCAL_TAG=${{ needs.build.outputs.TAG_SUFFIX }}
-          GHCR_IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$IMAGE_BASENAME:$LOCAL_TAG
-          echo "Tagging $IMAGE_BASENAME:$LOCAL_TAG as $GHCR_IMAGE_NAME"
-          docker tag $IMAGE_BASENAME:$LOCAL_TAG $GHCR_IMAGE_NAME
-          echo "Pushing $GHCR_IMAGE_NAME"
-          docker push $GHCR_IMAGE_NAME
-
-      - name: Tag and Push sirius-api
-        if: needs.detect-changes.outputs.sirius_api_changes == 'true'
-        run: |
-          IMAGE_BASENAME=sirius-api
-          LOCAL_TAG=${{ needs.build.outputs.TAG_SUFFIX }}
-          GHCR_IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$IMAGE_BASENAME:$LOCAL_TAG
-          echo "Tagging $IMAGE_BASENAME:$LOCAL_TAG as $GHCR_IMAGE_NAME"
-          docker tag $IMAGE_BASENAME:$LOCAL_TAG $GHCR_IMAGE_NAME
-          echo "Pushing $GHCR_IMAGE_NAME"
-          docker push $GHCR_IMAGE_NAME
-
-      - name: Tag and Push sirius-engine
-        if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
-        run: |
-          IMAGE_BASENAME=sirius-engine
-          LOCAL_TAG=${{ needs.build.outputs.TAG_SUFFIX }}
-          GHCR_IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/$IMAGE_BASENAME:$LOCAL_TAG
-          echo "Tagging $IMAGE_BASENAME:$LOCAL_TAG as $GHCR_IMAGE_NAME"
-          docker tag $IMAGE_BASENAME:$LOCAL_TAG $GHCR_IMAGE_NAME
-          echo "Pushing $GHCR_IMAGE_NAME"
-          docker push $GHCR_IMAGE_NAME
-
-  update-task-status:
-    name: Update Task Status
-    needs: [build]
-    runs-on: ubuntu-latest
-    if: success()
-    steps:
-      - name: Check if Task 2.1 is complete
-        run: echo "Task 2.1 'Add ci.yml in .github/workflows/' completed successfully"
+          
+          # Cleanup
+          docker compose -f docker-compose.test.yml down

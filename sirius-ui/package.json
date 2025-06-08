@@ -3,11 +3,11 @@
   "version": "0.3.2",
   "private": true,
   "scripts": {
-    "build": "bun next build",
-    "dev": "bun next dev",
-    "postinstall": "bunx prisma generate",
-    "lint": "bun lint",
-    "start": "bun next start"
+    "build": "npx next build",
+    "dev": "npx next dev",
+    "postinstall": "npx prisma generate",
+    "lint": "npx lint",
+    "start": "npx next start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.1",
@@ -93,12 +93,13 @@
     "prettier": "^2.8.8",
     "prettier-plugin-tailwindcss": "^0.2.8",
     "tailwindcss": "^3.3.3",
+    "tsx": "^4.19.4",
     "typescript": "^5.0.4"
   },
   "ct3aMetadata": {
     "initVersion": "7.18.0"
   },
   "prisma": {
-    "seed": "bun prisma/seed.ts"
+    "seed": "npx tsx prisma/seed.ts"
   }
 }

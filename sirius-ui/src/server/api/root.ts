@@ -5,6 +5,7 @@ import { storeRouter } from "~/server/api/routers/store";
 import { queueRouter } from "~/server/api/routers/queue";
 import { userRouter } from "~/server/api/routers/user";
 import { terminalRouter } from "~/server/api/routers/terminal";
+import { agentRouter } from "~/server/api/routers/agent";
 import { createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   queue: queueRouter,
   user: userRouter,
   terminal: terminalRouter,
+  agent: agentRouter,
 });
 
 // export type definition of API

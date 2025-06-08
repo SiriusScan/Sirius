@@ -68,7 +68,7 @@ export async function waitForResponse(queue: string): Promise<string> {
     // Capture channel in closure to ensure type safety
     const currentChannel = channel;
 
-    // Set up consumer before purging to avoid race conditions
+    // Set up consumer first to avoid missing messages
     const responsePromise = new Promise<string>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error("Command timed out"));
@@ -89,7 +89,10 @@ export async function waitForResponse(queue: string): Promise<string> {
       });
     });
 
-    // Purge existing messages from the queue
+    // Small delay to ensure consumer is set up before purging
+    await new Promise(resolve => setTimeout(resolve, 10));
+    
+    // Purge existing messages to avoid stale responses
     await currentChannel.purgeQueue(queue);
 
     return await responsePromise;

@@ -37,10 +37,12 @@ const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({
     return null; // Don't render row if value is empty
   }
   return (
-    <div className="flex justify-between py-1.5 text-sm">
-      <span className="text-gray-500 dark:text-gray-400">{label}</span>
+    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+      <span className="text-sm font-medium text-gray-600 dark:text-gray-400 min-w-0 flex-1">
+        {label}
+      </span>
       <span
-        className="truncate text-right font-medium text-gray-900 dark:text-gray-100"
+        className="text-sm font-mono text-gray-900 dark:text-gray-100 ml-4 text-right"
         title={typeof value === "string" ? value : undefined}
       >
         {value}
@@ -202,14 +204,22 @@ const AgentDetailsComponent: React.FC<AgentDetailsProps> = ({
           </span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-0.5 pt-2 text-xs">
-        {" "}
-        {/* Reduced spacing */}
-        {/* Display curated details based on DisplayedAgentDetails type */}
-        <DetailRow label="IP Address" value={details.primaryIp} />
-        <DetailRow label="OS/Arch" value={details.osArch} />
-        <DetailRow label="Agent Ver" value={details.agentVersion ?? "N/A"} />
-        <DetailRow label="Uptime" value={details.uptime} />
+      <CardContent className="pt-3">
+        {/* Essential Information Only - IP and OS */}
+        <div className="space-y-1">
+          <DetailRow 
+            label="IP Address" 
+            value={details.primaryIp || "Not available"} 
+          />
+          <DetailRow 
+            label="Operating System" 
+            value={
+              <span className="truncate max-w-[120px]" title={details.osVersion || details.osArch || "Not available"}>
+                {details.osVersion || details.osArch || "Not available"}
+              </span>
+            } 
+          />
+        </div>
       </CardContent>
       <CardFooter className="justify-end gap-2 px-3 pb-2 pt-2">
         <Button

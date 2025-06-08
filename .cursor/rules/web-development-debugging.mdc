@@ -1,0 +1,134 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Web Development Debugging Standards
+
+## **Console Log Verification**
+- **Always check browser console logs before finishing any web development task**
+- **Verify no JavaScript/TypeScript errors exist after making changes**
+- **Check for React component errors, rendering issues, or runtime exceptions**
+- **Monitor network errors and failed API calls**
+
+## **Visual Changes Verification**
+- **Always take screenshots when making UI/visual changes**
+- **MANDATORY: Perform comprehensive screenshot analysis before completing any UI task**
+- **Look for visual problems that would impact user experience**
+
+### **Critical Screenshot Analysis Checklist**
+After taking a screenshot, systematically analyze for these issues:
+
+#### **1. Information Density & Readability**
+- ❌ **Text cramping**: Lines too close together, hard to read
+- ❌ **Information overload**: Too much data in small spaces
+- ❌ **Poor contrast**: Text hard to distinguish from background
+- ❌ **Font size issues**: Text too small or inconsistently sized
+- ❌ **Line wrapping problems**: Text awkwardly broken across lines
+
+#### **2. Layout & Spacing Issues**
+- ❌ **Insufficient whitespace**: Elements too close together
+- ❌ **Misalignment**: Related elements not properly aligned
+- ❌ **Inconsistent margins/padding**: Spacing varies between similar elements
+- ❌ **Cramped containers**: Content doesn't fit well in available space
+- ❌ **Poor visual hierarchy**: Can't easily distinguish importance levels
+
+#### **3. Data Presentation Problems**
+- ❌ **Numbers and labels running together**: Hard to parse key-value pairs
+- ❌ **No visual separation**: Different data types blend together
+- ❌ **Poor grouping**: Related information not visually connected
+- ❌ **Inconsistent formatting**: Similar data presented differently
+- ❌ **Missing visual cues**: No indicators for status, importance, etc.
+
+#### **4. Component-Specific Issues**
+- ❌ **Cards**: Overcrowded, poor internal spacing, unclear sections
+- ❌ **Lists**: Items too close, poor visual separation
+- ❌ **Tables**: Cramped cells, poor column sizing, hard to scan
+- ❌ **Forms**: Fields too close, labels unclear, poor grouping
+- ❌ **Navigation**: Items crowded, unclear hierarchy
+
+#### **5. Overall Visual Appeal**
+- ❌ **Looks unprofessional**: Amateur spacing or layout
+- ❌ **Hard to scan**: User can't quickly find information
+- ❌ **Visually fatiguing**: Too dense or cluttered
+- ❌ **Inconsistent styling**: Different components don't match
+- ❌ **Poor use of space**: Wasted space or overcrowding
+
+### **Required Actions When Issues Found**
+- **STOP immediately** - Do not complete the task with visual problems
+- **Document specific issues** - List exactly what looks wrong
+- **Fix systematically** - Address layout, spacing, and readability issues
+- **Re-screenshot and re-analyze** - Verify improvements
+- **Iterate until visually appealing** - Don't settle for "good enough"
+
+### **Visual Improvement Guidelines**
+- **Add appropriate whitespace** - Let elements breathe
+- **Use consistent spacing patterns** - Establish rhythm and hierarchy
+- **Group related information** - Use visual cues like borders, backgrounds
+- **Improve typography** - Proper font weights, sizes, and line heights
+- **Create clear information hierarchy** - Most important info stands out
+- **Ensure easy scanning** - Users should quickly find what they need
+
+## **Pre-Completion Checklist**
+- ✅ **Console Errors:** Check browser console for red error messages
+- ✅ **Console Warnings:** Review yellow warning messages for potential issues
+- ✅ **Network Tab:** Verify API calls are successful (200-299 status codes)
+- ✅ **React DevTools:** Check for component errors or state issues
+- ✅ **TypeScript Errors:** Ensure no TypeScript compilation errors
+- ✅ **Linting Issues:** Address any ESLint or similar linting warnings
+- ✅ **Screenshot Analysis:** Take screenshot and perform comprehensive visual analysis
+- ✅ **Visual Quality:** Confirm UI is professionally designed and user-friendly
+- ✅ **Information Clarity:** Verify all data is easy to read and understand
+
+## **Error Detection Process**
+```bash
+# Use browser tools to check:
+1. Console tab - Look for red errors and yellow warnings
+2. Network tab - Check for failed requests (4xx, 5xx status codes)
+3. React DevTools - Monitor component state and props
+4. Sources tab - Check for runtime exceptions in source maps
+5. Screenshot analysis - Systematically review visual quality
+```
+
+## **Common Error Patterns to Watch For**
+- **Syntax Errors:** Missing brackets, semicolons, or malformed code
+- **TypeScript Errors:** Type mismatches, missing imports, or interface violations
+- **React Errors:** Component lifecycle issues, hook dependencies, or rendering problems
+- **API Errors:** Failed network requests, CORS issues, or authentication problems
+- **Import Errors:** Missing modules, incorrect paths, or circular dependencies
+- **Visual Errors:** Poor spacing, cramped layouts, hard-to-read information
+
+## **When Errors Are Found**
+- **Stop immediately** - Do not continue without fixing errors
+- **Identify root cause** - Read error messages carefully
+- **Fix systematically** - Address one error at a time
+- **Re-test thoroughly** - Verify fixes don't introduce new issues
+- **Document fixes** - Explain what was broken and how it was resolved
+
+## **Tools for Error Detection**
+- **Browser DevTools Console** - Primary error checking tool
+- **TypeScript Compiler** - Catch type-related issues early
+- **ESLint/Prettier** - Code quality and formatting issues
+- **React Error Boundaries** - Catch component rendering errors
+- **Network Monitoring** - API and resource loading issues
+- **Screenshot Analysis** - Visual quality and UX evaluation
+
+## **Best Practices**
+- Check console logs **immediately** after making changes
+- Take screenshots **after every UI change** and analyze thoroughly
+- Test in **multiple browsers** when possible
+- Use **error boundaries** to catch React component errors gracefully
+- Enable **strict mode** in development for early error detection
+- Set up **automated testing** to catch regressions
+- Use **source maps** for better debugging information
+- **Never complete UI tasks** without proper visual analysis
+
+## **Never Complete Tasks With:**
+- ❌ Unresolved console errors (red messages)
+- ❌ Failed network requests (unless intentional)
+- ❌ TypeScript compilation errors
+- ❌ React component crashes or infinite loops
+- ❌ Broken functionality that was previously working
+- ❌ **Poor visual design or cramped layouts**
+- ❌ **Hard-to-read or poorly formatted information**
+- ❌ **Unprofessional-looking UI elements**

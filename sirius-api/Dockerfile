@@ -43,12 +43,18 @@ RUN apk add --no-cache \
 # Copy source code first
 COPY . .
 
-# Clone the latest go-api dependency to the expected relative location
+# Clone the absolute latest go-api dependency with no caching
 RUN rm -rf ../go-api && \
-    git clone https://github.com/SiriusScan/go-api.git ../go-api && \
+    GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone --no-single-branch https://github.com/SiriusScan/go-api.git ../go-api && \
     cd ../go-api && \
-    git pull origin main && \
-    echo "Using go-api commit: $(git rev-parse HEAD)"
+    git fetch --all && \
+    git reset --hard origin/main && \
+    echo "✅ Using go-api commit: $(git rev-parse HEAD)" && \
+    echo "✅ Latest commit message: $(git log -1 --pretty=format:'%s')" && \
+    echo "✅ Available functions in host package:" && \
+    grep -n "func.*GetHostWithEnhancedData\|func.*GetHostWithSources\|func.*AddHostWithSource" sirius/host/*.go && \
+    echo "✅ Available ScanSource type:" && \
+    grep -n "type.*ScanSource" sirius/postgres/models/scan_source.go
 
 # Download dependencies with the cloned go-api
 RUN go mod download

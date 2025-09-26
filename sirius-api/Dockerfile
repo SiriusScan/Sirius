@@ -43,8 +43,12 @@ RUN apk add --no-cache \
 # Copy source code first
 COPY . .
 
-# Clone the go-api dependency to the expected relative location
-RUN git clone https://github.com/SiriusScan/go-api.git ../go-api
+# Clone the latest go-api dependency to the expected relative location
+RUN rm -rf ../go-api && \
+    git clone https://github.com/SiriusScan/go-api.git ../go-api && \
+    cd ../go-api && \
+    git pull origin main && \
+    echo "Using go-api commit: $(git rev-parse HEAD)"
 
 # Download dependencies with the cloned go-api
 RUN go mod download

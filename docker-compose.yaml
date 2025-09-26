@@ -127,7 +127,9 @@ services:
           cpus: "0.25"
 
   sirius-engine:
-    build: ./sirius-engine/
+    build: 
+      context: ../minor-projects/app-agent
+      dockerfile: Dockerfile
     container_name: sirius-engine
     hostname: sirius-engine
     restart: always

@@ -62,7 +62,6 @@ services:
           cpus: "0.1"
 
   sirius-ui:
-    image: ${IMAGE_REGISTRY:-ghcr.io/siriusscan}/sirius-ui:${IMAGE_TAG:-latest}
     build:
       context: ./sirius-ui/
       dockerfile: Dockerfile
@@ -97,7 +96,6 @@ services:
           cpus: "0.25"
 
   sirius-api:
-    image: ${IMAGE_REGISTRY:-ghcr.io/siriusscan}/sirius-api:${IMAGE_TAG:-latest}
     build: ./sirius-api/
     container_name: sirius-api
     hostname: sirius-api
@@ -129,7 +127,6 @@ services:
           cpus: "0.25"
 
   sirius-engine:
-    image: ${IMAGE_REGISTRY:-ghcr.io/siriusscan}/sirius-engine:${IMAGE_TAG:-latest}
     build: ./sirius-engine/
     container_name: sirius-engine
     hostname: sirius-engine

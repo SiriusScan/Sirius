@@ -48,14 +48,8 @@ RUN git clone https://github.com/SiriusScan/go-api.git
 WORKDIR /app
 COPY go.mod go.sum ./
 
-# Create a temporary go.mod with replace directive
-RUN echo "module github.com/SiriusScan/sirius-api" > go.mod.tmp && \
-    echo "" >> go.mod.tmp && \
-    echo "go 1.22.0" >> go.mod.tmp && \
-    echo "" >> go.mod.tmp && \
-    echo "replace github.com/SiriusScan/go-api => /tmp/go-api" >> go.mod.tmp && \
-    cat go.mod | grep -v "^module\|^go " >> go.mod.tmp && \
-    mv go.mod.tmp go.mod
+# Update the replace directive to point to the cloned go-api
+RUN sed -i 's|replace github.com/SiriusScan/go-api => ../go-api|replace github.com/SiriusScan/go-api => /tmp/go-api|g' go.mod
 
 # Download dependencies
 RUN go mod download

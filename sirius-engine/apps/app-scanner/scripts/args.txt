@@ -1,2 +1,0 @@
-# Nmap Script Arguments
-vulners.showall=true

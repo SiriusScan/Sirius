@@ -6,6 +6,7 @@ import ScannerNavigation, {
 import GeneralScannerSettings from "./general/GeneralScannerSettings";
 import NmapScannerSettings from "./nmap/NmapScannerSettings";
 import RustScanScannerSettings from "./rustscan/RustScanScannerSettings";
+import AgentScannerSettings from "./agent/AgentScannerSettings";
 
 interface AdvancedViewProps {
   // Props if any
@@ -39,20 +40,33 @@ const AdvancedView: React.FC<AdvancedViewProps> = () => {
   const [rustScanTries, setRustScanTries] = useState(1);
   const [rustScanCommand, setRustScanCommand] = useState("-sV -sC -A");
 
+  // Agent specific settings
+  const [agentSyncEnabled, setAgentSyncEnabled] = useState(true);
+  const [agentScanMode, setAgentScanMode] = useState("comprehensive");
+  const [agentTimeout, setAgentTimeout] = useState(300);
+  const [agentConcurrency, setAgentConcurrency] = useState(3);
+  const [enableTemplates, setEnableTemplates] = useState(true);
+  const [templatePriority, setTemplatePriority] = useState("high");
+  const [enableScripts, setEnableScripts] = useState(true);
+  const [scriptTimeout, setScriptTimeout] = useState(60);
+  const [scriptSandbox, setScriptSandbox] = useState(true);
+
   return (
-    <div className="rounded-lg bg-gray-800/20">
+    <div className="rounded-lg bg-gray-800/20 p-6">
       <h2 className="mb-6 text-xl font-bold text-white">Advanced Scanner</h2>
 
-      <div className="flex space-x-8">
-        {/* Scanner Navigation Sidebar */}
-        <ScannerNavigation
-          activeScanner={activeScanner}
-          setActiveScanner={setActiveScanner}
-        />
+      <div className="flex min-h-[800px] space-x-8">
+        {/* Scanner Navigation Sidebar - Fixed width */}
+        <div className="w-64 flex-shrink-0">
+          <ScannerNavigation
+            activeScanner={activeScanner}
+            setActiveScanner={setActiveScanner}
+          />
+        </div>
 
-        {/* Content Area with increased height for better editor experience */}
+        {/* Content Area - Fixed width with better spacing */}
         <div className="flex-1">
-          <div className="h-[850px] overflow-scroll pr-4">
+          <div className="h-full overflow-y-auto pr-2">
             {/* General Settings */}
             {activeScanner === "general" && (
               <GeneralScannerSettings
@@ -110,9 +124,36 @@ const AdvancedView: React.FC<AdvancedViewProps> = () => {
                 setRustScanCommand={setRustScanCommand}
               />
             )}
+
+            {/* Agent Specific Settings */}
+            {activeScanner === "agent" && (
+              <AgentScannerSettings
+                // Agent settings
+                agentSyncEnabled={agentSyncEnabled}
+                setAgentSyncEnabled={setAgentSyncEnabled}
+                agentScanMode={agentScanMode}
+                setAgentScanMode={setAgentScanMode}
+                agentTimeout={agentTimeout}
+                setAgentTimeout={setAgentTimeout}
+                agentConcurrency={agentConcurrency}
+                setAgentConcurrency={setAgentConcurrency}
+                // Template settings
+                enableTemplates={enableTemplates}
+                setEnableTemplates={setEnableTemplates}
+                templatePriority={templatePriority}
+                setTemplatePriority={setTemplatePriority}
+                // Script settings
+                enableScripts={enableScripts}
+                setEnableScripts={setEnableScripts}
+                scriptTimeout={scriptTimeout}
+                setScriptTimeout={setScriptTimeout}
+                scriptSandbox={scriptSandbox}
+                setScriptSandbox={setScriptSandbox}
+              />
+            )}
           </div>
 
-          <div className="mt-6 flex justify-end">
+          <div className="mt-6 flex justify-end border-t border-gray-700 pt-4">
             <Button
               size="default"
               className="mr-3 bg-gray-700 text-white hover:bg-gray-600"

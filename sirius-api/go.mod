@@ -1,11 +1,10 @@
 module github.com/SiriusScan/sirius-api
 
-go 1.22.0
+go 1.23.0
 
-toolchain go1.23.5
+toolchain go1.24.1
 
-// replace github.com/SiriusScan/go-api => ../../minor-project/go-api
-// replace github.com/SiriusScan/go-api => /go-api
+replace github.com/SiriusScan/go-api => ../go-api
 
 require (
 	github.com/SiriusScan/go-api v0.0.4
@@ -32,9 +31,9 @@ require (
 	github.com/valyala/fasthttp v1.50.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	gorm.io/driver/postgres v1.5.11 // indirect
 	gorm.io/gorm v1.25.12 // indirect
 )

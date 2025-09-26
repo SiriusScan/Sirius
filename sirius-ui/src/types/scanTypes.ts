@@ -1,8 +1,13 @@
 // src/types/scanTypes.ts
 
-export type ScanTemplate = 'quick' | 'full' | 'discovery' | 'vuln';
+export type ScanTemplate = "quick" | "full" | "discovery" | "vuln";
 
-export type TargetType = 'single_ip' | 'ip_range' | 'cidr' | 'dns_name' | 'dns_wildcard';
+export type TargetType =
+  | "single_ip"
+  | "ip_range"
+  | "cidr"
+  | "dns_name"
+  | "dns_wildcard";
 
 export interface Target {
   value: string;
@@ -68,4 +73,72 @@ export interface VulnerabilityTableData {
   published: string;
   severity: string;
   count: number;
+}
+
+// Enhanced vulnerability types with source attribution
+export interface SourceAttribution {
+  source: string;
+  source_version: string;
+  first_seen: string;
+  last_seen: string;
+  status: string;
+  confidence: number;
+  notes?: string;
+}
+
+export interface VulnerabilityWithSource {
+  cve: string;
+  cvss: number;
+  description: string;
+  published: string;
+  severity: string;
+  count: number;
+  // Source attribution fields
+  sources: SourceAttribution[];
+  port?: number;
+  service_info?: string;
+}
+
+export interface VulnerabilitySourceInfo {
+  source: string;
+  source_version: string;
+  affected_hosts: number;
+  first_detected: string;
+  last_confirmed: string;
+  average_confidence: number;
+  total_reports: number;
+}
+
+export interface HostWithSources {
+  host: {
+    id: number;
+    ip: string;
+    hostname: string;
+    os: string;
+    os_version: string;
+  };
+  vulnerability_sources: VulnerabilityWithSource[];
+  port_sources: PortWithSource[];
+  sources: string[];
+}
+
+export interface PortWithSource {
+  id: number;
+  protocol: string;
+  state: string;
+  source: string;
+  source_version: string;
+  first_seen: string;
+  last_seen: string;
+  status: string;
+  notes?: string;
+}
+
+export interface SourceCoverageStats {
+  source: string;
+  hosts_scanned: number;
+  vulnerabilities_found: number;
+  ports_discovered: number;
+  last_scan_time: string;
+  average_confidence: number;
 }

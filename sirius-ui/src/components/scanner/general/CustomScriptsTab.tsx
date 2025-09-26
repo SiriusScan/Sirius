@@ -1,6 +1,7 @@
 import React from "react";
 import { Label } from "~/components/lib/ui/label";
 import { Textarea } from "~/components/lib/ui/textarea";
+import MonacoEditor from "~/components/editor/MonacoEditor";
 
 interface CustomScriptsTabProps {
   customScripts: string;
@@ -12,26 +13,28 @@ const CustomScriptsTab: React.FC<CustomScriptsTabProps> = ({
   setCustomScripts,
 }) => {
   return (
-    <div>
+    <div className="w-full space-y-4">
       <Label
         htmlFor="customScripts"
-        className="mb-2 block text-sm font-semibold text-gray-400"
+        className="block text-sm font-semibold text-gray-400"
       >
         Custom Scripts
       </Label>
-      <Textarea
-        id="customScripts"
-        className="h-40 w-full rounded-md border border-gray-600 bg-gray-800/20 px-4 py-2 text-white placeholder-gray-500"
-        placeholder="Enter custom scripts or commands..."
-        value={customScripts}
-        onChange={(e) => setCustomScripts(e.target.value)}
-      />
-      <span className="mt-1 text-xs text-gray-500">
+      <div className="w-full">
+        <MonacoEditor
+          value={customScripts}
+          language="shell"
+          onChange={(value) => setCustomScripts(value || "")}
+          height="400px"
+          theme="catppuccin-mocha"
+        />
+      </div>
+      <span className="block text-xs text-gray-500">
         Advanced users only: Enter custom scanner scripts (NSE, Nuclei
-        templates, etc.)
+        templates, etc.) with full syntax highlighting and validation.
       </span>
     </div>
   );
 };
 
-export default CustomScriptsTab; 
+export default CustomScriptsTab;

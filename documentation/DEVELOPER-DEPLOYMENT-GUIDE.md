@@ -142,6 +142,7 @@ nano docker-compose.local.yaml
 ```
 
 **Benefits:**
+
 - ✅ Never accidentally commit local development configuration
 - ✅ Each developer can have different local setups
 - ✅ Clean repository with predictable CI/CD

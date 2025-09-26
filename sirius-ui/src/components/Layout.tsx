@@ -2,10 +2,12 @@
 import React from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
+import { useEffect } from "react";
 import Head from "next/head";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import { Toaster } from "~/components/lib/ui/sonner";
+import { debugLog, debugRouting } from "~/utils/debug";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,7 +18,23 @@ const Layout = ({ children, title = "Sirius Scan" }: LayoutProps) => {
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  // Use useEffect to handle redirects to avoid render loops
+  useEffect(() => {
+    if (status === "loading") {
+      debugLog("Layout", "Session loading", router.pathname);
+      return; // Wait for session to load
+    }
+
+    // Only redirect if user is not authenticated and not on the home page
+    if (!session?.user && router.pathname !== "/") {
+      debugRouting(router.pathname, "/", "Unauthenticated user redirect");
+      void router.replace("/");
+    }
+  }, [session, status, router]);
+
+  // Show loading state while session is loading or while redirecting
   if (status === "loading") {
+    debugLog("Layout", "Rendering loading state - session loading");
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-t-2 border-violet-500"></div>
@@ -24,10 +42,23 @@ const Layout = ({ children, title = "Sirius Scan" }: LayoutProps) => {
     );
   }
 
+  // Show loading state while redirecting unauthenticated users
   if (!session?.user && router.pathname !== "/") {
-    void router.push("/");
-    return null;
+    debugLog(
+      "Layout",
+      "Rendering loading state - redirecting unauthenticated user"
+    );
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-t-2 border-violet-500"></div>
+      </div>
+    );
   }
+
+  debugLog("Layout", "Rendering main layout", {
+    pathname: router.pathname,
+    user: !!session?.user,
+  });
 
   return (
     <div className="flex min-h-screen">

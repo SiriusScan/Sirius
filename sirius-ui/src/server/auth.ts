@@ -33,12 +33,39 @@ declare module "next-auth" {
 }
 
 /**
+ * Get the appropriate NextAuth URL based on environment
+ * This fixes the localhost redirect issue by using the request host
+ */
+const getNextAuthUrl = (req?: any): string => {
+  // In production or when NEXTAUTH_URL is explicitly set, use that
+  if (process.env.NEXTAUTH_URL && process.env.NODE_ENV === "production") {
+    return process.env.NEXTAUTH_URL;
+  }
+
+  // For development, try to get the host from the request
+  if (req && req.headers) {
+    const host = req.headers.host;
+    const protocol =
+      req.headers["x-forwarded-proto"] ||
+      (req.connection?.encrypted ? "https" : "http");
+
+    if (host) {
+      return `${protocol}://${host}`;
+    }
+  }
+
+  // Fallback to localhost for local development
+  return process.env.NEXTAUTH_URL || "http://localhost:3000";
+};
+
+/**
  * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
  *
  * @see https://next-auth.js.org/configuration/options
  */
 export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET || "change-this-secret-in-production-please",
+  secret:
+    process.env.NEXTAUTH_SECRET || "change-this-secret-in-production-please",
   session: {
     strategy: "jwt",
     maxAge: 100 * 365 * 24 * 60 * 60, // 100 years in seconds - effectively indefinite
@@ -50,6 +77,21 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
+    // Fix redirect callback to use proper URL
+    async redirect({ url, baseUrl }) {
+      // Allow relative callback URLs
+      if (url.startsWith("/")) {
+        return `${baseUrl}${url}`;
+      }
+
+      // Allow callbacks to the same origin
+      if (new URL(url).origin === baseUrl) {
+        return url;
+      }
+
+      // For other URLs, redirect to dashboard
+      return `${baseUrl}/dashboard`;
+    },
   },
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -60,22 +102,42 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (credentials?.username) {
+        if (!credentials?.username || !credentials?.password) {
+          console.log("Missing credentials");
+          return null;
+        }
+
+        try {
           const user = await prisma.user.findUnique({
             where: { name: credentials.username },
           });
-          console.log("credentials", credentials);
+
+          if (!user) {
+            console.log("User not found:", credentials.username);
+            return null;
+          }
 
           // Verify the password using bcrypt
-          if (
-            user &&
-            (await bcrypt.compare(credentials.password, user.password))
-          ) {
-            return user;
+          const isValidPassword = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isValidPassword) {
+            console.log("Invalid password for user:", credentials.username);
+            return null;
           }
+
+          // Return user object that will be passed to JWT
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+          };
+        } catch (error) {
+          console.error("Authentication error:", error);
+          return null;
         }
-        // Return an error object if authentication fails
-        return null;
       },
     }),
     /**
@@ -90,7 +152,10 @@ export const authOptions: NextAuthOptions = {
   ],
   pages: {
     signIn: "/",
+    error: "/", // Redirect errors back to sign in page
   },
+  // Enable debug in development
+  debug: process.env.NODE_ENV === "development",
 };
 
 /**

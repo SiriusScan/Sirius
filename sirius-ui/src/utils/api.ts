@@ -40,8 +40,84 @@ export const api = createTRPCNext<AppRouter>({
         }),
         httpBatchLink({
           url: `${getBaseUrl()}/api/trpc`,
+          // Add fetch configuration with longer timeout for terminal operations
+          fetch(url, options) {
+            // Create abort controller with timeout only if supported
+            const controller = new AbortController();
+            let timeoutId: NodeJS.Timeout | undefined;
+
+            // Set different timeouts based on the endpoint
+            if (typeof window !== "undefined") {
+              // Check if this is a terminal operation (scan, long-running commands)
+              const isTerminalOperation = url.includes(
+                "terminal.executeCommand"
+              );
+              const isAgentOperation = url.includes("agent.");
+
+              // Use longer timeouts for operations that might take time
+              const timeout = isTerminalOperation
+                ? 300000 // 5 minutes for terminal commands (like scan)
+                : isAgentOperation
+                ? 30000 // 30 seconds for agent operations
+                : 15000; // 15 seconds for general operations (increased from 8)
+
+              timeoutId = setTimeout(() => controller.abort(), timeout);
+            }
+
+            return fetch(url, {
+              ...options,
+              signal: controller.signal,
+            }).finally(() => {
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+              }
+            });
+          },
         }),
       ],
+
+      /**
+       * Query client configuration optimized for terminal operations
+       */
+      queryClientConfig: {
+        defaultOptions: {
+          queries: {
+            // Prevent queries from blocking navigation
+            staleTime: 30 * 1000, // 30 seconds
+            retry: (failureCount, error) => {
+              // Don't retry timeout errors from long-running operations
+              if (
+                error?.message?.includes("aborted") ||
+                error?.message?.includes("signal")
+              ) {
+                return false;
+              }
+              // Don't retry if navigation is happening
+              if (error?.message?.includes("fetch")) {
+                return false;
+              }
+              return failureCount < 2;
+            },
+            retryDelay: 1000,
+            refetchOnWindowFocus: false,
+            refetchOnMount: true,
+            // Disable automatic refetching during navigation
+            refetchOnReconnect: "always",
+          },
+          mutations: {
+            retry: (failureCount, error) => {
+              // Don't retry timeout errors from long-running operations
+              if (
+                error?.message?.includes("aborted") ||
+                error?.message?.includes("signal")
+              ) {
+                return false;
+              }
+              return failureCount < 1;
+            },
+          },
+        },
+      },
     };
   },
   /**

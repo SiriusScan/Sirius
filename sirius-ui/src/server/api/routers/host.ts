@@ -10,6 +10,7 @@ import {
   mockHostStatistics,
   mockEnvironmentSummaryData,
 } from "~/utils/mock/mockHostData";
+import { type SourceCoverageStats } from "~/types/scanTypes";
 
 // Create an axios instance
 const httpClient = axios.create({
@@ -77,6 +78,7 @@ export interface EnvironmentTableData {
   groups: string[];
   tags: string[];
   vulnerabilities: Vulnerability[];
+  ports?: Port[];
 }
 
 export type HostStatistics = {
@@ -178,6 +180,166 @@ async function fetchHostStatistics(
   }
 }
 
+// Add type definition for the source-aware host response
+export type HostWithSources = {
+  // Host data is at the top level, not nested
+  ID: number;
+  CreatedAt: string;
+  UpdatedAt: string;
+  DeletedAt: string | null;
+  HID: string;
+  OS: string;
+  OSVersion: string;
+  IP: string;
+  Hostname: string;
+  Ports: null;
+  Services: null;
+  Vulnerabilities: null;
+  HostVulnerabilities: null;
+  HostPorts: null;
+  CPEs: null;
+  Users: null;
+  Notes: null;
+  AgentID: number;
+  vulnerability_sources: VulnerabilityWithSource[];
+  port_sources: PortWithSource[] | null;
+  sources: string[];
+};
+
+export type EnhancedHostData = {
+  host: SiriusHost;
+  software_inventory?: {
+    packages: Array<{
+      name: string;
+      version: string;
+      architecture?: string;
+      install_date?: string;
+      size_bytes?: number;
+      description?: string;
+      publisher?: string;
+      source?: string;
+      cpe?: string;
+      dependencies?: string[];
+    }>;
+    package_count: number;
+    collected_at: string;
+    source: string;
+    statistics?: {
+      architectures: Record<string, number>;
+      publishers: Record<string, number>;
+    };
+  };
+  system_fingerprint?: {
+    fingerprint: {
+      hardware?: {
+        cpu?: {
+          model: string;
+          cores: number;
+          architecture: string;
+        };
+        memory?: {
+          total_gb: number;
+          available_gb: number;
+        };
+        storage?: Array<{
+          device: string;
+          size_gb: number;
+          type: string;
+          filesystem: string;
+        }>;
+      };
+      network?: {
+        interfaces: Array<{
+          name: string;
+          mac: string;
+          ipv4: string[];
+          ipv6: string[];
+        }>;
+        dns_servers: string[];
+      };
+      services?: Array<{
+        name: string;
+        status: string;
+        pid?: number;
+        description?: string;
+      }>;
+      users?: Array<{
+        name: string;
+        uid: number;
+        groups: string[];
+        shell?: string;
+      }>;
+      certificates?: Array<{
+        subject: string;
+        issuer: string;
+        expires: string;
+        fingerprint: string;
+        store: string;
+      }>;
+    };
+    collected_at: string;
+    source: string;
+    platform: string;
+    collection_duration_ms: number;
+  };
+  agent_metadata?: {
+    agent_version?: string;
+    scan_duration?: number;
+    scan_modules?: string[];
+    template_results?: Array<{
+      template_id: string;
+      vulnerability_id: string;
+      vulnerable: boolean;
+      confidence: number;
+    }>;
+  };
+};
+
+export type SoftwareStatistics = {
+  total_packages: number;
+  architectures: Record<string, number>;
+  publishers: Record<string, number>;
+  packages_by_source: Record<string, number>;
+  last_updated: string;
+};
+
+export type VulnerabilityWithSource = {
+  ID: number;
+  CreatedAt: string;
+  UpdatedAt: string;
+  DeletedAt: string | null;
+  VID: string;
+  Description: string;
+  Title: string;
+  Hosts: null;
+  HostVulnerabilities: null;
+  RiskScore: number;
+  source: string;
+  source_version: string;
+  first_seen: string;
+  last_seen: string;
+  status: string;
+  confidence: number;
+  port?: number;
+  service_info?: string;
+  notes?: string;
+};
+
+export type PortWithSource = {
+  ID: number;
+  CreatedAt: string;
+  UpdatedAt: string;
+  DeletedAt: string | null;
+  Protocol: string;
+  State: string;
+  source: string;
+  source_version: string;
+  first_seen: string;
+  last_seen: string;
+  status: string;
+  notes?: string;
+};
+
 export const hostRouter = createTRPCRouter({
   getHost: publicProcedure
     .input(z.object({ hid: z.string() }))
@@ -212,6 +374,14 @@ export const hostRouter = createTRPCRouter({
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostList = response.data;
 
+      // Ensure hostList is an array, default to empty array if null/undefined
+      if (!hostList || !Array.isArray(hostList)) {
+        console.log(
+          "getEnvironmentSummary: No valid host data received, returning empty array"
+        );
+        return [];
+      }
+
       // For each host, get the statistics
       const hostStatistics = await Promise.all(
         hostList.map(async (host) => {
@@ -232,12 +402,18 @@ export const hostRouter = createTRPCRouter({
         })
       );
 
+      // Filter out null values from hostStatistics
+      const validHostStatistics = hostStatistics.filter(
+        (stat) => stat !== null
+      );
+
       // Map vulnerability info from host.vulnerabilities to our VulnerabilitySeverityCounts structure
       const vulnerabilitiesMap: Record<string, VulnerabilitySeverityCounts> =
         {};
 
       hostList.forEach((host) => {
-        if (!host.vulnerabilities || host.vulnerabilities.length === 0) return;
+        if (!host || !host.vulnerabilities || host.vulnerabilities.length === 0)
+          return;
 
         const counts: VulnerabilitySeverityCounts = {
           critical: 0,
@@ -265,7 +441,7 @@ export const hostRouter = createTRPCRouter({
       const environmentTableData: EnvironmentTableData[] = hostList.map(
         (host) => {
           // Find matching statistics for this host
-          const hostStats = hostStatistics.find(
+          const hostStats = validHostStatistics.find(
             (stat) => stat?.hostId === host.hid
           )?.statistics;
 
@@ -308,6 +484,14 @@ export const hostRouter = createTRPCRouter({
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostList = response.data;
 
+      // Ensure hostList is an array, default to empty array if null/undefined
+      if (!hostList || !Array.isArray(hostList)) {
+        console.log(
+          "getAllHosts: No valid host data received, returning empty array"
+        );
+        return [];
+      }
+
       // Log the host IDs for debugging
       console.log(
         "getAllHosts: Received hosts with IDs:",
@@ -344,6 +528,486 @@ export const hostRouter = createTRPCRouter({
       return [];
     }
   }),
+
+  // Get source coverage statistics
+  getSourceCoverage: publicProcedure.query(async () => {
+    try {
+      const response = await httpClient.get("host/source-coverage");
+      // The API returns { source_coverage_stats: [...], total_sources: n }
+      // Extract just the array for the frontend
+      if (response.data?.source_coverage_stats) {
+        return response.data.source_coverage_stats as SourceCoverageStats[];
+      }
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching source coverage stats:", error);
+      // Return empty array instead of mock data
+      return [];
+    }
+  }),
+
+  // Get host with source attribution (deduplicated data)
+  getHostWithSources: publicProcedure
+    .input(z.object({ ip: z.string() }))
+    .query(async ({ input }) => {
+      const { ip } = input;
+      try {
+        if (!ip) {
+          throw new Error("No IP provided");
+        }
+
+        // Call the source-aware API endpoint
+        const response = await httpClient.get<HostWithSources>(
+          `host/${ip}/sources`
+        );
+        const hostWithSources = response.data;
+
+        return hostWithSources;
+      } catch (error) {
+        console.error("Error fetching host with sources:", error);
+        return null;
+      }
+    }),
+
+  // Get host software inventory (packages)
+  getHostSoftwareInventory: publicProcedure
+    .input(
+      z.object({
+        ip: z.string(),
+        filter: z.string().optional(),
+        architecture: z.string().optional(),
+        publisher: z.string().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const { ip, filter, architecture, publisher } = input;
+      try {
+        if (!ip) {
+          throw new Error("No IP provided");
+        }
+
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (filter) params.append("filter", filter);
+        if (architecture) params.append("architecture", architecture);
+        if (publisher) params.append("publisher", publisher);
+
+        const queryString = params.toString();
+        const url = `host/${ip}/packages${
+          queryString ? `?${queryString}` : ""
+        }`;
+
+        const response = await httpClient.get(url);
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching host software inventory:", error);
+        return null;
+      }
+    }),
+
+  // Get host software statistics
+  getHostSoftwareStats: publicProcedure
+    .input(z.object({ ip: z.string() }))
+    .query(async ({ input }) => {
+      const { ip } = input;
+      try {
+        if (!ip) {
+          throw new Error("No IP provided");
+        }
+
+        const response = await httpClient.get(`host/${ip}/software-stats`);
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching host software statistics:", error);
+        return null;
+      }
+    }),
+
+  // Get host system fingerprint
+  getHostSystemFingerprint: publicProcedure
+    .input(z.object({ ip: z.string() }))
+    .query(async ({ input }) => {
+      const { ip } = input;
+      try {
+        if (!ip) {
+          throw new Error("No IP provided");
+        }
+
+        const response = await httpClient.get(`host/${ip}/fingerprint`);
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching host system fingerprint:", error);
+        return null;
+      }
+    }),
+
+  // Get enhanced host data with SBOM and fingerprint information
+  getEnhancedHostData: publicProcedure
+    .input(
+      z.object({
+        ip: z.string(),
+        include: z.array(z.string()).optional(),
+        enhanced: z.boolean().optional(),
+      })
+    )
+    .query(async ({ input }) => {
+      const { ip, include, enhanced } = input;
+      try {
+        if (!ip) {
+          throw new Error("No IP provided");
+        }
+
+        // Build query parameters for the enhanced endpoint
+        const params = new URLSearchParams();
+        if (include && include.length > 0) {
+          params.append("include", include.join(","));
+        }
+        if (enhanced) {
+          params.append("enhanced", "true");
+        }
+
+        const queryString = params.toString();
+        const url = `host/${ip}${queryString ? `?${queryString}` : ""}`;
+
+        const response = await httpClient.get<EnhancedHostData>(url);
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching enhanced host data:", error);
+        return null;
+      }
+    }),
+
+  // Get host system fingerprint data
+  getHostSystemFingerprint: publicProcedure
+    .input(z.object({ ip: z.string() }))
+    .query(async ({ input }) => {
+      const { ip } = input;
+      try {
+        if (!ip) {
+          throw new Error("No IP provided");
+        }
+
+        const response = await httpClient.get(`host/${ip}/fingerprint`);
+        return response.data;
+      } catch (error) {
+        console.error("Error fetching host system fingerprint:", error);
+        return null;
+      }
+    }),
+
+  // Get enhanced software statistics for environment overview
+  getEnvironmentSoftwareStats: publicProcedure.query(async () => {
+    try {
+      // Get all hosts first
+      const hostsResponse = await httpClient.get<SiriusHost[]>("host/");
+      const hosts = hostsResponse.data;
+
+      if (!hosts || !Array.isArray(hosts)) {
+        return {
+          total_hosts: 0,
+          total_packages: 0,
+          top_software: [],
+          architecture_distribution: {},
+          publisher_distribution: {},
+        };
+      }
+
+      // Aggregate software statistics across all hosts
+      let totalPackages = 0;
+      const softwareCount: Record<string, number> = {};
+      const architectureDistribution: Record<string, number> = {};
+      const publisherDistribution: Record<string, number> = {};
+
+      // Get software stats for each host
+      const statsPromises = hosts.map(async (host) => {
+        try {
+          const statsResponse = await httpClient.get(
+            `host/${host.ip}/software-stats`
+          );
+          return { ip: host.ip, stats: statsResponse.data };
+        } catch (error) {
+          return { ip: host.ip, stats: null };
+        }
+      });
+
+      const allStats = await Promise.all(statsPromises);
+
+      allStats.forEach(({ stats }) => {
+        if (stats) {
+          totalPackages += stats.total_packages || 0;
+
+          // Aggregate architectures
+          if (stats.architectures) {
+            Object.entries(stats.architectures).forEach(([arch, count]) => {
+              architectureDistribution[arch] =
+                (architectureDistribution[arch] || 0) + count;
+            });
+          }
+
+          // Aggregate publishers
+          if (stats.publishers) {
+            Object.entries(stats.publishers).forEach(([publisher, count]) => {
+              publisherDistribution[publisher] =
+                (publisherDistribution[publisher] || 0) + count;
+            });
+          }
+        }
+      });
+
+      // Get top 10 publishers
+      const topPublishers = Object.entries(publisherDistribution)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10)
+        .map(([publisher, count]) => ({ publisher, count }));
+
+      return {
+        total_hosts: hosts.length,
+        total_packages: totalPackages,
+        top_software: topPublishers,
+        architecture_distribution: architectureDistribution,
+        publisher_distribution: publisherDistribution,
+      };
+    } catch (error) {
+      console.error("Error fetching environment software stats:", error);
+      return {
+        total_hosts: 0,
+        total_packages: 0,
+        top_software: [],
+        architecture_distribution: {},
+        publisher_distribution: {},
+      };
+    }
+  }),
+
+  // Get template detection results for a host
+  getHostTemplateResults: publicProcedure
+    .input(z.object({ ip: z.string() }))
+    .query(async ({ input }) => {
+      const { ip } = input;
+      try {
+        if (!ip) {
+          throw new Error("No IP provided");
+        }
+
+        // Get enhanced host data that includes agent metadata with template results
+        const response = await httpClient.get<EnhancedHostData>(
+          `host/${ip}?include=metadata&enhanced=true`
+        );
+
+        if (response.data?.agent_metadata?.template_results) {
+          return {
+            host_ip: ip,
+            template_results: response.data.agent_metadata.template_results,
+            scan_date: response.data.agent_metadata.scan_date || null,
+          };
+        }
+
+        return {
+          host_ip: ip,
+          template_results: [],
+          scan_date: null,
+        };
+      } catch (error) {
+        console.error("Error fetching host template results:", error);
+        return {
+          host_ip: ip,
+          template_results: [],
+          scan_date: null,
+        };
+      }
+    }),
+
+  // Get environment-wide software inventory with aggregation and filtering
+  getEnvironmentSoftwareInventory: publicProcedure
+    .input(
+      z.object({
+        search: z.string().optional(),
+        publisher: z.string().optional(),
+        architecture: z.string().optional(),
+        vulnerability_status: z.enum(["vulnerable", "clean"]).optional(),
+        source: z.string().optional(),
+        limit: z.number().optional().default(100),
+        offset: z.number().optional().default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const {
+        search,
+        publisher,
+        architecture,
+        vulnerability_status,
+        source,
+        limit,
+        offset,
+      } = input;
+
+      try {
+        // Get all hosts first
+        const hostsResponse = await httpClient.get<SiriusHost[]>("host/");
+        const hosts = hostsResponse.data;
+
+        if (!hosts || !Array.isArray(hosts)) {
+          return {
+            packages: [],
+            total_packages: 0,
+            total_hosts: 0,
+            filtered_count: 0,
+          };
+        }
+
+        // Collect software inventory from all hosts
+        const inventoryPromises = hosts.map(async (host) => {
+          try {
+            const response = await httpClient.get(`host/${host.ip}/packages`);
+            return {
+              host_ip: host.ip,
+              hostname: host.hostname,
+              inventory: response.data,
+            };
+          } catch (error) {
+            console.log(`Failed to get inventory for host ${host.ip}:`, error);
+            return {
+              host_ip: host.ip,
+              hostname: host.hostname,
+              inventory: null,
+            };
+          }
+        });
+
+        const allInventories = await Promise.all(inventoryPromises);
+
+        // Aggregate packages across all hosts
+        const packageMap = new Map<
+          string,
+          {
+            name: string;
+            version: string;
+            publisher: string;
+            architecture: string;
+            source: string;
+            hosts: string[];
+            host_count: number;
+            vulnerability_count?: number;
+            size_mb?: number;
+            description?: string;
+            install_dates?: string[];
+          }
+        >();
+
+        allInventories.forEach(({ host_ip, hostname, inventory }) => {
+          if (!inventory?.packages) return;
+
+          inventory.packages.forEach((pkg: any) => {
+            const key = `${pkg.name}:${pkg.version}:${
+              pkg.publisher || "unknown"
+            }:${pkg.architecture || "any"}`;
+
+            if (packageMap.has(key)) {
+              const existing = packageMap.get(key)!;
+              existing.hosts.push(hostname || host_ip);
+              existing.host_count += 1;
+              if (pkg.install_date) {
+                existing.install_dates = existing.install_dates || [];
+                existing.install_dates.push(pkg.install_date);
+              }
+            } else {
+              packageMap.set(key, {
+                name: pkg.name,
+                version: pkg.version,
+                publisher: pkg.publisher || "Unknown",
+                architecture: pkg.architecture || "any",
+                source: pkg.source || "unknown",
+                hosts: [hostname || host_ip],
+                host_count: 1,
+                description: pkg.description,
+                size_mb: pkg.size_bytes
+                  ? Math.round((pkg.size_bytes / 1024 / 1024) * 100) / 100
+                  : undefined,
+                install_dates: pkg.install_date
+                  ? [pkg.install_date]
+                  : undefined,
+                vulnerability_count: 0, // TODO: Implement vulnerability correlation
+              });
+            }
+          });
+        });
+
+        // Convert to array and apply filters
+        let packages = Array.from(packageMap.values());
+
+        // Apply search filter
+        if (search) {
+          const searchLower = search.toLowerCase();
+          packages = packages.filter(
+            (pkg) =>
+              pkg.name.toLowerCase().includes(searchLower) ||
+              pkg.description?.toLowerCase().includes(searchLower)
+          );
+        }
+
+        // Apply publisher filter
+        if (publisher) {
+          packages = packages.filter(
+            (pkg) => pkg.publisher.toLowerCase() === publisher.toLowerCase()
+          );
+        }
+
+        // Apply architecture filter
+        if (architecture) {
+          packages = packages.filter(
+            (pkg) =>
+              pkg.architecture.toLowerCase() === architecture.toLowerCase()
+          );
+        }
+
+        // Apply source filter
+        if (source) {
+          packages = packages.filter(
+            (pkg) => pkg.source.toLowerCase() === source.toLowerCase()
+          );
+        }
+
+        // Apply vulnerability status filter
+        if (vulnerability_status) {
+          if (vulnerability_status === "vulnerable") {
+            packages = packages.filter(
+              (pkg) => (pkg.vulnerability_count || 0) > 0
+            );
+          } else if (vulnerability_status === "clean") {
+            packages = packages.filter(
+              (pkg) => (pkg.vulnerability_count || 0) === 0
+            );
+          }
+        }
+
+        // Sort by host count (most widespread packages first)
+        packages.sort((a, b) => b.host_count - a.host_count);
+
+        // Apply pagination
+        const totalCount = packages.length;
+        const paginatedPackages = packages.slice(offset, offset + limit);
+
+        return {
+          packages: paginatedPackages,
+          total_packages: totalCount,
+          total_hosts: hosts.length,
+          filtered_count: totalCount,
+          pagination: {
+            limit,
+            offset,
+            has_more: offset + limit < totalCount,
+          },
+        };
+      } catch (error) {
+        console.error("Error fetching environment software inventory:", error);
+        return {
+          packages: [],
+          total_packages: 0,
+          total_hosts: 0,
+          filtered_count: 0,
+        };
+      }
+    }),
 });
 
 /// MOCK DATA ///

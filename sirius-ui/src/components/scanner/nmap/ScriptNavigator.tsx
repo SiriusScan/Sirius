@@ -189,7 +189,7 @@ const ScriptNavigator: React.FC<ScriptNavigatorProps> = ({
                 value={scriptCode}
                 readOnly={!isEditing}
                 onChange={(value) => setScriptCode(value || "")}
-                height="100%"
+                height="500px"
                 language="lua"
                 theme="catppuccin-mocha"
               />

@@ -1,9 +1,10 @@
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import SiriusIcon from "./icons/SiriusIcon";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { initializeTheme } from "~/utils/theme";
+import { handleSignOut } from "~/utils/auth";
 
 import {
   Popover,
@@ -51,7 +52,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
   const { data: sessionData } = useSession();
 
   const handleLogout = () => {
-    void signOut();
+    void handleSignOut();
   };
 
   useEffect(() => {
@@ -188,7 +189,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
 
                   {/* Sign Out Button */}
                   <button
-                    onClick={() => void signOut()}
+                    onClick={() => void handleSignOut()}
                     className="flex items-center space-x-2 rounded-md py-1.5 text-gray-400 transition-colors hover:bg-violet-600/10 hover:text-white"
                   >
                     <svg

@@ -149,6 +149,11 @@ services:
       - VALKEY_HOST=${VALKEY_HOST:-sirius-valkey}
       - VALKEY_PORT=${VALKEY_PORT:-6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
+      - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
+      - API_BASE_URL=${API_BASE_URL:-http://sirius-api:9001}
+      - AGENT_ID=${AGENT_ID:-sirius-engine}
+      - HOST_ID=${HOST_ID:-sirius-engine}
+      - ENABLE_SCRIPTING=${ENABLE_SCRIPTING:-true}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
       - sirius-rabbitmq

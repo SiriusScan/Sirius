@@ -38,8 +38,8 @@ services:
     build: ./sirius-api/
     volumes:
       - ./sirius-api:/api
-      # Uncomment for local go-api development (requires ../minor-projects/go-api):
-      # - ../minor-projects/go-api:/go-api
+      # Enabled for local go-api development with source-aware functionality:
+      - ../minor-projects/go-api:/go-api
     environment:
       - GO_ENV=development
       - API_PORT=9001
@@ -60,11 +60,11 @@ services:
     volumes:
       - ./sirius-engine:/engine
       # Development volume mounts (require ../minor-projects/ structure):
-      # Uncomment only if you have the corresponding repositories in ../minor-projects/
-      # - ../minor-projects/app-agent:/app-agent
-      # - ../minor-projects/app-scanner:/app-scanner
-      # - ../minor-projects/app-terminal:/app-terminal
-      # - ../minor-projects/go-api:/go-api
+      # Enabled for local development with source-aware functionality
+      - ../minor-projects/app-agent:/app-agent
+      - ../minor-projects/app-scanner:/app-scanner
+      - ../minor-projects/app-terminal:/app-terminal
+      - ../minor-projects/go-api:/go-api
       # - ../minor-projects/nmap-db:/nmap-db
     environment:
       - GO_ENV=development
@@ -79,6 +79,11 @@ services:
       - VALKEY_PORT=6379
       - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
       - LOG_LEVEL=debug
+      # Agent configuration for API communication
+      - API_BASE_URL=http://sirius-api:9001
+      - AGENT_ID=sirius-engine
+      - HOST_ID=sirius-engine
+      - ENABLE_SCRIPTING=true
 
 volumes:
   node_modules:

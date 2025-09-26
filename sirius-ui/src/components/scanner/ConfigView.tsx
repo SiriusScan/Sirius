@@ -109,7 +109,7 @@ const ConfigView: React.FC<ConfigViewProps> = () => {
             max={120}
             min={5}
             step={5}
-            onValueChange={(value) => setTimeoutSeconds(value[0])}
+            onValueChange={(value) => setTimeoutSeconds(value[0] ?? 30)}
             className="w-full"
           />
         </div>

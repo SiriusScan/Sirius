@@ -19,12 +19,18 @@ let globalInitializationInProgress = false;
 
 // Safety cleanup function for edge cases
 const ensureGlobalCleanup = () => {
-  if (
-    globalTerminalInstance &&
-    globalTerminalInstance.element?.isConnected === false
-  ) {
-    console.log("[Terminal] Cleaning up orphaned global instance");
-    globalTerminalInstance.dispose();
+  try {
+    if (
+      globalTerminalInstance &&
+      globalTerminalInstance.element?.isConnected === false
+    ) {
+      console.log("[Terminal] Cleaning up orphaned global instance");
+      globalTerminalInstance.dispose();
+      globalTerminalInstance = null;
+      globalInitializationInProgress = false;
+    }
+  } catch (error) {
+    console.warn("[Terminal] Error during cleanup:", error);
     globalTerminalInstance = null;
     globalInitializationInProgress = false;
   }
@@ -103,19 +109,39 @@ type ParsedAgentStatus = {
 const LOCAL_COMMANDS = {
   help: (term: XTerm) => {
     term.writeln("");
-    term.writeln("\x1b[38;2;166;227;161m\x1b[1m         Sirius Agent Terminal Help\x1b[0m");
-    term.writeln("\x1b[38;2;166;227;161m─────────────────────────────────────────\x1b[0m");
+    term.writeln(
+      "\x1b[38;2;166;227;161m\x1b[1m         Sirius Agent Terminal Help\x1b[0m"
+    );
+    term.writeln(
+      "\x1b[38;2;166;227;161m─────────────────────────────────────────\x1b[0m"
+    );
     term.writeln("");
     term.writeln("\x1b[1mLocal Commands:\x1b[0m");
-    term.writeln("  \x1b[38;2;137;180;250mhelp\x1b[0m      - Show this help message");
-    term.writeln("  \x1b[38;2;137;180;250mclear\x1b[0m     - Clear the terminal");
-    term.writeln("  \x1b[38;2;137;180;250magents\x1b[0m    - List available agents");
-    term.writeln("  \x1b[38;2;137;180;250mtarget\x1b[0m    - Show current target");
+    term.writeln(
+      "  \x1b[38;2;137;180;250mhelp\x1b[0m      - Show this help message"
+    );
+    term.writeln(
+      "  \x1b[38;2;137;180;250mclear\x1b[0m     - Clear the terminal"
+    );
+    term.writeln(
+      "  \x1b[38;2;137;180;250magents\x1b[0m    - List available agents"
+    );
+    term.writeln(
+      "  \x1b[38;2;137;180;250mtarget\x1b[0m    - Show current target"
+    );
     term.writeln("  \x1b[38;2;137;180;250muse\x1b[0m       - Select target");
-    term.writeln("  \x1b[38;2;137;180;250mversion\x1b[0m   - Show terminal version");
-    term.writeln("  \x1b[38;2;137;180;250mhistory\x1b[0m   - Show command history");
-    term.writeln("  \x1b[38;2;137;180;250mexit\x1b[0m      - Close the session");
-    term.writeln("  \x1b[38;2;137;180;250mstatus\x1b[0m    - Show system status");
+    term.writeln(
+      "  \x1b[38;2;137;180;250mversion\x1b[0m   - Show terminal version"
+    );
+    term.writeln(
+      "  \x1b[38;2;137;180;250mhistory\x1b[0m   - Show command history"
+    );
+    term.writeln(
+      "  \x1b[38;2;137;180;250mexit\x1b[0m      - Close the session"
+    );
+    term.writeln(
+      "  \x1b[38;2;137;180;250mstatus\x1b[0m    - Show system status"
+    );
     term.writeln("");
     term.writeln("\x1b[1mUsage Examples:\x1b[0m");
     term.writeln("  \x1b[38;2;247;154;134muse engine\x1b[0m");
@@ -144,9 +170,15 @@ const LOCAL_COMMANDS = {
   },
   status: (term: XTerm) => {
     term.writeln("\x1b[38;2;166;227;161m╭─── System Status ───╮\x1b[0m");
-    term.writeln("\x1b[38;2;166;227;161m│\x1b[0m Terminal: \x1b[38;2;166;227;161mOnline\x1b[0m  \x1b[38;2;166;227;161m│\x1b[0m");
-    term.writeln("\x1b[38;2;166;227;161m│\x1b[0m API:      \x1b[38;2;166;227;161mOnline\x1b[0m  \x1b[38;2;166;227;161m│\x1b[0m");
-    term.writeln("\x1b[38;2;166;227;161m│\x1b[0m Queue:    \x1b[38;2;166;227;161mOnline\x1b[0m  \x1b[38;2;166;227;161m│\x1b[0m");
+    term.writeln(
+      "\x1b[38;2;166;227;161m│\x1b[0m Terminal: \x1b[38;2;166;227;161mOnline\x1b[0m  \x1b[38;2;166;227;161m│\x1b[0m"
+    );
+    term.writeln(
+      "\x1b[38;2;166;227;161m│\x1b[0m API:      \x1b[38;2;166;227;161mOnline\x1b[0m  \x1b[38;2;166;227;161m│\x1b[0m"
+    );
+    term.writeln(
+      "\x1b[38;2;166;227;161m│\x1b[0m Queue:    \x1b[38;2;166;227;161mOnline\x1b[0m  \x1b[38;2;166;227;161m│\x1b[0m"
+    );
     term.writeln("\x1b[38;2;166;227;161m╰─────────────────────╯\x1b[0m");
   },
 } as const;
@@ -212,7 +244,7 @@ export default function DynamicTerminal() {
     const agentFromList = agentsQuery.data?.find(
       (a) => a.id === selectedAgentId
     );
-    
+
     if (agentFromList) {
       return {
         id: selectedAgentId,
@@ -269,47 +301,76 @@ export default function DynamicTerminal() {
     console.log("[Terminal] agentsQuery.data:", agentsQuery.data);
     console.log("[Terminal] agentsQuery.isLoading:", agentsQuery.isLoading);
     console.log("[Terminal] agentsQuery.error:", agentsQuery.error);
-    
+
     try {
-      // Force refetch agents to get fresh data 
+      // Force refetch agents to get fresh data
       const freshAgents = await agentsQuery.refetch();
       console.log("[Terminal] Fresh agents data:", freshAgents.data);
-      
+
       if (freshAgents.data && freshAgents.data.length > 0) {
         term.writeln("");
-        term.writeln("\x1b[38;2;166;227;161m\x1b[1m                Available Agents\x1b[0m");
-        term.writeln("\x1b[38;2;166;227;161m─────────────────────────────────────────────────────────\x1b[0m");
+        term.writeln(
+          "\x1b[38;2;166;227;161m\x1b[1m                Available Agents\x1b[0m"
+        );
+        term.writeln(
+          "\x1b[38;2;166;227;161m─────────────────────────────────────────────────────────\x1b[0m"
+        );
         term.writeln("");
         term.writeln("Agent ID         Name             Status   Last Seen");
-        term.writeln("───────────────  ──────────────   ──────   ─────────────────");
-        
+        term.writeln(
+          "───────────────  ──────────────   ──────   ─────────────────"
+        );
+
         freshAgents.data.forEach((agent) => {
           console.log("[Terminal] Processing agent:", agent);
           const agentId = (agent.id || "").substring(0, 15).padEnd(15);
-          const agentName = (agent.name || "Unknown").substring(0, 14).padEnd(14);
-          const status = agent.status === "online" ? '\x1b[32mOnline\x1b[0m  ' : '\x1b[31mOffline\x1b[0m ';
-          const lastSeen = agent.lastSeen ? new Date(agent.lastSeen).toLocaleTimeString() : "Never";
-          
+          const agentName = (agent.name || "Unknown")
+            .substring(0, 14)
+            .padEnd(14);
+          const status =
+            agent.status === "online"
+              ? "\x1b[32mOnline\x1b[0m  "
+              : "\x1b[31mOffline\x1b[0m ";
+          const lastSeen = agent.lastSeen
+            ? new Date(agent.lastSeen).toLocaleTimeString()
+            : "Never";
+
           term.writeln(`${agentId}  ${agentName}   ${status}  ${lastSeen}`);
         });
-        
+
         term.writeln("");
         term.writeln(`Total agents: ${freshAgents.data.length}`);
         term.writeln("");
       } else {
         term.writeln("");
-        term.writeln("\x1b[38;2;166;227;161m\x1b[1m                Available Agents\x1b[0m");
-        term.writeln("\x1b[38;2;166;227;161m─────────────────────────────────────────────────────────\x1b[0m");
+        term.writeln(
+          "\x1b[38;2;166;227;161m\x1b[1m                Available Agents\x1b[0m"
+        );
+        term.writeln(
+          "\x1b[38;2;166;227;161m─────────────────────────────────────────────────────────\x1b[0m"
+        );
         term.writeln("");
         term.writeln("\x1b[33mNo agents available.\x1b[0m");
         term.writeln("");
-        term.writeln(`\x1b[38;2;137;180;250mDebug: freshAgents.data = ${JSON.stringify(freshAgents.data)}\x1b[0m`);
-        term.writeln(`\x1b[38;2;137;180;250mDebug: Original agentsQuery.data = ${JSON.stringify(agentsQuery.data)}\x1b[0m`);
+        term.writeln(
+          `\x1b[38;2;137;180;250mDebug: freshAgents.data = ${JSON.stringify(
+            freshAgents.data
+          )}\x1b[0m`
+        );
+        term.writeln(
+          `\x1b[38;2;137;180;250mDebug: Original agentsQuery.data = ${JSON.stringify(
+            agentsQuery.data
+          )}\x1b[0m`
+        );
       }
     } catch (error) {
       console.error("[Terminal] Error fetching agents:", error);
       term.writeln("  \x1b[38;2;243;139;168mError fetching agents\x1b[0m");
-      term.writeln(`  \x1b[38;2;137;180;250mFallback agentsQuery.data = ${JSON.stringify(agentsQuery.data)}\x1b[0m`);
+      term.writeln(
+        `  \x1b[38;2;137;180;250mFallback agentsQuery.data = ${JSON.stringify(
+          agentsQuery.data
+        )}\x1b[0m`
+      );
     }
   };
 
@@ -326,13 +387,16 @@ export default function DynamicTerminal() {
   };
 
   // Handle agent details refresh
-  const handleRefreshAgentDetails = useCallback(async (agentId: string) => {
-    console.log(`[Terminal] Refreshing details for agent ${agentId}`);
-    // Refetch agent details using the new query
-    if (agentId === selectedAgentId) {
-      await agentDetailsQuery.refetch();
-    }
-  }, [selectedAgentId, agentDetailsQuery]);
+  const handleRefreshAgentDetails = useCallback(
+    async (agentId: string) => {
+      console.log(`[Terminal] Refreshing details for agent ${agentId}`);
+      // Refetch agent details using the new query
+      if (agentId === selectedAgentId) {
+        await agentDetailsQuery.refetch();
+      }
+    },
+    [selectedAgentId, agentDetailsQuery]
+  );
 
   // Rest of the terminal initialization logic...
   useEffect(() => {
@@ -442,7 +506,7 @@ export default function DynamicTerminal() {
 
           termInstance.write("\r\x1b[K");
           termInstance.write(fullPrompt);
-          
+
           // Ensure the prompt is visible after writing
           ensureCursorVisible();
         };
@@ -488,7 +552,7 @@ export default function DynamicTerminal() {
     const ensureCursorVisible = () => {
       const term = terminal.current;
       if (!term) return;
-      
+
       // Scroll to bottom to ensure the cursor/prompt is visible
       term.scrollToBottom();
     };
@@ -519,7 +583,7 @@ export default function DynamicTerminal() {
     const insertCharacterOptimized = (char: string) => {
       const term = terminal.current;
       if (!term) return;
-      
+
       // Optimize for simple case: inserting at end of line
       if (currentPosition === currentLine.length) {
         currentLine += char;
@@ -548,7 +612,7 @@ export default function DynamicTerminal() {
     const deleteCharacterBeforeCursorOptimized = () => {
       const term = terminal.current;
       if (!term || currentPosition <= 0) return;
-      
+
       // Optimize for simple case: deleting at end of line
       if (currentPosition === currentLine.length) {
         currentLine = currentLine.slice(0, -1);
@@ -565,50 +629,60 @@ export default function DynamicTerminal() {
       }
     };
 
-        const deleteCharacterBeforeCursor = () => {
+    const deleteCharacterBeforeCursor = () => {
       if (currentPosition > 0) {
-        currentLine = 
-          currentLine.slice(0, currentPosition - 1) + 
+        currentLine =
+          currentLine.slice(0, currentPosition - 1) +
           currentLine.slice(currentPosition);
         currentPosition--;
         redrawInputLine();
       }
     };
 
-        const handleTabCompletion = async () => {
+    const handleTabCompletion = async () => {
       const beforeCursor = currentLine.slice(0, currentPosition);
       const afterCursor = currentLine.slice(currentPosition);
-      
+
       console.log("=== TAB COMPLETION DEBUG ===");
       console.log("currentLine:", JSON.stringify(currentLine));
       console.log("currentPosition:", currentPosition);
       console.log("beforeCursor:", JSON.stringify(beforeCursor));
       console.log("afterCursor:", JSON.stringify(afterCursor));
-      
+
       // Available commands
-      const commands = ['help', 'clear', 'agents', 'target', 'use', 'version', 'history', 'exit', 'status'];
-      
+      const commands = [
+        "help",
+        "clear",
+        "agents",
+        "target",
+        "use",
+        "version",
+        "history",
+        "exit",
+        "status",
+      ];
+
       // Split current input to analyze context (don't trim to preserve trailing spaces)
       const parts = beforeCursor.split(/\s+/);
       console.log("parts:", parts);
-      console.log("beforeCursor ends with space:", beforeCursor.endsWith(' '));
-      
-      if (parts.length === 1) {
+      console.log("beforeCursor ends with space:", beforeCursor.endsWith(" "));
+
+      if (parts.length === 1 && parts[0]) {
         // Complete command names
         const partial = parts[0].toLowerCase();
-        const matches = commands.filter(cmd => cmd.startsWith(partial));
-        
-        if (matches.length === 1) {
+        const matches = commands.filter((cmd) => cmd.startsWith(partial));
+
+        if (matches.length === 1 && matches[0]) {
           // Single match - complete it
           const completion = matches[0];
           const newLine = completion + afterCursor;
           const newPosition = completion.length;
-          
+
           clearInputLine();
           currentLine = newLine;
           currentPosition = newPosition;
           term.write(currentLine);
-          
+
           // Move cursor to correct position
           if (currentPosition < currentLine.length) {
             term.write(`\x1b[${currentLine.length - currentPosition}D`);
@@ -617,7 +691,7 @@ export default function DynamicTerminal() {
           // Multiple matches - show options
           term.writeln("");
           term.writeln(`Available commands: ${matches.join(", ")}`);
-          
+
           // Find common prefix
           let commonPrefix = matches[0] || "";
           for (const match of matches) {
@@ -625,16 +699,16 @@ export default function DynamicTerminal() {
               commonPrefix = commonPrefix.slice(0, -1);
             }
           }
-          
+
           if (commonPrefix.length > partial.length) {
             // Complete to common prefix
             const newLine = commonPrefix + afterCursor;
             const newPosition = commonPrefix.length;
-            
+
             currentLine = newLine;
             currentPosition = newPosition;
           }
-          
+
           // Redraw prompt and current input
           const stableWritePrompt = (termInstance: XTerm) => {
             const target = currentTargetRef.current;
@@ -654,30 +728,35 @@ export default function DynamicTerminal() {
           };
           stableWritePrompt(term);
           term.write(currentLine);
-          
+
           // Move cursor to correct position
           if (currentPosition < currentLine.length) {
             term.write(`\x1b[${currentLine.length - currentPosition}D`);
           }
         }
-      } else if (parts.length === 2 && parts[0].toLowerCase() === 'use') {
+      } else if (
+        parts.length === 2 &&
+        parts[0] &&
+        parts[1] &&
+        parts[0].toLowerCase() === "use"
+      ) {
         // Complete "use" command arguments
         const partial = parts[1].toLowerCase();
-        const useOptions = ['engine', 'agent'];
-        
-        const matches = useOptions.filter(opt => opt.startsWith(partial));
-        
-        if (matches.length === 1) {
+        const useOptions = ["engine", "agent"];
+
+        const matches = useOptions.filter((opt) => opt.startsWith(partial));
+
+        if (matches.length === 1 && matches[0]) {
           // Complete the option
           const completion = matches[0];
           const newLine = `use ${completion}${afterCursor}`;
           const newPosition = `use ${completion}`.length;
-          
+
           clearInputLine();
           currentLine = newLine;
           currentPosition = newPosition;
           term.write(currentLine);
-          
+
           if (currentPosition < currentLine.length) {
             term.write(`\x1b[${currentLine.length - currentPosition}D`);
           }
@@ -685,7 +764,7 @@ export default function DynamicTerminal() {
           // Multiple matches - show options
           term.writeln("");
           term.writeln(`${matches.join("  ")}`);
-          
+
           // Find common prefix
           let commonPrefix = matches[0] || "";
           for (const match of matches) {
@@ -693,15 +772,15 @@ export default function DynamicTerminal() {
               commonPrefix = commonPrefix.slice(0, -1);
             }
           }
-          
+
           if (commonPrefix.length > partial.length) {
             const newLine = `use ${commonPrefix}${afterCursor}`;
             const newPosition = `use ${commonPrefix}`.length;
-            
+
             currentLine = newLine;
             currentPosition = newPosition;
           }
-          
+
           // Redraw prompt and current input
           const stableWritePrompt = (termInstance: XTerm) => {
             const target = currentTargetRef.current;
@@ -721,30 +800,41 @@ export default function DynamicTerminal() {
           };
           stableWritePrompt(term);
           term.write(currentLine);
-          
+
           // Move cursor to correct position
           if (currentPosition < currentLine.length) {
             term.write(`\x1b[${currentLine.length - currentPosition}D`);
           }
         }
-      } else if ((parts.length === 2 && parts[0].toLowerCase() === 'use' && parts[1].toLowerCase() === 'agent') ||
-                 (parts.length === 3 && parts[0].toLowerCase() === 'use' && parts[1].toLowerCase() === 'agent' && beforeCursor.endsWith(' '))) {
+      } else if (
+        (parts.length === 2 &&
+          parts[0] &&
+          parts[1] &&
+          parts[0].toLowerCase() === "use" &&
+          parts[1].toLowerCase() === "agent") ||
+        (parts.length === 3 &&
+          parts[0] &&
+          parts[1] &&
+          parts[0].toLowerCase() === "use" &&
+          parts[1].toLowerCase() === "agent" &&
+          beforeCursor.endsWith(" "))
+      ) {
         // Handle "use agent" or "use agent " (with trailing space)
         try {
           console.log("[Autocomplete] Detected 'use agent' completion case");
-          
+
           const freshAgents = await agentsQuery.refetch();
           const agents = freshAgents.data || [];
-          
+
           if (agents.length === 0) {
             term.writeln("");
             term.writeln("no agents available");
           } else {
             term.writeln("");
-            const agentIds = agents.map(a => a.id);
+            const agentIds = agents.map((a) => a.id);
             term.writeln(`${agentIds.join("  ")}`);
           }
-          
+
           // Redraw prompt and current input
           const stableWritePrompt = (termInstance: XTerm) => {
             const target = currentTargetRef.current;
@@ -764,27 +854,40 @@ export default function DynamicTerminal() {
           };
           stableWritePrompt(term);
           term.write(currentLine);
-          
+
           if (currentPosition < currentLine.length) {
             term.write(`\x1b[${currentLine.length - currentPosition}D`);
           }
         } catch (error) {
-          console.error("[Terminal] Error fetching agents for autocomplete:", error);
+          console.error(
+            "[Terminal] Error fetching agents for autocomplete:",
+            error
+          );
         }
-      } else if (parts.length >= 3 && parts[0].toLowerCase() === 'use' && parts[1].toLowerCase() === 'agent' && !beforeCursor.endsWith(' ')) {
+      } else if (
+        parts.length >= 3 &&
+        parts[0] &&
+        parts[1] &&
+        parts[0].toLowerCase() === "use" &&
+        parts[1].toLowerCase() === "agent" &&
+        !beforeCursor.endsWith(" ")
+      ) {
         // Handle "use agent <partial>" - there's partial text after agent
         try {
           const partial = parts[2] ? parts[2].toLowerCase() : "";
-          
-          console.log("[Autocomplete] Detected 'use agent <partial>' case, partial:", partial);
-          
+
+          console.log(
+            "[Autocomplete] Detected 'use agent <partial>' case, partial:",
+            partial
+          );
+
           const freshAgents = await agentsQuery.refetch();
           const agents = freshAgents.data || [];
-          
+
           if (agents.length === 0) {
             term.writeln("");
             term.writeln("no agents available");
-            
+
             // Redraw prompt and current input
             const stableWritePrompt = (termInstance: XTerm) => {
               const target = currentTargetRef.current;
@@ -804,83 +907,94 @@ export default function DynamicTerminal() {
             };
             stableWritePrompt(term);
             term.write(currentLine);
-            
+
             if (currentPosition < currentLine.length) {
               term.write(`\x1b[${currentLine.length - currentPosition}D`);
             }
             return;
           }
-          
+
           // Create autocomplete options: both agent.id and agent.name (if different)
-          const agentOptions: Array<{id: string, displayName: string}> = [];
-          
-          agents.forEach(agent => {
+          const agentOptions: Array<{ id: string; displayName: string }> = [];
+
+          agents.forEach((agent) => {
             // Always add the agent ID
-            agentOptions.push({id: agent.id, displayName: agent.id});
-            
+            agentOptions.push({ id: agent.id, displayName: agent.id });
+
             // Add agent name if it exists and is different from ID
             if (agent.name && agent.name !== agent.id) {
-              agentOptions.push({id: agent.id, displayName: agent.name});
+              agentOptions.push({ id: agent.id, displayName: agent.name });
             }
           });
-          
+
           // Filter matches based on partial input (case insensitive)
           // If no partial input, show all options
-          const matches = partial ? 
-            agentOptions.filter(option => option.displayName.toLowerCase().startsWith(partial)) :
-            agentOptions;
-          
-          console.log("[Autocomplete] matches:", matches.length, matches.map(m => m.displayName));
-          
-          if (matches.length === 1 && partial) {
+          const matches = partial
+            ? agentOptions.filter((option) =>
+                option.displayName.toLowerCase().startsWith(partial)
+              )
+            : agentOptions;
+
+          console.log(
+            "[Autocomplete] matches:",
+            matches.length,
+            matches.map((m) => m.displayName)
+          );
+
+          if (matches.length === 1 && partial && matches[0]) {
             // Single match and we have partial input - complete using agent ID
             const completion = matches[0].id;
             const newLine = `use agent ${completion}${afterCursor}`;
             const newPosition = `use agent ${completion}`.length;
-            
+
             clearInputLine();
             currentLine = newLine;
             currentPosition = newPosition;
             term.write(currentLine);
-            
+
             if (currentPosition < currentLine.length) {
               term.write(`\x1b[${currentLine.length - currentPosition}D`);
             }
           } else if (matches.length >= 1) {
             // Multiple matches OR no partial input - show options
             term.writeln("");
-            const displayNames = matches.map(m => m.displayName);
-            
+            const displayNames = matches.map((m) => m.displayName);
+
             // Remove duplicates (when agent name = agent id)
             const uniqueDisplayNames = [...new Set(displayNames)];
             term.writeln(`${uniqueDisplayNames.join("  ")}`);
-            
+
             // Only try to complete common prefix if we have partial input
             if (partial && matches.length > 1) {
               // Find common prefix of display names
               let commonPrefix = displayNames[0] || "";
               for (const name of displayNames) {
-                while (commonPrefix && !name.toLowerCase().startsWith(commonPrefix.toLowerCase())) {
+                while (
+                  commonPrefix &&
+                  !name.toLowerCase().startsWith(commonPrefix.toLowerCase())
+                ) {
                   commonPrefix = commonPrefix.slice(0, -1);
                 }
               }
-              
+
               if (commonPrefix.length > partial.length) {
                 // Find the agent whose display name starts with the common prefix
-                const matchingAgent = matches.find(m => 
-                  m.displayName.toLowerCase().startsWith(commonPrefix.toLowerCase())
+                const matchingAgent = matches.find((m) =>
+                  m.displayName
+                    .toLowerCase()
+                    .startsWith(commonPrefix.toLowerCase())
                 );
-                
+
                 if (matchingAgent) {
                   const newLine = `use agent ${matchingAgent.id}${afterCursor}`;
                   const newPosition = `use agent ${matchingAgent.id}`.length;
-                  
+
                   currentLine = newLine;
                   currentPosition = newPosition;
                 }
               }
             }
-            
+
             // Redraw prompt and current input
             const stableWritePrompt = (termInstance: XTerm) => {
               const target = currentTargetRef.current;
@@ -900,16 +1014,16 @@ export default function DynamicTerminal() {
             };
             stableWritePrompt(term);
             term.write(currentLine);
-            
+
             if (currentPosition < currentLine.length) {
               term.write(`\x1b[${currentLine.length - currentPosition}D`);
             }
           } else {
             // No matches with partial input - show all available agents
             term.writeln("");
-            const agentIds = agents.map(a => a.id);
+            const agentIds = agents.map((a) => a.id);
             term.writeln(`Available agents: ${agentIds.join(", ")}`);
-            
+
             // Redraw prompt and current input
             const stableWritePrompt = (termInstance: XTerm) => {
               const target = currentTargetRef.current;
@@ -929,13 +1043,16 @@ export default function DynamicTerminal() {
             };
             stableWritePrompt(term);
             term.write(currentLine);
-            
+
             if (currentPosition < currentLine.length) {
               term.write(`\x1b[${currentLine.length - currentPosition}D`);
             }
           }
         } catch (error) {
-          console.error("[Terminal] Error fetching agents for autocomplete:", error);
+          console.error(
+            "[Terminal] Error fetching agents for autocomplete:",
+            error
+          );
           // Silent fail - just don't complete
         }
       }
@@ -951,17 +1068,21 @@ export default function DynamicTerminal() {
       // Handle 'use' command separately (it takes arguments)
       if (cmdParts[0]?.toLowerCase() === "use") {
         if (cmdParts.length < 2) {
-          term.writeln("\x1b[38;2;243;139;168musage: use {engine|agent} [id]\x1b[0m");
+          term.writeln(
+            "\x1b[38;2;243;139;168musage: use {engine|agent} [id]\x1b[0m"
+          );
         } else if (cmdParts[1]?.toLowerCase() === "engine") {
           currentTargetRef.current = { type: "engine" };
           setTargetDisplay({ type: "engine" });
           setSelectedAgentId(null); // Clear agent selection when switching to engine
-          term.writeln("\x1b[38;2;166;227;161mSwitched to engine target\x1b[0m");
-          
+          term.writeln(
+            "\x1b[38;2;166;227;161mSwitched to engine target\x1b[0m"
+          );
+
           // Initialize session for engine
           try {
             await initializeSession.mutateAsync({
-              target: { type: "engine" }
+              target: { type: "engine" },
             });
           } catch (error) {
             console.error("Failed to initialize engine session:", error);
@@ -972,69 +1093,105 @@ export default function DynamicTerminal() {
             try {
               const freshAgents = await agentsQuery.refetch();
               if (freshAgents.data && freshAgents.data.length > 0) {
-                term.writeln("\x1b[38;2;243;139;168musage: use agent <id>\x1b[0m");
-                term.writeln(`       ${freshAgents.data.map(a => a.id).join(', ')}`);
+                term.writeln(
+                  "\x1b[38;2;243;139;168musage: use agent <id>\x1b[0m"
+                );
+                term.writeln(
+                  `       ${freshAgents.data.map((a) => a.id).join(", ")}`
+                );
               } else {
-                term.writeln("\x1b[38;2;243;139;168musage: use agent <id>\x1b[0m");
+                term.writeln(
+                  "\x1b[38;2;243;139;168musage: use agent <id>\x1b[0m"
+                );
                 term.writeln("       (no agents available)");
               }
             } catch (error) {
-              term.writeln("\x1b[38;2;243;139;168musage: use agent <id>\x1b[0m");
+              term.writeln(
+                "\x1b[38;2;243;139;168musage: use agent <id>\x1b[0m"
+              );
             }
-                     } else {
-             const agentId = cmdParts[2];
-             if (!agentId) {
-               term.writeln("\x1b[38;2;243;139;168musage: use agent <id>\x1b[0m");
-               return;
-             }
-             
-             // Check if agent exists - fetch fresh data to ensure accuracy
-             console.log(`[Terminal] Looking for agent '${agentId}'`);
-             console.log(`[Terminal] Available agentsQuery.data:`, agentsQuery.data);
-             
-             try {
-               const freshAgents = await agentsQuery.refetch();
-               console.log(`[Terminal] Fresh agents for lookup:`, freshAgents.data);
-               console.log(`[Terminal] Agent IDs available:`, freshAgents.data?.map(a => a.id));
-               
-               const agent = freshAgents.data?.find(a => a.id === agentId);
-               if (!agent) {
-                 term.writeln(`\x1b[38;2;243;139;168magent '${agentId}' not found\x1b[0m`);
-                 if (freshAgents.data && freshAgents.data.length > 0) {
-                   term.writeln(`       ${freshAgents.data.map(a => a.id).join(', ')}`);
-                 }
-               } else {
-                 currentTargetRef.current = { 
-                   type: "agent", 
-                   id: agentId, 
-                   name: agent.name ?? agentId 
-                 };
-                 setTargetDisplay({ 
-                   type: "agent", 
-                   id: agentId, 
-                   name: agent.name ?? agentId 
-                 });
-                 setSelectedAgentId(agentId);
-                 term.writeln(`\x1b[38;2;166;227;161mSwitched to agent '${agentId}'\x1b[0m`);
-                 
-                 // Initialize session for agent
-                 try {
-                   await initializeSession.mutateAsync({
-                     target: { type: "agent", id: agentId }
-                   });
-                 } catch (error) {
-                   console.error("Failed to initialize agent session:", error);
-                   term.writeln(`\x1b[38;2;243;139;168mWarning: Failed to initialize session for agent '${agentId}'\x1b[0m`);
-                 }
-               }
-             } catch (error) {
-               console.error("[Terminal] Error fetching fresh agents for use command:", error);
-               term.writeln(`\x1b[38;2;243;139;168mError checking agent availability\x1b[0m`);
-             }
-           }
+          } else {
+            const agentId = cmdParts[2];
+            if (!agentId) {
+              term.writeln(
+                "\x1b[38;2;243;139;168musage: use agent <id>\x1b[0m"
+              );
+              return;
+            }
+
+            // Check if agent exists - fetch fresh data to ensure accuracy
+            console.log(`[Terminal] Looking for agent '${agentId}'`);
+            console.log(
+              `[Terminal] Available agentsQuery.data:`,
+              agentsQuery.data
+            );
+
+            try {
+              const freshAgents = await agentsQuery.refetch();
+              console.log(
+                `[Terminal] Fresh agents for lookup:`,
+                freshAgents.data
+              );
+              console.log(
+                `[Terminal] Agent IDs available:`,
+                freshAgents.data?.map((a) => a.id)
+              );
+
+              const agent = freshAgents.data?.find((a) => a.id === agentId);
+              if (!agent) {
+                term.writeln(
+                  `\x1b[38;2;243;139;168magent '${agentId}' not found\x1b[0m`
+                );
+                if (freshAgents.data && freshAgents.data.length > 0) {
+                  term.writeln(
+                    `       ${freshAgents.data.map((a) => a.id).join(", ")}`
+                  );
+                }
+              } else {
+                currentTargetRef.current = {
+                  type: "agent",
+                  id: agentId,
+                  name: agent.name ?? agentId,
+                };
+                setTargetDisplay({
+                  type: "agent",
+                  id: agentId,
+                  name: agent.name ?? agentId,
+                });
+                setSelectedAgentId(agentId);
+                term.writeln(
+                  `\x1b[38;2;166;227;161mSwitched to agent '${agentId}'\x1b[0m`
+                );
+
+                // Initialize session for agent
+                try {
+                  await initializeSession.mutateAsync({
+                    target: { type: "agent", id: agentId },
+                  });
+                } catch (error) {
+                  console.error("Failed to initialize agent session:", error);
+                  term.writeln(
+                    `\x1b[38;2;243;139;168mWarning: Failed to initialize session for agent '${agentId}'\x1b[0m`
+                  );
+                }
+              }
+            } catch (error) {
+              console.error(
+                "[Terminal] Error fetching fresh agents for use command:",
+                error
+              );
+              term.writeln(
+                `\x1b[38;2;243;139;168mError checking agent availability\x1b[0m`
+              );
+            }
+          }
         } else {
-          term.writeln(`\x1b[38;2;243;139;168minvalid target '${cmdParts[1]}'\x1b[0m`);
-          term.writeln("\x1b[38;2;243;139;168musage: use {engine|agent} [id]\x1b[0m");
+          term.writeln(
+            `\x1b[38;2;243;139;168minvalid target '${cmdParts[1]}'\x1b[0m`
+          );
+          term.writeln(
+            "\x1b[38;2;243;139;168musage: use {engine|agent} [id]\x1b[0m"
+          );
         }
 
         setTimeout(() => {
@@ -1193,7 +1350,7 @@ export default function DynamicTerminal() {
         currentLine = "";
         currentPosition = 0;
         historyPositionRef.current = -1;
-        
+
         // Redraw the prompt
         const stableWritePrompt = (termInstance: XTerm) => {
           const target = currentTargetRef.current;
@@ -1237,7 +1394,7 @@ export default function DynamicTerminal() {
         currentPosition = 0;
 
         void handleCommand(command);
-        
+
         // Ensure cursor stays visible after command submission
         ensureCursorVisible();
       } else if (ev.key === "Backspace") {
@@ -1257,22 +1414,28 @@ export default function DynamicTerminal() {
       } else if (ev.key === "ArrowUp") {
         // Navigate backwards through command history
         if (commandHistoryRef.current.length > 0) {
-          if (historyPositionRef.current < commandHistoryRef.current.length - 1) {
+          if (
+            historyPositionRef.current <
+            commandHistoryRef.current.length - 1
+          ) {
             historyPositionRef.current++;
-            const historyCommand = commandHistoryRef.current[historyPositionRef.current];
-            
+            const historyCommand =
+              commandHistoryRef.current[historyPositionRef.current];
+
             // Clear current input and replace with history command
-            clearInputLine();
-            currentLine = historyCommand;
-            currentPosition = currentLine.length;
-            term.write(currentLine);
+            if (historyCommand !== undefined) {
+              clearInputLine();
+              currentLine = historyCommand;
+              currentPosition = currentLine.length;
+              term.write(currentLine);
+            }
           }
         }
       } else if (ev.key === "ArrowDown") {
         // Navigate forwards through command history
         if (historyPositionRef.current > -1) {
           historyPositionRef.current--;
-          
+
           if (historyPositionRef.current === -1) {
             // Back to empty prompt
             clearInputLine();
@@ -1280,11 +1443,14 @@ export default function DynamicTerminal() {
             currentPosition = 0;
           } else {
             // Show newer command from history
-            const historyCommand = commandHistoryRef.current[historyPositionRef.current];
-            clearInputLine();
-            currentLine = historyCommand;
-            currentPosition = currentLine.length;
-            term.write(currentLine);
+            const historyCommand =
+              commandHistoryRef.current[historyPositionRef.current];
+            if (historyCommand !== undefined) {
+              clearInputLine();
+              currentLine = historyCommand;
+              currentPosition = currentLine.length;
+              term.write(currentLine);
+            }
           }
         }
       } else if (printable) {
@@ -1324,26 +1490,26 @@ export default function DynamicTerminal() {
   // Effect to handle click-based agent selection from sidebar
   useEffect(() => {
     if (selectedAgentId && terminal.current && agentsQuery.data) {
-      // Always check if we need to switch contexts - allow switching back to same agent 
+      // Always check if we need to switch contexts - allow switching back to same agent
       // after being in engine mode, or force refresh of agent context
-      const agent = agentsQuery.data.find(a => a.id === selectedAgentId);
+      const agent = agentsQuery.data.find((a) => a.id === selectedAgentId);
       if (agent) {
-        const isAlreadyOnCorrectAgent = 
-          targetDisplay.type === "agent" && 
+        const isAlreadyOnCorrectAgent =
+          targetDisplay.type === "agent" &&
           targetDisplay.id === selectedAgentId;
-        
+
         if (!isAlreadyOnCorrectAgent) {
-          currentTargetRef.current = { 
-            type: "agent", 
-            id: selectedAgentId, 
-            name: agent.name ?? selectedAgentId 
+          currentTargetRef.current = {
+            type: "agent",
+            id: selectedAgentId,
+            name: agent.name ?? selectedAgentId,
           };
-          setTargetDisplay({ 
-            type: "agent", 
-            id: selectedAgentId, 
-            name: agent.name ?? selectedAgentId 
+          setTargetDisplay({
+            type: "agent",
+            id: selectedAgentId,
+            name: agent.name ?? selectedAgentId,
           });
-          
+
           // Update prompt immediately when target changes
           const term = terminal.current;
           const stableWritePrompt = (termInstance: XTerm) => {
@@ -1364,8 +1530,10 @@ export default function DynamicTerminal() {
             termInstance.write(fullPrompt);
           };
           stableWritePrompt(term);
-          
-          console.log(`[Terminal] Switched to agent '${selectedAgentId}' via click selection (was: ${targetDisplay.type})`);
+
+          console.log(
+            `[Terminal] Switched to agent '${selectedAgentId}' via click selection (was: ${targetDisplay.type})`
+          );
         }
       }
     }
@@ -1380,7 +1548,7 @@ export default function DynamicTerminal() {
       // Display the command output
       if (result.output) {
         const lines = result.output.split("\n");
-        lines.forEach((line) => {
+        lines.forEach((line: string) => {
           if (line.trim()) {
             term.writeln(line);
           }
@@ -1452,7 +1620,7 @@ export default function DynamicTerminal() {
           </div>
 
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-8">
+          <div className="flex-1 space-y-8 overflow-y-auto p-6">
             {/* Status Dashboard */}
             <StatusDashboard
               agentCount={agentsQuery.data?.length || 0}
@@ -1465,7 +1633,7 @@ export default function DynamicTerminal() {
 
             {/* Agent List */}
             <div>
-              <h3 className="mb-5 text-base font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+              <h3 className="mb-5 text-base font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">
                 Available Agents
               </h3>
               <AgentList
@@ -1476,8 +1644,8 @@ export default function DynamicTerminal() {
 
             {/* Agent Details (when selected) */}
             {selectedAgentId && (
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                <h3 className="mb-5 text-base font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wide">
+              <div className="border-t border-gray-200 pt-6 dark:border-gray-700">
+                <h3 className="mb-5 text-base font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">
                   Agent Details
                 </h3>
                 <AgentDetails
@@ -1494,8 +1662,11 @@ export default function DynamicTerminal() {
       </div>
 
       {/* Terminal */}
-      <div className="flex-1 bg-[#1e1e2e] p-4 overflow-hidden">
-        <div ref={terminalRef} className="h-full w-full max-h-full overflow-hidden" />
+      <div className="flex-1 overflow-hidden bg-[#1e1e2e] p-4">
+        <div
+          ref={terminalRef}
+          className="h-full max-h-full w-full overflow-hidden"
+        />
       </div>
     </div>
   );

@@ -21,6 +21,11 @@ import HostNetwork from "~/components/host/HostNetwork";
 
 import { type SiriusHost } from "~/server/api/routers/host";
 import { type EnvironmentTableData } from "~/server/api/routers/host";
+import {
+  type HostWithSources,
+  type VulnerabilityWithSource,
+  type PortWithSource,
+} from "~/server/api/routers/host";
 
 // Define tab types for type safety
 type TabType =
@@ -39,296 +44,49 @@ interface CveItem {
   lastModified: string;
   references: string[];
   affectedHosts: string[];
+  riskScore: number; // Add risk score field required by VulnTableData
+  sources?: string[]; // Add sources to show where this vulnerability was found
 }
 
-// Create a custom component for the overview tab that focuses on penetration testing information
-const PentestOverview = ({
-  host,
-  vulnerabilities,
-}: {
-  host: SiriusHost;
-  vulnerabilities: CveItem[];
-}) => {
-  const criticalVulnerabilities = vulnerabilities.filter(
-    (v) => v.severity === "CRITICAL"
-  );
-  const highVulnerabilities = vulnerabilities.filter(
-    (v) => v.severity === "HIGH"
-  );
+// Deduplicated port type with sources
+interface DeduplicatedPort {
+  id: number;
+  protocol: string;
+  state: string;
+  sources: string[];
+  service?: {
+    name?: string;
+    version?: string;
+  };
+}
+
+// Source badge component
+const SourceBadge = ({ source }: { source: string }) => {
+  const getSourceColor = (source: string) => {
+    switch (source.toLowerCase()) {
+      case "nmap":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300";
+      case "rustscan":
+        return "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300";
+      case "naabu":
+        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300";
+      case "agent":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300";
+      case "manual":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300";
+      default:
+        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-300";
+    }
+  };
 
   return (
-    <div className="mt-6 space-y-6">
-      {/* Quick summary for penetration testers */}
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-          Attack Surface Summary
-        </h2>
-        <div className="mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-md bg-white p-3 shadow-sm dark:bg-gray-800">
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Open Ports
-            </div>
-            <div className="mt-1 text-2xl font-semibold">
-              {host.ports?.length || 0}
-            </div>
-          </div>
-          <div className="rounded-md bg-white p-3 shadow-sm dark:bg-gray-800">
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Running Services
-            </div>
-            <div className="mt-1 text-2xl font-semibold">
-              {host.services?.length || 0}
-            </div>
-          </div>
-          <div className="rounded-md bg-white p-3 shadow-sm dark:bg-gray-800">
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              User Accounts
-            </div>
-            <div className="mt-1 text-2xl font-semibold">
-              {host.users?.length || 0}
-            </div>
-          </div>
-          <div className="rounded-md bg-white p-3 shadow-sm dark:bg-gray-800">
-            <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              Critical Vulns
-            </div>
-            <div className="mt-1 text-2xl font-semibold text-red-600">
-              {criticalVulnerabilities.length}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Open Ports Section - Most important for pentesting */}
-      <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-        <h2 className="mb-3 text-lg font-medium text-gray-900 dark:text-gray-100">
-          Open Ports & Services
-        </h2>
-        {host.ports && host.ports.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="px-4 py-2 text-left">Port</th>
-                  <th className="px-4 py-2 text-left">Protocol</th>
-                  <th className="px-4 py-2 text-left">State</th>
-                  <th className="px-4 py-2 text-left">Service</th>
-                  <th className="px-4 py-2 text-left">Version</th>
-                </tr>
-              </thead>
-              <tbody>
-                {host.ports.map((port, index) => {
-                  // Find matching service if any
-                  const service = host.services?.find(
-                    (s) => s.port === port.id
-                  );
-
-                  return (
-                    <tr
-                      key={index}
-                      className="border-b hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                      <td className="px-4 py-2 font-medium">{port.id}</td>
-                      <td className="px-4 py-2">{port.protocol}</td>
-                      <td className="px-4 py-2">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs ${
-                            port.state === "open"
-                              ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
-                              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-                          }`}
-                        >
-                          {port.state}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2">{service?.name || "—"}</td>
-                      <td className="px-4 py-2">{service?.version || "—"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="rounded-lg border border-dashed border-gray-300 p-4 text-center dark:border-gray-600">
-            <p className="text-gray-500 dark:text-gray-400">
-              No open ports detected
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* High Priority Vulnerabilities */}
-      {(criticalVulnerabilities.length > 0 ||
-        highVulnerabilities.length > 0) && (
-        <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-          <h2 className="mb-3 text-lg font-medium text-gray-900 dark:text-gray-100">
-            High Priority Vulnerabilities
-          </h2>
-          <div className="space-y-3">
-            {criticalVulnerabilities
-              .concat(highVulnerabilities)
-              .slice(0, 5)
-              .map((vuln, idx) => (
-                <div
-                  key={idx}
-                  className={`rounded-lg p-3 ${
-                    vuln.severity === "CRITICAL"
-                      ? "bg-red-50 dark:bg-red-900/10"
-                      : "bg-orange-50 dark:bg-orange-900/10"
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            vuln.severity === "CRITICAL"
-                              ? "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300"
-                              : "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300"
-                          }`}
-                        >
-                          {vuln.severity}
-                        </span>
-                        <span className="ml-2 font-medium">{vuln.cve}</span>
-                      </div>
-                      <p className="mt-1 text-sm">{vuln.description}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            {criticalVulnerabilities.length + highVulnerabilities.length >
-              5 && (
-              <div className="text-center">
-                <button
-                  onClick={() => {
-                    /* logic to switch to vulnerabilities tab */
-                  }}
-                  className="text-sm text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
-                >
-                  View all{" "}
-                  {criticalVulnerabilities.length + highVulnerabilities.length}{" "}
-                  high priority vulnerabilities
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* System Information - Focus on potentially exploitable info */}
-      <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-        <h2 className="mb-3 text-lg font-medium text-gray-900 dark:text-gray-100">
-          System Fingerprinting
-        </h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">
-                  OS Type:
-                </span>
-                <span className="font-medium">{host.os || "Unknown"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">
-                  OS Version:
-                </span>
-                <span className="font-medium">
-                  {host.osversion || "Unknown"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">
-                  Asset Type:
-                </span>
-                <span className="font-medium">
-                  {host.asset_type || "Unknown"}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Users:</span>
-                <span className="font-medium">
-                  {host.users?.length || 0} detected
-                </span>
-              </div>
-              {host.users && host.users.length > 0 && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Admin Users:
-                  </span>
-                  <span className="font-medium">
-                    {host.users.filter((u) =>
-                      u.type?.toLowerCase().includes("admin")
-                    ).length || 0}{" "}
-                    detected
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* User list - Potential targets for privilege escalation */}
-      {host.users && host.users.length > 0 && (
-        <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-              User Accounts
-            </h2>
-          </div>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b">
-                  <th className="px-4 py-2 text-left">Username</th>
-                  <th className="px-4 py-2 text-left">Type</th>
-                  <th className="px-4 py-2 text-left">Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {host.users.slice(0, 5).map((user, index) => (
-                  <tr
-                    key={index}
-                    className="border-b hover:bg-gray-50 dark:hover:bg-gray-800"
-                  >
-                    <td className="px-4 py-2 font-medium">{user.username}</td>
-                    <td className="px-4 py-2">
-                      {user.type &&
-                      user.type.toLowerCase().includes("admin") ? (
-                        <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
-                          {user.type}
-                        </span>
-                      ) : (
-                        user.type
-                      )}
-                    </td>
-                    <td className="px-4 py-2">{user.details || "N/A"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {host.users.length > 5 && (
-              <div className="mt-2 text-center">
-                <button
-                  onClick={() => {
-                    /* logic to switch to system tab */
-                  }}
-                  className="text-sm text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300"
-                >
-                  View all {host.users.length} users
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getSourceColor(
+        source
+      )}`}
+    >
+      {source}
+    </span>
   );
 };
 
@@ -341,152 +99,223 @@ const HostDetailsPage = () => {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [isScanning, setIsScanning] = useState(false);
 
-  // Fetch host data using the getHost API (similar to host-old.tsx)
+  // Fetch host data using the new source-aware API
   const {
-    data: hostData,
+    data: hostWithSources,
     isLoading: isHostLoading,
     isError: isHostError,
     refetch: refetchHost,
-  } = api.host.getHost.useQuery(
-    { hid: ip as string },
+  } = api.host.getHostWithSources.useQuery(
+    { ip: ip as string },
     {
       enabled: !!ip,
       retry: 3,
       staleTime: 30000,
     }
   );
-  console.log("Host data:", hostData);
+  console.log("Host with sources data:", hostWithSources);
 
-  // Define an empty host for fallback
-  const emptyHost: SiriusHost = {
-    hid: "1",
-    hostname: "N/A",
-    ip: (ip as string) || "N/A",
-    os: "unknown",
-    osversion: "N/A",
-    asset_type: "unknown",
-    services: [],
-    ports: [],
-    vulnerabilities: [],
-  };
+  // Process and deduplicate port data
+  const deduplicatedPorts = useMemo<DeduplicatedPort[]>(() => {
+    if (!hostWithSources?.port_sources) return [];
 
-  // Use the host data or fallback to empty host
-  const host = hostData ?? emptyHost;
+    console.log("🔍 Raw port sources:", hostWithSources.port_sources);
 
-  // Fetch host statistics
-  const {
-    data: vulnStats,
-    isLoading: isStatsLoading,
-    isError: isStatsError,
-    refetch: refetchStats,
-  } = api.host.getHostStatistics.useQuery(
-    { hid: ip as string },
-    {
-      enabled: !!ip,
-      retry: 3,
-      staleTime: 30000,
-    }
-  );
-  console.log("Vulnerability stats:", vulnStats);
+    const portMap = new Map<number, DeduplicatedPort>();
 
-  // Process vulnerability data from host
-  const vulnerabilities = useMemo<CveItem[]>(() => {
-    if (!host.vulnerabilities || host.vulnerabilities.length === 0) return [];
+    hostWithSources.port_sources.forEach((portSource) => {
+      console.log(`🔍 Processing port source:`, portSource);
+      const portId = portSource.ID;
 
-    return host.vulnerabilities.map((vuln) => ({
-      cve: vuln.vid || "Unknown",
-      severity: determineSeverity(vuln.riskScore),
-      description: vuln.description || "No description available",
-      published: vuln.published || new Date().toISOString(),
-      lastModified: vuln.published || new Date().toISOString(), // Using published as fallback
-      references: [],
-      affectedHosts: [ip as string],
-    }));
-  }, [host.vulnerabilities, ip]);
-  console.log("Processed vulnerabilities:", vulnerabilities);
+      if (portMap.has(portId)) {
+        // Add source to existing port
+        const existing = portMap.get(portId)!;
+        if (!existing.sources.includes(portSource.source)) {
+          existing.sources.push(portSource.source);
+        }
+      } else {
+        // Create new deduplicated port entry
+        portMap.set(portId, {
+          id: portSource.ID,
+          protocol: portSource.Protocol,
+          state: portSource.State,
+          sources: [portSource.source],
+          service: undefined, // Service info would need to be added separately
+        });
+        console.log(
+          `✅ Created port ${portId} with state: "${portSource.State}"`
+        );
+      }
+    });
 
-  // Process vulnerability statistics
-  const processedVulnMetrics = useMemo(() => {
-    const defaultCounts = {
+    const result = Array.from(portMap.values());
+    console.log("🎯 Final deduplicated ports:", result);
+    return result;
+  }, [hostWithSources?.port_sources]);
+
+  // Process and deduplicate vulnerability data
+  const deduplicatedVulnerabilities = useMemo<CveItem[]>(() => {
+    if (!hostWithSources?.vulnerability_sources) return [];
+
+    console.log(
+      "🔍 Raw vulnerability sources:",
+      hostWithSources.vulnerability_sources
+    );
+
+    const vulnMap = new Map<string, CveItem>();
+
+    hostWithSources.vulnerability_sources.forEach((vulnSource) => {
+      const vulnId = vulnSource.VID;
+
+      if (vulnMap.has(vulnId)) {
+        // Add source to existing vulnerability
+        const existing = vulnMap.get(vulnId)!;
+        if (existing.sources && !existing.sources.includes(vulnSource.source)) {
+          existing.sources.push(vulnSource.source);
+          console.log(
+            `✅ Added source ${vulnSource.source} to existing vulnerability ${vulnId}`
+          );
+        }
+      } else {
+        // Create new deduplicated vulnerability entry
+        vulnMap.set(vulnId, {
+          cve: vulnSource.VID,
+          severity: determineSeverity(vulnSource.RiskScore),
+          description: vulnSource.Description || "No description available",
+          published: vulnSource.first_seen || new Date().toISOString(),
+          lastModified: vulnSource.last_seen || new Date().toISOString(),
+          references: [],
+          affectedHosts: [ip as string],
+          riskScore: vulnSource.RiskScore,
+          sources: [vulnSource.source],
+        });
+        console.log(
+          `🆕 Created new vulnerability entry for ${vulnId} from source ${vulnSource.source}`
+        );
+      }
+    });
+
+    const result = Array.from(vulnMap.values());
+    console.log("🎯 Final deduplicated vulnerabilities:", result);
+    return result;
+  }, [hostWithSources?.vulnerability_sources, ip]);
+
+  // Create a host object for backward compatibility with EnvironmentTableData type
+  const host = useMemo(() => {
+    if (!hostWithSources) return null;
+
+    return {
+      hid: hostWithSources.ID.toString(),
+      hostname: hostWithSources.Hostname,
+      ip: hostWithSources.IP,
+      os: hostWithSources.OS,
+      osversion: hostWithSources.OSVersion,
+      vulnerabilityCount: deduplicatedVulnerabilities.length,
+      groups: [],
+      tags: [],
+      sources: hostWithSources.sources,
+      vulnerabilities: deduplicatedVulnerabilities.map((vuln) => ({
+        vid: vuln.cve,
+        description: vuln.description,
+        severity: vuln.severity,
+        riskScore: vuln.riskScore,
+        published: vuln.published,
+      })),
+      ports: deduplicatedPorts,
+    };
+  }, [hostWithSources, deduplicatedVulnerabilities, deduplicatedPorts]);
+
+  // Calculate vulnerability counts for severity cards
+  const vulnerabilityCounts = useMemo(() => {
+    const counts = {
       critical: 0,
       high: 0,
       medium: 0,
       low: 0,
       informational: 0,
-      total: 0,
     };
 
-    if (vulnStats?.hostSeverityCounts) {
-      return {
-        ...defaultCounts,
-        ...vulnStats.hostSeverityCounts,
-        total: vulnerabilities.length,
-      };
-    }
+    deduplicatedVulnerabilities.forEach((vuln) => {
+      switch (vuln.severity) {
+        case "CRITICAL":
+          counts.critical++;
+          break;
+        case "HIGH":
+          counts.high++;
+          break;
+        case "MEDIUM":
+          counts.medium++;
+          break;
+        case "LOW":
+          counts.low++;
+          break;
+        default:
+          counts.informational++;
+          break;
+      }
+    });
 
-    return defaultCounts;
-  }, [vulnStats, vulnerabilities.length]);
+    return counts;
+  }, [deduplicatedVulnerabilities]);
 
-  // Select OS icon based on OS
-  const osIcon = useMemo(() => {
-    if (!host.os) return <UnknownIcon width="35px" height="35px" />;
+  // Enhanced columns with source attribution - MOVED HERE BEFORE EARLY RETURNS
+  const enhancedColumns = useMemo(() => {
+    return [
+      ...columns,
+      {
+        accessorKey: "sources",
+        header: "Sources",
+        cell: ({ row }) => {
+          const sources = row.original.sources as string[] | undefined;
+          return (
+            <div className="flex flex-wrap gap-1">
+              {sources?.map((source) => (
+                <SourceBadge key={source} source={source} />
+              )) || (
+                <Badge variant="secondary" className="text-xs">
+                  Unknown
+                </Badge>
+              )}
+            </div>
+          );
+        },
+      },
+    ];
+  }, []);
 
-    switch (host.os.toLowerCase()) {
-      case "windows":
-        return <WindowsIcon width="35px" height="35px" />;
-      case "linux":
-        return <LinuxIcon width="35px" height="35px" />;
-      case "macos":
-        return <AppleIcon width="35px" height="35px" />;
-      default:
-        return <UnknownIcon width="35px" height="35px" />;
-    }
-  }, [host.os]);
-
-  // Handle tab change
+  // Handle tab changes
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
   };
 
-  // Handle scan action
-  const handleScan = async () => {
+  // Handle scan initiation
+  const handleScan = () => {
     setIsScanning(true);
-
-    // Simulate a scan taking place
+    // Implement scan logic here
     setTimeout(() => {
       setIsScanning(false);
-      // Refetch data after scan
       refetchHost();
-      refetchStats();
     }, 3000);
   };
 
-  // If the page is still loading the router query params
-  if (router.isReady === false) {
-    return (
-      <Layout>
-        <div className="flex h-64 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-violet-500"></div>
-          <span className="ml-2">Loading...</span>
-        </div>
-      </Layout>
-    );
-  }
-
   // Loading state
+  const isLoadingAnyData = isHostLoading;
+
   if (isHostLoading) {
     return (
       <Layout>
-        <div className="flex h-64 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-violet-500"></div>
-          <span className="ml-2">Loading host information...</span>
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center justify-center">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-500 border-t-transparent"></div>
+            <span className="ml-2">Loading host information...</span>
+          </div>
         </div>
       </Layout>
     );
   }
 
   // Error state
-  if (isHostError) {
+  if (isHostError || !host) {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-6">
@@ -513,155 +342,47 @@ const HostDetailsPage = () => {
     );
   }
 
-  // Convert SiriusHost to EnvironmentTableData for compatibility with components
-  const environmentData: EnvironmentTableData = {
-    hid: host.hid,
-    hostname: host.hostname,
-    ip: host.ip,
-    os: host.os,
-    vulnerabilityCount: host.vulnerabilities?.length || 0,
-    groups: host.tags || [],
-    tags: host.tags || [],
-    vulnerabilities: host.vulnerabilities || [],
-  };
-
+  // Main render with complete original layout
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6">
-        {/* Host Header with OS Icon and Info */}
+        {/* Host Header */}
+        <HostHeader host={host} onScan={handleScan} isScanning={isScanning} />
+
+        {/* Vulnerability Severity Cards */}
         <div className="mb-6">
-          <div className="flex flex-col items-start justify-between space-y-3 md:flex-row md:items-center md:space-y-0">
-            <div className="flex items-center">
-              <div className="mr-4 flex dark:fill-white">{osIcon}</div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {host.hostname || host.ip}
-                </h1>
-                <div className="flex items-center text-sm text-gray-500">
-                  <span>{host.ip}</span>
-                  <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-800 dark:bg-green-900/20 dark:text-green-300">
-                    online
-                  </span>
-                </div>
-                {host.osversion && (
-                  <div className="text-sm text-violet-500 dark:text-violet-400">
-                    {host.osversion}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700"
-                onClick={handleScan}
-                disabled={isScanning}
-              >
-                <svg
-                  className={`mr-1.5 h-4 w-4 ${
-                    isScanning ? "animate-spin" : ""
-                  }`}
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
-                  <path d="M21 3v5h-5" />
-                </svg>
-                {isScanning ? "Scanning..." : "Scan Now"}
-              </button>
-
-              <button className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700">
-                <svg
-                  className="mr-1.5 h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-                  <line x1="7" y1="7" x2="7.01" y2="7" />
-                </svg>
-                Manage Tags
-              </button>
-
-              <button className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700">
-                <svg
-                  className="mr-1.5 h-4 w-4"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Export Report
-              </button>
-            </div>
-          </div>
-
-          {/* Host tags */}
-          {host.tags && host.tags.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {host.tags.map((tag, index) => (
-                <Badge key={index} variant="default">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          )}
+          <VulnerabilitySeverityCardsHorizontal counts={vulnerabilityCounts} />
         </div>
 
-        {/* Vulnerability Summary Cards */}
-        <div className="mb-6">
-          <VulnerabilitySeverityCardsHorizontal counts={processedVulnMetrics} />
-        </div>
-
-        {/* Tab Navigation */}
+        {/* Host Tabs */}
         <HostTabs
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          vulnerabilityCount={processedVulnMetrics.total}
+          vulnerabilityCount={deduplicatedVulnerabilities.length}
         />
 
         {/* Tab Content */}
         <div className="mt-6">
-          {activeTab === "overview" && (
-            <>
-              <HostOverview host={host} vulnerabilities={vulnerabilities} />
-              <PentestOverview host={host} vulnerabilities={vulnerabilities} />
-            </>
-          )}
-
+          {activeTab === "overview" && <HostOverview host={host} />}
           {activeTab === "vulnerabilities" && (
-            <HostVulnerabilities
-              vulnerabilities={vulnerabilities}
-              isLoading={isStatsLoading}
-            />
+            <div>
+              <VulnerabilityTable
+                columns={enhancedColumns}
+                data={deduplicatedVulnerabilities}
+                onRowClick={(vuln) => {
+                  // Navigate to vulnerability detail page
+                  const cveId = vuln.cve || vuln.id;
+                  if (cveId) {
+                    void router.push(
+                      `/vulnerability?id=${encodeURIComponent(cveId)}`
+                    );
+                  }
+                }}
+              />
+            </div>
           )}
-
-          {activeTab === "system" && <HostSystemInfo host={environmentData} />}
-
-          {activeTab === "network" && <HostNetwork host={environmentData} />}
-
+          {activeTab === "system" && <HostSystemInfo host={host} />}
+          {activeTab === "network" && <HostNetwork host={host} />}
           {activeTab === "history" && <HostHistory hostIp={ip as string} />}
         </div>
       </div>
@@ -669,7 +390,7 @@ const HostDetailsPage = () => {
   );
 };
 
-// Helper function to determine severity based on CVSS score
+// Keep existing helper function
 function determineSeverity(
   cvssScore: number
 ): "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFORMATIONAL" {

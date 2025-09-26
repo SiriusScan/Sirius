@@ -3,151 +3,102 @@ import { api } from "~/utils/api";
 import Layout from "~/components/Layout";
 import DashNumberCard from "~/components/DashNumberCard";
 import { VulnerabilitySeverityCardsVertical } from "~/components/VulnerabilitySeverityCards";
-import DataTable from "~/components/VulnerabilityTableBasic";
-import { SeverityBadge } from "~/components/SeverityBadge";
-import { ScanBar } from "~/components/ScanBar";
 import { useMemo } from "react";
-import type {
-  ScanVulnerability,
-  VulnerabilitySummary,
-  ColumnDefinition,
-} from "~/types/scanner";
 
 // Icons
 import DashboardIcon from "~/components/icons/DashboardIcon";
 import HostsIcon from "~/components/icons/HostsIcon";
 import VulnerabilityIcon from "~/components/icons/VulnerabilityIcon";
-import ScanIcon from "~/components/icons/ScanIcon";
-import SettingsIcon from "~/components/icons/SettingsIcon";
 import { Button } from "~/components/lib/ui/button";
 import { useRouter } from "next/router";
 
-// Base64 decode function
-function b64Decode(base64String: string) {
-  try {
-    if (!base64String) return null;
-    const jsonString = atob(base64String);
-    return JSON.parse(jsonString);
-  } catch (error) {
-    console.error("Error decoding base64 scan results:", error);
-    return null;
-  }
-}
+// Helper function to determine severity from risk score
+const determineSeverity = (
+  riskScore: number
+): "critical" | "high" | "medium" | "low" | "informational" => {
+  if (riskScore >= 9.0) return "critical";
+  if (riskScore >= 7.0) return "high";
+  if (riskScore >= 4.0) return "medium";
+  if (riskScore > 0) return "low";
+  return "informational";
+};
 
 const Dashboard: NextPage = () => {
   const router = useRouter();
 
-  // Get latest scan results
-  const { data: latestScan } = api.scanner.getLatestScan.useQuery();
-
   // Get vulnerability data from API
-  const { data: vuln } = api.vulnerability.getAllVulnerabilities.useQuery();
+  const { data: vulnerabilityData, isLoading: vulnerabilityLoading } =
+    api.vulnerability.getAllVulnerabilities.useQuery();
 
-  // Parse scan results
-  const scanResults = b64Decode(latestScan ?? "");
+  // Get agent data from API
+  const { data: agentData, isLoading: agentLoading } =
+    api.agent.listAgentsWithHosts.useQuery();
+
+  // Get host data from API
+  const { data: hostData, isLoading: hostLoading } =
+    api.host.getAllHosts.useQuery();
 
   // Calculate vulnerability statistics
-  const severityCount = {
-    critical:
-      scanResults?.vulnerabilities?.filter(
-        (v: VulnerabilitySummary) => v.severity === "critical"
-      ).length ?? 0,
-    high:
-      scanResults?.vulnerabilities?.filter(
-        (v: VulnerabilitySummary) => v.severity === "high"
-      ).length ?? 0,
-    medium:
-      scanResults?.vulnerabilities?.filter(
-        (v: VulnerabilitySummary) => v.severity === "medium"
-      ).length ?? 0,
-    low:
-      scanResults?.vulnerabilities?.filter(
-        (v: VulnerabilitySummary) => v.severity === "low"
-      ).length ?? 0,
-    informational:
-      scanResults?.vulnerabilities?.filter(
-        (v: VulnerabilitySummary) => v.severity === "informational"
-      ).length ?? 0,
-  };
+  const vulnerabilityStats = useMemo(() => {
+    if (!vulnerabilityData?.vulnerabilities) {
+      return {
+        total: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        informational: 0,
+      };
+    }
 
-  // Calculate total vulnerability count
-  const totalVulnerabilityCount =
-    severityCount.critical +
-    severityCount.high +
-    severityCount.medium +
-    severityCount.low +
-    severityCount.informational;
+    const vulns = vulnerabilityData.vulnerabilities;
+    const stats = {
+      total: vulns.length,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      informational: 0,
+    };
 
-  // Calculate security health score (0-100)
-  const securityHealthScore = useMemo(() => {
-    if (totalVulnerabilityCount === 0) return 100;
+    vulns.forEach((vuln) => {
+      const severity = determineSeverity(vuln.riskScore);
+      stats[severity]++;
+    });
 
-    // Calculate weighted score (lower is better)
-    const weightedScore =
-      severityCount.critical * 10 +
-      severityCount.high * 5 +
-      severityCount.medium * 2 +
-      severityCount.low * 0.5;
+    return stats;
+  }, [vulnerabilityData]);
 
-    // Normalize to 0-100 scale (100 is best)
-    const normalizedScore = Math.max(
-      0,
-      100 - (weightedScore / totalVulnerabilityCount) * 20
-    );
+  // Calculate agent statistics
+  const agentStats = useMemo(() => {
+    if (!agentData) {
+      return {
+        total: 0,
+        online: 0,
+      };
+    }
 
-    return Math.round(normalizedScore);
-  }, [severityCount, totalVulnerabilityCount]);
+    return {
+      total: agentData.length,
+      online: agentData.filter(
+        (agent) => agent.status?.toLowerCase() === "online"
+      ).length,
+    };
+  }, [agentData]);
 
-  // Find most vulnerable hosts
-  const topVulnerableHosts = useMemo(() => {
-    if (!scanResults?.hosts) return [];
-
-    return [...scanResults.hosts]
-      .sort(
-        (a, b) =>
-          (b.vulnerabilities?.length || 0) - (a.vulnerabilities?.length || 0)
-      )
-      .slice(0, 5)
-      .map((host) => ({
-        hostname: host.hostname || host.ip,
-        ip: host.ip,
-        os: host.os,
-        vulnerabilityCount: host.vulnerabilities?.length || 0,
-        criticalCount:
-          host.vulnerabilities?.filter(
-            (v: ScanVulnerability) => v.severity === "critical"
-          ).length || 0,
-      }));
-  }, [scanResults]);
-
-  // Get critical vulnerabilities
-  const criticalVulnerabilities = useMemo(() => {
-    if (!scanResults?.vulnerabilities) return [];
-
-    return scanResults.vulnerabilities
-      .filter((v: VulnerabilitySummary) => v.severity === "critical")
-      .slice(0, 5);
-  }, [scanResults]);
-
-  // Asset summary for dashboard cards
-  const assetSummary = [
+  // Dashboard metrics for top-level cards
+  const dashboardMetrics = [
     {
-      title: "Security Health",
-      number: securityHealthScore,
-      suffix: "/100",
-      color:
-        securityHealthScore > 70
-          ? "green"
-          : securityHealthScore > 50
-          ? "yellow"
-          : "red",
+      title: "Agents",
+      number: agentStats.total,
+      color: "green",
       icon: (
         <HostsIcon className="h-4 w-4 fill-gray-700 text-white" fill="white" />
       ),
     },
     {
       title: "Hosts",
-      number: scanResults?.hosts.length || 0,
+      number: hostData?.length || 0,
       color: "blue",
       icon: (
         <HostsIcon className="h-4 w-4 fill-gray-700 text-white" fill="white" />
@@ -155,7 +106,7 @@ const Dashboard: NextPage = () => {
     },
     {
       title: "Vulnerabilities",
-      number: totalVulnerabilityCount,
+      number: vulnerabilityStats.total,
       color: "red",
       icon: (
         <VulnerabilityIcon
@@ -166,7 +117,7 @@ const Dashboard: NextPage = () => {
     },
     {
       title: "Critical Issues",
-      number: severityCount.critical,
+      number: vulnerabilityStats.critical,
       color: "purple",
       icon: (
         <VulnerabilityIcon
@@ -177,21 +128,7 @@ const Dashboard: NextPage = () => {
     },
   ];
 
-  // Vulnerability table columns
-  const vulnerabilityColumns: ColumnDefinition<ScanVulnerability>[] = [
-    {
-      header: "Description",
-      accessor: "description",
-    },
-    {
-      header: "Severity",
-      render: (vuln) => <SeverityBadge severity={vuln.severity} />,
-    },
-    {
-      header: "Risk Score",
-      render: (vuln) => <span>{vuln.riskScore?.toFixed(1) || "N/A"}</span>,
-    },
-  ];
+  const isLoading = vulnerabilityLoading || agentLoading || hostLoading;
 
   return (
     <Layout title="Security Dashboard">
@@ -203,96 +140,204 @@ const Dashboard: NextPage = () => {
             <h1 className="ml-3 mt-5 flex text-4xl font-extralight">
               Security Dashboard
             </h1>
-            <div className="ml-12 w-80">
-              <ScanBar
-                isScanning={scanResults?.status === "running"}
-                hasRun={scanResults?.status === "completed"}
-              />
-            </div>
           </div>
         </div>
 
-        {/* Security Metrics Cards */}
+        {/* Top-Level Vulnerability Distribution Cards */}
         <div className="mt-6 flex gap-8">
-          {assetSummary.map((item) => (
+          {dashboardMetrics.map((metric) => (
             <DashNumberCard
-              key={item.title}
-              title={item.title}
-              number={item.number}
-              suffix={item.suffix}
-              color={item.color}
-              icon={item.icon}
+              key={metric.title}
+              title={metric.title}
+              number={isLoading ? 0 : metric.number}
+              color={metric.color}
+              icon={metric.icon}
             />
           ))}
         </div>
 
         {/* Main Dashboard Content */}
-        <div className="mt-8 flex">
-          {/* Vulnerability Severity Distribution - Thin Column */}
-          <div className="w-[150px] flex-shrink-0">
-            <h2 className="mb-4 text-xl font-light">Severity</h2>
-            <VulnerabilitySeverityCardsVertical
-              counts={{
-                critical: severityCount.critical,
-                high: severityCount.high,
-                medium: severityCount.medium,
-                low: severityCount.low,
-                informational: severityCount.informational,
-              }}
-            />
-          </div>
+        <div className="mt-8">
+          {/* Vulnerability Overview Section */}
+          <div className="mb-8">
+            <h2 className="mb-4 text-2xl font-light">Vulnerability Overview</h2>
 
-          {/* Critical Vulnerabilities - Right Side */}
-          <div className="ml-8 flex-grow">
-            <h2 className="mb-4 text-xl font-light">
-              Critical Vulnerabilities
-            </h2>
-            {criticalVulnerabilities.length > 0 ? (
-              <DataTable
-                data={criticalVulnerabilities}
-                columns={vulnerabilityColumns}
-                className="max-h-96"
-              />
+            {isLoading ? (
+              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex h-[400px] items-center justify-center">
+                  <div className="text-center">
+                    <div className="mx-auto mb-4 h-16 w-16 animate-spin rounded-full border-b-2 border-t-2 border-blue-500"></div>
+                    <h3 className="mb-2 text-xl font-medium text-gray-900 dark:text-white">
+                      Loading Dashboard Data
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Fetching vulnerability and agent information...
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : vulnerabilityStats.total === 0 ? (
+              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="flex h-[400px] items-center justify-center">
+                  <div className="text-center">
+                    <VulnerabilityIcon className="mx-auto mb-4 h-16 w-16 text-gray-400" />
+                    <h3 className="mb-2 text-xl font-medium text-gray-900 dark:text-white">
+                      No Vulnerabilities Found
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Run a security scan to discover vulnerabilities in your
+                      environment.
+                    </p>
+                  </div>
+                </div>
+              </div>
             ) : (
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800">
-                <VulnerabilityIcon className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-white">
-                  No Critical Vulnerabilities
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Great! No critical vulnerabilities were found in your latest
-                  scan.
-                </p>
+              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+                  {/* Vulnerability Statistics */}
+                  <div className="lg:col-span-2">
+                    <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">
+                      Vulnerability Summary
+                    </h3>
+                    <div className="space-y-4">
+                      {/* Critical Vulnerabilities */}
+                      <div className="flex items-center justify-between rounded-lg bg-red-50 p-4 dark:bg-red-900/20">
+                        <div className="flex items-center">
+                          <div className="mr-3 h-3 w-3 rounded-full bg-red-500"></div>
+                          <span className="font-medium text-red-700 dark:text-red-300">
+                            Critical
+                          </span>
+                        </div>
+                        <span className="text-2xl font-bold text-red-700 dark:text-red-300">
+                          {vulnerabilityStats.critical}
+                        </span>
+                      </div>
+
+                      {/* High Vulnerabilities */}
+                      <div className="flex items-center justify-between rounded-lg bg-orange-50 p-4 dark:bg-orange-900/20">
+                        <div className="flex items-center">
+                          <div className="mr-3 h-3 w-3 rounded-full bg-orange-500"></div>
+                          <span className="font-medium text-orange-700 dark:text-orange-300">
+                            High
+                          </span>
+                        </div>
+                        <span className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                          {vulnerabilityStats.high}
+                        </span>
+                      </div>
+
+                      {/* Medium Vulnerabilities */}
+                      <div className="flex items-center justify-between rounded-lg bg-yellow-50 p-4 dark:bg-yellow-900/20">
+                        <div className="flex items-center">
+                          <div className="mr-3 h-3 w-3 rounded-full bg-yellow-500"></div>
+                          <span className="font-medium text-yellow-700 dark:text-yellow-300">
+                            Medium
+                          </span>
+                        </div>
+                        <span className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
+                          {vulnerabilityStats.medium}
+                        </span>
+                      </div>
+
+                      {/* Low Vulnerabilities */}
+                      <div className="flex items-center justify-between rounded-lg bg-green-50 p-4 dark:bg-green-900/20">
+                        <div className="flex items-center">
+                          <div className="mr-3 h-3 w-3 rounded-full bg-green-500"></div>
+                          <span className="font-medium text-green-700 dark:text-green-300">
+                            Low
+                          </span>
+                        </div>
+                        <span className="text-2xl font-bold text-green-700 dark:text-green-300">
+                          {vulnerabilityStats.low}
+                        </span>
+                      </div>
+
+                      {/* Informational */}
+                      <div className="flex items-center justify-between rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+                        <div className="flex items-center">
+                          <div className="mr-3 h-3 w-3 rounded-full bg-blue-500"></div>
+                          <span className="font-medium text-blue-700 dark:text-blue-300">
+                            Informational
+                          </span>
+                        </div>
+                        <span className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                          {vulnerabilityStats.informational}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Agent Status */}
+                  <div>
+                    <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">
+                      Agent Status
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-gray-900 dark:text-white">
+                            {agentStats.total}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            Total Agents
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                            {agentStats.online}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            Online Agents
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-gray-600 dark:text-gray-400">
+                            {agentStats.total - agentStats.online}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            Offline Agents
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
-        </div>
 
-        {/* Quick Actions Section */}
-        <div className="mt-12">
-          <h2 className="mb-6 text-2xl font-light">Quick Actions</h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <ActionCard
-              title="Start New Scan"
-              description="Initiate a comprehensive security scan of your network"
-              icon={<ScanIcon className="h-6 w-6" />}
-              buttonText="Start Scan"
-              buttonAction={() => router.push("/scanner")}
-            />
-            <ActionCard
-              title="View All Hosts"
-              description="Browse and manage all discovered hosts in your network"
-              icon={<HostsIcon className="h-6 w-6" />}
-              buttonText="View Hosts"
-              buttonAction={() => router.push("/host")}
-            />
-            <ActionCard
-              title="Vulnerability Reports"
-              description="Generate detailed vulnerability assessment reports"
-              icon={<VulnerabilityIcon className="h-6 w-6" />}
-              buttonText="View Reports"
-              buttonAction={() => router.push("/vulnerability")}
-            />
+          {/* Quick Actions Section */}
+          <div className="mt-12">
+            <h2 className="mb-6 text-2xl font-light">Quick Actions</h2>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <ActionCard
+                title="Start New Scan"
+                description="Initiate a comprehensive security scan of your network"
+                icon={<VulnerabilityIcon className="h-6 w-6" />}
+                buttonText="Start Scan"
+                buttonAction={() => router.push("/scanner")}
+              />
+              <ActionCard
+                title="View All Hosts"
+                description="Browse and manage all discovered hosts in your network"
+                icon={<HostsIcon className="h-6 w-6" />}
+                buttonText="View Hosts"
+                buttonAction={() => router.push("/host")}
+              />
+              <ActionCard
+                title="Manage Agents"
+                description="View and control connected security agents"
+                icon={<HostsIcon className="h-6 w-6" />}
+                buttonText="View Agents"
+                buttonAction={() => router.push("/terminal")}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -11,7 +11,7 @@ import {
 import { Skeleton } from "~/components/lib/ui/skeleton"; // Reverting path
 import { Button } from "~/components/lib/ui/button"; // Reverting path for Button
 import { RefreshCwIcon } from "lucide-react"; // Added icon
-import type { DisplayedAgentDetails } from "~/pages/terminal"; // Import the new type
+import type { DisplayedAgentDetails } from "~/components/DynamicTerminal"; // Import the new type
 import { toast } from "sonner"; // Re-import toast
 import { CopyIcon, ScanLineIcon } from "lucide-react"; // Icon for copy button & scan button
 
@@ -37,12 +37,12 @@ const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({
     return null; // Don't render row if value is empty
   }
   return (
-    <div className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-b-0">
-      <span className="text-sm font-medium text-gray-600 dark:text-gray-400 min-w-0 flex-1">
+    <div className="flex items-center justify-between border-b border-gray-100 py-2 last:border-b-0 dark:border-gray-800">
+      <span className="min-w-0 flex-1 text-sm font-medium text-gray-600 dark:text-gray-400">
         {label}
       </span>
       <span
-        className="text-sm font-mono text-gray-900 dark:text-gray-100 ml-4 text-right"
+        className="ml-4 text-right font-mono text-sm text-gray-900 dark:text-gray-100"
         title={typeof value === "string" ? value : undefined}
       >
         {value}
@@ -207,17 +207,20 @@ const AgentDetailsComponent: React.FC<AgentDetailsProps> = ({
       <CardContent className="pt-3">
         {/* Essential Information Only - IP and OS */}
         <div className="space-y-1">
-          <DetailRow 
-            label="IP Address" 
-            value={details.primaryIp || "Not available"} 
+          <DetailRow
+            label="IP Address"
+            value={details.primaryIp || "Not available"}
           />
-          <DetailRow 
-            label="Operating System" 
+          <DetailRow
+            label="Operating System"
             value={
-              <span className="truncate max-w-[120px]" title={details.osVersion || details.osArch || "Not available"}>
+              <span
+                className="max-w-[120px] truncate"
+                title={details.osVersion || details.osArch || "Not available"}
+              >
                 {details.osVersion || details.osArch || "Not available"}
               </span>
-            } 
+            }
           />
         </div>
       </CardContent>

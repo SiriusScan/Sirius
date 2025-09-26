@@ -42,7 +42,7 @@ const NmapScriptsTab: React.FC<NmapScriptsTabProps> = ({ onSelectScript }) => {
   }, [scripts, isLoading, initializeScripts]);
 
   // Use the scripts from the API or fallback to mock data if there's an error
-  const availableScripts = useMemo(() => {
+  const availableScripts: NmapScript[] = useMemo(() => {
     return scripts || fallbackScripts;
   }, [scripts]);
 

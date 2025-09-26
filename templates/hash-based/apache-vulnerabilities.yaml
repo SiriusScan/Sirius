@@ -1,0 +1,47 @@
+id: "APACHE-HASH-001"
+info:
+  name: "Vulnerable Apache Binary Detection"
+  author: "sirius-team"
+  severity: "high"
+  description: "Detects vulnerable Apache binary files via SHA256 hashes"
+  references:
+    - "https://httpd.apache.org/security/vulnerabilities_24.html"
+  cve: "CVE-2023-1234"
+  created: "2024-01-15T10:30:00Z"
+  updated: "2024-01-15T10:30:00Z"
+
+detection:
+  type: "file-hash"
+  method: "sha256"
+  targets:
+    - path: "/usr/sbin/apache2"
+      hash: "a1b2c3d4e5f6789abcdef123456789abcdef123456789abcdef123456789abcdef"
+      description: "Apache 2.4.41 vulnerable binary (Linux)"
+    - path: "/usr/bin/httpd"
+      hash: "b2c3d4e5f6789abcdef123456789abcdef123456789abcdef123456789abcdef12"
+      description: "Apache 2.4.41 vulnerable binary (CentOS/RHEL)"
+    - path: "C:\\Program Files\\Apache24\\bin\\httpd.exe"
+      hash: "c3d4e5f6789abcdef123456789abcdef123456789abcdef123456789abcdef123"
+      description: "Apache 2.4.41 vulnerable binary (Windows)"
+  conditions:
+    - type: "file_exists"
+      value: true
+    - type: "hash_match"
+      value: true
+    - type: "file_executable"
+      value: true
+  metadata:
+    confidence: 0.95
+    impact: "Remote code execution possible"
+    affected_versions: ["2.4.41", "2.4.42"]
+    fixed_versions: ["2.4.43+"]
+
+remediation:
+  description: "Update Apache to version 2.4.43 or later"
+  commands:
+    linux: "sudo apt update && sudo apt install apache2"
+    centos: "sudo yum update httpd"
+    windows: "Download latest version from https://httpd.apache.org/download.cgi"
+  verification:
+    command: "apache2 -v || httpd -v"
+    expected_pattern: "Apache/2\\.4\\.(4[3-9]|[5-9]\\d)"

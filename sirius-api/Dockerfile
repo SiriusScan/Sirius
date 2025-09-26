@@ -1,4 +1,33 @@
 # Multi-stage Dockerfile for sirius-api
+
+# Development stage - for local development with volume mounts
+FROM golang:1.23-alpine AS development
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    git \
+    ca-certificates \
+    tzdata
+
+# Create non-root user
+RUN addgroup -g 1001 appgroup && \
+    adduser -u 1001 -G appgroup -s /bin/sh -D appuser
+
+# Set working directory
+WORKDIR /api
+
+# Change ownership
+RUN chown -R appuser:appgroup /api
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 9001
+
+# For development, we'll run go directly with volume-mounted source
+CMD ["sh", "-c", "cd /api && go mod tidy && go run main.go"]
+
 # Stage 1: Builder stage
 FROM golang:1.23-alpine AS builder
 

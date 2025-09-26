@@ -1,7 +1,7 @@
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
 
-// Dynamically import the terminal component with SSR disabled
+// Dynamically import the terminal component with SSR disabled and optimized loading
 const DynamicTerminal = dynamic(() => import("./DynamicTerminal"), {
   ssr: false,
   loading: () => (
@@ -13,6 +13,13 @@ const DynamicTerminal = dynamic(() => import("./DynamicTerminal"), {
     </div>
   ),
 });
+
+// Preload the component to improve perceived performance
+if (typeof window !== "undefined") {
+  const preloadTerminal = () => import("./DynamicTerminal");
+  // Preload after a short delay to not block initial page load
+  setTimeout(preloadTerminal, 100);
+}
 
 export default function TerminalWrapper() {
   return (

@@ -1,10 +1,10 @@
 // In src/components/scanner/Scanner.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "~/components/Layout";
+import PageWrapper from "~/components/PageWrapper";
 import { ScanStatus } from "~/components/scanner/ScanStatus";
 import { EnvironmentDataTable } from "~/components/EnvironmentDataTable";
-import { VulnerabilityDataTable } from "~/components/VulnerabilityDataTable";
-import { columns as vulnColumns } from "~/components/VulnerabilityDataTableColumns";
+
 import { columns as hostColumns } from "~/components/EnvironmentDataTableColumns";
 import {
   type EnvironmentTableData,
@@ -22,6 +22,10 @@ import ConfigView from "~/components/scanner/ConfigView";
 import AdvancedView from "~/components/scanner/AdvancedView";
 import { VulnerabilityTable } from "~/components/VulnerabilityTable";
 import { scannerVulnerabilityColumns } from "~/components/ScannerVulnerabilityColumns";
+// Source attribution components (available but simplified for scanner interface)
+// import { columnsWithSources } from "~/components/VulnerabilityTableSourceColumns";
+// import { SourceFilterInterface } from "~/components/SourceFilterInterface";
+// import { useSourceFiltering } from "~/hooks/useSourceFiltering";
 import { cn } from "~/components/lib/utils";
 
 interface ScanNavigatorProps {
@@ -74,7 +78,7 @@ const ScanNavigator: React.FC<ScanNavigatorProps> = ({
   );
 };
 
-const Scanner: React.FC = () => {
+const ScannerContent: React.FC = () => {
   const [activeView, setActiveView] = useState("scan");
   const [activeTable, setActiveTable] = useState<"host-table" | "vuln-table">(
     "host-table"
@@ -94,6 +98,14 @@ const Scanner: React.FC = () => {
   const [selectedVulnerabilities, setSelectedVulnerabilities] = useState<
     string[]
   >([]);
+  // Simplified source info for scanner (disabled for now)
+  // const [showSourceInfo, setShowSourceInfo] = useState(false);
+  // const [sourceFilters, setSourceFilters] = useState<SourceFilterState>({
+  //   sources: [],
+  //   confidence: [],
+  //   dateRange: {},
+  //   searchTerm: "",
+  // });
 
   // Handle report generation
   const handleGenerateReport = (selectedVulns: VulnerabilityTableData[]) => {
@@ -405,6 +417,12 @@ const Scanner: React.FC = () => {
     setVulnerabilityList(mappedVulnerabilities);
   }, [scanResults.hosts, scanResults.vulnerabilities]);
 
+  // Source filtering disabled for scanner interface simplicity
+  // const { filteredData: filteredVulnerabilities } = useSourceFiltering(
+  //   showSourceInfo ? (vulnerabilityList as any) : [],
+  //   sourceFilters
+  // );
+
   const handleScan = async () => {
     try {
       if (!targets.length) {
@@ -471,109 +489,118 @@ const Scanner: React.FC = () => {
   };
 
   return (
-    <Layout>
-      <div className="relative z-20 mb-5 mt-[-40px] h-56">
-        <div className="z-10 flex flex-row items-center">
-          <div className="bg-paper ml-8 mt-4 flex flex-col gap-4 rounded-md">
-            <ScanForm
-              inputValue={inputValue}
-              setInputValue={setInputValue}
-              targetList={targets}
-              addTarget={handleAddTarget}
-              removeTarget={handleRemoveTarget}
-              startScan={handleScan}
-              selectedTemplate={selectedTemplate}
-              setSelectedTemplate={setSelectedTemplate}
-            />
-            <ScanNavigator
-              view={activeView}
-              handleViewNavigator={handleViewChange}
-            />
+    <div className="relative z-20 mb-5 mt-[-40px] h-56">
+      <div className="z-10 flex flex-row items-center">
+        <div className="bg-paper ml-8 mt-4 flex flex-col gap-4 rounded-md">
+          <ScanForm
+            inputValue={inputValue}
+            setInputValue={setInputValue}
+            targetList={targets}
+            addTarget={handleAddTarget}
+            removeTarget={handleRemoveTarget}
+            startScan={handleScan}
+            selectedTemplate={selectedTemplate}
+            setSelectedTemplate={setSelectedTemplate}
+          />
+          <ScanNavigator
+            view={activeView}
+            handleViewNavigator={handleViewChange}
+          />
 
-            <div className="py-4">
-              {activeView === "scan" && (
-                <>
-                  <div className="rounded border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
-                    {scanResults.scanResult ? (
-                      <ScanStatus results={scanResults.scanResult} />
-                    ) : (
-                      <div>Loading scan status…</div>
-                    )}
-                    <div className="flex gap-4 p-2 text-xl font-thin">
-                      <div
-                        className={`flex cursor-pointer flex-col ${
-                          activeTable === "host-table" ? "font-light" : ""
-                        } hover:font-normal`}
-                        onClick={() => {
-                          setActiveTable("host-table");
-                          setDisplayScanDetails(true);
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Show host table"
-                      >
-                        Hosts
-                      </div>
-                      <div className="font-thin text-violet-100/40">|</div>
-                      <div
-                        className={`flex cursor-pointer flex-col ${
-                          activeTable === "vuln-table" ? "font-light" : ""
-                        } hover:font-normal`}
-                        onClick={() => {
-                          setActiveTable("vuln-table");
-                          setDisplayScanDetails(true);
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Show vulnerability table"
-                      >
-                        Vulnerabilities
-                      </div>
+          <div className="py-4">
+            {activeView === "scan" && (
+              <>
+                <div className="rounded border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
+                  {scanResults.scanResult ? (
+                    <ScanStatus results={scanResults.scanResult} />
+                  ) : (
+                    <div>Loading scan status…</div>
+                  )}
+                  <div className="flex gap-4 p-2 text-xl font-thin">
+                    <div
+                      className={`flex cursor-pointer flex-col ${
+                        activeTable === "host-table" ? "font-light" : ""
+                      } hover:font-normal`}
+                      onClick={() => {
+                        setActiveTable("host-table");
+                        setDisplayScanDetails(true);
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Show host table"
+                    >
+                      Hosts
                     </div>
-                    {displayScanDetails && (
-                      <>
-                        {activeTable === "host-table" && (
-                          <div className="mt-4">
-                            <EnvironmentDataTable
-                              columns={hostColumns}
-                              data={hostList as any}
-                            />
-                          </div>
-                        )}
-                        {activeTable === "vuln-table" && (
-                          <div className="mt-4">
-                            <VulnerabilityTable
-                              columns={scannerVulnerabilityColumns}
-                              data={vulnerabilityList}
-                              onSelectionChange={(selected) => {
-                                setSelectedVulnerabilities(
-                                  selected.map((v) => v.cve)
-                                );
-                              }}
-                              onGenerateReport={handleGenerateReport}
-                            />
-                          </div>
-                        )}
-                      </>
-                    )}
+                    <div className="font-thin text-violet-100/40">|</div>
+                    <div
+                      className={`flex cursor-pointer flex-col ${
+                        activeTable === "vuln-table" ? "font-light" : ""
+                      } hover:font-normal`}
+                      onClick={() => {
+                        setActiveTable("vuln-table");
+                        setDisplayScanDetails(true);
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label="Show vulnerability table"
+                    >
+                      Vulnerabilities
+                    </div>
+                    {/* Source info toggle removed for simplicity */}
                   </div>
-                  <hr className="pb-4" />
-                </>
-              )}
-              {activeView === "config" && (
-                <div className="rounded-lg border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
-                  <ConfigView />
+                  {displayScanDetails && (
+                    <>
+                      {activeTable === "host-table" && (
+                        <div className="mt-4">
+                          <EnvironmentDataTable
+                            columns={hostColumns}
+                            data={hostList as any}
+                          />
+                        </div>
+                      )}
+                      {activeTable === "vuln-table" && (
+                        <div className="mt-4">
+                          <VulnerabilityTable
+                            columns={scannerVulnerabilityColumns}
+                            data={vulnerabilityList}
+                            onSelectionChange={(selected) => {
+                              setSelectedVulnerabilities(
+                                selected.map((v) => v.cve)
+                              );
+                            }}
+                            onGenerateReport={handleGenerateReport}
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-              )}
-              {activeView === "advanced" && (
-                <div className="rounded-lg  border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
-                  <AdvancedView />
-                </div>
-              )}
-            </div>
+                <hr className="pb-4" />
+              </>
+            )}
+            {activeView === "config" && (
+              <div className="rounded-lg border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
+                <ConfigView />
+              </div>
+            )}
+            {activeView === "advanced" && (
+              <div className="rounded-lg  border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
+                <AdvancedView />
+              </div>
+            )}
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+const Scanner: React.FC = () => {
+  return (
+    <Layout>
+      <PageWrapper pageName="Scanner">
+        <ScannerContent />
+      </PageWrapper>
     </Layout>
   );
 };

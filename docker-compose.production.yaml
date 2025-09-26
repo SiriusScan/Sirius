@@ -19,6 +19,9 @@ services:
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-dummy_client_secret}
 
   sirius-api:
+    build:
+      context: ./sirius-api/
+      target: builder
     environment:
       - GO_ENV=production
       - LOG_LEVEL=info

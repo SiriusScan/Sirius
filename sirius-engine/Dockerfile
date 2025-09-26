@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for sirius-engine
 # Stage 1: Build stage with all dependencies
-FROM golang:1.24-bullseye AS builder
+FROM golang:1.23-bullseye AS builder
 
 # Set working directory
 WORKDIR /build
@@ -62,7 +62,7 @@ RUN git clone https://github.com/SiriusScan/sirius-nse.git && \
     git checkout ${SIRIUS_NSE_COMMIT_SHA}
 
 # Stage 2: Development stage with Go compiler and tools
-FROM golang:1.24-bullseye AS development
+FROM golang:1.23-bullseye AS development
 
 # Set working directory
 WORKDIR /engine
@@ -84,8 +84,8 @@ RUN apt-get update && \
     nmap \
     && rm -rf /var/lib/apt/lists/*
 
-# Install air for live reloading (from new repository)
-RUN go install github.com/air-verse/air@latest
+# Install air for live reloading (compatible version with Go 1.23)
+RUN go install github.com/air-verse/air@v1.52.3
 
 # Install Rust and RustScan to /usr/local/bin for system-wide access
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y && \
@@ -102,15 +102,15 @@ RUN mkdir -p /opt/microsoft/powershell && \
     case "$ARCH" in \
     "aarch64") \
     echo "Installing ARM64 version" && \
-    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.10/powershell-7.4.10-linux-arm64.tar.gz && \
-    tar -xvf powershell-7.4.10-linux-arm64.tar.gz && \
-    rm powershell-7.4.10-linux-arm64.tar.gz \
+    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-arm64.tar.gz && \
+    tar -xvf powershell-7.4.6-linux-arm64.tar.gz && \
+    rm powershell-7.4.6-linux-arm64.tar.gz \
     ;; \
     "x86_64") \
     echo "Installing AMD64 version" && \
-    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.10/powershell-7.4.10-linux-x64.tar.gz && \
-    tar -xvf powershell-7.4.10-linux-x64.tar.gz && \
-    rm powershell-7.4.10-linux-x64.tar.gz \
+    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz && \
+    tar -xvf powershell-7.4.6-linux-x64.tar.gz && \
+    rm powershell-7.4.6-linux-x64.tar.gz \
     ;; \
     *) \
     echo "Unsupported architecture: $ARCH" && exit 1 \
@@ -186,15 +186,15 @@ RUN ARCH=$(uname -m) && \
     case "$ARCH" in \
     "aarch64") \
     echo "Installing ARM64 version" && \
-    wget https://github.com/PowerShell/PowerShell/releases/download/v7.5.0/powershell-7.5.0-linux-arm64.tar.gz && \
-    tar -xvf powershell-7.5.0-linux-arm64.tar.gz && \
-    rm powershell-7.5.0-linux-arm64.tar.gz \
+    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-arm64.tar.gz && \
+    tar -xvf powershell-7.4.6-linux-arm64.tar.gz && \
+    rm powershell-7.4.6-linux-arm64.tar.gz \
     ;; \
     "x86_64") \
     echo "Installing AMD64 version" && \
-    wget https://github.com/PowerShell/PowerShell/releases/download/v7.5.0/powershell-7.5.0-linux-x64.tar.gz && \
-    tar -xvf powershell-7.5.0-linux-x64.tar.gz && \
-    rm powershell-7.5.0-linux-x64.tar.gz \
+    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz && \
+    tar -xvf powershell-7.4.6-linux-x64.tar.gz && \
+    rm powershell-7.4.6-linux-x64.tar.gz \
     ;; \
     *) \
     echo "Unsupported architecture: $ARCH" && exit 1 \

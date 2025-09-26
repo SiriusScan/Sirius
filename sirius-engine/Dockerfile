@@ -133,10 +133,25 @@ COPY --from=builder /repos/app-agent /app-agent-src/
 COPY --from=builder /repos/go-api /go-api/
 COPY --from=builder /repos/sirius-nse /sirius-nse/
 
+# Copy NSE scripts and manifest to the expected location
+RUN mkdir -p /opt/sirius/nse/sirius-nse && \
+    cp -r /sirius-nse/* /opt/sirius/nse/sirius-nse/ 2>/dev/null || echo "No sirius-nse files to copy" && \
+    chmod -R 755 /opt/sirius/nse
+
 # Copy configuration and scripts
 COPY .air.toml .air.toml
 COPY start.sh /start.sh
 COPY start-enhanced.sh /start-enhanced.sh
+
+# Copy local apps directory (includes manifest.json) to provide fallback
+COPY apps/ /engine/apps/
+
+# Ensure the NSE manifest is available from local apps as fallback
+RUN if [ -f /engine/apps/app-scanner/manifest.json ]; then \
+        mkdir -p /opt/sirius/nse/sirius-nse && \
+        cp /engine/apps/app-scanner/manifest.json /opt/sirius/nse/sirius-nse/ && \
+        echo "✅ Copied local manifest.json to /opt/sirius/nse/sirius-nse/"; \
+    fi
 
 # Make scripts executable and fix line endings
 RUN dos2unix /start.sh /start-enhanced.sh && \
@@ -223,6 +238,11 @@ COPY --from=builder /repos/app-agent/command-sender /app-agent/
 COPY --from=builder /repos/app-agent /app-agent-src/
 COPY --from=builder /repos/go-api /go-api/
 COPY --from=builder /repos/sirius-nse /sirius-nse/
+
+# Copy NSE scripts and manifest to the expected location for production
+RUN mkdir -p /opt/sirius/nse/sirius-nse && \
+    cp -r /sirius-nse/* /opt/sirius/nse/sirius-nse/ 2>/dev/null || echo "No sirius-nse files to copy" && \
+    chmod -R 755 /opt/sirius/nse
 
 # Create non-root user for security
 RUN groupadd -r sirius && useradd -r -g sirius sirius

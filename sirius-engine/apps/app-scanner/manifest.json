@@ -1,0 +1,8 @@
+{
+    "repositories": [
+        {
+            "name": "sirius-nse",
+            "url": "https://github.com/SiriusScan/sirius-nse.git"
+        }
+    ]
+}

@@ -40,22 +40,14 @@ RUN apk add --no-cache \
     ca-certificates \
     tzdata
 
-# First, clone the go-api dependency to a temporary location
-WORKDIR /tmp
-RUN git clone https://github.com/SiriusScan/go-api.git
-
-# Now set up the main app
-WORKDIR /app
-COPY go.mod go.sum ./
-
-# Update the replace directive to point to the cloned go-api
-RUN sed -i 's|replace github.com/SiriusScan/go-api => ../go-api|replace github.com/SiriusScan/go-api => /tmp/go-api|g' go.mod
-
-# Download dependencies
-RUN go mod download
-
-# Copy source code
+# Copy source code first
 COPY . .
+
+# Clone the go-api dependency to the expected relative location
+RUN git clone https://github.com/SiriusScan/go-api.git ../go-api
+
+# Download dependencies with the cloned go-api
+RUN go mod download
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o sirius-api main.go

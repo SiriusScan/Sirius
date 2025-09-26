@@ -96,7 +96,9 @@ services:
           cpus: "0.25"
 
   sirius-api:
-    build: ./sirius-api/
+    build:
+      context: ./sirius-api/
+      target: development
     container_name: sirius-api
     hostname: sirius-api
     restart: always

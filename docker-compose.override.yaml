@@ -35,7 +35,9 @@ services:
     #   - sirius-postgres
 
   sirius-api:
-    build: ./sirius-api/
+    build:
+      context: ./sirius-api/
+      target: development
     volumes:
       - ./sirius-api:/api
       # Enabled for local go-api development with source-aware functionality:

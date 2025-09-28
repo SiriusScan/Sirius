@@ -1,7 +1,3 @@
-module sirius-engine
+module github.com/0sm0s1z/Sirius-Scan
 
-go 1.21
-
-require (
-// No external dependencies for the basic engine
-)
+go 1.20

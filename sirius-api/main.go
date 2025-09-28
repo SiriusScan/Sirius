@@ -25,10 +25,10 @@ func waitForDatabase() error {
 	if port == "" {
 		port = "5432"
 	}
-	
+
 	address := net.JoinHostPort(host, port)
 	log.Printf("🔍 Waiting for database at %s...", address)
-	
+
 	for attempts := 0; attempts < 30; attempts++ {
 		conn, err := net.DialTimeout("tcp", address, 3*time.Second)
 		if err == nil {
@@ -39,19 +39,19 @@ func waitForDatabase() error {
 		log.Printf("⏳ Database not ready (attempt %d/30), retrying in 2s...", attempts+1)
 		time.Sleep(2 * time.Second)
 	}
-	
+
 	return fmt.Errorf("database not available after 30 attempts")
 }
 
 // runMigrations executes database migrations before starting the API
 func runMigrations() error {
 	log.Println("🔄 Running database migrations...")
-	
+
 	// Wait for database to be available
 	if err := waitForDatabase(); err != nil {
 		return fmt.Errorf("database connectivity check failed: %w", err)
 	}
-	
+
 	// Check if we're in development mode with volume mount
 	var goApiPath string
 	if _, err := os.Stat("/go-api"); err == nil {
@@ -62,9 +62,9 @@ func runMigrations() error {
 		log.Println("⚠️  go-api not found, skipping migrations")
 		return nil
 	}
-	
+
 	migrationsPath := filepath.Join(goApiPath, "migrations")
-	
+
 	// Run migration 002_source_attribution (creates scan_history_entries table)
 	migration002Path := filepath.Join(migrationsPath, "002_source_attribution", "main.go")
 	if _, err := os.Stat(migration002Path); err == nil {
@@ -73,14 +73,14 @@ func runMigrations() error {
 		cmd.Dir = goApiPath
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		
+
 		if err := cmd.Run(); err != nil {
 			log.Printf("⚠️  Migration 002_source_attribution failed (may already be applied): %v", err)
 		} else {
 			log.Println("✅ Migration 002_source_attribution completed")
 		}
 	}
-	
+
 	// Run migration 004_add_sbom_schema if it exists
 	migration004Path := filepath.Join(migrationsPath, "004_add_sbom_schema", "main.go")
 	if _, err := os.Stat(migration004Path); err == nil {
@@ -89,14 +89,14 @@ func runMigrations() error {
 		cmd.Dir = goApiPath
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		
+
 		if err := cmd.Run(); err != nil {
 			log.Printf("⚠️  Migration 004_add_sbom_schema failed (may already be applied): %v", err)
 		} else {
 			log.Println("✅ Migration 004_add_sbom_schema completed")
 		}
 	}
-	
+
 	log.Println("✅ Database migrations completed")
 	return nil
 }

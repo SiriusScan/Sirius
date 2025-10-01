@@ -8,7 +8,7 @@ services:
   sirius-api:
     build:
       context: ./sirius-api/
-      target: builder  # Use builder stage which includes the git clone
+      target: builder # Use builder stage which includes the git clone
     environment:
       - GO_ENV=production
       - LOG_LEVEL=info
@@ -17,7 +17,7 @@ services:
   sirius-engine:
     build:
       context: ./sirius-engine/
-      target: runtime  # Use production runtime stage
+      target: runtime # Use production runtime stage
     environment:
       - GO_ENV=production
       - LOG_LEVEL=info

@@ -1,18 +1,64 @@
 ---
 description: CRITICAL - GitHub comment posting requires explicit user approval before mcp_github_add_issue_comment execution
-globs: 
-alwaysApply: false
+globs: **/*
+alwaysApply: true
 ---
+
 # GitHub MCP Usage Guidelines
 
 ## Repository Information
+
 - **Repository**: https://github.com/SiriusScan/Sirius
 - **Owner**: SiriusScan
 - **Repository Name**: Sirius
 
+## 🚨 CRITICAL RULE: COMMENT APPROVAL REQUIRED
+
+### **NEVER POST COMMENTS WITHOUT EXPLICIT APPROVAL**
+
+- **🛑 ABSOLUTE REQUIREMENT**: Every GitHub comment MUST be approved by the user before posting
+- **❌ NEVER** use `mcp_github_add_issue_comment` without explicit user confirmation
+- **✅ ALWAYS** draft, present, and wait for approval
+
+### **Mandatory Comment Approval Workflow**
+
+```
+🔒 REQUIRED STEPS - NO EXCEPTIONS:
+
+1. 📝 Draft the complete comment content
+2. 🎯 Present to user with clear context:
+   "I want to post this comment on Issue #X: [content]"
+3. ⏳ WAIT for explicit approval keywords:
+   - "approved" / "post it" / "go ahead" / "yes, post it"
+4. ✅ Only THEN execute mcp_github_add_issue_comment
+5. 🚫 If no approval received, DO NOT POST
+```
+
+### **Required Approval Format**
+
+```
+I want to post this comment on Issue #[NUMBER]:
+
+---
+[FULL COMMENT CONTENT HERE]
+---
+
+Should I post this comment? (I need explicit approval)
+```
+
+### **Approval Keywords**
+
+- ✅ "approved"
+- ✅ "post it"
+- ✅ "go ahead"
+- ✅ "yes, post it"
+- ✅ "publish it"
+- ❌ Anything else = DO NOT POST
+
 ## Comment Approval Workflow
 
 - **🚨 CRITICAL REQUIREMENT: ALL GitHub comments must be approved before posting**
+
   - Always draft comment content and present it to the user for review
   - Never use `mcp_github_add_issue_comment` without explicit user approval
   - Format proposed comments clearly with context about which issue/PR they target
@@ -30,11 +76,13 @@ alwaysApply: false
 ## Issue Management Best Practices
 
 - **Reading Issues**
+
   - Use `mcp_github_get_issue` to fetch full issue details
   - Use `mcp_github_get_issue_comments` to read existing conversation
   - Always understand context before proposing responses
 
 - **Issue Analysis**
+
   - Identify root cause from issue description and attachments
   - Check for existing solutions in comments
   - Reference relevant code files when applicable
@@ -50,6 +98,7 @@ alwaysApply: false
 ## Pull Request Workflow
 
 - **PR Review Process**
+
   - Use `mcp_github_get_pull_request` for PR details
   - Use `mcp_github_get_pull_request_files` to see changes
   - Use `mcp_github_get_pull_request_diff` for detailed review
@@ -64,6 +113,7 @@ alwaysApply: false
 ## Repository Operations
 
 - **Branch Management**
+
   - Use descriptive branch names following project conventions
   - Check existing branches with `mcp_github_list_branches`
   - Create branches for specific issues/features only
@@ -84,6 +134,7 @@ alwaysApply: false
 ## Error Handling
 
 - **Common Issues**
+
   - Check repository permissions before operations
   - Verify issue/PR numbers exist before referencing
   - Handle rate limiting gracefully
@@ -98,6 +149,7 @@ alwaysApply: false
 ## Security Considerations
 
 - **Sensitive Information**
+
   - Never include API keys, passwords, or secrets in comments
   - Avoid exposing internal system details unnecessarily
   - Be cautious with error messages that might reveal system info
@@ -110,6 +162,7 @@ alwaysApply: false
 ## Project-Specific Guidelines
 
 - **Sirius Project Context**
+
   - Understand the project structure (sirius-ui, sirius-api, sirius-engine)
   - Reference Docker compose issues and solutions appropriately
   - Consider multi-service architecture in recommendations
@@ -125,24 +178,28 @@ alwaysApply: false
 ## Examples
 
 ### Good Comment Approval Request
-```
-I propose this comment for Issue #49:
 
-"Hi @declan727! I can see the issue you're experiencing. The problem is with the installation instructions in the README.
+```
+I want to post this comment on Issue #49:
+
+---
+Hi @declan727! I can see the issue you're experiencing. The problem is with the installation instructions in the README.
 
 **Root Cause**: The README tells users to clone the website.git repository, but the docker-compose.yaml expects local directories.
 
-**Solution**: 
+**Solution**:
 1. Clone the correct repository: `git clone https://github.com/SiriusScan/Sirius.git`
-2. Navigate to the directory: `cd Sirius` 
+2. Navigate to the directory: `cd Sirius`
 3. Run: `docker compose up -d`
 
-The volume mounts to `../minor-projects/` directories are for development and need to be adjusted for end users."
+The volume mounts to `../minor-projects/` directories are for development and need to be adjusted for end users.
+---
 
-Should I post this comment?
+Should I post this comment? (I need explicit approval)
 ```
 
 ### Good Commit Message Format
+
 ```
 "Fix Docker compose volume mounts for end users
 
@@ -156,8 +213,9 @@ Fixes #49"
 ## Tools Reference
 
 ### Essential GitHub MCP Functions
+
 - `mcp_github_get_issue` - Get issue details
-- `mcp_github_add_issue_comment` - Add comment (REQUIRES APPROVAL)
+- `mcp_github_add_issue_comment` - Add comment (🚨 REQUIRES APPROVAL)
 - `mcp_github_get_issue_comments` - Read existing comments
 - `mcp_github_list_notifications` - Check for actionable items
 - `mcp_github_get_pull_request` - Get PR details
@@ -165,6 +223,7 @@ Fixes #49"
 - `mcp_github_create_or_update_file` - Modify repository files
 
 ### Workflow Commands
+
 - `mcp_github_list_issues` - Browse open issues
 - `mcp_github_search_issues` - Find specific issues
 - `mcp_github_get_file_contents` - Read repository files

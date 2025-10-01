@@ -136,11 +136,6 @@ services:
     ports:
       - "5174:5174"
       - "50051:50051" # Agent gRPC
-    volumes:
-      # Mount app services for development mode
-      - ./sirius-engine/apps/app-scanner:/app-scanner-src:ro
-      - ./sirius-engine/apps/app-terminal:/app-terminal-src:ro
-      - ./sirius-engine/apps/app-agent:/app-agent-src:ro
     environment:
       - GO_ENV=${GO_ENV:-production}
       - ENGINE_MAIN_PORT=${ENGINE_MAIN_PORT:-5174}

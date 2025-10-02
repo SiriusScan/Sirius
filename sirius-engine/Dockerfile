@@ -38,17 +38,15 @@ RUN git clone https://github.com/SiriusScan/go-api.git && \
     git checkout ${GO_API_COMMIT_SHA} && \
     go mod tidy
 
-# Clone app-terminal
-RUN git clone https://github.com/SiriusScan/app-terminal.git && \
-    cd app-terminal && \
-    git checkout ${APP_TERMINAL_COMMIT_SHA} && \
+# Copy and build app-terminal from local directory
+COPY apps/app-terminal /repos/app-terminal
+RUN cd /repos/app-terminal && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o terminal cmd/main.go
 
-# Clone app-agent
-RUN git clone https://github.com/SiriusScan/app-agent.git && \
-    cd app-agent && \
-    git checkout ${APP_AGENT_COMMIT_SHA} && \
+# Copy and build app-agent from local directory  
+COPY apps/app-agent /repos/app-agent
+RUN cd /repos/app-agent && \
     go mod tidy && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o agent cmd/agent/main.go && \

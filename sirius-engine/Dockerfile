@@ -85,12 +85,25 @@ RUN apt-get update && \
 # Install air for live reloading (compatible version with Go 1.23)
 RUN go install github.com/air-verse/air@v1.52.3
 
-# Install Rust and RustScan to /usr/local/bin for system-wide access
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y && \
-    . ~/.cargo/env && \
-    cargo install --git https://github.com/RustScan/RustScan.git --branch master && \
-    cp ~/.cargo/bin/rustscan /usr/local/bin/ && \
-    chmod +x /usr/local/bin/rustscan
+# Install RustScan pre-built binary (much faster than compiling from source)
+RUN ARCH=$(uname -m) && \
+    case "$ARCH" in \
+    "aarch64") \
+    echo "Installing ARM64 RustScan" && \
+    wget https://github.com/RustScan/RustScan/releases/download/2.1.1/rustscan_2.1.1_arm64-unknown-linux-musl.deb && \
+    dpkg -i rustscan_2.1.1_arm64-unknown-linux-musl.deb && \
+    rm rustscan_2.1.1_arm64-unknown-linux-musl.deb \
+    ;; \
+    "x86_64") \
+    echo "Installing AMD64 RustScan" && \
+    wget https://github.com/RustScan/RustScan/releases/download/2.1.1/rustscan_2.1.1_amd64-unknown-linux-musl.deb && \
+    dpkg -i rustscan_2.1.1_amd64-unknown-linux-musl.deb && \
+    rm rustscan_2.1.1_amd64-unknown-linux-musl.deb \
+    ;; \
+    *) \
+    echo "Unsupported architecture: $ARCH" && exit 1 \
+    ;; \
+    esac
 ENV PATH="/usr/local/bin:${PATH}"
 
 # Install PowerShell for development stage
@@ -185,12 +198,25 @@ RUN apt-get update && \
     dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust and RustScan to /usr/local/bin for system-wide access
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y && \
-    . ~/.cargo/env && \
-    cargo install --git https://github.com/RustScan/RustScan.git --branch master && \
-    cp ~/.cargo/bin/rustscan /usr/local/bin/ && \
-    chmod +x /usr/local/bin/rustscan
+# Install RustScan pre-built binary (much faster than compiling from source)
+RUN ARCH=$(uname -m) && \
+    case "$ARCH" in \
+    "aarch64") \
+    echo "Installing ARM64 RustScan" && \
+    wget https://github.com/RustScan/RustScan/releases/download/2.1.1/rustscan_2.1.1_arm64-unknown-linux-musl.deb && \
+    dpkg -i rustscan_2.1.1_arm64-unknown-linux-musl.deb && \
+    rm rustscan_2.1.1_arm64-unknown-linux-musl.deb \
+    ;; \
+    "x86_64") \
+    echo "Installing AMD64 RustScan" && \
+    wget https://github.com/RustScan/RustScan/releases/download/2.1.1/rustscan_2.1.1_amd64-unknown-linux-musl.deb && \
+    dpkg -i rustscan_2.1.1_amd64-unknown-linux-musl.deb && \
+    rm rustscan_2.1.1_amd64-unknown-linux-musl.deb \
+    ;; \
+    *) \
+    echo "Unsupported architecture: $ARCH" && exit 1 \
+    ;; \
+    esac
 ENV PATH="/usr/local/bin:${PATH}"
 
 # Install PowerShell - Architecture specific

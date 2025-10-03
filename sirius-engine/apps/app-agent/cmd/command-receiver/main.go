@@ -9,13 +9,13 @@ import (
 )
 
 func main() {
-	fmt.Println("Terminal service starting...")
+	fmt.Println("Command receiver starting...")
 	
 	// Simple health check endpoint simulation
 	go func() {
 		for {
 			time.Sleep(30 * time.Second)
-			fmt.Println("Terminal service: healthy")
+			fmt.Println("Command receiver: healthy")
 		}
 	}()
 	
@@ -24,5 +24,5 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
 	
-	fmt.Println("Terminal service shutting down...")
+	fmt.Println("Command receiver shutting down...")
 }

@@ -90,15 +90,20 @@ RUN ARCH=$(uname -m) && \
     case "$ARCH" in \
     "aarch64") \
     echo "Installing ARM64 RustScan" && \
-    wget https://github.com/RustScan/RustScan/releases/download/2.1.1/rustscan_2.1.1_arm64-unknown-linux-musl.deb && \
-    dpkg -i rustscan_2.1.1_arm64-unknown-linux-musl.deb && \
-    rm rustscan_2.1.1_arm64-unknown-linux-musl.deb \
+    wget https://github.com/bee-san/RustScan/releases/latest/download/aarch64-linux-rustscan.zip && \
+    unzip aarch64-linux-rustscan.zip && \
+    mv rustscan /usr/local/bin/ && \
+    chmod +x /usr/local/bin/rustscan && \
+    rm aarch64-linux-rustscan.zip \
     ;; \
     "x86_64") \
     echo "Installing AMD64 RustScan" && \
-    wget https://github.com/RustScan/RustScan/releases/download/2.1.1/rustscan_2.1.1_amd64-unknown-linux-musl.deb && \
-    dpkg -i rustscan_2.1.1_amd64-unknown-linux-musl.deb && \
-    rm rustscan_2.1.1_amd64-unknown-linux-musl.deb \
+    wget https://github.com/bee-san/RustScan/releases/latest/download/x86_64-linux-rustscan.tar.gz.zip && \
+    unzip x86_64-linux-rustscan.tar.gz.zip && \
+    tar -xzf x86_64-linux-rustscan.tar.gz && \
+    mv rustscan /usr/local/bin/ && \
+    chmod +x /usr/local/bin/rustscan && \
+    rm x86_64-linux-rustscan.tar.gz.zip x86_64-linux-rustscan.tar.gz \
     ;; \
     *) \
     echo "Unsupported architecture: $ARCH" && exit 1 \
@@ -203,15 +208,20 @@ RUN ARCH=$(uname -m) && \
     case "$ARCH" in \
     "aarch64") \
     echo "Installing ARM64 RustScan" && \
-    wget https://github.com/RustScan/RustScan/releases/download/2.1.1/rustscan_2.1.1_arm64-unknown-linux-musl.deb && \
-    dpkg -i rustscan_2.1.1_arm64-unknown-linux-musl.deb && \
-    rm rustscan_2.1.1_arm64-unknown-linux-musl.deb \
+    wget https://github.com/bee-san/RustScan/releases/latest/download/aarch64-linux-rustscan.zip && \
+    unzip aarch64-linux-rustscan.zip && \
+    mv rustscan /usr/local/bin/ && \
+    chmod +x /usr/local/bin/rustscan && \
+    rm aarch64-linux-rustscan.zip \
     ;; \
     "x86_64") \
     echo "Installing AMD64 RustScan" && \
-    wget https://github.com/RustScan/RustScan/releases/download/2.1.1/rustscan_2.1.1_amd64-unknown-linux-musl.deb && \
-    dpkg -i rustscan_2.1.1_amd64-unknown-linux-musl.deb && \
-    rm rustscan_2.1.1_amd64-unknown-linux-musl.deb \
+    wget https://github.com/bee-san/RustScan/releases/latest/download/x86_64-linux-rustscan.tar.gz.zip && \
+    unzip x86_64-linux-rustscan.tar.gz.zip && \
+    tar -xzf x86_64-linux-rustscan.tar.gz && \
+    mv rustscan /usr/local/bin/ && \
+    chmod +x /usr/local/bin/rustscan && \
+    rm x86_64-linux-rustscan.tar.gz.zip x86_64-linux-rustscan.tar.gz \
     ;; \
     *) \
     echo "Unsupported architecture: $ARCH" && exit 1 \

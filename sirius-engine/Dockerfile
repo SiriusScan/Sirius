@@ -80,6 +80,7 @@ RUN apt-get update && \
     bash \
     dos2unix \
     nmap \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install air for live reloading (compatible version with Go 1.23)
@@ -201,6 +202,7 @@ RUN apt-get update && \
     wget \
     curl \
     dos2unix \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Install RustScan pre-built binary (much faster than compiling from source)

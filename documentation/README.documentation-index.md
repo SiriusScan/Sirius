@@ -30,7 +30,7 @@ This document provides a complete index of all documentation files in the Sirius
 
 ### System Architecture
 - [README.architecture.md](dev/architecture/README.architecture.md) - System architecture and component relationships
-
+- [README.cicd.md](dev/architecture/README.cicd.md) - CI/CD pipeline and deployment processes
 ## Operations Documentation
 
 ### Git Operations

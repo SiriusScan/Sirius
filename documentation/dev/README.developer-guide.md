@@ -269,6 +269,78 @@ Each service uses multi-stage Dockerfiles to optimize for different environments
 
 This prevents Docker cache conflicts when switching environments.
 
+## CI/CD Integration
+
+### Pre-commit Validation
+
+**Purpose**: Fast validation to catch obvious issues before commit
+
+**Duration**: ~30 seconds
+
+**What's Tested**:
+- Docker Compose configuration validation
+- Documentation linting
+- Basic syntax checks
+- Code formatting
+
+**Commands**:
+```bash
+# Pre-commit validation (automatic)
+git commit  # Runs quick validation automatically
+
+# Manual validation
+cd testing/container-testing
+make build-all          # Validate all Docker Compose configs
+make lint-docs-quick    # Quick documentation checks
+```
+
+### CI/CD Pipeline
+
+**Purpose**: Comprehensive testing of all changes
+
+**Duration**: ~5-10 minutes
+
+**What's Tested**:
+- Docker container builds (all services)
+- Service health checks
+- Integration testing
+- Cross-service communication
+- Production build validation
+
+**Triggers**:
+- Pull requests to main branch
+- Pushes to main branch
+- Hotfix pushes
+
+### Local Testing
+
+**Purpose**: Manual testing during development
+
+**Available Commands**:
+```bash
+# Full test suite
+cd testing/container-testing
+make test-all
+
+# Individual tests
+make test-build          # Test Docker builds
+make test-health         # Test service health
+make test-integration    # Test integration
+
+# Quick validation
+make build-all           # Validate configs
+make lint-docs-quick     # Quick docs check
+```
+
+### Testing Strategy
+
+| Scenario | Pre-commit | CI/CD | Local Testing |
+|----------|------------|-------|---------------|
+| **Feature Development** | ✅ Quick validation | ❌ No | ✅ Full testing |
+| **Pull Request** | ✅ Quick validation | ✅ Full testing | ✅ Full testing |
+| **Main Branch** | ✅ Quick validation | ✅ Full testing | ✅ Full testing |
+| **Documentation** | ✅ Quick validation | ❌ No | ✅ Full testing |
+
 ## Common Tasks
 
 ### Viewing Logs

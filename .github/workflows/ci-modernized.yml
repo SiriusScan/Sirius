@@ -1,0 +1,398 @@
+name: Sirius CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: siriusscan
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      sirius_ui_changes: ${{ steps.changes.outputs.sirius_ui_changes }}
+      sirius_api_changes: ${{ steps.changes.outputs.sirius_api_changes }}
+      sirius_engine_changes: ${{ steps.changes.outputs.sirius_engine_changes }}
+      documentation_changes: ${{ steps.changes.outputs.documentation_changes }}
+      docker_changes: ${{ steps.changes.outputs.docker_changes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Changed Files
+        id: changes
+        run: |
+          # For pull requests
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            BASE_SHA=${{ github.event.pull_request.base.sha }}
+            HEAD_SHA=${{ github.event.pull_request.head.sha }}
+          else
+            # For push events
+            BASE_SHA=${{ github.event.before }}
+            HEAD_SHA=${{ github.event.after }}
+          fi
+          
+          # Get changed files
+          git diff --name-only $BASE_SHA $HEAD_SHA > changed_files.txt
+          echo "Changed files:"
+          cat changed_files.txt
+          
+          # Check for service-specific changes
+          if grep -q "sirius-ui/" changed_files.txt; then
+            echo "UI changes detected"
+            echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
+          fi
+          
+          if grep -q "sirius-api/" changed_files.txt; then
+            echo "API changes detected"
+            echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
+          fi
+          
+          if grep -q "sirius-engine/" changed_files.txt; then
+            echo "Engine changes detected"
+            echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check for documentation changes
+          if grep -q "documentation/" changed_files.txt; then
+            echo "Documentation changes detected"
+            echo "documentation_changes=true" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check for Docker/CI changes
+          if grep -q -E "(Dockerfile|\.github/|docker-compose|scripts/)" changed_files.txt; then
+            echo "Docker or CI changes detected"
+            echo "docker_changes=true" >> $GITHUB_OUTPUT
+            # Docker changes affect all services
+            echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
+            echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
+            echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
+          fi
+          
+          # If no specific changes detected but we have changes, rebuild everything
+          if [ ! -s changed_files.txt ]; then
+            echo "General changes detected, rebuilding everything"
+            echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
+            echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
+            echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+  quick-checks:
+    name: Quick Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Validate Docker Compose Configurations
+        run: |
+          echo "🔍 Validating Docker Compose configurations..."
+          docker compose config --quiet
+          docker compose -f docker-compose.yaml -f docker-compose.dev.yaml config --quiet
+          docker compose -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet
+          echo "✅ All Docker Compose configurations are valid"
+
+      - name: Validate Documentation
+        run: |
+          echo "📚 Validating documentation..."
+          cd testing/container-testing
+          make lint-docs-quick
+          make lint-index
+          echo "✅ Documentation validation passed"
+
+  build-and-push:
+    name: Build & Push Images
+    needs: [detect-changes, quick-checks]
+    runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.sirius_ui_changes == 'true' || needs.detect-changes.outputs.sirius_api_changes == 'true' || needs.detect-changes.outputs.sirius_engine_changes == 'true'
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate metadata
+        id: meta
+        run: |
+          # Set image tags based on event type
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            TAG="pr-${{ github.event.number }}"
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            TAG="latest"
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          else
+            TAG="dev"
+          fi
+          
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Generated image tag: $TAG"
+
+      - name: Build and push sirius-ui
+        if: needs.detect-changes.outputs.sirius_ui_changes == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sirius-ui
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-ui:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push sirius-api
+        if: needs.detect-changes.outputs.sirius_api_changes == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sirius-api
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-api:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push sirius-engine
+        if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sirius-engine
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-engine:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  integration-test:
+    name: Integration Testing
+    needs: [detect-changes, build-and-push]
+    runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.sirius_ui_changes == 'true' || needs.detect-changes.outputs.sirius_api_changes == 'true' || needs.detect-changes.outputs.sirius_engine_changes == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create CI test environment
+        run: |
+          # Create test docker-compose configuration
+          cat > docker-compose.ci.yml << EOF
+          name: sirius-ci-test
+          services:
+            sirius-postgres:
+              image: postgres:15-alpine
+              environment:
+                POSTGRES_USER: postgres
+                POSTGRES_PASSWORD: postgres
+                POSTGRES_DB: sirius_test
+              tmpfs: 
+                - /var/lib/postgresql/data # Use RAM for CI testing
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U postgres"]
+                interval: 5s
+                timeout: 5s
+                retries: 5
+          
+            sirius-rabbitmq:
+              image: rabbitmq:3.7.3-management
+              environment:
+                RABBITMQ_DEFAULT_USER: guest
+                RABBITMQ_DEFAULT_PASS: guest
+              healthcheck:
+                test: ["CMD", "rabbitmq-diagnostics", "ping"]
+                interval: 5s
+                timeout: 5s
+                retries: 5
+          
+            sirius-valkey:
+              image: valkey/valkey:latest
+              healthcheck:
+                test: ["CMD", "redis-cli", "ping"]
+                interval: 5s
+                timeout: 5s
+                retries: 5
+
+            sirius-ui:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ needs.build-and-push.outputs.image_tag }}
+              environment:
+                - NODE_ENV=production
+                - SKIP_ENV_VALIDATION=1
+                - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius_test
+                - NEXTAUTH_SECRET=test-secret-key
+                - NEXTAUTH_URL=http://localhost:3000
+                - SIRIUS_API_URL=http://sirius-api:9001
+                - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
+              depends_on:
+                sirius-postgres:
+                  condition: service_healthy
+              healthcheck:
+                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+                interval: 10s
+                timeout: 5s
+                retries: 3
+          
+            sirius-api:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ needs.build-and-push.outputs.image_tag }}
+              environment:
+                - GO_ENV=production
+                - API_PORT=9001
+                - POSTGRES_HOST=sirius-postgres
+                - POSTGRES_USER=postgres
+                - POSTGRES_PASSWORD=postgres
+                - POSTGRES_DB=sirius_test
+                - POSTGRES_PORT=5432
+                - VALKEY_HOST=sirius-valkey
+                - VALKEY_PORT=6379
+                - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+                - LOG_LEVEL=info
+              depends_on:
+                sirius-postgres:
+                  condition: service_healthy
+                sirius-rabbitmq:
+                  condition: service_healthy
+                sirius-valkey:
+                  condition: service_healthy
+              healthcheck:
+                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9001/api/v1/health"]
+                interval: 10s
+                timeout: 5s
+                retries: 3
+          
+            sirius-engine:
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ needs.build-and-push.outputs.image_tag }}
+              environment:
+                - GO_ENV=production
+                - ENGINE_MAIN_PORT=5174
+                - GRPC_AGENT_PORT=50051
+                - POSTGRES_HOST=sirius-postgres
+                - POSTGRES_USER=postgres
+                - POSTGRES_PASSWORD=postgres
+                - POSTGRES_DB=sirius_test
+                - POSTGRES_PORT=5432
+                - VALKEY_HOST=sirius-valkey
+                - VALKEY_PORT=6379
+                - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+                - LOG_LEVEL=info
+              depends_on:
+                sirius-postgres:
+                  condition: service_healthy
+                sirius-rabbitmq:
+                  condition: service_healthy
+                sirius-valkey:
+                  condition: service_healthy
+              healthcheck:
+                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5174/health"]
+                interval: 10s
+                timeout: 5s
+                retries: 3
+          EOF
+
+      - name: Run integration tests
+        run: |
+          echo "🧪 Starting integration tests..."
+          
+          # Start infrastructure services
+          docker compose -f docker-compose.ci.yml up -d sirius-postgres sirius-rabbitmq sirius-valkey
+          
+          # Wait for infrastructure to be healthy
+          echo "⏳ Waiting for infrastructure services to be healthy..."
+          timeout 60 bash -c 'until docker compose -f docker-compose.ci.yml ps | grep -q "healthy"; do sleep 2; done'
+          
+          # Start application services based on what was built
+          SERVICES_TO_TEST=""
+          
+          if [ "${{ needs.detect-changes.outputs.sirius_api_changes }}" == "true" ]; then
+            SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-api"
+          fi
+          
+          if [ "${{ needs.detect-changes.outputs.sirius_engine_changes }}" == "true" ]; then
+            SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-engine"
+          fi
+          
+          if [ "${{ needs.detect-changes.outputs.sirius_ui_changes }}" == "true" ]; then
+            SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-ui"
+          fi
+          
+          if [ -n "$SERVICES_TO_TEST" ]; then
+            echo "🚀 Starting application services: $SERVICES_TO_TEST"
+            docker compose -f docker-compose.ci.yml up -d $SERVICES_TO_TEST
+            
+            # Wait for services to be healthy
+            echo "⏳ Waiting for application services to be healthy..."
+            timeout 120 bash -c 'until docker compose -f docker-compose.ci.yml ps | grep -q "healthy"; do sleep 5; done'
+            
+            # Check service status
+            echo "📊 Service status:"
+            docker compose -f docker-compose.ci.yml ps
+            
+            # Run health checks
+            echo "🏥 Running health checks..."
+            
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-api"; then
+              echo "Testing sirius-api health..."
+              docker compose -f docker-compose.ci.yml exec -T sirius-api wget --no-verbose --tries=1 --spider http://localhost:9001/api/v1/health || exit 1
+            fi
+            
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-engine"; then
+              echo "Testing sirius-engine health..."
+              docker compose -f docker-compose.ci.yml exec -T sirius-engine wget --no-verbose --tries=1 --spider http://localhost:5174/health || exit 1
+            fi
+            
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-ui"; then
+              echo "Testing sirius-ui health..."
+              docker compose -f docker-compose.ci.yml exec -T sirius-ui wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+            fi
+            
+            echo "✅ All health checks passed!"
+          else
+            echo "ℹ️ No application services to test"
+          fi
+          
+          # Cleanup
+          echo "🧹 Cleaning up test environment..."
+          docker compose -f docker-compose.ci.yml down
+
+  deployment:
+    name: Production Deployment
+    needs: [detect-changes, build-and-push, integration-test]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - name: Deploy to Production
+        run: |
+          echo "🚀 Deploying to production..."
+          echo "Image tag: ${{ needs.build-and-push.outputs.image_tag }}"
+          echo "✅ Deployment completed (placeholder)"

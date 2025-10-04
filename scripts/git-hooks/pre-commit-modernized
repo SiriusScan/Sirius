@@ -1,0 +1,125 @@
+#!/bin/bash
+
+# Modernized pre-commit hook for Sirius
+# Performs quick validation only - full testing moved to CI
+
+echo "🔍 Running quick pre-commit validation..."
+
+# Check if we're in the right directory
+if [ ! -f "docker-compose.yaml" ]; then
+    echo "❌ Not in Sirius project root directory"
+    exit 1
+fi
+
+# 1. Docker Compose Configuration Validation
+echo "🐳 Validating Docker Compose configurations..."
+if ! docker compose config --quiet; then
+    echo "❌ Base Docker Compose configuration is invalid"
+    exit 1
+fi
+
+if ! docker compose -f docker-compose.yaml -f docker-compose.dev.yaml config --quiet; then
+    echo "❌ Development Docker Compose configuration is invalid"
+    exit 1
+fi
+
+if ! docker compose -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet; then
+    echo "❌ Production Docker Compose configuration is invalid"
+    exit 1
+fi
+
+echo "✅ All Docker Compose configurations are valid"
+
+# 2. Quick Documentation Validation
+echo "📚 Running quick documentation checks..."
+if [ -d "testing/container-testing" ]; then
+    cd testing/container-testing
+    if ! make lint-docs-quick; then
+        echo "❌ Documentation validation failed"
+        exit 1
+    fi
+    if ! make lint-index; then
+        echo "❌ Documentation index validation failed"
+        exit 1
+    fi
+    cd ../..
+else
+    echo "⚠️  Testing directory not found, skipping documentation validation"
+fi
+
+echo "✅ Documentation validation passed"
+
+# 3. Check for uncommented volume mounts in docker-compose.override.yaml
+echo "🔍 Checking for uncommented volume mounts..."
+OVERRIDE_FILE="docker-compose.override.yaml"
+
+if [ -f "$OVERRIDE_FILE" ]; then
+    if grep -E "^\s*-\s+\.\./minor-projects/" "$OVERRIDE_FILE" > /dev/null; then
+        echo "⚠️  Found uncommented volume mounts in $OVERRIDE_FILE"
+        echo "🔧 Automatically commenting them out..."
+        
+        # Create backup
+        cp "$OVERRIDE_FILE" "${OVERRIDE_FILE}.backup"
+        
+        # Comment out the volume mounts
+        sed -i.tmp 's/^\(\s*\)-\s\+\.\./\1# - \.\./' "$OVERRIDE_FILE"
+        rm "${OVERRIDE_FILE}.tmp" 2>/dev/null || true
+        
+        # Re-stage the fixed file
+        git add "$OVERRIDE_FILE"
+        
+        echo "✅ Volume mounts have been commented out automatically"
+        echo "💡 Your local copy has been backed up to ${OVERRIDE_FILE}.backup"
+        echo "💡 Use docker-compose.local.yaml for local development overrides"
+    fi
+fi
+
+# 4. Check for accidentally committed local files
+echo "🔍 Checking for accidentally committed local files..."
+if [ -f "docker-compose.local.yaml" ]; then
+    echo "❌ docker-compose.local.yaml should not be committed"
+    echo "💡 This file is for local development only and should be git-ignored"
+    exit 1
+fi
+
+if ls docker-compose.*.local.yaml 2>/dev/null; then
+    echo "❌ Local docker-compose files found:"
+    ls docker-compose.*.local.yaml
+    echo "💡 These files should be git-ignored"
+    exit 1
+fi
+
+echo "✅ No local override files found in repository"
+
+# 5. Basic syntax checks for key files
+echo "🔍 Running basic syntax checks..."
+
+# Check if package.json is valid JSON
+if [ -f "sirius-ui/package.json" ]; then
+    if ! python3 -m json.tool sirius-ui/package.json > /dev/null 2>&1; then
+        echo "❌ sirius-ui/package.json is not valid JSON"
+        exit 1
+    fi
+fi
+
+# Check if go.mod is valid
+if [ -f "sirius-api/go.mod" ]; then
+    if ! go mod verify -modfile=sirius-api/go.mod > /dev/null 2>&1; then
+        echo "❌ sirius-api/go.mod is not valid"
+        exit 1
+    fi
+fi
+
+if [ -f "sirius-engine/go.mod" ]; then
+    if ! go mod verify -modfile=sirius-engine/go.mod > /dev/null 2>&1; then
+        echo "❌ sirius-engine/go.mod is not valid"
+        exit 1
+    fi
+fi
+
+echo "✅ Basic syntax checks passed"
+
+echo ""
+echo "🎉 Pre-commit validation completed successfully!"
+echo "💡 Full testing will run in CI/CD pipeline"
+echo "💡 For local testing, run: cd testing/container-testing && make test-all"

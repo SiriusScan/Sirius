@@ -4,7 +4,7 @@ go 1.23.0
 
 toolchain go1.24.1
 
-replace github.com/SiriusScan/go-api => ../go-api
+replace github.com/SiriusScan/go-api => ../../minor-projects/go-api
 
 require (
 	github.com/SiriusScan/go-api v0.0.4
@@ -27,6 +27,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/streadway/amqp v1.1.0 // indirect
+	github.com/valkey-io/valkey-go v1.0.59 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.50.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect

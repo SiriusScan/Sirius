@@ -18,25 +18,22 @@ Before any Git operation, ensure you have the right documentation context:
 
 ### Pre-Commit Checklist
 
-1. **Run testing suite**:
+The pre-commit hook automatically runs these checks:
 
-   ```bash
-   cd testing/container-testing
-   make test-all
-   ```
+1. **Documentation linting** - Quick validation of documentation files
+2. **Index completeness** - Ensures all docs are properly indexed
+3. **Build validation** - Smart build testing based on branch:
+   - **Feature branches**: Config validation only (~15 seconds)
+   - **Main branch**: Full Docker builds (ensures production readiness)
+   - **Docker file changes**: Always runs full builds
 
-2. **Validate documentation**:
+### Pre-Commit Optimization
 
-   ```bash
-   cd testing/container-testing
-   make lint-docs
-   make lint-index
-   ```
+The pre-commit hook is optimized for development speed:
 
-3. **Check container health**:
-   ```bash
-   docker compose ps
-   ```
+- **Feature branches** skip full Docker builds (95%+ faster commits)
+- **Full builds** still run on main branch and Docker file changes
+- **Manual full builds** available via `./scripts/test-full-build.sh`
 
 ## Commit Message Standards
 

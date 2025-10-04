@@ -6,65 +6,49 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/lib/ui/ca
 import { Badge } from "~/components/lib/ui/badge";
 import { Button } from "~/components/lib/ui/button";
 import { RefreshCw, Server, Database, MessageSquare, Zap, Globe, AlertCircle } from "lucide-react";
+import { healthCheckService, type SystemHealthResponse, type ServiceHealth } from "~/services/healthCheckService";
 
-// Mock data for development
-const mockServices = [
+// Service configuration
+const serviceConfig = [
   {
     id: "sirius-ui",
     name: "Sirius UI",
-    status: "up",
-    lastChecked: new Date(),
-    port: 3000,
     icon: Globe,
     description: "Next.js frontend application"
   },
   {
     id: "sirius-api",
     name: "Sirius API",
-    status: "up",
-    lastChecked: new Date(),
-    port: 9001,
     icon: Server,
     description: "Go REST API backend"
   },
   {
     id: "sirius-engine",
     name: "Sirius Engine",
-    status: "up",
-    lastChecked: new Date(),
-    port: 5174,
     icon: Zap,
     description: "Core processing engine"
   },
   {
     id: "sirius-postgres",
     name: "PostgreSQL",
-    status: "up",
-    lastChecked: new Date(),
-    port: 5432,
     icon: Database,
     description: "Primary database"
   },
   {
     id: "sirius-valkey",
     name: "Valkey",
-    status: "up",
-    lastChecked: new Date(),
-    port: 6379,
     icon: Database,
     description: "Redis-compatible cache"
   },
   {
     id: "sirius-rabbitmq",
     name: "RabbitMQ",
-    status: "down",
-    lastChecked: new Date(),
-    port: 5672,
     icon: MessageSquare,
     description: "Message broker"
   }
 ];
 
+// Mock logs for now (will be replaced with real logging system later)
 const mockLogs = [
   {
     id: "1",
@@ -98,16 +82,6 @@ const mockLogs = [
 
 type ServiceStatus = "up" | "down" | "loading" | "error";
 
-interface Service {
-  id: string;
-  name: string;
-  status: ServiceStatus;
-  lastChecked: Date;
-  port: number;
-  icon: any;
-  description: string;
-}
-
 interface LogEntry {
   id: string;
   timestamp: Date;
@@ -116,8 +90,11 @@ interface LogEntry {
   message: string;
 }
 
-const ServiceStatusCard: React.FC<{ service: Service }> = ({ service }) => {
-  const Icon = service.icon;
+const ServiceStatusCard: React.FC<{ 
+  serviceConfig: typeof serviceConfig[0]; 
+  serviceHealth: ServiceHealth | null;
+}> = ({ serviceConfig, serviceHealth }) => {
+  const Icon = serviceConfig.icon;
   
   const getStatusColor = (status: ServiceStatus) => {
     switch (status) {
@@ -149,6 +126,11 @@ const ServiceStatusCard: React.FC<{ service: Service }> = ({ service }) => {
     }
   };
 
+  const status = serviceHealth?.status || "loading";
+  const message = serviceHealth?.message || "Checking...";
+  const timestamp = serviceHealth?.timestamp ? new Date(serviceHealth.timestamp) : new Date();
+  const port = serviceHealth?.port;
+
   return (
     <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
       <CardHeader className="pb-3">
@@ -156,25 +138,30 @@ const ServiceStatusCard: React.FC<{ service: Service }> = ({ service }) => {
           <div className="flex items-center space-x-3">
             <Icon className="h-5 w-5 text-violet-400" />
             <CardTitle className="text-lg font-medium text-white">
-              {service.name}
+              {serviceConfig.name}
             </CardTitle>
           </div>
-          <Badge className={`${getStatusColor(service.status)} border`}>
-            {getStatusIcon(service.status)} {service.status.toUpperCase()}
+          <Badge className={`${getStatusColor(status)} border`}>
+            {getStatusIcon(status)} {status.toUpperCase()}
           </Badge>
         </div>
-        <p className="text-sm text-gray-400">{service.description}</p>
+        <p className="text-sm text-gray-400">{serviceConfig.description}</p>
+        {message && message !== "Checking..." && (
+          <p className="text-xs text-gray-500 mt-1">{message}</p>
+        )}
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Port:</span>
-            <span className="text-white">{service.port}</span>
-          </div>
+          {port && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-400">Port:</span>
+              <span className="text-white">{port}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Last Checked:</span>
             <span className="text-white">
-              {service.lastChecked.toLocaleTimeString()}
+              {timestamp.toLocaleTimeString()}
             </span>
           </div>
         </div>
@@ -237,37 +224,64 @@ const LogViewer: React.FC<{ logs: LogEntry[] }> = ({ logs }) => {
 
 const SystemMonitor: NextPage = () => {
   const { data: sessionData } = useSession();
-  const [services, setServices] = useState<Service[]>(mockServices);
+  const [systemHealth, setSystemHealth] = useState<SystemHealthResponse | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>(mockLogs);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Start polling for health checks on component mount
+  useEffect(() => {
+    const stopPolling = healthCheckService.startPolling(
+      (health) => {
+        setSystemHealth(health);
+        setError(null);
+      },
+      (err) => {
+        setError(err.message);
+        console.error('Health check error:', err);
+      },
+      {
+        interval: 5000, // 5 seconds
+        retries: 3,
+        timeout: 5000
+      }
+    );
+
+    // Cleanup on unmount
+    return () => {
+      stopPolling();
+    };
+  }, []);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    setError(null);
     
-    // Update mock data with current time
-    setServices(prev => prev.map(service => ({
-      ...service,
-      lastChecked: new Date()
-    })));
-    
-    setLogs(prev => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        timestamp: new Date(),
-        service: "system-monitor",
-        level: "info",
-        message: "System status refreshed"
-      }
-    ]);
-    
-    setIsRefreshing(false);
+    try {
+      const health = await healthCheckService.checkSystemHealth();
+      setSystemHealth(health);
+      
+      // Add refresh log entry
+      setLogs(prev => [
+        {
+          id: Date.now().toString(),
+          timestamp: new Date(),
+          service: "system-monitor",
+          level: "info",
+          message: "System status refreshed"
+        },
+        ...prev
+      ]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh health status');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
-  const upServices = services.filter(s => s.status === "up").length;
-  const totalServices = services.length;
+  const serviceCounts = healthCheckService.getServiceCounts(systemHealth);
+  const upServices = serviceCounts.up;
+  const totalServices = Object.values(serviceCounts).reduce((sum, count) => sum + count, 0);
 
   return (
     <Layout>
@@ -336,12 +350,27 @@ const SystemMonitor: NextPage = () => {
           </Card>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-400" />
+              <span className="text-red-400 font-medium">Health Check Error</span>
+            </div>
+            <p className="text-red-300 text-sm mt-1">{error}</p>
+          </div>
+        )}
+
         {/* Service Status Grid */}
         <div className="mb-8">
           <h2 className="text-xl font-medium text-white mb-4">Service Status</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {services.map((service) => (
-              <ServiceStatusCard key={service.id} service={service} />
+            {serviceConfig.map((service) => (
+              <ServiceStatusCard 
+                key={service.id} 
+                serviceConfig={service}
+                serviceHealth={healthCheckService.getServiceStatus(service.id, systemHealth)}
+              />
             ))}
           </div>
         </div>

@@ -9,10 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/SiriusScan/sirius-api/middleware"
 	"github.com/SiriusScan/sirius-api/routes"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
 // waitForDatabase waits for PostgreSQL to be available before running migrations
@@ -114,6 +116,14 @@ func main() {
 		AllowOrigins: "http://localhost:3000", // or "*" to allow any origin
 		AllowMethods: "GET,POST,HEAD,PUT,DELETE,PATCH",
 	}))
+
+	// Add request ID middleware
+	app.Use(requestid.New())
+
+	// Add logging middlewares
+	app.Use(middleware.LoggingMiddleware())
+	app.Use(middleware.ErrorLoggingMiddleware())
+	app.Use(middleware.PerformanceMetricsMiddleware())
 
 	// Add other middlewares
 	app.Use(logger.New())

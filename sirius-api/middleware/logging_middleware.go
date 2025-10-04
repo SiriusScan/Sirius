@@ -72,8 +72,17 @@ func LoggingMiddleware() fiber.Handler {
 		responseSize := len(c.Response().Body())
 		logEntry["metadata"].(map[string]interface{})["response_size"] = responseSize
 
-		// Submit log entry (but not for logging endpoints to avoid recursion)
-		if !strings.Contains(c.Path(), "/api/v1/logs") {
+		// Submit log entry only for important endpoints and errors
+		shouldLog := false
+		if c.Response().StatusCode() >= 400 { // Log all errors
+			shouldLog = true
+		} else if strings.Contains(c.Path(), "/api/v1/system/health") { // Log health checks
+			shouldLog = true
+		} else if durationMs > 1000 { // Log slow requests
+			shouldLog = true
+		}
+		
+		if shouldLog && !strings.Contains(c.Path(), "/api/v1/logs") {
 			go submitLogEntry(logEntry)
 		}
 

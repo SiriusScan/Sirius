@@ -218,10 +218,13 @@ func storeLogEntry(logEntry LogEntry) error {
 		return fmt.Errorf("failed to store log entry: %w", err)
 	}
 
-	// Maintain log count and cleanup old logs
-	if err := maintainLogCount(ctx, kvStore); err != nil {
-		// Log the error but don't fail the request
-		fmt.Printf("Warning: Failed to maintain log count: %v\n", err)
+	// Maintain log count and cleanup old logs (only occasionally to avoid performance impact)
+	// Only run maintenance every 10th log entry to reduce overhead
+	if time.Now().Unix()%10 == 0 {
+		if err := maintainLogCount(ctx, kvStore); err != nil {
+			// Log the error but don't fail the request
+			fmt.Printf("Warning: Failed to maintain log count: %v\n", err)
+		}
 	}
 
 	return nil
@@ -355,8 +358,12 @@ func getLogStats() (*LogStatsResponse, error) {
 
 // maintainLogCount ensures we don't exceed MAX_LOGS
 func maintainLogCount(ctx context.Context, kvStore store.KVStore) error {
+	// Use a longer timeout for log maintenance
+	maintenanceCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
 	// Get all log keys
-	keys, err := kvStore.ListKeys(ctx, LOG_PREFIX+":*")
+	keys, err := kvStore.ListKeys(maintenanceCtx, LOG_PREFIX+":*")
 	if err != nil {
 		return err
 	}

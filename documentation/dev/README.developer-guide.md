@@ -26,7 +26,7 @@ search_keywords:
     "environment switching",
     "docker development",
     "hot reloading",
-    "development setup"
+    "development setup",
   ]
 ---
 
@@ -63,6 +63,7 @@ Sirius supports three distinct development environments, each optimized for diff
 ```
 
 **Features:**
+
 - Hot reloading for instant code changes
 - Volume mounts for live code updates
 - Development-optimized builds
@@ -70,6 +71,7 @@ Sirius supports three distinct development environments, each optimized for diff
 - Debug logging enabled
 
 **What's Running:**
+
 - UI: `npm run dev` (Next.js development server)
 - API: Go development mode with live reloading
 - Engine: Development mode with volume mounts
@@ -83,6 +85,7 @@ Sirius supports three distinct development environments, each optimized for diff
 ```
 
 **Features:**
+
 - Optimized production builds
 - PostgreSQL database
 - Production authentication
@@ -90,6 +93,7 @@ Sirius supports three distinct development environments, each optimized for diff
 - Security hardening
 
 **What's Running:**
+
 - UI: `npm start` (Next.js production server)
 - API: Pre-built Go binary
 - Engine: Production-optimized runtime
@@ -103,6 +107,7 @@ Sirius supports three distinct development environments, each optimized for diff
 ```
 
 **Features:**
+
 - Default configuration
 - Balanced performance
 - Standard resource allocation
@@ -116,7 +121,7 @@ The `scripts/switch-env.sh` script handles seamless switching between environmen
 # Switch to development
 ./scripts/switch-env.sh dev
 
-# Switch to production  
+# Switch to production
 ./scripts/switch-env.sh prod
 
 # Switch to base
@@ -124,6 +129,7 @@ The `scripts/switch-env.sh` script handles seamless switching between environmen
 ```
 
 **What the script does:**
+
 1. Stops all running containers
 2. Removes old images to prevent cache conflicts
 3. Builds the appropriate environment with correct build targets
@@ -135,25 +141,29 @@ The `scripts/switch-env.sh` script handles seamless switching between environmen
 ### Daily Development
 
 1. **Start your day:**
+
    ```bash
    ./scripts/switch-env.sh dev
    ```
 
 2. **Make your changes:**
+
    - Edit UI code in `sirius-ui/src/`
    - Edit API code in `sirius-api/`
    - Edit engine code in `sirius-engine/`
 
 3. **See changes instantly:**
+
    - UI changes appear immediately (hot reloading)
    - API changes require container restart
    - Engine changes require container restart
 
 4. **Test your changes:**
+
    ```bash
    # Check container status
    docker compose ps
-   
+
    # View logs
    docker compose logs sirius-ui
    docker compose logs sirius-api
@@ -162,11 +172,13 @@ The `scripts/switch-env.sh` script handles seamless switching between environmen
 ### Testing Production Builds
 
 1. **Switch to production mode:**
+
    ```bash
    ./scripts/switch-env.sh prod
    ```
 
 2. **Test your changes:**
+
    - Verify UI renders correctly
    - Test API endpoints
    - Check performance characteristics
@@ -250,14 +262,17 @@ Sirius/
 Each service uses multi-stage Dockerfiles to optimize for different environments:
 
 **sirius-ui:**
+
 - `development`: Full dev environment with hot reloading
 - `production`: Optimized production build
 
 **sirius-api:**
+
 - `development`: Go development with live reloading
 - `runner`: Pre-built Go binary for production
 
 **sirius-engine:**
+
 - `development`: Full development environment
 - `runtime`: Production-optimized runtime
 
@@ -278,12 +293,14 @@ This prevents Docker cache conflicts when switching environments.
 **Duration**: ~30 seconds
 
 **What's Tested**:
+
 - Docker Compose configuration validation
 - Documentation linting
 - Basic syntax checks
 - Code formatting
 
 **Commands**:
+
 ```bash
 # Pre-commit validation (automatic)
 git commit  # Runs quick validation automatically
@@ -301,6 +318,7 @@ make lint-docs-quick    # Quick documentation checks
 **Duration**: ~5-10 minutes
 
 **What's Tested**:
+
 - Docker container builds (all services)
 - Service health checks
 - Integration testing
@@ -308,6 +326,7 @@ make lint-docs-quick    # Quick documentation checks
 - Production build validation
 
 **Triggers**:
+
 - Pull requests to main branch
 - Pushes to main branch
 - Hotfix pushes
@@ -317,6 +336,7 @@ make lint-docs-quick    # Quick documentation checks
 **Purpose**: Manual testing during development
 
 **Available Commands**:
+
 ```bash
 # Full test suite
 cd testing/container-testing
@@ -334,12 +354,12 @@ make lint-docs-quick     # Quick docs check
 
 ### Testing Strategy
 
-| Scenario | Pre-commit | CI/CD | Local Testing |
-|----------|------------|-------|---------------|
-| **Feature Development** | ✅ Quick validation | ❌ No | ✅ Full testing |
-| **Pull Request** | ✅ Quick validation | ✅ Full testing | ✅ Full testing |
-| **Main Branch** | ✅ Quick validation | ✅ Full testing | ✅ Full testing |
-| **Documentation** | ✅ Quick validation | ❌ No | ✅ Full testing |
+| Scenario                | Pre-commit          | CI/CD           | Local Testing   |
+| ----------------------- | ------------------- | --------------- | --------------- |
+| **Feature Development** | ✅ Quick validation | ❌ No           | ✅ Full testing |
+| **Pull Request**        | ✅ Quick validation | ✅ Full testing | ✅ Full testing |
+| **Main Branch**         | ✅ Quick validation | ✅ Full testing | ✅ Full testing |
+| **Documentation**       | ✅ Quick validation | ❌ No           | ✅ Full testing |
 
 ## Common Tasks
 
@@ -402,6 +422,7 @@ docker compose exec sirius-postgres psql -U postgres -d sirius
 
 **Problem**: Wrong environment running despite switching
 **Solution**: The script automatically handles this, but if issues persist:
+
 ```bash
 # Force clean rebuild
 docker system prune -f
@@ -412,6 +433,7 @@ docker system prune -f
 
 **Problem**: UI changes not appearing instantly
 **Solution**: Ensure you're in development mode:
+
 ```bash
 ./scripts/switch-env.sh dev
 # Check it's running: docker compose exec sirius-ui ps aux
@@ -421,6 +443,7 @@ docker system prune -f
 
 **Problem**: Containers failing to start
 **Solution**: Check logs and restart:
+
 ```bash
 docker compose logs sirius-ui
 docker compose restart sirius-ui
@@ -430,6 +453,7 @@ docker compose restart sirius-ui
 
 **Problem**: Port already in use
 **Solution**: Stop conflicting services:
+
 ```bash
 # Check what's using the port
 lsof -i :3000
@@ -443,6 +467,7 @@ sudo kill -9 <PID>
 
 **Problem**: API can't connect to database
 **Solution**: Check database health:
+
 ```bash
 # Check database status
 docker compose ps sirius-postgres

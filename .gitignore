@@ -48,6 +48,11 @@ Thumbs.db
 # Logs
 *.log
 logs/
+testing/logs/*
+
+# Documentation linting logs
+documentation-lint-*.log
+tmp/documentation-lint-*.log
 
 # Runtime data
 pids/

@@ -1,3 +1,29 @@
+---
+title: "SiriusScan Architecture"
+description: "Comprehensive architectural documentation for SiriusScan, covering system design, component relationships, data flow, and technical implementation details."
+template: "TEMPLATE.architecture"
+version: "1.0.0"
+last_updated: "2025-01-03"
+author: "Development Team"
+tags: ["architecture", "system-design", "overview", "technical"]
+categories: ["architecture"]
+difficulty: "advanced"
+prerequisites: ["docker", "microservices", "vulnerability-scanning"]
+related_docs:
+  - "README.container-testing.md"
+  - "README.development.md"
+dependencies: []
+llm_context: "high"
+search_keywords:
+  [
+    "architecture",
+    "system design",
+    "microservices",
+    "vulnerability scanner",
+    "sirius",
+  ]
+---
+
 # Sirius Scan Architecture Document
 
 ## Table of Contents

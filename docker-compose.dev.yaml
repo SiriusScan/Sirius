@@ -1,0 +1,92 @@
+# SiriusScan Development Docker Compose Override
+# Use with: docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
+# This configuration enables development features like hot reloading and volume mounts
+
+services:
+  sirius-ui:
+    build:
+      context: ./sirius-ui
+      dockerfile: Dockerfile
+      target: development # Use development stage
+      args:
+        NEXT_PUBLIC_CLIENTVAR: "clientvar"
+    volumes:
+      # Mount source code for live reloading
+      - ./sirius-ui/src:/app/src
+      - ./sirius-ui/public:/app/public
+      - ./sirius-ui/prisma:/app/prisma
+      - ./sirius-ui/next.config.mjs:/app/next.config.mjs
+      - ./sirius-ui/tailwind.config.ts:/app/tailwind.config.ts
+      - ./sirius-ui/package.json:/app/package.json
+      - ./sirius-ui/postcss.config.js:/app/postcss.config.js
+      # Preserve node_modules from container to avoid architecture conflicts
+      - node_modules:/app/node_modules
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+      # Override to use SQLite for authentication as defined in schema.prisma
+      - DATABASE_URL=file:./dev.db
+      - NEXTAUTH_SECRET=development-secret-key
+      - NEXTAUTH_URL=http://localhost:3000
+    ports:
+      - "3000:3000"
+      - "3001:3001" # Development port
+    # Remove PostgreSQL dependency - using SQLite for authentication
+    depends_on: []
+
+  sirius-api:
+    build:
+      context: ./sirius-api/
+      target: development # Use development stage
+    volumes:
+      - ./sirius-api:/api
+      # Enable for local go-api development with source-aware functionality:
+      - ../minor-projects/go-api:/go-api
+    environment:
+      - GO_ENV=development
+      - API_PORT=9001
+      - POSTGRES_HOST=sirius-postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=sirius
+      - POSTGRES_PORT=5432
+      - VALKEY_HOST=sirius-valkey
+      - VALKEY_PORT=6379
+      - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+      - LOG_LEVEL=debug
+
+  sirius-engine:
+    build:
+      context: ./sirius-engine/
+      target: development # Use development stage
+    volumes:
+      - ./sirius-engine:/engine
+      # Development volume mounts (require ../minor-projects/ structure):
+      # Enabled for local development with source-aware functionality
+      - ../minor-projects/app-agent:/app-agent
+      - ../minor-projects/app-scanner:/app-scanner
+      - ../minor-projects/app-terminal:/app-terminal
+      - ../minor-projects/go-api:/go-api
+      - ../minor-projects/sirius-nse:/sirius-nse
+      - ../minor-projects/sirius-agent-modules:/app-agent/sirius-agent-modules
+    environment:
+      - GO_ENV=development
+      - ENGINE_MAIN_PORT=5174
+      - GRPC_AGENT_PORT=50051
+      - POSTGRES_HOST=sirius-postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=sirius
+      - POSTGRES_PORT=5432
+      - VALKEY_HOST=sirius-valkey
+      - VALKEY_PORT=6379
+      - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+      - LOG_LEVEL=debug
+      # Agent configuration for API communication
+      - API_BASE_URL=http://sirius-api:9001
+      - AGENT_ID=sirius-engine
+      - HOST_ID=sirius-engine
+      - ENABLE_SCRIPTING=true
+
+volumes:
+  node_modules:

@@ -1,9 +1,13 @@
+# SiriusScan Base Docker Compose Configuration
+# This is the base configuration that works for most environments
+# Use with: docker compose up -d
+
 name: sirius
 
 services:
   sirius-rabbitmq:
     image: rabbitmq:3.7.3-management
-    restart: always
+    restart: unless-stopped
     container_name: sirius-rabbitmq
     hostname: sirius-rabbitmq
     ports:
@@ -12,6 +16,11 @@ services:
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
     deploy:
       resources:
         limits:
@@ -23,7 +32,7 @@ services:
 
   sirius-postgres:
     image: postgres:15-alpine
-    restart: always
+    restart: unless-stopped
     container_name: sirius-postgres
     hostname: sirius-postgres
     environment:
@@ -34,6 +43,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:
@@ -45,7 +59,7 @@ services:
 
   sirius-valkey:
     image: valkey/valkey:latest
-    restart: always
+    restart: unless-stopped
     container_name: sirius-valkey
     hostname: sirius-valkey
     ports:
@@ -71,7 +85,7 @@ services:
       target: production
     container_name: sirius-ui
     hostname: sirius-ui
-    restart: always
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
@@ -85,7 +99,13 @@ services:
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-dummy_client_id}
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-dummy_client_secret}
     depends_on:
-      - sirius-postgres
+      sirius-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     deploy:
       resources:
         limits:
@@ -98,10 +118,10 @@ services:
   sirius-api:
     build:
       context: ./sirius-api/
-      target: development
+      target: runner
     container_name: sirius-api
     hostname: sirius-api
-    restart: always
+    restart: unless-stopped
     ports:
       - "9001:9001"
     environment:
@@ -117,8 +137,15 @@ services:
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
-      - sirius-postgres
-      - sirius-rabbitmq
+      sirius-postgres:
+        condition: service_healthy
+      sirius-rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9001/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     deploy:
       resources:
         limits:
@@ -129,10 +156,12 @@ services:
           cpus: "0.25"
 
   sirius-engine:
-    build: ./sirius-engine/
+    build:
+      context: ./sirius-engine/
+      target: runtime
     container_name: sirius-engine
     hostname: sirius-engine
-    restart: always
+    restart: unless-stopped
     ports:
       - "5174:5174"
       - "50051:50051" # Agent gRPC
@@ -155,7 +184,13 @@ services:
       - ENABLE_SCRIPTING=${ENABLE_SCRIPTING:-true}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
-      - sirius-rabbitmq
+      sirius-rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5174/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     deploy:
       resources:
         limits:

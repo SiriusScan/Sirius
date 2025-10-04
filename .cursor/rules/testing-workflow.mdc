@@ -1,0 +1,189 @@
+---
+description: Cursor rules for testing workflows and validation processes
+globs: testing/**/*, docker-compose*.yaml, Dockerfile*
+alwaysApply: false
+---
+
+# Testing Workflows and Validation
+
+## Testing Context
+
+When working on testing-related tasks, include these documentation sources:
+
+### Required Documentation
+
+- [README.container-testing.md](mdc:documentation/dev/test/README.container-testing.md) - Container testing system
+- [README.documentation-testing.md](mdc:documentation/dev/test/README.documentation-testing.md) - Documentation testing system
+- [README.development.md](mdc:documentation/dev/README.development.md) - Development environment setup
+
+## Testing Directory Structure
+
+```
+testing/
+├── container-testing/          # Container-specific tests
+│   ├── test-build.sh          # Build validation
+│   ├── test-health.sh         # Health checks
+│   └── test-integration.sh    # Integration tests
+├── Makefile                   # Testing commands
+├── logs/                      # Test execution logs
+└── tmp/                       # Temporary files and logs
+```
+
+## Testing Commands
+
+### Complete Test Suite
+
+```bash
+cd testing/container-testing
+make test-all                  # Run all tests
+make validate-all              # Run tests + documentation validation
+```
+
+### Individual Test Types
+
+```bash
+cd testing/container-testing
+make test-build               # Container build validation
+make test-health              # Service health checks
+make test-integration         # Integration testing
+```
+
+### Documentation Testing
+
+```bash
+cd testing/container-testing
+make lint-docs                # Full documentation linting
+make lint-docs-quick          # Quick documentation checks
+make lint-index               # Index completeness validation
+```
+
+## Container Testing Workflow
+
+### Before Testing
+
+1. **Ensure clean environment**: `docker compose down -v`
+2. **Check Docker status**: `docker ps`
+3. **Navigate to container testing directory**: `cd testing/container-testing`
+
+### Build Testing
+
+```bash
+# Test all container builds
+make test-build
+
+# Test specific environment
+docker compose -f docker-compose.dev.yaml config --quiet
+docker compose -f docker-compose.prod.yaml config --quiet
+```
+
+### Health Testing
+
+```bash
+# Start services
+docker compose up -d
+
+# Run health checks
+make test-health
+
+# Check specific service
+docker compose logs sirius-api
+```
+
+### Integration Testing
+
+```bash
+# Run integration tests
+make test-integration
+
+# Test specific service interactions
+curl -f http://localhost:9001/health
+curl -f http://localhost:3000/
+```
+
+## Documentation Testing Workflow
+
+### Before Documentation Changes
+
+1. **Check current documentation state**: `cd testing && make lint-docs-quick`
+2. **Review documentation index**: Check `documentation/README.documentation-index.md`
+
+### During Documentation Work
+
+1. **Use appropriate templates** from `documentation/dev/templates/`
+2. **Include complete YAML front matter** with all required fields
+3. **Update related_docs** when creating new relationships
+4. **Follow naming conventions** (ABOUT._, README._, TEMPLATE.\*)
+
+### After Documentation Changes
+
+1. **Run full documentation linting**: `cd testing && make lint-docs`
+2. **Check index completeness**: `cd testing && make lint-index`
+3. **Validate template compliance**: Review linting output
+
+## Test Environment Management
+
+### Development Environment
+
+- **Uses**: `docker-compose.dev.yaml` overrides
+- **Features**: Hot reloading, volume mounts, longer timeouts
+- **Timeout**: 4 minutes for API dependency downloads
+
+### Production Environment
+
+- **Uses**: `docker-compose.prod.yaml` overrides
+- **Features**: Optimized builds, production configurations
+- **Timeout**: Standard 2 minutes
+
+### Base Environment
+
+- **Uses**: Standard `docker-compose.yaml`
+- **Features**: Default configuration, core functionality
+- **Timeout**: Standard 2 minutes
+
+## Troubleshooting Testing Issues
+
+### Common Problems
+
+| Issue                 | Symptoms                   | Solution                                      |
+| --------------------- | -------------------------- | --------------------------------------------- |
+| Build failures        | "target stage not found"   | Check Dockerfile stage names in Compose files |
+| Health check timeouts | "service not ready"        | Increase timeout or check service logs        |
+| Port conflicts        | "port already in use"      | Stop conflicting services or change ports     |
+| Documentation errors  | "Missing section" warnings | Compare document with template structure      |
+
+### Debugging Commands
+
+```bash
+# Check service status
+docker compose ps
+
+# View service logs
+docker compose logs [service-name]
+
+# Check container health
+docker exec [container-name] ps aux
+
+# Validate Docker Compose
+docker compose config --quiet
+
+# Check documentation issues
+cd testing && make lint-docs
+```
+
+## Integration with Development Workflow
+
+### Pre-Commit Testing
+
+- **Always run tests** before committing changes
+- **Validate documentation** for documentation commits
+- **Check container health** for Docker-related changes
+
+### CI/CD Integration
+
+- **Use testing commands** in CI/CD pipelines
+- **Leverage Makefile targets** for consistent execution
+- **Include documentation validation** in automated checks
+
+---
+
+_This rule integrates with our testing system. For complete testing guidelines, see [README.container-testing.md](mdc:documentation/dev/test/README.container-testing.md) and [README.documentation-testing.md](mdc:documentation/dev/test/README.documentation-testing.md)._

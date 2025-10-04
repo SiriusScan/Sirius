@@ -1,0 +1,65 @@
+# SiriusScan Production Docker Compose Override
+# Use with: docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+# This configuration optimizes for production deployment
+
+services:
+  sirius-ui:
+    environment:
+      - NODE_ENV=production
+      - SKIP_ENV_VALIDATION=1
+      # Use PostgreSQL in production instead of SQLite
+      - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-change-this-secret-in-production-please}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - SIRIUS_API_URL=http://sirius-api:9001
+      - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-http://localhost:9001}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-dummy_client_id}
+      - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-dummy_client_secret}
+
+  sirius-api:
+    build:
+      context: ./sirius-api/
+      target: runner # Use runner stage (production)
+    environment:
+      - GO_ENV=production
+      - LOG_LEVEL=info
+
+  sirius-engine:
+    build:
+      context: ./sirius-engine/
+      target: runtime # Use runtime stage (production)
+    environment:
+      - GO_ENV=production
+      - LOG_LEVEL=info
+
+  # Production-specific optimizations
+  sirius-postgres:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sirius}
+    # Add production-specific PostgreSQL configuration
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c max_connections=200
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+
+  sirius-rabbitmq:
+    # Production-specific RabbitMQ configuration
+    command: >
+      rabbitmq-server
+      -c /etc/rabbitmq/rabbitmq.conf
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-admin}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    # Enable management UI for production monitoring
+    ports:
+      - "5672:5672"
+      - "15672:15672"

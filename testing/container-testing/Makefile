@@ -1,0 +1,140 @@
+# SiriusScan Docker Testing Makefile
+# Provides easy commands for testing and development
+
+.PHONY: help build test test-build test-health test-integration test-all clean logs lint-docs lint-docs-quick
+
+# Default target
+help:
+	@echo "SiriusScan Docker Testing Commands"
+	@echo "=================================="
+	@echo ""
+	@echo "Build Commands:"
+	@echo "  build-base     Build base configuration"
+	@echo "  build-dev      Build development configuration"
+	@echo "  build-prod     Build production configuration"
+	@echo "  build-all      Build all configurations"
+	@echo ""
+	@echo "Test Commands:"
+	@echo "  test-build     Test individual container builds"
+	@echo "  test-health    Test service health checks"
+	@echo "  test-integration Test service integration"
+	@echo "  test-all       Run all tests"
+	@echo ""
+	@echo "Development Commands:"
+	@echo "  dev            Start development environment"
+	@echo "  prod           Start production environment"
+	@echo "  stop           Stop all services"
+	@echo "  restart        Restart all services"
+	@echo ""
+	@echo "Utility Commands:"
+	@echo "  clean          Clean up containers and images"
+	@echo "  logs           Show logs for all services"
+	@echo "  status         Show status of all services"
+	@echo ""
+	@echo "Documentation Commands:"
+	@echo "  lint-docs      Run full documentation linting"
+	@echo "  lint-docs-quick Run quick documentation checks"
+	@echo "  lint-index     Check documentation index completeness"
+
+# Build commands
+build-base:
+	@echo "🔨 Building base configuration..."
+	docker compose config --quiet
+	@echo "✅ Base configuration is valid"
+
+build-dev:
+	@echo "🔨 Building development configuration..."
+	docker compose -f docker-compose.yaml -f docker-compose.dev.yaml config --quiet
+	@echo "✅ Development configuration is valid"
+
+build-prod:
+	@echo "🔨 Building production configuration..."
+	docker compose -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet
+	@echo "✅ Production configuration is valid"
+
+build-all: build-base build-dev build-prod
+	@echo "🎉 All configurations are valid!"
+
+# Test commands
+test-build:
+	@echo "🧪 Running build tests..."
+	./test-build.sh
+
+test-health:
+	@echo "🏥 Running health tests..."
+	./test-health.sh
+
+test-integration:
+	@echo "🔗 Running integration tests..."
+	./test-integration.sh
+
+test-all: test-build test-health test-integration
+	@echo "🎉 All tests completed!"
+
+# Development commands
+dev:
+	@echo "🚀 Starting development environment..."
+	docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
+	@echo "✅ Development environment started"
+	@echo "🌐 UI: http://localhost:3000"
+	@echo "🔌 API: http://localhost:9001"
+	@echo "⚙️  Engine: http://localhost:5174"
+
+prod:
+	@echo "🚀 Starting production environment..."
+	docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+	@echo "✅ Production environment started"
+	@echo "🌐 UI: http://localhost:3000"
+	@echo "🔌 API: http://localhost:9001"
+	@echo "⚙️  Engine: http://localhost:5174"
+
+stop:
+	@echo "🛑 Stopping all services..."
+	docker compose down
+	@echo "✅ All services stopped"
+
+restart: stop dev
+	@echo "🔄 Services restarted"
+
+# Utility commands
+clean:
+	@echo "🧹 Cleaning up containers and images..."
+	docker compose down --volumes --remove-orphans
+	docker system prune -f
+	@echo "✅ Cleanup completed"
+
+logs:
+	@echo "📋 Showing logs for all services..."
+	docker compose logs -f
+
+status:
+	@echo "📊 Service Status:"
+	docker compose ps
+
+# Quick test for CI/CD
+ci-test: build-all test-build
+	@echo "✅ CI/CD tests passed!"
+
+# Full validation
+validate: build-all test-all
+	@echo "🎉 Full validation completed successfully!"
+
+# Documentation linting commands
+lint-docs:
+	@echo "📚 Running full documentation linting..."
+	../../scripts/documentation/lint-docs.sh
+	@echo "✅ Documentation linting completed!"
+
+lint-docs-quick:
+	@echo "📚 Running quick documentation checks..."
+	../../scripts/documentation/lint-quick.sh
+	@echo "✅ Quick documentation checks completed!"
+
+lint-index:
+	@echo "📚 Running index completeness linting..."
+	../../scripts/documentation/lint-index.sh
+	@echo "✅ Index linting completed!"
+
+# Full validation including documentation
+validate-all: build-all test-all lint-docs
+	@echo "🎉 Full validation with documentation linting completed successfully!"

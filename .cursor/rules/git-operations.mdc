@@ -1,0 +1,124 @@
+---
+description: Cursor rules for Git operations and version control workflows
+globs: .git/**/*, *.md, testing/**/*
+alwaysApply: false
+---
+
+# Git Operations and Version Control
+
+## Pre-Commit Context
+
+Before any Git operation, ensure you have the right documentation context:
+
+### Required Documentation
+
+- [README.development.md](mdc:documentation/dev/README.development.md) - Development workflow standards
+- [README.container-testing.md](mdc:documentation/dev/test/README.container-testing.md) - Testing requirements
+- [README.documentation-testing.md](mdc:documentation/dev/test/README.documentation-testing.md) - Documentation validation
+
+### Pre-Commit Checklist
+
+1. **Run testing suite**:
+
+   ```bash
+   cd testing/container-testing
+   make test-all
+   ```
+
+2. **Validate documentation**:
+
+   ```bash
+   cd testing/container-testing
+   make lint-docs
+   make lint-index
+   ```
+
+3. **Check container health**:
+   ```bash
+   docker compose ps
+   ```
+
+## Commit Message Standards
+
+### Format
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+### Types
+
+- **feat**: New feature
+- **fix**: Bug fix
+- **docs**: Documentation changes
+- **test**: Testing changes
+- **refactor**: Code refactoring
+- **chore**: Maintenance tasks
+
+### Examples
+
+```
+feat(testing): add documentation testing system
+fix(docker): resolve container build issues
+docs(architecture): update system design documentation
+```
+
+## Branch Naming
+
+### Format
+
+```
+<type>/<description>
+```
+
+### Examples
+
+```
+feature/documentation-testing
+fix/container-build-issues
+docs/architecture-updates
+```
+
+## Development Workflow
+
+### Before Starting Work
+
+1. **Check current branch**: `git branch`
+2. **Pull latest changes**: `git pull origin main`
+3. **Create feature branch**: `git checkout -b feature/description`
+
+### During Development
+
+1. **Make atomic commits** with clear messages
+2. **Run tests frequently**: `cd testing && make test-all`
+3. **Update documentation** when making structural changes
+4. **Validate changes**: `cd testing && make lint-docs`
+
+### Before Pushing
+
+1. **Run complete validation**: `cd testing && make validate-all`
+2. **Check commit history**: `git log --oneline -5`
+3. **Ensure clean working directory**: `git status`
+
+## Integration with Documentation System
+
+### Documentation Updates
+
+- **Always update documentation** when changing project structure
+- **Use appropriate templates** for new documentation
+- **Maintain YAML front matter** completeness
+- **Update related_docs** when creating new relationships
+
+### Testing Integration
+
+- **Run container tests** before any Docker-related commits
+- **Validate documentation** before documentation commits
+- **Check index completeness** when adding new docs
+
+---
+
+_This rule integrates with our documentation system. For complete development guidelines, see [README.development.md](mdc:documentation/dev/README.development.md)._

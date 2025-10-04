@@ -1,0 +1,294 @@
+[
+  {
+    "id": "1",
+    "title": "Docker Compose File Consolidation & Cleanup",
+    "description": "Consolidate and clean up the 8 existing Docker Compose files into a streamlined 3-file structure.",
+    "details": "Current state has 8 compose files creating confusion and maintenance overhead. Need to consolidate into: docker-compose.yaml (base), docker-compose.dev.yaml (development), docker-compose.prod.yaml (production). Remove redundant files: docker-compose.aws.yaml, docker-compose.staging.yaml, docker-compose.local.yaml, docker-compose.local.example.yaml, docker-compose.user.yaml. Keep docker-compose.override.yaml for local development overrides.",
+    "status": "done",
+    "priority": "high",
+    "dependencies": [],
+    "subtasks": [
+      {
+        "id": "1.1",
+        "title": "Audit Existing Compose Files",
+        "description": "Analyze all 8 Docker Compose files to identify unique configurations and dependencies.",
+        "details": "Review each file to understand: service configurations, environment variables, volume mounts, network settings, health checks, resource limits. Document differences between files and identify which configurations are essential vs redundant.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Compare configurations across all files, document unique settings, identify consolidation opportunities."
+      },
+      {
+        "id": "1.2",
+        "title": "Create Streamlined Base Configuration",
+        "description": "Create clean docker-compose.yaml with essential services and configurations.",
+        "details": "Extract common configurations from all files into a single base docker-compose.yaml. Include: all 6 services (ui, api, engine, postgres, valkey, rabbitmq), standard ports, basic health checks, essential environment variables, proper service dependencies.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["1.1"],
+        "testStrategy": "Verify all services start successfully with base configuration, test service discovery and connectivity."
+      },
+      {
+        "id": "1.3",
+        "title": "Create Development Override",
+        "description": "Create docker-compose.dev.yaml for development-specific configurations.",
+        "details": "Include: volume mounts for hot reloading, development environment variables, debug logging, development build targets, local sub-module mounts. Ensure compatibility with existing development workflow.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["1.2"],
+        "testStrategy": "Test development setup with volume mounts, verify hot reloading works, test sub-module integration."
+      },
+      {
+        "id": "1.4",
+        "title": "Create Production Configuration",
+        "description": "Create docker-compose.prod.yaml for production-specific optimizations.",
+        "details": "Include: production build targets, optimized resource limits, security configurations, production environment variables, health checks, restart policies. Remove development-specific settings.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["1.2"],
+        "testStrategy": "Test production build, verify resource limits, test security configurations, validate health checks."
+      },
+      {
+        "id": "1.5",
+        "title": "Remove Redundant Files",
+        "description": "Delete unnecessary Docker Compose files after consolidation.",
+        "details": "Remove: docker-compose.aws.yaml, docker-compose.staging.yaml, docker-compose.local.yaml, docker-compose.local.example.yaml, docker-compose.user.yaml. Update documentation to reflect new file structure.",
+        "status": "done",
+        "priority": "medium",
+        "dependencies": ["1.3", "1.4"],
+        "testStrategy": "Verify no references to removed files exist in documentation or scripts, test that remaining files work correctly."
+      }
+    ],
+    "testStrategy": "Test all three configurations (base, dev, prod) start successfully, verify service communication, test volume mounts in dev mode, validate production optimizations."
+  },
+  {
+    "id": "2",
+    "title": "Dockerfile Optimization & Standardization",
+    "description": "Optimize and standardize the 3 Dockerfiles for consistent, efficient builds.",
+    "details": "Current Dockerfiles have inconsistent patterns, missing optimizations, and potential build issues. Need to: standardize base images, optimize layer caching, fix RustScan installation, add proper health checks, implement multi-stage builds consistently, add build arguments for flexibility.",
+    "status": "done",
+    "priority": "high",
+    "dependencies": [],
+    "subtasks": [
+      {
+        "id": "2.1",
+        "title": "Fix sirius-engine Dockerfile Critical Issues",
+        "description": "Resolve RustScan installation failures and missing dependencies in sirius-engine Dockerfile.",
+        "details": "Fix: RustScan installation process, missing unzip dependency, PATH configuration issues, user permission problems. Ensure RustScan is accessible to all users, optimize build time by using pre-built binaries when possible, add proper error handling.",
+        "status": "done",
+        "priority": "critical",
+        "dependencies": [],
+        "testStrategy": "Build sirius-engine container successfully, verify RustScan executable is available, test with different user contexts, measure build time improvements."
+      },
+      {
+        "id": "2.2",
+        "title": "Standardize sirius-ui Dockerfile",
+        "description": "Optimize sirius-ui Dockerfile for consistent builds and better caching.",
+        "details": "Implement: consistent multi-stage build pattern, optimized layer caching, proper dependency management, security best practices, health checks. Ensure development and production stages are clearly defined.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Test both development and production builds, verify hot reloading works, test image size optimization, validate security scanning."
+      },
+      {
+        "id": "2.3",
+        "title": "Optimize sirius-api Dockerfile",
+        "description": "Streamline sirius-api Dockerfile for faster builds and better maintainability.",
+        "details": "Implement: multi-stage build for production, development stage with air for hot reloading, proper Go module caching, security optimizations, health checks. Ensure compatibility with existing development workflow.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Test development build with air hot reloading, test production build, verify health checks, measure build time improvements."
+      },
+      {
+        "id": "2.4",
+        "title": "Add Build Arguments & Flexibility",
+        "description": "Add build arguments to all Dockerfiles for environment-specific configurations.",
+        "details": "Add: version arguments for sub-modules, environment-specific build flags, optional feature flags, commit SHA arguments for reproducible builds. Ensure builds are deterministic and traceable.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["2.1", "2.2", "2.3"],
+        "testStrategy": "Test builds with different argument combinations, verify reproducible builds, test environment-specific configurations."
+      }
+    ],
+    "testStrategy": "Build all three services successfully, verify all tools are accessible, test development and production stages, measure build time improvements, run security scans."
+  },
+  {
+    "id": "3",
+    "title": "Testing Infrastructure Setup",
+    "description": "Create comprehensive testing infrastructure for Docker builds and container validation.",
+    "details": "Create testing/ directory with: build validation scripts, health check tests, integration tests, reporting system. Implement: individual container build tests, Docker Compose integration tests, service communication tests, build performance monitoring, failure reporting with detailed error messages.",
+    "status": "done",
+    "priority": "high",
+    "dependencies": ["1.2"],
+    "subtasks": [
+      {
+        "id": "3.1",
+        "title": "Create Testing Directory Structure",
+        "description": "Set up testing/ directory with organized script structure and configuration files.",
+        "details": "Create: testing/scripts/ for build and health check scripts, testing/configs/ for test configurations, testing/reports/ for test output, Makefile for simple command interface. Ensure clear organization and easy maintenance.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Verify directory structure is created, test script execution permissions, validate configuration file loading."
+      },
+      {
+        "id": "3.2",
+        "title": "Implement Build Validation Scripts",
+        "description": "Create scripts to validate individual container builds with detailed reporting.",
+        "details": "Create: test-build.sh for individual container builds, test-build-all.sh for full stack builds, build-performance-monitor.sh for timing analysis, build-failure-analyzer.sh for error diagnosis. Include: build success/failure reporting, build time tracking, resource usage monitoring, detailed error messages with suggestions.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["3.1"],
+        "testStrategy": "Test build scripts with both successful and failed builds, verify error reporting accuracy, test performance monitoring, validate build time tracking."
+      },
+      {
+        "id": "3.3",
+        "title": "Implement Health Check Validation",
+        "description": "Create scripts to validate container health and service readiness.",
+        "details": "Create: test-health.sh for individual service health checks, test-health-all.sh for full stack health validation, service-connectivity-test.sh for inter-service communication. Include: port binding verification, service response validation, dependency health checks, startup time monitoring.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["3.1"],
+        "testStrategy": "Test health checks with healthy and unhealthy services, verify connectivity tests, test startup time monitoring, validate error detection."
+      },
+      {
+        "id": "3.4",
+        "title": "Implement Integration Testing",
+        "description": "Create scripts to test service integration and communication.",
+        "details": "Create: test-integration.sh for service communication tests, test-api-endpoints.sh for API validation, test-message-queue.sh for RabbitMQ functionality, test-database-connectivity.sh for PostgreSQL integration. Include: API endpoint testing, message queue validation, database connectivity tests, service discovery verification.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["3.2", "3.3"],
+        "testStrategy": "Test integration scripts with full stack running, verify API endpoint responses, test message queue functionality, validate database operations."
+      },
+      {
+        "id": "3.5",
+        "title": "Create Test Reporting System",
+        "description": "Implement comprehensive reporting system for test results and build analytics.",
+        "details": "Create: test-report-generator.sh for HTML/JSON reports, build-analytics.sh for performance analysis, failure-summary.sh for error aggregation, test-dashboard.sh for real-time monitoring. Include: pass/fail summaries, performance metrics, error categorization, trend analysis, actionable recommendations.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["3.2", "3.3", "3.4"],
+        "testStrategy": "Test report generation with various test results, verify analytics accuracy, test dashboard functionality, validate recommendation quality."
+      }
+    ],
+    "testStrategy": "Run complete test suite, verify all scripts execute correctly, test reporting system, validate error detection and reporting accuracy."
+  },
+  {
+    "id": "4",
+    "title": "CI/CD Pipeline Integration",
+    "description": "Integrate testing infrastructure with GitHub Actions for automated validation.",
+    "details": "Create GitHub Actions workflow that: triggers on code changes, runs build validation tests, executes health checks, runs integration tests, generates test reports, provides build status feedback. Include: matrix testing for different configurations, artifact collection for failed builds, notification system for failures.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["3.5"],
+    "subtasks": [
+      {
+        "id": "4.1",
+        "title": "Create GitHub Actions Workflow",
+        "description": "Create .github/workflows/docker-testing.yml for automated container testing.",
+        "details": "Implement: workflow triggers for push/PR events, matrix strategy for different configurations, build validation steps, health check steps, integration test steps, artifact collection, failure notifications. Include: Docker Buildx setup, caching for dependencies, parallel execution where possible.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Test workflow with sample commits, verify all steps execute correctly, test artifact collection, validate notification system."
+      },
+      {
+        "id": "4.2",
+        "title": "Implement Build Caching Strategy",
+        "description": "Optimize CI/CD builds with proper caching and layer reuse.",
+        "details": "Implement: Docker layer caching, dependency caching, build context optimization, multi-stage build caching. Include: cache key strategies, cache invalidation rules, cache size management, performance monitoring.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["4.1"],
+        "testStrategy": "Test cache effectiveness, measure build time improvements, verify cache invalidation works correctly, monitor cache usage."
+      },
+      {
+        "id": "4.3",
+        "title": "Add Multi-Architecture Testing",
+        "description": "Implement testing for multiple architectures (amd64, arm64) to ensure compatibility.",
+        "details": "Add: multi-platform build testing, architecture-specific validation, cross-platform compatibility checks. Include: buildx multi-platform builds, architecture-specific test execution, compatibility reporting.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["4.1"],
+        "testStrategy": "Test builds on different architectures, verify compatibility, test architecture-specific features, validate cross-platform functionality."
+      }
+    ],
+    "testStrategy": "Test complete CI/CD pipeline, verify all configurations work, test failure scenarios, validate notification system, measure build performance improvements."
+  },
+  {
+    "id": "5",
+    "title": "Documentation & Developer Experience",
+    "description": "Create comprehensive documentation and improve developer experience for Docker setup.",
+    "details": "Create: updated README with new Docker setup instructions, troubleshooting guide for common issues, developer quick-start guide, production deployment guide. Include: clear command examples, common problem solutions, performance optimization tips, best practices.",
+    "status": "pending",
+    "priority": "medium",
+    "dependencies": ["1.5", "2.4", "3.5"],
+    "subtasks": [
+      {
+        "id": "5.1",
+        "title": "Update Main README",
+        "description": "Update main README.md with streamlined Docker setup instructions.",
+        "details": "Update: quick start instructions with new compose files, development setup guide, production deployment instructions, troubleshooting section. Include: clear command examples, environment variable documentation, common issues and solutions.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Test all documented commands, verify instructions are accurate, test with fresh environment setup, validate troubleshooting solutions."
+      },
+      {
+        "id": "5.2",
+        "title": "Create Developer Quick-Start Guide",
+        "description": "Create comprehensive developer setup guide for local development.",
+        "details": "Create: step-by-step development setup, environment configuration guide, testing workflow instructions, debugging guide. Include: prerequisite installation, environment variable setup, common development tasks, testing procedures.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["5.1"],
+        "testStrategy": "Test developer setup from scratch, verify all steps work correctly, test debugging procedures, validate testing workflow."
+      },
+      {
+        "id": "5.3",
+        "title": "Create Production Deployment Guide",
+        "description": "Create detailed production deployment guide with best practices.",
+        "details": "Create: production environment setup, security configuration guide, performance optimization tips, monitoring setup instructions. Include: environment-specific configurations, security hardening, resource optimization, monitoring and alerting setup.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["5.1"],
+        "testStrategy": "Test production setup procedures, verify security configurations, test performance optimizations, validate monitoring setup."
+      }
+    ],
+    "testStrategy": "Test all documentation with fresh setup, verify accuracy of instructions, test troubleshooting solutions, validate developer experience improvements."
+  },
+  {
+    "id": "6",
+    "title": "Performance Optimization & Monitoring",
+    "description": "Implement performance monitoring and optimization for Docker builds and container runtime.",
+    "details": "Add: build time monitoring, resource usage tracking, performance regression detection, optimization recommendations. Include: build performance metrics, container resource monitoring, optimization suggestions, trend analysis.",
+    "status": "pending",
+    "priority": "low",
+    "dependencies": ["4.3", "5.3"],
+    "subtasks": [
+      {
+        "id": "6.1",
+        "title": "Implement Build Performance Monitoring",
+        "description": "Add comprehensive build performance monitoring and analysis.",
+        "details": "Implement: build time tracking, resource usage monitoring, layer size analysis, cache hit rate monitoring. Include: performance metrics collection, trend analysis, optimization recommendations, alerting for performance regressions.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": [],
+        "testStrategy": "Test performance monitoring accuracy, verify trend analysis, test optimization recommendations, validate alerting system."
+      },
+      {
+        "id": "6.2",
+        "title": "Add Container Runtime Monitoring",
+        "description": "Implement monitoring for container runtime performance and health.",
+        "details": "Add: container resource usage monitoring, service health tracking, performance metrics collection, alerting for issues. Include: memory usage tracking, CPU utilization monitoring, network performance metrics, disk usage monitoring.",
+        "status": "pending",
+        "priority": "low",
+        "dependencies": ["6.1"],
+        "testStrategy": "Test runtime monitoring accuracy, verify resource tracking, test alerting system, validate performance metrics."
+      }
+    ],
+    "testStrategy": "Test complete monitoring system, verify performance tracking accuracy, test optimization recommendations, validate alerting functionality."
+  }
+]

@@ -1,56 +1,267 @@
 ---
-description: Guidelines for creating and maintaining Cursor rules to ensure consistency and effectiveness.
-globs: .cursor/rules/*.mdc
+description: Master Cursor rules for Sirius project - orchestrates dynamic documentation discovery and context shaping
+globs: **/*
 alwaysApply: true
 ---
 
-- **Required Rule Structure:**
-  ```markdown
-  ---
-  description: Clear, one-line description of what the rule enforces
-  globs: path/to/files/*.ext, other/path/**/*
-  alwaysApply: boolean
-  ---
+# Sirius Cursor Rules - Dynamic Documentation Integration
 
-  - **Main Points in Bold**
-    - Sub-points with details
-    - Examples and explanations
-  ```
+## Core Philosophy
 
-- **File References:**
-  - Use `[filename](mdc:Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/path/to/file)` ([filename](mdc:Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/filename)) to reference files
-  - Example: [prisma.mdc](mdc:Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/.cursor/rules/prisma.mdc) for rule references
-  - Example: [schema.prisma](mdc:Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/Sirius/prisma/schema.prisma) for code references
+This project uses a **dynamic documentation discovery system** that automatically includes relevant documentation based on context. The system leverages our comprehensive documentation index and LLM-optimized metadata to provide the most relevant context for any development task.
 
-- **Code Examples:**
-  - Use language-specific code blocks
-  ```typescript
-  // ✅ DO: Show good examples
-  const goodExample = true;
-  
-  // ❌ DON'T: Show anti-patterns
-  const badExample = false;
-  ```
+## Dynamic Documentation Discovery
 
-- **Development Guide**
-  - Apps are either frontend or backend. Backend app development happens inside of the sirius-engine container. This container has the associated directory (which will be in the project workspace) mounted for dev mode. This means that local changes to the code will be reflected in the docker container. Any troubleshooting or restart commands MUST be executed in the container (for example: docker exec sirius-engine cat /var/logs)
+### Primary Documentation Sources
 
-- **Rule Content Guidelines:**
-  - Start with high-level overview
-  - Include specific, actionable requirements
-  - Show examples of correct implementation
-  - Reference existing code when possible
-  - Keep rules DRY by referencing other rules
+**Always include these high-priority documents:**
 
-- **Rule Maintenance:**
-  - Update rules when new patterns emerge
-  - Add examples from actual codebase
-  - Remove outdated patterns
-  - Cross-reference related rules
+- [ABOUT.documentation.md](mdc:documentation/dev/ABOUT.documentation.md) - Documentation standards and system
+- [README.documentation-index.md](mdc:documentation/README.documentation-index.md) - Complete documentation index
 
-- **Best Practices:**
-  - Use bullet points for clarity
-  - Keep descriptions concise
-  - Include both DO and DON'T examples
-  - Reference actual code over theoretical examples
-  - Use consistent formatting across rules 
+### Context-Aware Document Selection
+
+**For Git/Version Control Operations:**
+
+- [README.development.md](mdc:documentation/dev/README.development.md) - Development workflow and standards
+- [README.container-testing.md](mdc:documentation/dev/test/README.container-testing.md) - Testing before commits
+
+**For Testing Activities:**
+
+- [README.documentation-testing.md](mdc:documentation/dev/test/README.documentation-testing.md) - Documentation testing system
+- [README.container-testing.md](mdc:documentation/dev/test/README.container-testing.md) - Container testing system
+
+**For Documentation Work:**
+
+- [ABOUT.documentation.md](mdc:documentation/dev/ABOUT.documentation.md) - Documentation standards
+- [README.documentation-testing.md](mdc:documentation/dev/test/README.documentation-testing.md) - Documentation validation
+
+**For Architecture/System Design:**
+
+- [README.architecture.md](mdc:documentation/dev/architecture/README.architecture.md) - System architecture
+- [ABOUT.documentation.md](mdc:documentation/dev/ABOUT.documentation.md) - Documentation standards
+
+## Documentation System Integration
+
+### YAML Front Matter Usage
+
+Our documentation uses rich YAML front matter for intelligent context building:
+
+```yaml
+---
+title: "Document Title"
+description: "Brief purpose description"
+template: "TEMPLATE.documentation-standard"
+llm_context: "high" # high, medium, low
+categories: ["development", "testing"]
+tags: ["docker", "testing", "containers"]
+related_docs:
+  - "README.development.md"
+  - "ABOUT.documentation.md"
+---
+```
+
+### LLM Context Levels
+
+- **high**: Critical for understanding project structure and standards
+- **medium**: Important for specific development tasks
+- **low**: Reference material and detailed specifications
+
+### Dynamic Context Building
+
+When working on any task, Cursor should:
+
+1. **Check the documentation index** for relevant documents
+2. **Prioritize by llm_context level** (high → medium → low)
+3. **Include related documents** based on YAML relationships
+4. **Use search_keywords** to find contextually relevant information
+
+## Development Guidelines
+
+### Project Structure
+
+- **Backend Development**: Happens inside `sirius-engine` container
+- **Frontend Development**: Uses Next.js in `sirius-ui` container
+- **Testing**: Run from `testing/` directory using Makefile commands
+- **Documentation**: All in `documentation/dev/` with machine-readable metadata
+
+### Container Development
+
+```bash
+# Backend development commands run in container
+docker exec sirius-engine <command>
+
+# Example: Check logs
+docker exec sirius-engine cat /var/logs
+
+# Example: Restart services
+docker exec sirius-engine systemctl restart <service>
+```
+
+### Testing Workflow
+
+```bash
+# Navigate to testing directory
+cd testing
+
+# Run complete test suite
+make test-all
+
+# Run specific tests
+make test-build
+make test-health
+make test-integration
+
+# Run documentation validation
+make lint-docs
+make lint-index
+```
+
+### Documentation Standards
+
+- **All documentation** must have complete YAML front matter
+- **Use templates** from `documentation/dev/templates/`
+- **Follow naming conventions** (ABOUT._, README._, TEMPLATE.\*)
+- **Include LLM context** for AI optimization
+- **Maintain relationships** through related_docs
+
+## AI Context Optimization
+
+### Context Shaping Strategy
+
+1. **Start with high-context documents** (llm_context: "high")
+2. **Include related documents** based on YAML relationships
+3. **Use search keywords** for specific task context
+4. **Leverage categories** for domain-specific information
+
+### Documentation Discovery Commands
+
+```bash
+# Find high-priority documentation
+grep -r "llm_context: high" documentation/
+
+# Find documents by category
+grep -r "categories:" documentation/ | grep "testing"
+
+# Find related documents
+grep -r "related_docs:" documentation/
+
+# Check template usage
+grep -r "template:" documentation/
+```
+
+## Best Practices
+
+### Code Development
+
+- **Follow project structure** defined in documentation
+- **Use container-based development** for backend work
+- **Run tests before commits** using our testing system
+- **Update documentation** when making structural changes
+
+### Documentation Maintenance
+
+- **Keep YAML front matter complete** and accurate
+- **Update related_docs** when creating new relationships
+- **Use appropriate templates** for different document types
+- **Run documentation linting** before committing changes
+
+### Context Building
+
+- **Always include relevant documentation** based on task context
+- **Prioritize by LLM context levels** for optimal AI performance
+- **Use our documentation index** to discover related information
+- **Leverage search keywords** for specific task guidance
+
+## Cursor Rule Evolution
+
+### Proactive Rule Recommendations
+
+**The AI should actively monitor development activities and recommend new cursor rules when it identifies patterns that could improve efficiency.**
+
+#### When to Recommend New Rules
+
+- **Repeated patterns** - When the same type of task is performed multiple times
+- **Complex workflows** - When a task involves multiple steps that could be streamlined
+- **Context gaps** - When relevant documentation exists but isn't being automatically included
+- **Domain-specific activities** - When working in specific areas (e.g., deployment, monitoring, security)
+
+#### Rule Recommendation Process
+
+1. **Identify the pattern** - What activity is being repeated or could be optimized?
+2. **Assess the impact** - Would a cursor rule significantly improve efficiency?
+3. **Define the scope** - What files, directories, or activities should the rule cover?
+4. **Specify the context** - What documentation should be automatically included?
+5. **Propose the rule** - Suggest the rule content and file naming
+
+#### Example Rule Recommendations
+
+**If working frequently with Docker deployments:**
+
+- **Pattern**: Repeated Docker Compose operations and container management
+- **Recommendation**: Create `deployment-workflow.mdc` rule
+- **Context**: Include deployment documentation, Docker best practices, monitoring guides
+
+**If working on security features:**
+
+- **Pattern**: Security-related code changes and vulnerability scanning
+- **Recommendation**: Create `security-development.mdc` rule
+- **Context**: Include security documentation, vulnerability scanning guides, best practices
+
+#### Rule Creation Guidelines
+
+When recommending new cursor rules:
+
+1. **Follow the existing pattern** - Use `cursor_rules.mdc` as a template
+2. **Include specific documentation** - Reference exact files that should be included
+3. **Define clear scope** - Specify which file patterns the rule should apply to
+4. **Provide usage examples** - Show how the rule would be used in practice
+5. **Consider maintenance** - Ensure the rule will remain useful over time
+
+#### Current Rule Inventory
+
+**Existing specialized rules:**
+
+- `git-operations.mdc` - Git workflows and version control
+- `testing-workflow.mdc` - Testing processes and validation
+- `documentation-work.mdc` - Documentation creation and maintenance
+
+**Potential future rules to consider:**
+
+- `deployment-workflow.mdc` - Production deployment processes
+- `security-development.mdc` - Security-focused development
+- `monitoring-ops.mdc` - Monitoring and observability
+- `api-development.mdc` - API development and integration
+
+### Rule Maintenance
+
+- **Review rules quarterly** - Ensure they remain relevant and useful
+- **Update documentation references** - Keep file paths and content current
+- **Consolidate similar rules** - Merge rules that have overlapping scope
+- **Remove obsolete rules** - Delete rules that are no longer needed
+
+## Troubleshooting
+
+### Common Issues
+
+- **Missing context**: Check documentation index and LLM context levels
+- **Outdated information**: Run documentation linting to validate accuracy
+- **Broken relationships**: Use `make lint-index` to check document relationships
+- **Template compliance**: Use `make lint-docs` to validate structure
+
+### Debugging Commands
+
+```bash
+# Check documentation completeness
+cd testing && make lint-docs
+
+# Validate document relationships
+cd testing && make lint-index
+
+# Find specific documentation
+grep -r "search_keywords:" documentation/ | grep "docker"
+```
+
+---
+
+_This cursor rule dynamically integrates with our documentation system. For questions about documentation structure, see [ABOUT.documentation.md](mdc:documentation/dev/ABOUT.documentation.md)._

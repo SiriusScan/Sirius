@@ -1,3 +1,25 @@
+---
+title: "Sirius Development Setup"
+description: "Comprehensive guide for setting up and using the Sirius development environment, including standard and extended development modes with local repository integration."
+template: "TEMPLATE.documentation-standard"
+version: "1.0.0"
+last_updated: "2025-01-03"
+author: "Development Team"
+tags: ["development", "setup", "docker", "workflow"]
+categories: ["development", "setup"]
+difficulty: "intermediate"
+prerequisites: ["docker", "git"]
+related_docs:
+  - "README.container-testing.md"
+  - "ABOUT.documentation.md"
+dependencies:
+  - "docker-compose.yaml"
+  - "scripts/dev-setup.sh"
+llm_context: "medium"
+search_keywords:
+  ["development setup", "docker compose", "local development", "workflow"]
+---
+
 # Sirius Development Setup
 
 ## Quick Start

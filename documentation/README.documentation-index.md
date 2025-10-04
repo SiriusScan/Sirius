@@ -23,8 +23,9 @@ This document provides a complete index of all documentation files in the Sirius
 
 ### System Documentation
 - [ABOUT.documentation.md](dev/ABOUT.documentation.md) - Documentation standards and system overview
+- [README.developer-guide.md](dev/README.developer-guide.md) - Complete developer guide with workflows and best practices
+- [QUICK-REFERENCE.md](dev/QUICK-REFERENCE.md) - Quick reference card for common development tasks
 - [README.development.md](dev/README.development.md) - Development environment setup and workflow
-
 ## Architecture Documentation
 
 ### System Architecture

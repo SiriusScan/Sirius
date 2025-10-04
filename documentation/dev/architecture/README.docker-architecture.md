@@ -308,6 +308,16 @@ docker compose -f docker-compose.yaml -f docker-compose.prod.yaml down
 
 All services use multi-stage Dockerfiles to optimize image size and build efficiency.
 
+#### Image Tagging Strategy
+
+To prevent Docker cache conflicts when switching between environments, each environment uses distinct image tags:
+
+- **Development**: `sirius-sirius-ui:dev` - Built with development stage
+- **Production**: `sirius-sirius-ui:prod` - Built with production stage
+- **Base**: `sirius-sirius-ui:latest` - Built with default stage
+
+This ensures that switching environments always uses the correct build target and prevents cached development images from being used in production mode.
+
 #### sirius-ui Dockerfile
 
 **Stages**:
@@ -822,6 +832,33 @@ docker compose down -v
 7. **Environment Isolation**: Ensure clean separation between dev and prod builds
 
 ### Environment Switching
+
+**New in v1.0.0**: Use the `scripts/switch-env.sh` script for seamless environment switching.
+
+#### Quick Environment Switching
+
+```bash
+# Switch to development mode (hot reloading, volume mounts)
+./scripts/switch-env.sh dev
+
+# Switch to production mode (optimized builds, PostgreSQL)
+./scripts/switch-env.sh prod
+
+# Switch to base mode (standard configuration)
+./scripts/switch-env.sh base
+```
+
+#### What the Script Does
+
+1. **Stops all containers** to ensure clean state
+2. **Removes old images** to prevent cache conflicts
+3. **Builds with correct target** for the specified environment
+4. **Starts all services** with appropriate configuration
+5. **Shows status and URLs** for easy access
+
+#### Manual Environment Switching
+
+If you need to switch environments manually:
 
 1. **Clean Transitions**: Always clean Docker cache when switching environments
 2. **Build Verification**: Verify correct build targets before starting services

@@ -24,14 +24,21 @@ search_keywords:
 
 ## Quick Start
 
+**New in v1.0.0**: Use the improved environment switching system for easier development.
+
 ```bash
-# Standard development (uses built-in repositories)
+# Modern development workflow (recommended)
+./scripts/switch-env.sh dev
+
+# Legacy development (uses built-in repositories)
 ./scripts/dev-setup.sh start
 
 # Extended development (with local repository mounts)
 ./scripts/dev-setup.sh init           # Create local overrides
 ./scripts/dev-setup.sh start-extended # Start with local mounts
 ```
+
+> **Note**: For the complete developer experience, see [README.developer-guide.md](README.developer-guide.md) for comprehensive development workflows and best practices.
 
 ## Development Modes
 

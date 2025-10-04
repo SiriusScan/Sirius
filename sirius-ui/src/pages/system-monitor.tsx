@@ -281,7 +281,7 @@ const SystemMonitor: NextPage = () => {
 
   const serviceCounts = healthCheckService.getServiceCounts(systemHealth);
   const upServices = serviceCounts.up;
-  const totalServices = Object.values(serviceCounts).reduce((sum, count) => sum + count, 0);
+  const totalServices = systemHealth ? Object.keys(systemHealth.services).length : 0;
 
   return (
     <Layout>

@@ -51,7 +51,7 @@ class HealthCheckService {
         opts.timeout
       );
 
-      if (!response.ok) {
+      if (!response.ok && response.status !== 503) {
         throw new Error(`Health check failed with status: ${response.status}`);
       }
 

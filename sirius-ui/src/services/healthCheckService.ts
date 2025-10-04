@@ -1,6 +1,6 @@
 // Health check service for system monitoring
 export interface ServiceHealth {
-  status: 'up' | 'down' | 'loading' | 'error';
+  status: "up" | "down" | "loading" | "error";
   message?: string;
   timestamp: string;
   port?: number;
@@ -29,23 +29,25 @@ class HealthCheckService {
     interval: 5000, // 5 seconds
   };
 
-  constructor(baseUrl: string = 'http://localhost:9001') {
+  constructor(baseUrl: string = "http://localhost:9001") {
     this.baseUrl = baseUrl;
   }
 
   /**
    * Performs a single health check for all services
    */
-  async checkSystemHealth(options: HealthCheckOptions = {}): Promise<SystemHealthResponse> {
+  async checkSystemHealth(
+    options: HealthCheckOptions = {}
+  ): Promise<SystemHealthResponse> {
     const opts = { ...this.defaultOptions, ...options };
-    
+
     try {
       const response = await this.fetchWithTimeout(
         `${this.baseUrl}/api/v1/system/health`,
         {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         },
         opts.timeout
@@ -58,8 +60,12 @@ class HealthCheckService {
       const data: SystemHealthResponse = await response.json();
       return data;
     } catch (error) {
-      console.error('Health check failed:', error);
-      throw new Error(`Failed to check system health: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Health check failed:", error);
+      throw new Error(
+        `Failed to check system health: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
 
@@ -71,9 +77,9 @@ class HealthCheckService {
       const response = await this.fetchWithTimeout(
         `${this.baseUrl}/health`,
         {
-          method: 'GET',
+          method: "GET",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         },
         3000
@@ -81,7 +87,7 @@ class HealthCheckService {
 
       return response.ok;
     } catch (error) {
-      console.error('API health check failed:', error);
+      console.error("API health check failed:", error);
       return false;
     }
   }
@@ -107,10 +113,19 @@ class HealthCheckService {
         retryCount = 0; // Reset retry count on success
       } catch (error) {
         retryCount++;
-        console.error(`Health check failed (attempt ${retryCount}/${opts.retries}):`, error);
+        console.error(
+          `Health check failed (attempt ${retryCount}/${opts.retries}):`,
+          error
+        );
 
         if (retryCount >= opts.retries) {
-          onError(new Error(`Health check failed after ${opts.retries} attempts: ${error instanceof Error ? error.message : 'Unknown error'}`));
+          onError(
+            new Error(
+              `Health check failed after ${opts.retries} attempts: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`
+            )
+          );
           retryCount = 0; // Reset for next cycle
         }
       }
@@ -150,7 +165,7 @@ class HealthCheckService {
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (error instanceof Error && error.name === "AbortError") {
         throw new Error(`Request timeout after ${timeout}ms`);
       }
       throw error;
@@ -160,11 +175,14 @@ class HealthCheckService {
   /**
    * Gets service status with loading state
    */
-  getServiceStatus(serviceName: string, health: SystemHealthResponse | null): ServiceHealth {
+  getServiceStatus(
+    serviceName: string,
+    health: SystemHealthResponse | null
+  ): ServiceHealth {
     if (!health) {
       return {
-        status: 'loading',
-        message: 'Checking...',
+        status: "loading",
+        message: "Checking...",
         timestamp: new Date().toISOString(),
       };
     }
@@ -172,8 +190,8 @@ class HealthCheckService {
     const service = health.services[serviceName];
     if (!service) {
       return {
-        status: 'error',
-        message: 'Service not found',
+        status: "error",
+        message: "Service not found",
         timestamp: new Date().toISOString(),
       };
     }
@@ -184,41 +202,45 @@ class HealthCheckService {
   /**
    * Gets overall system status
    */
-  getOverallStatus(health: SystemHealthResponse | null): 'up' | 'down' | 'loading' | 'error' {
-    if (!health) return 'loading';
-    
+  getOverallStatus(
+    health: SystemHealthResponse | null
+  ): "up" | "down" | "loading" | "error" {
+    if (!health) return "loading";
+
     switch (health.overall) {
-      case 'healthy':
-        return 'up';
-      case 'degraded':
-        return 'down';
+      case "healthy":
+        return "up";
+      case "degraded":
+        return "down";
       default:
-        return 'error';
+        return "error";
     }
   }
 
   /**
    * Gets count of services by status
    */
-  getServiceCounts(health: SystemHealthResponse | null): Record<string, number> {
+  getServiceCounts(
+    health: SystemHealthResponse | null
+  ): Record<string, number> {
     if (!health) {
       return { up: 0, down: 0, loading: 0, error: 0 };
     }
 
     const counts = { up: 0, down: 0, loading: 0, error: 0 };
-    
-    Object.values(health.services).forEach(service => {
+
+    Object.values(health.services).forEach((service) => {
       switch (service.status) {
-        case 'up':
+        case "up":
           counts.up++;
           break;
-        case 'down':
+        case "down":
           counts.down++;
           break;
-        case 'loading':
+        case "loading":
           counts.loading++;
           break;
-        case 'error':
+        case "error":
           counts.error++;
           break;
       }

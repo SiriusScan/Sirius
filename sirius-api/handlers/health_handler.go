@@ -105,8 +105,8 @@ func SystemHealthHandler(c *fiber.Ctx) error {
 
 // checkUIService checks if the UI service is accessible
 func checkUIService() ServiceHealth {
-	// Try to connect to UI on port 3000
-	conn, err := net.DialTimeout("tcp", "localhost:3000", 2*time.Second)
+	// Try to connect to UI on port 3000 using container name
+	conn, err := net.DialTimeout("tcp", "sirius-ui:3000", 2*time.Second)
 	if err != nil {
 		return ServiceHealth{
 			Status:    "down",
@@ -136,25 +136,25 @@ func checkAPIService() ServiceHealth {
 	}
 }
 
-// checkEngineService checks if the Engine service is accessible
+// checkEngineService checks if the Engine service is accessible via gRPC
 func checkEngineService() ServiceHealth {
-	// Try to connect to Engine on port 5174
-	conn, err := net.DialTimeout("tcp", "localhost:5174", 2*time.Second)
+	// Try to connect to Engine gRPC port 50051
+	conn, err := net.DialTimeout("tcp", "sirius-engine:50051", 2*time.Second)
 	if err != nil {
 		return ServiceHealth{
 			Status:    "down",
-			Message:   fmt.Sprintf("Cannot connect to Engine: %v", err),
+			Message:   fmt.Sprintf("Cannot connect to Engine gRPC: %v", err),
 			Timestamp: time.Now(),
-			Port:      5174,
+			Port:      50051,
 		}
 	}
 	conn.Close()
 	
 	return ServiceHealth{
 		Status:    "up",
-		Message:   "Engine service is accessible",
+		Message:   "Engine gRPC service is accessible",
 		Timestamp: time.Now(),
-		Port:      5174,
+		Port:      50051,
 	}
 }
 
@@ -245,8 +245,8 @@ func checkValkey() ServiceHealth {
 
 // checkRabbitMQ checks RabbitMQ connectivity
 func checkRabbitMQ() ServiceHealth {
-	// Try to connect to RabbitMQ on port 5672
-	conn, err := net.DialTimeout("tcp", "localhost:5672", 2*time.Second)
+	// Try to connect to RabbitMQ on port 5672 using container name
+	conn, err := net.DialTimeout("tcp", "sirius-rabbitmq:5672", 2*time.Second)
 	if err != nil {
 		return ServiceHealth{
 			Status:    "down",

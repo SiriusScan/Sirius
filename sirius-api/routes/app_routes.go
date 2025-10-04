@@ -15,6 +15,11 @@ func (h *AppRouteSetter) SetupRoutes(app *fiber.App) {
 	// System health check route
 	app.Get("/api/v1/system/health", handlers.SystemHealthHandler)
 
+	// Logging routes
+	app.Post("/api/v1/logs", handlers.LogSubmissionHandler)
+	app.Get("/api/v1/logs", handlers.LogRetrievalHandler)
+	app.Get("/api/v1/logs/stats", handlers.LogStatsHandler)
+
 	// App-specific routes
 	appRoutes := app.Group("/app")
 	appRoutes.Post("/:appName", handlers.AppHandler)

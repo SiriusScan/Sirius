@@ -5,8 +5,10 @@ import Layout from "~/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/lib/ui/card";
 import { Badge } from "~/components/lib/ui/badge";
 import { Button } from "~/components/lib/ui/button";
-import { RefreshCw, Server, Database, MessageSquare, Zap, Globe, AlertCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/lib/ui/tabs";
+import { RefreshCw, Server, Database, MessageSquare, Zap, Globe, AlertCircle, FileText } from "lucide-react";
 import { healthCheckService, type SystemHealthResponse, type ServiceHealth } from "~/services/healthCheckService";
+import { LogDashboard } from "~/components/LogDashboard";
 
 // Service configuration
 const serviceConfig = [
@@ -48,47 +50,7 @@ const serviceConfig = [
   }
 ];
 
-// Mock logs for now (will be replaced with real logging system later)
-const mockLogs = [
-  {
-    id: "1",
-    timestamp: new Date(Date.now() - 1000 * 60 * 5),
-    service: "sirius-api",
-    level: "info",
-    message: "Health check endpoint accessed"
-  },
-  {
-    id: "2",
-    timestamp: new Date(Date.now() - 1000 * 60 * 3),
-    service: "sirius-engine",
-    level: "warn",
-    message: "High memory usage detected"
-  },
-  {
-    id: "3",
-    timestamp: new Date(Date.now() - 1000 * 60 * 2),
-    service: "sirius-postgres",
-    level: "error",
-    message: "Connection timeout to database"
-  },
-  {
-    id: "4",
-    timestamp: new Date(Date.now() - 1000 * 30),
-    service: "sirius-ui",
-    level: "info",
-    message: "User logged in successfully"
-  }
-];
-
 type ServiceStatus = "up" | "down" | "loading" | "error";
-
-interface LogEntry {
-  id: string;
-  timestamp: Date;
-  service: string;
-  level: "info" | "warn" | "error" | "debug";
-  message: string;
-}
 
 const ServiceStatusCard: React.FC<{ 
   serviceConfig: typeof serviceConfig[0]; 
@@ -225,7 +187,6 @@ const LogViewer: React.FC<{ logs: LogEntry[] }> = ({ logs }) => {
 const SystemMonitor: NextPage = () => {
   const { data: sessionData } = useSession();
   const [systemHealth, setSystemHealth] = useState<SystemHealthResponse | null>(null);
-  const [logs, setLogs] = useState<LogEntry[]>(mockLogs);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -303,53 +264,6 @@ const SystemMonitor: NextPage = () => {
           </Button>
         </div>
 
-        {/* System Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-green-500/20 rounded-lg">
-                  <Server className="h-6 w-6 text-green-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-white">{upServices}/{totalServices}</p>
-                  <p className="text-sm text-gray-400">Services Online</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-500/20 rounded-lg">
-                  <AlertCircle className="h-6 w-6 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-white">{logs.length}</p>
-                  <p className="text-sm text-gray-400">Total Logs</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
-            <CardContent className="p-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-yellow-500/20 rounded-lg">
-                  <AlertCircle className="h-6 w-6 text-yellow-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-white">
-                    {logs.filter(l => l.level === 'error').length}
-                  </p>
-                  <p className="text-sm text-gray-400">Errors</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Error Display */}
         {error && (
           <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
@@ -361,25 +275,86 @@ const SystemMonitor: NextPage = () => {
           </div>
         )}
 
-        {/* Service Status Grid */}
-        <div className="mb-8">
-          <h2 className="text-xl font-medium text-white mb-4">Service Status</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {serviceConfig.map((service) => (
-              <ServiceStatusCard 
-                key={service.id} 
-                serviceConfig={service}
-                serviceHealth={healthCheckService.getServiceStatus(service.id, systemHealth)}
-              />
-            ))}
-          </div>
-        </div>
+        {/* Tabs for different monitoring views */}
+        <Tabs defaultValue="services" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="services" className="flex items-center gap-2">
+              <Server className="h-4 w-4" />
+              Service Status
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              System Logs
+            </TabsTrigger>
+          </TabsList>
 
-        {/* System Logs */}
-        <div>
-          <h2 className="text-xl font-medium text-white mb-4">Recent Logs</h2>
-          <LogViewer logs={logs} />
-        </div>
+          <TabsContent value="services" className="space-y-6">
+            {/* System Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-green-500/20 rounded-lg">
+                      <Server className="h-6 w-6 text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white">{upServices}/{totalServices}</p>
+                      <p className="text-sm text-gray-400">Services Online</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-blue-500/20 rounded-lg">
+                      <AlertCircle className="h-6 w-6 text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white">{systemHealth?.overall || 'loading'}</p>
+                      <p className="text-sm text-gray-400">Overall Status</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-yellow-500/20 rounded-lg">
+                      <AlertCircle className="h-6 w-6 text-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-white">
+                        {downServices}
+                      </p>
+                      <p className="text-sm text-gray-400">Services Down</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Service Status Grid */}
+            <div>
+              <h2 className="text-xl font-medium text-white mb-4">Service Status</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {serviceConfig.map((service) => (
+                  <ServiceStatusCard 
+                    key={service.id} 
+                    serviceConfig={service}
+                    serviceHealth={healthCheckService.getServiceStatus(service.id, systemHealth)}
+                  />
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="logs" className="space-y-6">
+            <LogDashboard />
+          </TabsContent>
+        </Tabs>
       </div>
     </Layout>
   );

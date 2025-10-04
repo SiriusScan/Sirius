@@ -606,6 +606,99 @@ docker volume inspect sirius_postgres_data
 docker volume prune
 ```
 
+#### Docker Layer Caching Issues
+
+**Symptoms**: 
+- Production services running development code (e.g., `next dev` instead of `next start`)
+- Wrong build targets being used despite correct Docker Compose configuration
+- Services behaving differently than expected based on environment configuration
+- React hook errors or development-specific errors in production mode
+
+**Causes**:
+- Docker layer caching preventing proper build stage selection
+- Cached development images being used instead of production builds
+- Multi-stage Dockerfile not building correct target stage
+- Docker Compose not forcing rebuild of cached images
+
+**Root Cause Analysis**:
+This issue occurs when Docker's layer caching system retains development-stage images and reuses them even when production configurations are specified. The problem manifests when:
+1. Development images are built first and cached
+2. Production builds reference the same base layers
+3. Docker reuses cached development layers instead of building production stages
+4. The final image contains development code despite being tagged as production
+
+**Solutions**:
+
+**Immediate Fix**:
+```bash
+# Stop all services
+docker compose down
+
+# Clean Docker system cache
+docker system prune -f
+
+# Rebuild with no cache
+docker compose build --no-cache
+
+# Start services
+docker compose up -d
+```
+
+**Prevention Strategies**:
+```bash
+# Always use --no-cache for production builds
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml build --no-cache
+
+# Clean build cache before switching environments
+docker builder prune
+
+# Verify correct build target is being used
+docker compose config | grep -A 5 "target:"
+```
+
+**Verification Steps**:
+```bash
+# Check what command is actually running in container
+docker compose exec sirius-ui ps aux
+
+# Verify build stage in container
+docker compose exec sirius-ui cat /app/start-prod.sh
+
+# Check container logs for correct startup script
+docker compose logs sirius-ui | grep -E "(next dev|next start|npm run)"
+
+# Verify environment variables
+docker compose exec sirius-ui env | grep NODE_ENV
+```
+
+**Long-term Prevention**:
+1. **Use distinct image tags** for different environments
+2. **Implement build stage validation** in CI/CD pipelines
+3. **Regular cache cleanup** in automated builds
+4. **Monitor container startup logs** for correct command execution
+5. **Use multi-stage builds with explicit stage selection**
+
+**Example Multi-Stage Build Validation**:
+```dockerfile
+# Ensure production stage is explicitly selected
+FROM node:18-alpine AS production
+# ... production-specific setup
+
+# Development stage should be clearly separated
+FROM node:18-alpine AS development  
+# ... development-specific setup
+```
+
+**Docker Compose Target Verification**:
+```yaml
+# Ensure correct target is specified
+services:
+  sirius-ui:
+    build:
+      context: ./sirius-ui
+      target: production  # Explicitly specify production stage
+```
+
 ### Debugging Commands
 
 ```bash
@@ -659,6 +752,8 @@ docker compose down -v
 3. **Health Checks**: Wait for services to be healthy before testing
 4. **Resource Monitoring**: Monitor resource usage during development
 5. **Log Analysis**: Use logs for debugging and optimization
+6. **Cache Management**: Clean Docker cache when switching between environments
+7. **Build Verification**: Always verify correct build targets are being used
 
 ### Production Deployment
 
@@ -667,6 +762,16 @@ docker compose down -v
 3. **Monitoring Setup**: Implement comprehensive monitoring
 4. **Backup Strategy**: Implement regular backup procedures
 5. **Security Hardening**: Apply production security measures
+6. **Build Validation**: Always use `--no-cache` for production builds
+7. **Environment Isolation**: Ensure clean separation between dev and prod builds
+
+### Environment Switching
+
+1. **Clean Transitions**: Always clean Docker cache when switching environments
+2. **Build Verification**: Verify correct build targets before starting services
+3. **Log Monitoring**: Check startup logs to ensure correct commands are running
+4. **Cache Management**: Use `docker system prune` between environment switches
+5. **Target Validation**: Explicitly specify build targets in Docker Compose files
 
 ### Maintenance
 

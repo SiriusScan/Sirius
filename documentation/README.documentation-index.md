@@ -41,6 +41,8 @@ This document provides a complete index of all documentation files in the Sirius
 
 ## Testing Documentation
 
+### Testing Philosophy
+- [ABOUT.testing.md](dev/test/ABOUT.testing.md) - Testing philosophy and operator-first approach
 ### Container Testing
 - [README.container-testing.md](dev/test/README.container-testing.md) - Container testing system and validation
 

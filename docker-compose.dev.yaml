@@ -4,10 +4,14 @@
 
 services:
   sirius-ui:
+    image: sirius-sirius-ui:dev
     build:
       context: ./sirius-ui
       dockerfile: Dockerfile
       target: development # Use development stage
+      tags:
+        - sirius-sirius-ui:dev
+        - sirius-sirius-ui:latest
       args:
         NEXT_PUBLIC_CLIENTVAR: "clientvar"
     volumes:

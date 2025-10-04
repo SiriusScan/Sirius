@@ -4,6 +4,16 @@
 
 services:
   sirius-ui:
+    image: sirius-sirius-ui:prod
+    build:
+      context: ./sirius-ui
+      dockerfile: Dockerfile
+      target: production # Use production stage
+      tags:
+        - sirius-sirius-ui:prod
+        - sirius-sirius-ui:latest
+      args:
+        NEXT_PUBLIC_CLIENTVAR: "clientvar"
     environment:
       - NODE_ENV=production
       - SKIP_ENV_VALIDATION=1

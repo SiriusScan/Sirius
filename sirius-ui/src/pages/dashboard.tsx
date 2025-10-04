@@ -138,7 +138,7 @@ const Dashboard: NextPage = () => {
           <div className="flex items-center">
             <DashboardIcon className="ml-4 mt-7 flex dark:fill-white" />
             <h1 className="ml-3 mt-5 flex text-4xl font-extralight">
-              Security Dashboard
+              asdfadsfSecurity Dashboard
             </h1>
           </div>
         </div>

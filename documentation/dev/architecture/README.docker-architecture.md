@@ -17,7 +17,17 @@ dependencies:
   - "docker-compose.dev.yaml"
   - "docker-compose.prod.yaml"
 llm_context: "high"
-search_keywords: ["docker", "compose", "containers", "services", "architecture", "deployment", "production", "development"]
+search_keywords:
+  [
+    "docker",
+    "compose",
+    "containers",
+    "services",
+    "architecture",
+    "deployment",
+    "production",
+    "development",
+  ]
 ---
 
 # Docker Architecture
@@ -93,6 +103,7 @@ The Sirius Docker architecture follows a **microservices-oriented containerizati
 ### Frontend Services
 
 #### sirius-ui (Next.js Frontend)
+
 - **Purpose**: User interface and web application
 - **Technology**: Next.js 14 with React, TypeScript, Tailwind CSS
 - **Ports**: 3000 (HTTP), 3001 (Development)
@@ -102,12 +113,14 @@ The Sirius Docker architecture follows a **microservices-oriented containerizati
 - **Build Stages**: development, production
 
 **Key Features**:
+
 - Multi-stage Dockerfile with optimized production build
 - Hot reloading in development mode
 - Volume mounts for source code in development
 - Environment-specific database configuration (SQLite dev, PostgreSQL prod)
 
 #### sirius-api (Go REST API)
+
 - **Purpose**: RESTful API server and business logic
 - **Technology**: Go 1.23 with Gin framework
 - **Ports**: 9001 (HTTP)
@@ -117,6 +130,7 @@ The Sirius Docker architecture follows a **microservices-oriented containerizati
 - **Build Stages**: development, runner
 
 **Key Features**:
+
 - Multi-stage build with optimized runner stage
 - Volume mounts for development with live reloading
 - Database connection pooling and health checks
@@ -125,6 +139,7 @@ The Sirius Docker architecture follows a **microservices-oriented containerizati
 ### Processing Services
 
 #### sirius-engine (Multi-Service Container)
+
 - **Purpose**: Core processing engine with multiple integrated services
 - **Technology**: Go 1.23 with integrated submodules
 - **Ports**: 5174 (HTTP), 50051 (gRPC)
@@ -134,12 +149,14 @@ The Sirius Docker architecture follows a **microservices-oriented containerizati
 - **Build Stages**: development, runtime
 
 **Integrated Services**:
+
 - **Agent System**: Manages scanning agents and their lifecycle
 - **Scanner Integration**: Integrates with nmap, rustscan, and custom scanners
 - **Terminal Management**: Provides secure terminal access for agents
 - **gRPC Server**: Handles agent communication on port 50051
 
 **Key Features**:
+
 - Multi-stage build with comprehensive dependency management
 - Submodule integration for related projects
 - Volume mounts for development with live code updates
@@ -148,6 +165,7 @@ The Sirius Docker architecture follows a **microservices-oriented containerizati
 ### Data Services
 
 #### sirius-postgres (PostgreSQL Database)
+
 - **Purpose**: Primary data storage and persistence
 - **Technology**: PostgreSQL 15 Alpine
 - **Ports**: 5432 (PostgreSQL)
@@ -157,12 +175,14 @@ The Sirius Docker architecture follows a **microservices-oriented containerizati
 - **Data Persistence**: `postgres_data` volume
 
 **Key Features**:
+
 - Production-optimized configuration in prod mode
 - Connection pooling and performance tuning
 - Automated health checks and restart policies
 - Persistent data storage with volume mounts
 
 #### sirius-valkey (Redis Cache)
+
 - **Purpose**: Caching and session storage
 - **Technology**: Valkey (Redis-compatible)
 - **Ports**: 6379 (Redis)
@@ -172,12 +192,14 @@ The Sirius Docker architecture follows a **microservices-oriented containerizati
 - **Data Persistence**: `valkey_data` volume
 
 **Key Features**:
+
 - Lightweight and fast caching layer
 - Session storage for authentication
 - Temporary data storage for processing
 - Memory-optimized configuration
 
 #### sirius-rabbitmq (Message Queue)
+
 - **Purpose**: Asynchronous message processing and service communication
 - **Technology**: RabbitMQ 3.7.3 with Management UI
 - **Ports**: 5672 (AMQP), 15672 (Management UI)
@@ -187,6 +209,7 @@ The Sirius Docker architecture follows a **microservices-oriented containerizati
 - **Data Persistence**: `rabbitmq_data` volume
 
 **Key Features**:
+
 - Reliable message queuing for async processing
 - Management UI for monitoring and debugging
 - Dead letter queues and message routing
@@ -199,6 +222,7 @@ The Sirius Docker architecture follows a **microservices-oriented containerizati
 The base configuration provides the core service definitions and is used as the foundation for all environments.
 
 **Key Characteristics**:
+
 - **Service Definitions**: All 6 services with production-ready defaults
 - **Resource Limits**: Defined memory and CPU limits for each service
 - **Health Checks**: Comprehensive health monitoring for all services
@@ -207,6 +231,7 @@ The base configuration provides the core service definitions and is used as the 
 - **Volumes**: Persistent data storage for databases and message queue
 
 **Usage**:
+
 ```bash
 # Start all services with base configuration
 docker compose up -d
@@ -223,6 +248,7 @@ docker compose ps
 The development configuration overrides the base configuration to enable development features.
 
 **Key Overrides**:
+
 - **Volume Mounts**: Source code mounted for live reloading
 - **Build Targets**: Uses development stages for all services
 - **Environment Variables**: Development-specific settings
@@ -231,12 +257,14 @@ The development configuration overrides the base configuration to enable develop
 - **Ports**: Additional development ports exposed
 
 **Key Features**:
+
 - **Hot Reloading**: Source code changes reflected immediately
 - **Debug Mode**: Enhanced logging and error reporting
 - **Development Dependencies**: All dev dependencies included
 - **Volume Persistence**: Node modules preserved to avoid architecture conflicts
 
 **Usage**:
+
 ```bash
 # Start development environment
 docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
@@ -250,6 +278,7 @@ docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down
 The production configuration optimizes the base configuration for production deployment.
 
 **Key Overrides**:
+
 - **Build Targets**: Uses production/runner stages for all services
 - **Environment Variables**: Production-specific settings
 - **Resource Optimization**: Enhanced PostgreSQL and RabbitMQ configuration
@@ -257,12 +286,14 @@ The production configuration optimizes the base configuration for production dep
 - **Performance**: Optimized database and cache settings
 
 **Key Features**:
+
 - **Optimized Builds**: Multi-stage builds with minimal production images
 - **Security Hardening**: Production authentication and secret management
 - **Performance Tuning**: Database and cache optimization
 - **Monitoring**: Enhanced health checks and resource monitoring
 
 **Usage**:
+
 ```bash
 # Start production environment
 docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
@@ -280,11 +311,13 @@ All services use multi-stage Dockerfiles to optimize image size and build effici
 #### sirius-ui Dockerfile
 
 **Stages**:
+
 1. **base**: Common dependencies and package installation
 2. **development**: Full development environment with hot reloading
 3. **production**: Optimized production build
 
 **Key Features**:
+
 - **Bun to npm conversion**: Automatic conversion for compatibility
 - **Architecture support**: Multi-architecture builds
 - **Optimized layers**: Cached dependency installation
@@ -293,10 +326,12 @@ All services use multi-stage Dockerfiles to optimize image size and build effici
 #### sirius-api Dockerfile
 
 **Stages**:
+
 1. **development**: Development environment with volume mounts
 2. **runner**: Production-optimized runtime
 
 **Key Features**:
+
 - **Go modules**: Efficient dependency management
 - **Security**: Non-root user execution
 - **Optimization**: Minimal production image
@@ -305,11 +340,13 @@ All services use multi-stage Dockerfiles to optimize image size and build effici
 #### sirius-engine Dockerfile
 
 **Stages**:
+
 1. **builder**: Comprehensive build environment with all dependencies
 2. **development**: Development environment with volume mounts
 3. **runtime**: Production-optimized runtime
 
 **Key Features**:
+
 - **Submodule integration**: Automated cloning and building of related projects
 - **Dependency management**: Comprehensive system and Go dependencies
 - **Multi-service support**: Integrated agent, scanner, and terminal services
@@ -338,11 +375,13 @@ sirius-api (middleware)
 ### Startup Sequence
 
 1. **Foundation Services** (start first):
+
    - sirius-postgres
    - sirius-valkey
    - sirius-rabbitmq
 
 2. **Application Services** (start after foundation health checks):
+
    - sirius-api
    - sirius-engine
 
@@ -360,25 +399,25 @@ sirius-api (middleware)
 
 ### Memory Allocation
 
-| Service | Development | Production | Notes |
-|---------|-------------|------------|-------|
-| sirius-ui | 512MB | 1GB | Frontend with build tools |
-| sirius-api | 256MB | 512MB | REST API with caching |
-| sirius-engine | 512MB | 1GB | Multi-service processing |
-| sirius-postgres | 512MB | 1GB | Database with optimization |
-| sirius-valkey | 128MB | 256MB | Lightweight cache |
-| sirius-rabbitmq | 256MB | 512MB | Message queue with UI |
+| Service         | Development | Production | Notes                      |
+| --------------- | ----------- | ---------- | -------------------------- |
+| sirius-ui       | 512MB       | 1GB        | Frontend with build tools  |
+| sirius-api      | 256MB       | 512MB      | REST API with caching      |
+| sirius-engine   | 512MB       | 1GB        | Multi-service processing   |
+| sirius-postgres | 512MB       | 1GB        | Database with optimization |
+| sirius-valkey   | 128MB       | 256MB      | Lightweight cache          |
+| sirius-rabbitmq | 256MB       | 512MB      | Message queue with UI      |
 
 ### CPU Allocation
 
-| Service | Development | Production | Notes |
-|---------|-------------|------------|-------|
-| sirius-ui | 0.25 | 0.5 | Frontend processing |
-| sirius-api | 0.25 | 0.5 | API request handling |
-| sirius-engine | 0.5 | 1.0 | Intensive processing |
-| sirius-postgres | 0.25 | 0.5 | Database operations |
-| sirius-valkey | 0.1 | 0.25 | Cache operations |
-| sirius-rabbitmq | 0.25 | 0.5 | Message processing |
+| Service         | Development | Production | Notes                |
+| --------------- | ----------- | ---------- | -------------------- |
+| sirius-ui       | 0.25        | 0.5        | Frontend processing  |
+| sirius-api      | 0.25        | 0.5        | API request handling |
+| sirius-engine   | 0.5         | 1.0        | Intensive processing |
+| sirius-postgres | 0.25        | 0.5        | Database operations  |
+| sirius-valkey   | 0.1         | 0.25       | Cache operations     |
+| sirius-rabbitmq | 0.25        | 0.5        | Message processing   |
 
 ## Networking Architecture
 
@@ -391,17 +430,17 @@ sirius-api (middleware)
 
 ### Port Mapping
 
-| Service | Internal Port | External Port | Protocol | Purpose |
-|---------|---------------|---------------|----------|---------|
-| sirius-ui | 3000 | 3000 | HTTP | Web interface |
-| sirius-ui | 3001 | 3001 | HTTP | Development server |
-| sirius-api | 9001 | 9001 | HTTP | REST API |
-| sirius-engine | 5174 | 5174 | HTTP | Engine interface |
-| sirius-engine | 50051 | 50051 | gRPC | Agent communication |
-| sirius-postgres | 5432 | 5432 | TCP | Database |
-| sirius-valkey | 6379 | 6379 | TCP | Cache |
-| sirius-rabbitmq | 5672 | 5672 | AMQP | Message queue |
-| sirius-rabbitmq | 15672 | 15672 | HTTP | Management UI |
+| Service         | Internal Port | External Port | Protocol | Purpose             |
+| --------------- | ------------- | ------------- | -------- | ------------------- |
+| sirius-ui       | 3000          | 3000          | HTTP     | Web interface       |
+| sirius-ui       | 3001          | 3001          | HTTP     | Development server  |
+| sirius-api      | 9001          | 9001          | HTTP     | REST API            |
+| sirius-engine   | 5174          | 5174          | HTTP     | Engine interface    |
+| sirius-engine   | 50051         | 50051         | gRPC     | Agent communication |
+| sirius-postgres | 5432          | 5432          | TCP      | Database            |
+| sirius-valkey   | 6379          | 6379          | TCP      | Cache               |
+| sirius-rabbitmq | 5672          | 5672          | AMQP     | Message queue       |
+| sirius-rabbitmq | 15672         | 15672         | HTTP     | Management UI       |
 
 ### Service Communication
 
@@ -429,7 +468,7 @@ volumes:
     driver: local
   rabbitmq_data:
     driver: local
-  node_modules:  # Development only
+  node_modules: # Development only
     driver: local
 ```
 
@@ -446,23 +485,23 @@ volumes:
 
 #### Required Variables
 
-| Variable | Purpose | Default | Required |
-|----------|---------|---------|----------|
-| POSTGRES_USER | Database user | postgres | No |
-| POSTGRES_PASSWORD | Database password | postgres | No |
-| POSTGRES_DB | Database name | sirius | No |
-| NEXTAUTH_SECRET | Authentication secret | change-this-secret | Yes (prod) |
-| NEXTAUTH_URL | Authentication URL | http://localhost:3000 | Yes (prod) |
+| Variable          | Purpose               | Default               | Required   |
+| ----------------- | --------------------- | --------------------- | ---------- |
+| POSTGRES_USER     | Database user         | postgres              | No         |
+| POSTGRES_PASSWORD | Database password     | postgres              | No         |
+| POSTGRES_DB       | Database name         | sirius                | No         |
+| NEXTAUTH_SECRET   | Authentication secret | change-this-secret    | Yes (prod) |
+| NEXTAUTH_URL      | Authentication URL    | http://localhost:3000 | Yes (prod) |
 
 #### Optional Variables
 
-| Variable | Purpose | Default | Environment |
-|----------|---------|---------|-------------|
-| NODE_ENV | Node environment | production | All |
-| GO_ENV | Go environment | production | All |
-| LOG_LEVEL | Logging level | info | All |
-| API_PORT | API port | 9001 | All |
-| ENGINE_MAIN_PORT | Engine port | 5174 | All |
+| Variable         | Purpose          | Default    | Environment |
+| ---------------- | ---------------- | ---------- | ----------- |
+| NODE_ENV         | Node environment | production | All         |
+| GO_ENV           | Go environment   | production | All         |
+| LOG_LEVEL        | Logging level    | info       | All         |
+| API_PORT         | API port         | 9001       | All         |
+| ENGINE_MAIN_PORT | Engine port      | 5174       | All         |
 
 ### Configuration Files
 
@@ -524,13 +563,15 @@ volumes:
 #### Service Startup Failures
 
 **Symptoms**: Services fail to start or restart repeatedly
-**Causes**: 
+**Causes**:
+
 - Resource constraints
 - Dependency health check failures
 - Configuration errors
 - Port conflicts
 
 **Solutions**:
+
 ```bash
 # Check service status
 docker compose ps
@@ -549,11 +590,13 @@ docker compose restart [service-name]
 
 **Symptoms**: API or UI cannot connect to database
 **Causes**:
+
 - Database not ready
 - Wrong connection parameters
 - Network connectivity issues
 
 **Solutions**:
+
 ```bash
 # Check database health
 docker compose exec sirius-postgres pg_isready -U postgres
@@ -569,12 +612,14 @@ docker compose exec sirius-api curl -f http://localhost:9001/health
 
 **Symptoms**: Docker build fails or takes too long
 **Causes**:
+
 - Insufficient resources
 - Network connectivity issues
 - Dockerfile errors
 - Dependency resolution problems
 
 **Solutions**:
+
 ```bash
 # Clean build cache
 docker builder prune
@@ -590,11 +635,13 @@ docker compose config
 
 **Symptoms**: Data not persisting or permission errors
 **Causes**:
+
 - Volume mount issues
 - Permission problems
 - Disk space issues
 
 **Solutions**:
+
 ```bash
 # Check volume status
 docker volume ls
@@ -608,13 +655,15 @@ docker volume prune
 
 #### Docker Layer Caching Issues
 
-**Symptoms**: 
+**Symptoms**:
+
 - Production services running development code (e.g., `next dev` instead of `next start`)
 - Wrong build targets being used despite correct Docker Compose configuration
 - Services behaving differently than expected based on environment configuration
 - React hook errors or development-specific errors in production mode
 
 **Causes**:
+
 - Docker layer caching preventing proper build stage selection
 - Cached development images being used instead of production builds
 - Multi-stage Dockerfile not building correct target stage
@@ -622,6 +671,7 @@ docker volume prune
 
 **Root Cause Analysis**:
 This issue occurs when Docker's layer caching system retains development-stage images and reuses them even when production configurations are specified. The problem manifests when:
+
 1. Development images are built first and cached
 2. Production builds reference the same base layers
 3. Docker reuses cached development layers instead of building production stages
@@ -630,6 +680,7 @@ This issue occurs when Docker's layer caching system retains development-stage i
 **Solutions**:
 
 **Immediate Fix**:
+
 ```bash
 # Stop all services
 docker compose down
@@ -645,6 +696,7 @@ docker compose up -d
 ```
 
 **Prevention Strategies**:
+
 ```bash
 # Always use --no-cache for production builds
 docker compose -f docker-compose.yaml -f docker-compose.prod.yaml build --no-cache
@@ -657,6 +709,7 @@ docker compose config | grep -A 5 "target:"
 ```
 
 **Verification Steps**:
+
 ```bash
 # Check what command is actually running in container
 docker compose exec sirius-ui ps aux
@@ -672,6 +725,7 @@ docker compose exec sirius-ui env | grep NODE_ENV
 ```
 
 **Long-term Prevention**:
+
 1. **Use distinct image tags** for different environments
 2. **Implement build stage validation** in CI/CD pipelines
 3. **Regular cache cleanup** in automated builds
@@ -679,24 +733,26 @@ docker compose exec sirius-ui env | grep NODE_ENV
 5. **Use multi-stage builds with explicit stage selection**
 
 **Example Multi-Stage Build Validation**:
+
 ```dockerfile
 # Ensure production stage is explicitly selected
 FROM node:18-alpine AS production
 # ... production-specific setup
 
 # Development stage should be clearly separated
-FROM node:18-alpine AS development  
+FROM node:18-alpine AS development
 # ... development-specific setup
 ```
 
 **Docker Compose Target Verification**:
+
 ```yaml
 # Ensure correct target is specified
 services:
   sirius-ui:
     build:
       context: ./sirius-ui
-      target: production  # Explicitly specify production stage
+      target: production # Explicitly specify production stage
 ```
 
 ### Debugging Commands

@@ -12,7 +12,8 @@ prerequisites: []
 related_docs: []
 dependencies: []
 llm_context: "high"
-search_keywords: ["documentation", "index", "files", "organization", "reference"]
+search_keywords:
+  ["documentation", "index", "files", "organization", "reference"]
 ---
 
 # Documentation Index
@@ -22,38 +23,53 @@ This document provides a complete index of all documentation files in the Sirius
 ## Core Documentation
 
 ### System Documentation
+
 - [ABOUT.documentation.md](dev/ABOUT.documentation.md) - Documentation standards and system overview
 - [README.development.md](dev/README.development.md) - Development environment setup and workflow
 
 ## Architecture Documentation
 
 ### System Architecture
+
 - [README.architecture.md](dev/architecture/README.architecture.md) - System architecture and component relationships
+- [README.architecture-quick-reference.md](dev/architecture/README.architecture-quick-reference.md) - Concise architectural overview for LLM context
 
 ## Operations Documentation
 
 ### Git Operations
+
 - [README.git-operations.md](dev/operations/README.git-operations.md) - Git workflows and version control
 
+### Project Management
+
+- [README.new-project.md](dev/operations/README.new-project.md) - New project development workflow and structure
+- [README.tasks.md](dev/operations/README.tasks.md) - Task management system and project tracking
+
 ### Deployment
+
 - [README.terraform-deployment.md](dev/operations/README.terraform-deployment.md) - Terraform-based deployment processes
 
 ## Testing Documentation
 
+### Testing Philosophy
 ### Container Testing
+
 - [README.container-testing.md](dev/test/README.container-testing.md) - Container testing system and validation
 
 ### Documentation Testing
+
 - [README.documentation-testing.md](dev/test/README.documentation-testing.md) - Documentation validation and linting
 
 ## AI and Rules Documentation
 
 ### AI Rules
+
 - [ABOUT.ai-rules.md](dev/ai-rules/ABOUT.ai-rules.md) - AI development rules and guidelines
 
 ## Template Documentation
 
 ### Documentation Templates
+
 - [TEMPLATE.about.md](dev/templates/TEMPLATE.about.md) - Template for ABOUT documents
 - [TEMPLATE.api.md](dev/templates/TEMPLATE.api.md) - Template for API documentation
 - [TEMPLATE.architecture.md](dev/templates/TEMPLATE.architecture.md) - Template for architecture documentation
@@ -76,6 +92,7 @@ This index serves as the central reference for all documentation in the Sirius p
 ## Maintenance
 
 This index should be updated whenever:
+
 - New documentation files are added
 - Documentation files are moved or renamed
 - Documentation categories are reorganized
@@ -83,4 +100,5 @@ This index should be updated whenever:
 ---
 
 _This document follows the Sirius Documentation Standard. For questions about documentation structure, see [ABOUT.documentation.md](dev/ABOUT.documentation.md)._
+
 - [README.docker-architecture.md](dev/architecture/README.docker-architecture.md) - Comprehensive Docker setup and container architecture

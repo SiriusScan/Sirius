@@ -41,6 +41,11 @@ This project uses a **dynamic documentation discovery system** that automaticall
 - [README.architecture.md](mdc:documentation/dev/architecture/README.architecture.md) - System architecture
 - [ABOUT.documentation.md](mdc:documentation/dev/ABOUT.documentation.md) - Documentation standards
 
+**For Task Management/Project Work:**
+
+- [README.tasks.md](mdc:documentation/dev/operations/README.tasks.md) - Task management system
+- [README.new-project.md](mdc:documentation/dev/operations/README.new-project.md) - Project workflow and structure
+
 ## Documentation System Integration
 
 ### YAML Front Matter Usage

@@ -6,21 +6,20 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from '~/components/lib/ui/table';
+import { Badge } from '~/components/lib/ui/badge';
+import { Button } from '~/components/lib/ui/button';
+import { Input } from '~/components/lib/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+} from '~/components/lib/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/lib/ui/card';
 import { RefreshCw, Search, Filter, AlertTriangle, Info, Bug, AlertCircle } from 'lucide-react';
-import { logService, LogEntry, LogRetrievalRequest, LogStatsResponse } from '@/services/logService';
+import { logService, LogEntry, LogRetrievalRequest, LogStatsResponse } from '~/services/logService';
 
 interface LogDashboardProps {
   className?: string;
@@ -304,10 +303,13 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
 
       {/* Error Alert */}
       {error && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5 text-red-400" />
+            <span className="text-red-400 font-medium">Error</span>
+          </div>
+          <p className="text-red-300 text-sm mt-1">{error}</p>
+        </div>
       )}
 
       {/* Logs Table */}

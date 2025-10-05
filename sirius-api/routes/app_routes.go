@@ -19,6 +19,7 @@ func (h *AppRouteSetter) SetupRoutes(app *fiber.App) {
 	app.Post("/api/v1/logs", handlers.LogSubmissionHandler)
 	app.Get("/api/v1/logs", handlers.LogRetrievalHandler)
 	app.Get("/api/v1/logs/stats", handlers.LogStatsHandler)
+	app.Delete("/api/v1/logs/clear", handlers.LogClearHandler)
 
 	// App-specific routes
 	appRoutes := app.Group("/app")

@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,7 +64,7 @@ type LogStatsResponse struct {
 }
 
 const (
-	MAX_LOGS   = 10000 // Maximum number of logs to keep
+	MAX_LOGS   = 1000 // Maximum number of logs to keep (focused on meaningful events)
 	LOG_PREFIX = "logs"
 )
 
@@ -173,6 +175,37 @@ func LogRetrievalHandler(c *fiber.Ctx) error {
 	return c.JSON(response)
 }
 
+// LogClearHandler handles clearing all logs
+func LogClearHandler(c *fiber.Ctx) error {
+	kvStore, err := store.NewValkeyStore()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("Failed to connect to Valkey: %v", err)})
+	}
+	defer kvStore.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Get all log keys
+	keys, err := kvStore.ListKeys(ctx, LOG_PREFIX+":*")
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": fmt.Sprintf("Failed to list log keys: %v", err)})
+	}
+
+	// Delete all log keys
+	deletedCount := 0
+	for _, key := range keys {
+		if err := kvStore.DeleteValue(ctx, key); err == nil {
+			deletedCount++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Logs cleared successfully",
+		"deleted_count": deletedCount,
+	})
+}
+
 // LogStatsHandler provides log statistics
 func LogStatsHandler(c *fiber.Ctx) error {
 	stats, err := getLogStats()
@@ -251,6 +284,12 @@ func retrieveLogs(req LogRetrievalRequest) ([]LogEntry, int, error) {
 	keys, err := kvStore.ListKeys(ctx, pattern)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list log keys: %w", err)
+	}
+
+	// Limit the number of keys we process to avoid memory issues
+	maxKeysToProcess := 1000
+	if len(keys) > maxKeysToProcess {
+		keys = keys[:maxKeysToProcess]
 	}
 
 	var logs []LogEntry
@@ -354,6 +393,37 @@ func getLogStats() (*LogStatsResponse, error) {
 		LevelStats:   levelStats,
 		RecentLogs:   recentLogs,
 	}, nil
+}
+
+// LogBusinessEvent logs a meaningful business event
+func LogBusinessEvent(service, subcomponent, level, message string, metadata map[string]interface{}) {
+	logEntry := map[string]interface{}{
+		"service":      service,
+		"subcomponent": subcomponent,
+		"level":        level,
+		"message":      message,
+		"metadata":     metadata,
+		"context": map[string]interface{}{
+			"type": "business_event",
+		},
+	}
+	
+	// Submit asynchronously
+	go func() {
+		body, err := json.Marshal(logEntry)
+		if err != nil {
+			return
+		}
+		
+		client := &http.Client{Timeout: 2 * time.Second}
+		req, err := http.NewRequest("POST", "http://localhost:9001/api/v1/logs", bytes.NewBuffer(body))
+		if err != nil {
+			return
+		}
+		
+		req.Header.Set("Content-Type", "application/json")
+		client.Do(req)
+	}()
 }
 
 // maintainLogCount ensures we don't exceed MAX_LOGS

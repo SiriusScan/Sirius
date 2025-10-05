@@ -72,13 +72,11 @@ func LoggingMiddleware() fiber.Handler {
 		responseSize := len(c.Response().Body())
 		logEntry["metadata"].(map[string]interface{})["response_size"] = responseSize
 
-		// Submit log entry only for important endpoints and errors
+		// Submit log entry only for meaningful business events and errors
 		shouldLog := false
 		if c.Response().StatusCode() >= 400 { // Log all errors
 			shouldLog = true
-		} else if strings.Contains(c.Path(), "/api/v1/system/health") { // Log health checks
-			shouldLog = true
-		} else if durationMs > 1000 { // Log slow requests
+		} else if durationMs > 5000 { // Only log very slow requests (5+ seconds)
 			shouldLog = true
 		}
 		
@@ -86,28 +84,6 @@ func LoggingMiddleware() fiber.Handler {
 			go submitLogEntry(logEntry)
 		}
 
-		// Log slow requests (but not for logging endpoints to avoid recursion)
-		if durationMs > 1000 && !strings.Contains(c.Path(), "/api/v1/logs") {
-			slowLogEntry := map[string]interface{}{
-				"service":      "sirius-api",
-				"subcomponent": "performance-monitor",
-				"level":        "warn",
-				"message":      fmt.Sprintf("Slow request detected: %s %s took %dms", c.Method(), c.Path(), durationMs),
-				"metadata": map[string]interface{}{
-					"request_id":  requestID,
-					"method":      c.Method(),
-					"path":        c.Path(),
-					"duration_ms": durationMs,
-					"threshold_ms": 1000,
-				},
-				"context": map[string]interface{}{
-					"endpoint": c.Path(),
-					"method":   c.Method(),
-					"type":     "performance_warning",
-				},
-			}
-			go submitLogEntry(slowLogEntry)
-		}
 
 		return err
 	}

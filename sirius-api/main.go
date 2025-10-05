@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/SiriusScan/go-api/sirius/logging"
 	"github.com/SiriusScan/sirius-api/middleware"
 	"github.com/SiriusScan/sirius-api/routes"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
@@ -104,6 +104,10 @@ func runMigrations() error {
 }
 
 func main() {
+	// Initialize the logging SDK
+	logging.Init()
+	defer logging.Close()
+
 	// Run database migrations before starting the API
 	if err := runMigrations(); err != nil {
 		log.Fatalf("❌ Failed to run migrations: %v", err)
@@ -120,13 +124,10 @@ func main() {
 	// Add request ID middleware
 	app.Use(requestid.New())
 
-	// Add logging middlewares
-	app.Use(middleware.LoggingMiddleware())
-	app.Use(middleware.ErrorLoggingMiddleware())
-	app.Use(middleware.PerformanceMetricsMiddleware())
-
-	// Add other middlewares
-	app.Use(logger.New())
+	// Add SDK-based logging middlewares
+	app.Use(middleware.SDKLoggingMiddleware())
+	app.Use(middleware.SDKErrorLoggingMiddleware())
+	app.Use(middleware.SDKPerformanceMetricsMiddleware())
 
 	vulnerabilityRouteSetter := &routes.VulnerabilityRouteSetter{}
 	routes.SetupRoutes(app, &routes.HostRouteSetter{}, &routes.AppRouteSetter{}, vulnerabilityRouteSetter)

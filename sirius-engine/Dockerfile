@@ -25,18 +25,18 @@ ARG APP_AGENT_COMMIT_SHA=main
 # Clone and build repositories
 WORKDIR /repos
 
+# Clone go-api first (needed by other components)
+RUN git clone https://github.com/SiriusScan/go-api.git && \
+    cd go-api && \
+    git checkout ${GO_API_COMMIT_SHA} && \
+    go mod tidy
+
 # Clone app-scanner
 RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     cd app-scanner && \
     git checkout ${APP_SCANNER_COMMIT_SHA} && \
     go mod download && \
     CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o scanner main.go
-
-# Clone go-api first (needed by other components)
-RUN git clone https://github.com/SiriusScan/go-api.git && \
-    cd go-api && \
-    git checkout ${GO_API_COMMIT_SHA} && \
-    go mod tidy
 
 # Copy and build app-terminal from local directory
 COPY apps/app-terminal /repos/app-terminal

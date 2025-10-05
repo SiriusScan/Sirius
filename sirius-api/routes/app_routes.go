@@ -15,11 +15,17 @@ func (h *AppRouteSetter) SetupRoutes(app *fiber.App) {
 	// System health check route
 	app.Get("/api/v1/system/health", handlers.SystemHealthHandler)
 
-	// Logging routes
-	app.Post("/api/v1/logs", handlers.LogSubmissionHandler)
-	app.Get("/api/v1/logs", handlers.LogRetrievalHandler)
+	// Logging routes - specific routes first to avoid conflicts
 	app.Get("/api/v1/logs/stats", handlers.LogStatsHandler)
 	app.Delete("/api/v1/logs/clear", handlers.LogClearHandler)
+	
+	// Individual log operations (must come before general /api/v1/logs)
+	app.Put("/api/v1/logs/:logId", handlers.LogUpdateHandler)
+	app.Delete("/api/v1/logs/:logId", handlers.LogDeleteHandler)
+	
+	// General logging routes
+	app.Post("/api/v1/logs", handlers.LogSubmissionHandler)
+	app.Get("/api/v1/logs", handlers.LogRetrievalHandler)
 
 	// App-specific routes
 	appRoutes := app.Group("/app")

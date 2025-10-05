@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.24.1
 
 require (
-	github.com/SiriusScan/go-api v0.0.7
+	github.com/SiriusScan/go-api v0.0.8
 	github.com/fatih/color v1.18.0
 	github.com/gofiber/fiber/v2 v2.49.2
 )

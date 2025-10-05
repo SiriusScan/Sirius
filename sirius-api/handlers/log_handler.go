@@ -11,26 +11,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SiriusScan/go-api/sirius/logging"
 	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/gofiber/fiber/v2"
 )
 
-// LogEntry represents a standardized log entry
-type LogEntry struct {
-	ID           string                 `json:"id"`
-	Timestamp    time.Time              `json:"timestamp"`
-	Service      string                 `json:"service"`
-	Subcomponent string                 `json:"subcomponent"`
-	Level        string                 `json:"level"`
-	Message      string                 `json:"message"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
-	Context      map[string]interface{} `json:"context,omitempty"`
-}
+// Use the SDK LogEntry type
+type LogEntry = logging.LogEntry
 
 // LogSubmissionRequest represents the request to submit a log entry
 type LogSubmissionRequest struct {
 	Service      string                 `json:"service" validate:"required"`
-	Subcomponent string                 `json:"subcomponent" validate:"required"`
+	Subcomponent string                 `json:"subcomponent,omitempty"`
 	Level        string                 `json:"level" validate:"required,oneof=debug info warn error"`
 	Message      string                 `json:"message" validate:"required"`
 	Metadata     map[string]interface{} `json:"metadata,omitempty"`
@@ -79,34 +71,26 @@ func LogSubmissionHandler(c *fiber.Ctx) error {
 	}
 
 	// Validate required fields
-	if req.Service == "" || req.Subcomponent == "" || req.Level == "" || req.Message == "" {
+	if req.Service == "" || req.Level == "" || req.Message == "" {
 		return c.Status(400).JSON(fiber.Map{
-			"error": "Missing required fields: service, subcomponent, level, message",
+			"error": "Missing required fields: service, level, message",
 		})
 	}
 
-	// Validate log level
-	validLevels := []string{"debug", "info", "warn", "error"}
-	validLevel := false
-	for _, level := range validLevels {
-		if req.Level == level {
-			validLevel = true
-			break
-		}
-	}
-	if !validLevel {
+	// Validate log level using SDK
+	if !logging.IsValidLogLevel(req.Level) {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "Invalid log level. Must be one of: debug, info, warn, error",
 		})
 	}
 
-	// Create log entry
+	// Create log entry using SDK types
 	logEntry := LogEntry{
 		ID:           generateLogID(),
 		Timestamp:    time.Now(),
 		Service:      req.Service,
 		Subcomponent: req.Subcomponent,
-		Level:        req.Level,
+		Level:        logging.GetLogLevelFromString(req.Level),
 		Message:      req.Message,
 		Metadata:     req.Metadata,
 		Context:      req.Context,
@@ -305,7 +289,7 @@ func retrieveLogs(req LogRetrievalRequest) ([]LogEntry, int, error) {
 		}
 
 		// Apply filters
-		if req.Level != "" && logEntry.Level != req.Level {
+		if req.Level != "" && string(logEntry.Level) != req.Level {
 			continue
 		}
 		if req.Subcomponent != "" && logEntry.Subcomponent != req.Subcomponent {
@@ -374,7 +358,7 @@ func getLogStats() (*LogStatsResponse, error) {
 		serviceStats[logEntry.Service]++
 
 		// Count by level
-		levelStats[logEntry.Level]++
+		levelStats[string(logEntry.Level)]++
 
 		// Collect recent logs (last 10)
 		if len(recentLogs) < 10 {
@@ -466,4 +450,128 @@ func maintainLogCount(ctx context.Context, kvStore store.KVStore) error {
 	}
 
 	return nil
+}
+
+// LogUpdateHandler handles updating a log entry
+func LogUpdateHandler(c *fiber.Ctx) error {
+	logID := c.Params("logId")
+	if logID == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Log ID required",
+		})
+	}
+
+	var req struct {
+		Message  string                 `json:"message,omitempty"`
+		Level    string                 `json:"level,omitempty"`
+		Metadata map[string]interface{} `json:"metadata,omitempty"`
+		Context  map[string]interface{} `json:"context,omitempty"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error":   "Invalid request body",
+			"details": err.Error(),
+		})
+	}
+
+	// Validate log level if provided
+	if req.Level != "" && !logging.IsValidLogLevel(req.Level) {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid log level. Must be one of: debug, info, warn, error",
+		})
+	}
+
+	// Connect to Valkey
+	kvStore, err := store.NewValkeyStore()
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error":   "Failed to connect to Valkey",
+			"details": err.Error(),
+		})
+	}
+	defer kvStore.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get existing log entry
+	key := fmt.Sprintf("logs:%s", logID)
+	resp, err := kvStore.GetValue(ctx, key)
+	if err != nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": "Log entry not found",
+		})
+	}
+
+	var entry LogEntry
+	if err := json.Unmarshal([]byte(resp.Message.Value), &entry); err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": "Invalid log entry format",
+		})
+	}
+
+	// Update fields if provided
+	if req.Message != "" {
+		entry.Message = req.Message
+	}
+	if req.Level != "" {
+		entry.Level = logging.GetLogLevelFromString(req.Level)
+	}
+	if req.Metadata != nil {
+		entry.Metadata = req.Metadata
+	}
+	if req.Context != nil {
+		entry.Context = req.Context
+	}
+
+	// Store updated entry
+	if err := storeLogEntry(entry); err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error":   "Failed to update log entry",
+			"details": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Log entry updated successfully",
+		"log_id":  logID,
+	})
+}
+
+// LogDeleteHandler handles deleting a log entry
+func LogDeleteHandler(c *fiber.Ctx) error {
+	logID := c.Params("logId")
+	if logID == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Log ID required",
+		})
+	}
+
+	// Connect to Valkey
+	kvStore, err := store.NewValkeyStore()
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error":   "Failed to connect to Valkey",
+			"details": err.Error(),
+		})
+	}
+	defer kvStore.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Delete log entry
+	key := fmt.Sprintf("logs:%s", logID)
+	if err := kvStore.DeleteValue(ctx, key); err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error":   "Failed to delete log entry",
+			"details": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Log entry deleted successfully",
+		"log_id":  logID,
+	})
 }

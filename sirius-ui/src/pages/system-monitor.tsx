@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/lib/ui/ca
 import { Badge } from "~/components/lib/ui/badge";
 import { Button } from "~/components/lib/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/lib/ui/tabs";
-import { RefreshCw, Server, Database, MessageSquare, Zap, Globe, AlertCircle, FileText } from "lucide-react";
+import { RefreshCw, Server, Database, MessageSquare, Zap, Globe, AlertCircle, FileText, Activity } from "lucide-react";
 import { healthCheckService, type SystemHealthResponse, type ServiceHealth } from "~/services/healthCheckService";
 import { LogDashboard } from "~/components/LogDashboard";
+import { PerformanceDashboard } from "~/components/PerformanceDashboard";
 
 // Service configuration
 const serviceConfig = [
@@ -278,10 +279,14 @@ const SystemMonitor: NextPage = () => {
 
         {/* Tabs for different monitoring views */}
         <Tabs defaultValue="services" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="services" className="flex items-center gap-2">
               <Server className="h-4 w-4" />
               Service Status
+            </TabsTrigger>
+            <TabsTrigger value="performance" className="flex items-center gap-2">
+              <Activity className="h-4 w-4" />
+              Performance
             </TabsTrigger>
             <TabsTrigger value="logs" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -350,6 +355,10 @@ const SystemMonitor: NextPage = () => {
                 ))}
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="performance" className="space-y-6">
+            <PerformanceDashboard />
           </TabsContent>
 
           <TabsContent value="logs" className="space-y-6">

@@ -264,3 +264,4 @@ func checkRabbitMQ() ServiceHealth {
 		Port:      5672,
 	}
 }
+

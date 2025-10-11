@@ -80,16 +80,25 @@ else
 fi
 
 # Start app administrator if available
-if [ -f "/app-administrator/administrator" ] && [ -x "/app-administrator/administrator" ]; then
+if [ -d "/app-administrator" ]; then
     echo "Starting app administrator..."
     cd /app-administrator
-    CONTAINER_NAME=sirius-engine ./administrator &
+    if [ "$GO_ENV" = "development" ] && [ -f "main.go" ]; then
+        echo "Running app administrator with go run (development mode)"
+        CONTAINER_NAME=sirius-engine go run main.go >> /tmp/administrator.log 2>&1 &
+    elif [ -f "./administrator" ] && [ -x "./administrator" ]; then
+        echo "Running app administrator binary (production mode)"
+        CONTAINER_NAME=sirius-engine ./administrator >> /tmp/administrator.log 2>&1 &
+    else
+        echo "Error: App administrator not found (neither main.go nor binary)"
+        exit 1
+    fi
     ADMINISTRATOR_PID=$!
     sleep 1
     check_service "App Administrator" $ADMINISTRATOR_PID
     echo "App administrator started with PID: $ADMINISTRATOR_PID"
 else
-    echo "Warning: App administrator binary not found or not executable"
+    echo "Warning: App administrator directory not found"
 fi
 
 # Determine service paths

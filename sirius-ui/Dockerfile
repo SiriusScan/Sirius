@@ -116,6 +116,15 @@ RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-m
     chmod +x /system-monitor/system-monitor && \
     rm -rf /tmp/system-monitor
 
+# Clone and build app-administrator
+RUN git clone https://github.com/SiriusScan/app-administrator.git /tmp/app-administrator && \
+    cd /tmp/app-administrator && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o administrator main.go && \
+    cp administrator /app/ && \
+    chmod +x /app/administrator && \
+    rm -rf /tmp/app-administrator
+
 # Copy built application from builder stage
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next

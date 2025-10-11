@@ -27,7 +27,7 @@ EXPOSE 9001
 
 # For development, we'll run go directly with volume-mounted source
 # Start the API, system monitor, and administrator
-CMD ["sh", "-c", "cd /system-monitor && CONTAINER_NAME=sirius-api go run main.go >> /tmp/system-monitor.log 2>&1 & cd /api && go mod tidy && go run main.go"]
+CMD ["sh", "-c", "cd /system-monitor && CONTAINER_NAME=sirius-api go run main.go >> /tmp/system-monitor.log 2>&1 & cd /app-administrator && CONTAINER_NAME=sirius-api go run main.go >> /tmp/administrator.log 2>&1 & cd /api && go mod tidy && go run main.go"]
 
 # Stage 1: Builder stage
 FROM golang:1.24-alpine AS builder
@@ -54,13 +54,16 @@ RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o sirius-api main.go
 
 # Clone and build system monitor from separate repository
-RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
-    cd /tmp/system-monitor && \
+RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/app-system-monitor && \
+    cd /tmp/app-system-monitor && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o system-monitor main.go
 
 # Clone and build app administrator from separate repository
-# Note: app-administrator repository not available, skipping for now
+RUN git clone https://github.com/SiriusScan/app-administrator.git /tmp/app-administrator && \
+    cd /tmp/app-administrator && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o administrator main.go
 
 # Stage 2: Runtime stage
 FROM alpine:latest AS runner
@@ -77,15 +80,21 @@ RUN addgroup -g 1001 appgroup && \
 # Set working directory
 WORKDIR /app
 
+# Create directories for services
+RUN mkdir -p /system-monitor
+
 # Copy binaries from builder stage
 COPY --from=builder /app/sirius-api /app/sirius-api
-COPY --from=builder /tmp/system-monitor/system-monitor /app/system-monitor
-# COPY --from=builder /tmp/app-administrator/administrator /app/administrator
+COPY --from=builder /tmp/app-system-monitor/system-monitor /system-monitor/system-monitor
+COPY --from=builder /tmp/app-administrator/administrator /app/administrator
 
 # Note: go-api dependency is now included in the binary, no need to copy separately
 
+# Set permissions
+RUN chmod +x /system-monitor/system-monitor /app/administrator /app/sirius-api
+
 # Change ownership
-RUN chown -R appuser:appgroup /app
+RUN chown -R appuser:appgroup /app /system-monitor
 
 # Switch to non-root user
 USER appuser
@@ -94,4 +103,4 @@ USER appuser
 EXPOSE 9001
 
 # Run the application with system monitor and administrator
-CMD ["sh", "-c", "cd /system-monitor && CONTAINER_NAME=sirius-api ./system-monitor >> /tmp/system-monitor.log 2>&1 & cd /app && CONTAINER_NAME=sirius-api ./administrator >> /tmp/administrator.log 2>&1 & ./sirius-api"]
+CMD ["sh", "-c", "CONTAINER_NAME=sirius-api /system-monitor/system-monitor >> /tmp/system-monitor.log 2>&1 & CONTAINER_NAME=sirius-api /app/administrator >> /tmp/administrator.log 2>&1 & /app/sirius-api"]

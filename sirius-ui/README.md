@@ -6,6 +6,35 @@
 - [Tailwind CSS](https://tailwindcss.com)
 - [tRPC](https://trpc.io)
 
+## Database Management
+
+### Default Credentials
+- **Username**: `admin`
+- **Password**: `password`
+
+### Resetting the Database
+
+If you've modified the database during testing (e.g., changed the password) and need to reset it to default values:
+
+**Inside the container:**
+```bash
+docker exec -it sirius-ui npx prisma db push --force-reset
+docker exec -it sirius-ui npm run seed
+```
+
+**Or from your local machine (if running locally):**
+```bash
+cd sirius-ui
+npx prisma db push --force-reset
+npm run seed
+```
+
+This will:
+1. Reset the database schema
+2. Recreate the default admin user with password: `password`
+
+**Note:** Database files (`*.db`, `*.sqlite`) are gitignored to prevent committing test data. Each developer maintains their own local database state.
+
 ## Learn More
 
 To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:

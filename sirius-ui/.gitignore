@@ -9,7 +9,9 @@
 /coverage
 
 # database
-# /prisma/db.sqlite
+# Ignore all SQLite database files to prevent committing test data
+/prisma/*.db
+/prisma/*.sqlite
 /prisma/db.sqlite-journal
 
 # next.js

@@ -35,12 +35,14 @@ open http://localhost:3000
 ## 🆕 What's New in v0.4.0
 
 ### System Monitoring & Observability
+
 - **Real-time Health Monitoring**: Live service health checks for all components
 - **Centralized Logging**: Unified log collection and management system
 - **Performance Metrics**: Container resource utilization tracking
 - **System Dashboard**: Comprehensive monitoring interface at `/system-monitor`
 
 ### Enhanced Reliability
+
 - **Improved Container Builds**: Production-ready Docker configurations
 - **Better Error Handling**: Comprehensive error management and recovery
 - **SSH Troubleshooting**: Enhanced debugging capabilities for deployments

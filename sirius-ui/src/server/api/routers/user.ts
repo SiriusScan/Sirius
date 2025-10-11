@@ -4,7 +4,7 @@ import { hash, compare } from "bcrypt";
 
 // Define types for our user management
 export interface UserProfile {
-  id: string;
+  id: number;
   email: string;
   displayName?: string;
 }
@@ -23,7 +23,7 @@ export const userRouter = createTRPCRouter({
   updateProfile: protectedProcedure
     .input(
       z.object({
-        userId: z.string(),
+        userId: z.coerce.number().int().positive(),
         displayName: z.string().min(1).max(50),
       })
     )
@@ -45,7 +45,7 @@ export const userRouter = createTRPCRouter({
   changePassword: protectedProcedure
     .input(
       z.object({
-        userId: z.string(),
+        userId: z.coerce.number().int().positive(),
         currentPassword: z.string(),
         newPassword: z.string().min(8),
         confirmPassword: z.string(),
@@ -88,7 +88,7 @@ export const userRouter = createTRPCRouter({
     }),
 
   getProfile: protectedProcedure
-    .input(z.object({ userId: z.string() }))
+    .input(z.object({ userId: z.coerce.number().int().positive() }))
     .query(async ({ ctx, input }) => {
       try {
         const user = await ctx.prisma.user.findUnique({

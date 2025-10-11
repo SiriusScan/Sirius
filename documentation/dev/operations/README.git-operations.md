@@ -114,6 +114,31 @@ Skip GitHub issues when:
 - **Working on local experiments** that may not be merged
 - **Making simple, obvious changes** with no discussion needed
 
+### Handling User-Reported Issues
+
+When a user reports an issue on GitHub:
+
+1. **Acknowledge the issue** - Comment on the issue thanking the user and confirming you're investigating
+2. **Reproduce the issue** - Verify you can reproduce the problem
+3. **Document your findings** - Add a comment with your diagnosis and implementation plan
+4. **Follow the standard workflow** - Create branch, fix, test, merge (see Complete GitHub Workflow below)
+5. **Close with details** - Update the issue with the fix details and close it
+
+**Example acknowledgment comment:**
+
+```markdown
+Thank you for reporting this issue! I've confirmed the problem and identified the root cause:
+
+**Diagnosis:** [Brief technical explanation]
+
+**Fix plan:**
+- [ ] [Step 1]
+- [ ] [Step 2]
+- [ ] [Step 3]
+
+Working on a fix now. Will update once complete.
+```
+
 ### Issue Creation Process
 
 ```bash

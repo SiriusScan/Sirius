@@ -26,6 +26,8 @@ This document provides a complete index of all documentation files in the Sirius
 
 - [ABOUT.documentation.md](dev/ABOUT.documentation.md) - Documentation standards and system overview
 - [README.development.md](dev/README.development.md) - Development environment setup and workflow
+- [README.developer-guide.md](dev/README.developer-guide.md) - Comprehensive developer guide for Sirius project
+- [QUICK-REFERENCE.md](dev/QUICK-REFERENCE.md) - Quick reference guide for common operations
 - [README.sirius-event-log.md](dev/development/README.sirius-event-log.md) - Sirius event logging system and event management
 
 ### Contributing
@@ -40,6 +42,7 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.architecture-quick-reference.md](dev/architecture/README.architecture-quick-reference.md) - Concise architectural overview for LLM context
 - [README.system-monitor.md](dev/architecture/README.system-monitor.md) - System monitoring architecture and implementation
 - [README.administrator.md](dev/architecture/README.administrator.md) - Administrator service architecture and design
+- [README.cicd.md](dev/architecture/README.cicd.md) - CI/CD pipeline architecture and workflows
 
 ## Operations Documentation
 
@@ -59,6 +62,8 @@ This document provides a complete index of all documentation files in the Sirius
 ## Testing Documentation
 
 ### Testing Philosophy
+
+- [ABOUT.testing.md](dev/test/ABOUT.testing.md) - Testing philosophy and approach for the Sirius project
 
 ### Container Testing
 

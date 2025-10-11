@@ -2,7 +2,7 @@ name: Sirius CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [main, sirius-demo]
   pull_request:
     branches: [main]
   repository_dispatch:
@@ -347,3 +347,26 @@ jobs:
           
           # Cleanup
           docker compose -f docker-compose.test.yml down
+
+  # Dispatch to sirius-demo repository when sirius-demo branch is updated
+  dispatch-demo-deployment:
+    name: Dispatch Demo Deployment
+    runs-on: ubuntu-latest
+    needs: [detect-changes, build-and-push, test]
+    if: github.ref == 'refs/heads/sirius-demo' && github.event_name == 'push' && always() && (needs.detect-changes.result == 'success' || needs.detect-changes.result == 'skipped') && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    
+    steps:
+      - name: Dispatch to sirius-demo repository
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: SiriusScan/sirius-demo
+          event-type: sirius-demo-updated
+          client-payload: |
+            {
+              "source_repo": "${{ github.repository }}",
+              "source_branch": "${{ github.ref_name }}",
+              "source_sha": "${{ github.sha }}",
+              "triggered_by": "${{ github.actor }}",
+              "commit_message": "${{ github.event.head_commit.message }}"
+            }

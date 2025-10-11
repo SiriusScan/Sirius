@@ -28,6 +28,10 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.development.md](dev/README.development.md) - Development environment setup and workflow
 - [README.sirius-event-log.md](dev/development/README.sirius-event-log.md) - Sirius event logging system and event management
 
+### Contributing
+
+- [contributing.md](contributing.md) - Complete guide for contributing to Sirius Scan, including development setup and workflows
+
 ## Architecture Documentation
 
 ### System Architecture

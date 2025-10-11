@@ -232,9 +232,7 @@ Advanced operations console:
 - **Batch Operations**: Bulk scanning and management operations
 - **System Diagnostics**: Real-time system health and performance monitoring
 
-## 🛠️ Development & Customization
-
-### 🎯 End User Setup (Recommended)
+## 🛠️ Standard Setup
 
 Perfect for security professionals and penetration testers:
 
@@ -251,108 +249,25 @@ This configuration provides:
 - ✅ No additional setup required
 - ✅ Production-ready security scanning
 
-### 🔧 Developer Setup (Advanced)
+## 🤝 Contributing
 
-For developers contributing to Sirius or building custom integrations:
+Want to contribute to Sirius? We welcome contributions from the community!
 
-#### Prerequisites for Development
+**For Developers**: Check out our comprehensive [Contributing Guide](./documentation/contributing.md) for:
 
-- Git repositories for individual components
-- Go 1.21+ for backend development
-- Node.js 20+ for frontend development
-- Understanding of Docker multi-stage builds
+- 🔧 Development environment setup
+- 🔄 Development workflow and best practices
+- 🧪 Testing and quality assurance
+- 📝 Code standards and Git workflow
+- 🚀 Submitting pull requests
 
-#### Setup Development Environment
+**Quick Links**:
+- [Development Setup](./documentation/contributing.md#development-environment-setup)
+- [Testing Guide](./documentation/contributing.md#testing--quality-assurance)
+- [Code Standards](./documentation/contributing.md#code-standards)
+- [GitHub Issues](https://github.com/SiriusScan/Sirius/issues)
 
-1. **Clone Component Repositories** (Optional - for component development):
-
-```bash
-# Create development directory structure
-mkdir -p ../minor-projects && cd ../minor-projects
-
-# Clone only the components you want to develop:
-git clone https://github.com/SiriusScan/go-api.git          # REST API backend
-git clone https://github.com/SiriusScan/app-scanner.git    # Scanning engine
-git clone https://github.com/SiriusScan/app-terminal.git   # Terminal service
-git clone https://github.com/SiriusScan/app-agent.git      # Remote agents
-git clone https://github.com/SiriusScan/sirius-nse.git     # NSE scripts
-```
-
-2. **Enable Development Mode**:
-
-Edit `docker-compose.dev.yaml` and uncomment volume mounts for components you're developing:
-
-```yaml
-# Uncomment ONLY for repositories you have cloned:
-# - ../minor-projects/app-agent:/app-agent        # Agent development
-# - ../minor-projects/app-scanner:/app-scanner    # Scanner development
-# - ../minor-projects/app-terminal:/app-terminal  # Terminal development
-# - ../minor-projects/go-api:/go-api              # API development
-```
-
-3. **Start Development Environment**:
-
-```bash
-cd Sirius
-# Development mode requires BOTH config files
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build
-
-# Or for a clean start
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
-```
-
-**⚠️ Important**: The `docker-compose.dev.yaml` file is an override file, not a standalone configuration. You must specify both the base configuration (`docker-compose.yaml`) and the development overrides (`docker-compose.dev.yaml`) when starting services in development mode.
-
-#### Development Features
-
-- **🔥 Hot Reload**: Live code reloading with Air for Go services
-- **📝 Live Editing**: Frontend changes reflect immediately
-- **🐛 Debug Mode**: Detailed logging and error reporting
-- **🔍 Development Tools**: Access to Go toolchain and debugging utilities
-
-#### Development Commands
-
-```bash
-# View real-time logs
-docker compose logs -f sirius-engine
-
-# Access development container
-docker exec -it sirius-engine bash
-
-# Check live reload status
-docker exec sirius-engine ps aux | grep air
-
-# Restart specific service
-docker restart sirius-engine
-
-# Rebuild with changes (development mode)
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build
-
-# Stop development environment
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down
-
-# Clean restart (removes volumes)
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
-```
-
-### 🧪 Testing & Quality Assurance
-
-```bash
-# Run comprehensive test suite
-./run_tests.sh --all
-
-# Run specific test categories
-./run_tests.sh --models      # Backend model tests
-./run_tests.sh --ui          # Frontend UI tests
-./run_tests.sh --integration # Integration tests
-./run_tests.sh --security    # Security validation tests
-
-# Manual testing commands
-docker exec sirius-engine nmap --version
-docker exec sirius-api go test ./...
-```
+Join our community and help make security scanning accessible to everyone!
 
 ## 🔌 API & Integration
 
@@ -643,7 +558,7 @@ docker compose pull  # Update images regularly
 - [❓ FAQ](https://sirius.publickey.io/docs/community/faq) - Frequently asked questions
 - [🐛 GitHub Issues](https://github.com/SiriusScan/Sirius/issues) - Bug reports and feature requests
 - [💬 Discord Community](https://sirius.publickey.io/community) - Real-time community support
-- [🤝 Contributing Guide](https://sirius.publickey.io/docs/community/contributing) - How to contribute to Sirius
+- [🤝 Contributing Guide](./documentation/contributing.md) - How to contribute to Sirius
 - [📧 Support Contact](mailto:support@publickey.io) - Direct technical support
 
 ## 📊 Performance & Scaling

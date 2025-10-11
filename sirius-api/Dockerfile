@@ -19,15 +19,18 @@ WORKDIR /api
 # Change ownership
 RUN chown -R appuser:appgroup /api
 
+# Copy startup script
+COPY start-dev.sh /start-dev.sh
+RUN chmod +x /start-dev.sh
+
 # Switch to non-root user
 USER appuser
 
 # Expose port
 EXPOSE 9001
 
-# For development, we'll run go directly with volume-mounted source
-# Start the API, system monitor, and administrator
-CMD ["sh", "-c", "cd /system-monitor && CONTAINER_NAME=sirius-api go run main.go >> /tmp/system-monitor.log 2>&1 & cd /app-administrator && CONTAINER_NAME=sirius-api go run main.go >> /tmp/administrator.log 2>&1 & cd /api && go mod tidy && go run main.go"]
+# For development, use startup script to safely handle optional services
+CMD ["/start-dev.sh"]
 
 # Stage 1: Builder stage
 FROM golang:1.24-alpine AS builder

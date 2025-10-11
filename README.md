@@ -264,7 +264,7 @@ git clone https://github.com/SiriusScan/sirius-nse.git     # NSE scripts
 
 2. **Enable Development Mode**:
 
-Edit `docker-compose.override.yaml` and uncomment volume mounts for components you're developing:
+Edit `docker-compose.dev.yaml` and uncomment volume mounts for components you're developing:
 
 ```yaml
 # Uncomment ONLY for repositories you have cloned:
@@ -278,8 +278,15 @@ Edit `docker-compose.override.yaml` and uncomment volume mounts for components y
 
 ```bash
 cd Sirius
-docker compose down && docker compose up -d --build
+# Development mode requires BOTH config files
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build
+
+# Or for a clean start
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
 ```
+
+**⚠️ Important**: The `docker-compose.dev.yaml` file is an override file, not a standalone configuration. You must specify both the base configuration (`docker-compose.yaml`) and the development overrides (`docker-compose.dev.yaml`) when starting services in development mode.
 
 #### Development Features
 
@@ -303,8 +310,15 @@ docker exec sirius-engine ps aux | grep air
 # Restart specific service
 docker restart sirius-engine
 
-# Rebuild with changes
-docker compose up -d --build
+# Rebuild with changes (development mode)
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build
+
+# Stop development environment
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down
+
+# Clean restart (removes volumes)
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
 ```
 
 ### 🧪 Testing & Quality Assurance
@@ -380,6 +394,19 @@ docker compose down && docker compose up -d --build  # Fresh restart
 docker system prune -f                               # Clean up space
 ```
 
+**Problem**: Infrastructure services (PostgreSQL, RabbitMQ, Valkey) don't start
+
+```bash
+# This occurs when using only docker-compose.dev.yaml
+# The dev file is an OVERRIDE file, not standalone
+
+# ❌ Wrong (only starts 3 services):
+docker compose -f docker-compose.dev.yaml up -d
+
+# ✅ Correct (starts all 6 services):
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
+```
+
 **Problem**: "Port already in use" errors
 
 ```bash
@@ -448,6 +475,18 @@ docker exec sirius-rabbitmq rabbitmqctl list_queues
 
 # Access management interface
 open http://localhost:15672  # guest/guest
+```
+
+**Problem**: RabbitMQ schema integrity check failed
+
+```bash
+# This occurs when RabbitMQ has old data from an incompatible version
+# Solution: Remove old volumes and restart fresh
+
+docker compose down -v  # For standard setup
+# Or for development:
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
 ```
 
 #### 🌐 Network & Connectivity

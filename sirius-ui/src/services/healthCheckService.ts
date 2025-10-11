@@ -29,7 +29,10 @@ class HealthCheckService {
     interval: 5000, // 5 seconds
   };
 
-  constructor(baseUrl: string = "http://localhost:9001") {
+  constructor(
+    baseUrl: string = process.env.NEXT_PUBLIC_SIRIUS_API_URL ||
+      "http://localhost:9001"
+  ) {
     this.baseUrl = baseUrl;
   }
 

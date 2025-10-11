@@ -1,40 +1,22 @@
-# Cursor IDE
-./.cursor/
+# Binaries and executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+system-monitor
+sirius-api
+administrator
+air
+test-build
 
-# Build artifacts and temporary files
-**/tmp/
-**/build/
-**/*.exe
-**/*.bin
-**/main
-**/build-errors.log
-
-# Go build artifacts
-**/*.o
-**/*.a
-**/*.so
-
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment files
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Local Docker Compose overrides (for development)
-docker-compose.local.yaml
-docker-compose.*.local.yaml
-
-# IDE files
-.vscode/
-.idea/
+# Temporary files
+*.tmp
+*.temp
+*.log
 *.swp
 *.swo
+*~
 
 # OS generated files
 .DS_Store
@@ -45,17 +27,39 @@ docker-compose.*.local.yaml
 ehthumbs.db
 Thumbs.db
 
-# Logs
-*.log
-logs/
-testing/logs/*
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 
-# Documentation linting logs
-documentation-lint-*.log
-tmp/documentation-lint-*.log
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Go specific
+*.test
+*.prof
+vendor/
+
+# Docker
+.dockerignore

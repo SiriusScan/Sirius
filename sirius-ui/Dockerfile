@@ -25,6 +25,9 @@ RUN sed -i 's/bunx prisma generate/npx prisma generate/g' package.json && \
 # Development stage
 FROM base AS development
 
+# Install Go for building monitoring components
+RUN apk add --no-cache go git
+
 # Install all dependencies (including dev dependencies)
 RUN npm install
 
@@ -54,7 +57,7 @@ RUN addgroup --system --gid 1001 nodejs && \
 USER nextjs
 
 # Start development server with database setup
-CMD ["/app/start-dev.sh"]
+CMD ["/bin/sh", "/app/start-dev.sh"]
 
 # Production builder stage
 FROM base AS builder
@@ -86,11 +89,13 @@ RUN cp next.config.mjs next.config.mjs.bak && \
 # Production runtime stage
 FROM node:18-alpine AS production
 
-# Install runtime dependencies
+# Install runtime dependencies and Go for building monitoring components
 RUN apk add --no-cache \
     libc6-compat \
     openssl \
-    ca-certificates
+    ca-certificates \
+    go \
+    git
 
 # Create non-root user
 RUN addgroup --system --gid 1001 nodejs && \
@@ -98,6 +103,18 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 # Set working directory
 WORKDIR /app
+
+# Create system-monitor directory
+RUN mkdir -p /system-monitor
+
+# Clone and build system monitor
+RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
+    cd /tmp/system-monitor && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o system-monitor main.go && \
+    cp system-monitor /system-monitor/ && \
+    chmod +x /system-monitor/system-monitor && \
+    rm -rf /tmp/system-monitor
 
 # Copy built application from builder stage
 COPY --from=builder /app/public ./public
@@ -119,7 +136,10 @@ COPY start-prod.sh /app/start-prod.sh
 RUN chmod +x /app/start-prod.sh
 
 # Change ownership
-RUN chown -R nextjs:nodejs /app
+RUN chown -R nextjs:nodejs /app /system-monitor
+
+# Clean up Go (optional, saves space)
+RUN apk del go git
 
 # Switch to non-root user
 USER nextjs

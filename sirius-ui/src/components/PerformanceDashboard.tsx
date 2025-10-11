@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from '~/components/lib/ui/card';
+} from "~/components/lib/ui/card";
 import {
   Table,
   TableBody,
@@ -13,17 +13,23 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '~/components/lib/ui/table';
-import { Badge } from '~/components/lib/ui/badge';
-import { Button } from '~/components/lib/ui/button';
+} from "~/components/lib/ui/table";
+import { Badge } from "~/components/lib/ui/badge";
+import { Button } from "~/components/lib/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '~/components/lib/ui/select';
-import { RefreshCw, TrendingUp, Clock, AlertTriangle, Activity } from 'lucide-react';
+} from "~/components/lib/ui/select";
+import {
+  RefreshCw,
+  TrendingUp,
+  Clock,
+  AlertTriangle,
+  Activity,
+} from "lucide-react";
 
 interface PerformanceMetric {
   id: string;
@@ -69,82 +75,87 @@ interface PerformanceDashboardProps {
   className?: string;
 }
 
-export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ className }) => {
+export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({
+  className,
+}) => {
   const [metrics, setMetrics] = useState<PerformanceMetric[]>([]);
   const [summary, setSummary] = useState<PerformanceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<string>('1h');
+  const [timeRange, setTimeRange] = useState<string>("1h");
 
   // Mock data for now
-  const generateMockData = (): { metrics: PerformanceMetric[]; summary: PerformanceSummary } => {
+  const generateMockData = (): {
+    metrics: PerformanceMetric[];
+    summary: PerformanceSummary;
+  } => {
     const now = new Date();
     const mockMetrics: PerformanceMetric[] = [
       {
-        id: 'perf_001',
+        id: "perf_001",
         timestamp: new Date(now.getTime() - 1 * 60 * 1000).toISOString(),
-        service: 'sirius-api',
-        endpoint: '/api/v1/system/health',
-        method: 'GET',
+        service: "sirius-api",
+        endpoint: "/api/v1/system/health",
+        method: "GET",
         duration_ms: 15,
         status_code: 200,
         response_size: 1024,
-        request_id: 'req_001',
+        request_id: "req_001",
       },
       {
-        id: 'perf_002',
+        id: "perf_002",
         timestamp: new Date(now.getTime() - 2 * 60 * 1000).toISOString(),
-        service: 'sirius-api',
-        endpoint: '/api/v1/logs/stats',
-        method: 'GET',
+        service: "sirius-api",
+        endpoint: "/api/v1/logs/stats",
+        method: "GET",
         duration_ms: 8,
         status_code: 200,
         response_size: 512,
-        request_id: 'req_002',
+        request_id: "req_002",
       },
       {
-        id: 'perf_003',
+        id: "perf_003",
         timestamp: new Date(now.getTime() - 3 * 60 * 1000).toISOString(),
-        service: 'sirius-api',
-        endpoint: '/api/v1/logs',
-        method: 'POST',
+        service: "sirius-api",
+        endpoint: "/api/v1/logs",
+        method: "POST",
         duration_ms: 25,
         status_code: 201,
         response_size: 256,
-        request_id: 'req_003',
+        request_id: "req_003",
       },
       {
-        id: 'perf_004',
+        id: "perf_004",
         timestamp: new Date(now.getTime() - 4 * 60 * 1000).toISOString(),
-        service: 'sirius-api',
-        endpoint: '/api/v1/hosts',
-        method: 'GET',
+        service: "sirius-api",
+        endpoint: "/api/v1/hosts",
+        method: "GET",
         duration_ms: 45,
         status_code: 200,
         response_size: 2048,
-        request_id: 'req_004',
+        request_id: "req_004",
       },
       {
-        id: 'perf_005',
+        id: "perf_005",
         timestamp: new Date(now.getTime() - 5 * 60 * 1000).toISOString(),
-        service: 'sirius-api',
-        endpoint: '/api/v1/vulnerabilities',
-        method: 'GET',
+        service: "sirius-api",
+        endpoint: "/api/v1/vulnerabilities",
+        method: "GET",
         duration_ms: 120,
         status_code: 200,
         response_size: 4096,
-        request_id: 'req_005',
+        request_id: "req_005",
       },
       {
-        id: 'perf_006',
+        id: "perf_006",
         timestamp: new Date(now.getTime() - 6 * 60 * 1000).toISOString(),
-        service: 'sirius-api',
-        endpoint: '/api/v1/hosts/invalid',
-        method: 'GET',
+        service: "sirius-api",
+        endpoint: "/api/v1/hosts/invalid",
+        method: "GET",
         duration_ms: 5,
         status_code: 404,
         response_size: 128,
-        request_id: 'req_006',
+        request_id: "req_006",
       },
     ];
 
@@ -157,24 +168,24 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
       requests_per_minute: 1.0,
       top_endpoints: [
         {
-          endpoint: '/api/v1/system/health',
-          method: 'GET',
+          endpoint: "/api/v1/system/health",
+          method: "GET",
           request_count: 1,
           average_response_ms: 15,
           error_count: 0,
           error_rate: 0,
         },
         {
-          endpoint: '/api/v1/logs/stats',
-          method: 'GET',
+          endpoint: "/api/v1/logs/stats",
+          method: "GET",
           request_count: 1,
           average_response_ms: 8,
           error_count: 0,
           error_rate: 0,
         },
         {
-          endpoint: '/api/v1/hosts/invalid',
-          method: 'GET',
+          endpoint: "/api/v1/hosts/invalid",
+          method: "GET",
           request_count: 1,
           average_response_ms: 5,
           error_count: 1,
@@ -183,7 +194,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
       ],
       service_stats: [
         {
-          service: 'sirius-api',
+          service: "sirius-api",
           request_count: 6,
           average_response_ms: 36.3,
           error_count: 1,
@@ -199,16 +210,75 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
     try {
       setLoading(true);
       setError(null);
-      
-      // For now, use mock data
-      // TODO: Replace with actual API call when backend is ready
+
+      // Fetch real performance data from API
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
+        }/api/v1/performance/metrics`
+      );
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+
+      // Transform API response to match our interface
+      const transformedMetrics: PerformanceMetric[] = data.metrics.map(
+        (metric: any, index: number) => ({
+          id: `perf_${index}`,
+          timestamp: metric.timestamp,
+          service: "sirius-api",
+          endpoint: metric.endpoint,
+          method: metric.method,
+          duration_ms: metric.duration_ms,
+          status_code: metric.status_code,
+          response_size: 1024, // Default size since API doesn't provide this yet
+          request_id: `req_${index}`,
+        })
+      );
+
+      const transformedSummary: PerformanceSummary = {
+        total_requests: data.summary.total_requests,
+        average_response_ms: data.summary.average_response_ms,
+        min_response_ms: Math.min(
+          ...data.metrics.map((m: any) => m.duration_ms)
+        ),
+        max_response_ms: Math.max(
+          ...data.metrics.map((m: any) => m.duration_ms)
+        ),
+        error_rate: data.summary.error_rate,
+        requests_per_minute: data.summary.total_requests,
+        top_endpoints: data.metrics.map((metric: any) => ({
+          endpoint: metric.endpoint,
+          method: metric.method,
+          request_count: 1,
+          average_response_ms: metric.duration_ms,
+          error_count: metric.status_code >= 400 ? 1 : 0,
+          error_rate: metric.status_code >= 400 ? 1 : 0,
+        })),
+        service_stats: [
+          {
+            service: "sirius-api",
+            request_count: data.summary.total_requests,
+            average_response_ms: data.summary.average_response_ms,
+            error_count: 0,
+            error_rate: data.summary.error_rate,
+          },
+        ],
+      };
+
+      setMetrics(transformedMetrics);
+      setSummary(transformedSummary);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load performance data"
+      );
+      console.error("Failed to load performance data:", err);
+
+      // Fallback to mock data on error
       const { metrics: mockMetrics, summary: mockSummary } = generateMockData();
-      
       setMetrics(mockMetrics);
       setSummary(mockSummary);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load performance data');
-      console.error('Failed to load performance data:', err);
     } finally {
       setLoading(false);
     }
@@ -223,16 +293,16 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
   };
 
   const getStatusBadgeVariant = (statusCode: number) => {
-    if (statusCode >= 200 && statusCode < 300) return 'default';
-    if (statusCode >= 300 && statusCode < 400) return 'secondary';
-    if (statusCode >= 400 && statusCode < 500) return 'outline';
-    return 'destructive';
+    if (statusCode >= 200 && statusCode < 300) return "default";
+    if (statusCode >= 300 && statusCode < 400) return "secondary";
+    if (statusCode >= 400 && statusCode < 500) return "outline";
+    return "destructive";
   };
 
   const getDurationColor = (duration: number) => {
-    if (duration < 50) return 'text-green-500';
-    if (duration < 100) return 'text-yellow-500';
-    return 'text-red-500';
+    if (duration < 50) return "text-green-500";
+    if (duration < 100) return "text-yellow-500";
+    return "text-red-500";
   };
 
   const formatTimestamp = (timestamp: string) => {
@@ -250,12 +320,12 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
       const now = new Date();
       const diffMs = now.getTime() - date.getTime();
       const diffMinutes = Math.floor(diffMs / (1000 * 60));
-      
-      if (diffMinutes < 1) return 'Just now';
-      if (diffMinutes === 1) return '1 minute ago';
+
+      if (diffMinutes < 1) return "Just now";
+      if (diffMinutes === 1) return "1 minute ago";
       return `${diffMinutes} minutes ago`;
     } catch {
-      return 'Unknown';
+      return "Unknown";
     }
   };
 
@@ -264,7 +334,9 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Performance Metrics</h2>
+          <h2 className="text-2xl font-bold tracking-tight">
+            Performance Metrics
+          </h2>
           <p className="text-muted-foreground">
             Real-time performance monitoring and analytics
           </p>
@@ -282,7 +354,9 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
             </SelectContent>
           </Select>
           <Button onClick={handleRefresh} disabled={loading} variant="outline">
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
         </div>
@@ -290,21 +364,23 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
 
       {/* Error Alert */}
       {error && (
-        <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
+        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/20 p-4">
           <div className="flex items-center space-x-2">
             <AlertTriangle className="h-5 w-5 text-red-400" />
-            <span className="text-red-400 font-medium">Error</span>
+            <span className="font-medium text-red-400">Error</span>
           </div>
-          <p className="text-red-300 text-sm mt-1">{error}</p>
+          <p className="mt-1 text-sm text-red-300">{error}</p>
         </div>
       )}
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Total Requests
+              </CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -317,11 +393,15 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Response Time</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Avg Response Time
+              </CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{summary.average_response_ms.toFixed(1)}ms</div>
+              <div className="text-2xl font-bold">
+                {summary.average_response_ms.toFixed(1)}ms
+              </div>
               <p className="text-xs text-muted-foreground">
                 {summary.min_response_ms}ms - {summary.max_response_ms}ms
               </p>
@@ -334,11 +414,17 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
               <AlertTriangle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${summary.error_rate > 5 ? 'text-red-500' : 'text-green-500'}`}>
+              <div
+                className={`text-2xl font-bold ${
+                  summary.error_rate > 5 ? "text-red-500" : "text-green-500"
+                }`}
+              >
                 {summary.error_rate.toFixed(1)}%
               </div>
               <p className="text-xs text-muted-foreground">
-                {summary.error_rate > 5 ? 'High error rate' : 'Normal error rate'}
+                {summary.error_rate > 5
+                  ? "High error rate"
+                  : "Normal error rate"}
               </p>
             </CardContent>
           </Card>
@@ -349,11 +435,19 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className={`text-2xl font-bold ${summary.average_response_ms < 100 ? 'text-green-500' : 'text-yellow-500'}`}>
-                {summary.average_response_ms < 100 ? 'Good' : 'Slow'}
+              <div
+                className={`text-2xl font-bold ${
+                  summary.average_response_ms < 100
+                    ? "text-green-500"
+                    : "text-yellow-500"
+                }`}
+              >
+                {summary.average_response_ms < 100 ? "Good" : "Slow"}
               </div>
               <p className="text-xs text-muted-foreground">
-                {summary.average_response_ms < 100 ? 'Fast responses' : 'Needs optimization'}
+                {summary.average_response_ms < 100
+                  ? "Fast responses"
+                  : "Needs optimization"}
               </p>
             </CardContent>
           </Card>
@@ -372,18 +466,29 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
           <CardContent>
             <div className="space-y-4">
               {summary.top_endpoints.map((endpoint, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                <div
+                  key={index}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
                   <div className="flex items-center space-x-3">
                     <Badge variant="outline">{endpoint.method}</Badge>
-                    <span className="font-mono text-sm">{endpoint.endpoint}</span>
+                    <span className="font-mono text-sm">
+                      {endpoint.endpoint}
+                    </span>
                   </div>
                   <div className="flex items-center space-x-4 text-sm">
-                    <span className="text-muted-foreground">{endpoint.request_count} requests</span>
-                    <span className={getDurationColor(endpoint.average_response_ms)}>
+                    <span className="text-muted-foreground">
+                      {endpoint.request_count} requests
+                    </span>
+                    <span
+                      className={getDurationColor(endpoint.average_response_ms)}
+                    >
                       {endpoint.average_response_ms.toFixed(1)}ms avg
                     </span>
                     {endpoint.error_count > 0 && (
-                      <Badge variant="destructive">{endpoint.error_rate.toFixed(1)}% errors</Badge>
+                      <Badge variant="destructive">
+                        {endpoint.error_rate.toFixed(1)}% errors
+                      </Badge>
                     )}
                   </div>
                 </div>
@@ -420,7 +525,7 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
                   <TableRow key={metric.id}>
                     <TableCell className="font-mono text-sm">
                       <div>{formatTimestamp(metric.timestamp)}</div>
-                      <div className="text-muted-foreground text-xs">
+                      <div className="text-xs text-muted-foreground">
                         {formatRelativeTime(metric.timestamp)}
                       </div>
                     </TableCell>
@@ -439,7 +544,9 @@ export const PerformanceDashboard: React.FC<PerformanceDashboardProps> = ({ clas
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getStatusBadgeVariant(metric.status_code)}>
+                      <Badge
+                        variant={getStatusBadgeVariant(metric.status_code)}
+                      >
                         {metric.status_code}
                       </Badge>
                     </TableCell>

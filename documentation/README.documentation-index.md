@@ -26,6 +26,7 @@ This document provides a complete index of all documentation files in the Sirius
 
 - [ABOUT.documentation.md](dev/ABOUT.documentation.md) - Documentation standards and system overview
 - [README.development.md](dev/README.development.md) - Development environment setup and workflow
+- [README.sirius-event-log.md](dev/development/README.sirius-event-log.md) - Sirius event logging system and event management
 
 ## Architecture Documentation
 
@@ -33,6 +34,8 @@ This document provides a complete index of all documentation files in the Sirius
 
 - [README.architecture.md](dev/architecture/README.architecture.md) - System architecture and component relationships
 - [README.architecture-quick-reference.md](dev/architecture/README.architecture-quick-reference.md) - Concise architectural overview for LLM context
+- [README.system-monitor.md](dev/architecture/README.system-monitor.md) - System monitoring architecture and implementation
+- [README.administrator.md](dev/architecture/README.administrator.md) - Administrator service architecture and design
 
 ## Operations Documentation
 
@@ -52,6 +55,7 @@ This document provides a complete index of all documentation files in the Sirius
 ## Testing Documentation
 
 ### Testing Philosophy
+
 ### Container Testing
 
 - [README.container-testing.md](dev/test/README.container-testing.md) - Container testing system and validation

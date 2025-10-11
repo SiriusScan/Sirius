@@ -253,5 +253,76 @@
         "testStrategy": "Verify no temporary files remain and documentation is up to date"
       }
     ]
+  },
+  {
+    "id": "5",
+    "title": "PHASE 5: Real System Resource Monitoring",
+    "description": "Implement Valkey-based system resource monitoring with real container metrics",
+    "details": "Replace mock system resource data with real metrics collected from each container. Each service reports its own system metrics to Valkey, and the API aggregates this data for the monitoring dashboard.",
+    "status": "done",
+    "priority": "high",
+    "dependencies": ["4"],
+    "subtasks": [
+      {
+        "id": "5.1",
+        "title": "Create System Monitor Binary",
+        "description": "Create lightweight Go binary for collecting and reporting system metrics",
+        "details": "Create a standalone Go program that collects CPU, memory, disk, and network metrics from the current container. Report metrics to Valkey at regular intervals (every 30 seconds). Use existing Go API libraries for Valkey connectivity.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Test system monitor binary in isolation, verify it collects accurate metrics and reports to Valkey successfully"
+      },
+      {
+        "id": "5.2",
+        "title": "Integrate System Monitor into Container Builds",
+        "description": "Add system monitor binary to all container Dockerfiles",
+        "details": "Update Dockerfiles for sirius-api, sirius-ui, sirius-engine, sirius-postgres, sirius-valkey, and sirius-rabbitmq to include the system monitor binary. Configure each container to run the system monitor as a background process.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["5.1"],
+        "testStrategy": "Build all containers and verify system monitor is running in each, check that metrics are being reported to Valkey"
+      },
+      {
+        "id": "5.3",
+        "title": "Update API to Read Real Metrics from Valkey",
+        "description": "Modify system resource API endpoints to read real metrics from Valkey",
+        "details": "Update /api/v1/system/resources endpoint to read aggregated metrics from Valkey instead of generating mock data. Implement proper error handling for missing or stale metrics data.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["5.2"],
+        "testStrategy": "Test API endpoints return real metrics data, verify error handling for missing containers or stale data"
+      },
+      {
+        "id": "5.4",
+        "title": "Implement Real Docker Logs Collection",
+        "description": "Replace mock Docker logs with real log collection from containers",
+        "details": "Update system monitor to also collect and report container logs to Valkey. Modify /api/v1/system/logs endpoint to read real logs from Valkey instead of generating mock data.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["5.3"],
+        "testStrategy": "Verify real container logs are being collected and displayed in the monitoring dashboard"
+      },
+      {
+        "id": "5.5",
+        "title": "Add Metrics Retention and Cleanup",
+        "description": "Implement data retention policies for system metrics and logs",
+        "details": "Add cleanup mechanisms to prevent Valkey from growing indefinitely. Implement retention policies for metrics (keep 24 hours) and logs (keep 7 days). Add background cleanup processes.",
+        "status": "done",
+        "priority": "medium",
+        "dependencies": ["5.4"],
+        "testStrategy": "Test retention policies work correctly, verify Valkey doesn't grow beyond expected limits"
+      },
+      {
+        "id": "5.6",
+        "title": "Update Frontend to Handle Real Data",
+        "description": "Ensure frontend components work correctly with real metrics data",
+        "details": "Test and update frontend components to handle real metrics data format, add proper error handling for missing or malformed data, ensure UI updates correctly with real-time data.",
+        "status": "done",
+        "priority": "medium",
+        "dependencies": ["5.4"],
+        "testStrategy": "Test frontend with real data, verify all components display correctly and handle edge cases"
+      }
+    ]
   }
 ]

@@ -14,6 +14,7 @@ import (
 	"github.com/SiriusScan/sirius-api/routes"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
@@ -123,6 +124,14 @@ func main() {
 
 	// Add request ID middleware
 	app.Use(requestid.New())
+
+	// Add Fiber logger middleware for standard endpoint logging
+	app.Use(logger.New(logger.Config{
+		Format:     "${time} ${status} - ${method} ${path} (${latency})\n",
+		TimeFormat: "15:04:05",
+		TimeZone:   "Local",
+		Output:     os.Stdout,
+	}))
 
 	// Add SDK-based logging middlewares
 	app.Use(middleware.SDKLoggingMiddleware())

@@ -2,6 +2,28 @@
 
 echo "🚀 Starting Sirius UI Production Server..."
 
+# Start system monitor if available
+if [ -f "/system-monitor/system-monitor" ] && [ -x "/system-monitor/system-monitor" ]; then
+    echo "📊 Starting system monitor..."
+    cd /system-monitor
+    CONTAINER_NAME=sirius-ui ./system-monitor >> /tmp/system-monitor.log 2>&1 &
+    SYSTEM_MONITOR_PID=$!
+    echo "✅ System monitor started with PID: $SYSTEM_MONITOR_PID"
+    cd /app
+else
+    echo "⚠️  System monitor binary not found or not executable"
+fi
+
+# Start app administrator if available
+if [ -f "/app/administrator" ] && [ -x "/app/administrator" ]; then
+    echo "🔧 Starting app administrator..."
+    CONTAINER_NAME=sirius-ui /app/administrator &
+    ADMINISTRATOR_PID=$!
+    echo "✅ App administrator started with PID: $ADMINISTRATOR_PID"
+else
+    echo "⚠️  App administrator binary not found or not executable"
+fi
+
 # Ensure Prisma directory exists and is writable
 mkdir -p /app/prisma
 chown -R nextjs:nodejs /app/prisma
@@ -12,14 +34,14 @@ if [ ! -f "/app/prisma/dev.db" ]; then
     
     # Deploy migrations to create tables
     echo "📁 Applying database migrations..."
-    npx prisma migrate deploy || npx prisma db push --accept-data-loss
+    (cd /app && npx prisma migrate deploy) || (cd /app && npx prisma db push --accept-data-loss)
     
     echo "🌱 Running database seed..."
-    npx prisma db seed || echo "⚠️  Seed failed or already applied."
+    (cd /app && npx prisma db seed) || echo "⚠️  Seed failed or already applied."
 else
     echo "✅ SQLite database found, checking migrations..."
     # Apply any pending migrations
-    npx prisma migrate deploy || echo "⚠️  Migration failed, database may already be up to date."
+    (cd /app && npx prisma migrate deploy) || echo "⚠️  Migration failed, database may already be up to date."
 fi
 
 echo "🎯 Starting Next.js production server..."

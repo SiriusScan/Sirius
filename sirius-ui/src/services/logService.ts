@@ -4,7 +4,7 @@ export interface LogEntry {
   timestamp: string;
   service: string;
   subcomponent: string;
-  level: 'debug' | 'info' | 'warn' | 'error';
+  level: "debug" | "info" | "warn" | "error";
   message: string;
   metadata?: Record<string, any>;
   context?: Record<string, any>;
@@ -13,7 +13,7 @@ export interface LogEntry {
 export interface LogSubmissionRequest {
   service: string;
   subcomponent: string;
-  level: 'debug' | 'info' | 'warn' | 'error';
+  level: "debug" | "info" | "warn" | "error";
   message: string;
   metadata?: Record<string, any>;
   context?: Record<string, any>;
@@ -54,7 +54,10 @@ export class LogService {
   private retries: number;
 
   constructor(options: LogServiceOptions = {}) {
-    this.baseUrl = options.baseUrl || 'http://localhost:9001';
+    this.baseUrl =
+      options.baseUrl ||
+      process.env.NEXT_PUBLIC_SIRIUS_API_URL ||
+      "http://localhost:9001";
     this.timeout = options.timeout || 10000;
     this.retries = options.retries || 3;
   }
@@ -62,18 +65,23 @@ export class LogService {
   /**
    * Submit a log entry to the centralized logging system
    */
-  async submitLog(request: LogSubmissionRequest): Promise<{ log_id: string; message: string }> {
-    const response = await this.fetchWithTimeout(`${this.baseUrl}/api/v1/logs`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-    });
+  async submitLog(
+    request: LogSubmissionRequest
+  ): Promise<{ log_id: string; message: string }> {
+    const response = await this.fetchWithTimeout(
+      `${this.baseUrl}/api/v1/logs`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to submit log entry');
+      throw new Error(errorData.error || "Failed to submit log entry");
     }
 
     return response.json();
@@ -82,22 +90,25 @@ export class LogService {
   /**
    * Retrieve logs with filtering and pagination
    */
-  async getLogs(request: LogRetrievalRequest = {}): Promise<LogRetrievalResponse> {
+  async getLogs(
+    request: LogRetrievalRequest = {}
+  ): Promise<LogRetrievalResponse> {
     const params = new URLSearchParams();
-    
-    if (request.service) params.append('service', request.service);
-    if (request.level) params.append('level', request.level);
-    if (request.subcomponent) params.append('subcomponent', request.subcomponent);
-    if (request.search) params.append('search', request.search);
-    if (request.limit) params.append('limit', request.limit.toString());
-    if (request.offset) params.append('offset', request.offset.toString());
+
+    if (request.service) params.append("service", request.service);
+    if (request.level) params.append("level", request.level);
+    if (request.subcomponent)
+      params.append("subcomponent", request.subcomponent);
+    if (request.search) params.append("search", request.search);
+    if (request.limit) params.append("limit", request.limit.toString());
+    if (request.offset) params.append("offset", request.offset.toString());
 
     const url = `${this.baseUrl}/api/v1/logs?${params.toString()}`;
     const response = await this.fetchWithTimeout(url);
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to retrieve logs');
+      throw new Error(errorData.error || "Failed to retrieve logs");
     }
 
     return response.json();
@@ -107,11 +118,13 @@ export class LogService {
    * Get log statistics
    */
   async getLogStats(): Promise<LogStatsResponse> {
-    const response = await this.fetchWithTimeout(`${this.baseUrl}/api/v1/logs/stats`);
+    const response = await this.fetchWithTimeout(
+      `${this.baseUrl}/api/v1/logs/stats`
+    );
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to retrieve log statistics');
+      throw new Error(errorData.error || "Failed to retrieve log statistics");
     }
 
     return response.json();
@@ -120,25 +133,27 @@ export class LogService {
   /**
    * Get logs with automatic retry logic
    */
-  async getLogsWithRetry(request: LogRetrievalRequest = {}): Promise<LogRetrievalResponse> {
+  async getLogsWithRetry(
+    request: LogRetrievalRequest = {}
+  ): Promise<LogRetrievalResponse> {
     let lastError: Error | null = null;
-    
+
     for (let attempt = 1; attempt <= this.retries; attempt++) {
       try {
         return await this.getLogs(request);
       } catch (error) {
         lastError = error as Error;
         console.warn(`Log retrieval attempt ${attempt} failed:`, error);
-        
+
         if (attempt < this.retries) {
           // Exponential backoff
           const delay = Math.pow(2, attempt) * 1000;
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
-    
-    throw lastError || new Error('Failed to retrieve logs after all retries');
+
+    throw lastError || new Error("Failed to retrieve logs after all retries");
   }
 
   /**
@@ -146,23 +161,26 @@ export class LogService {
    */
   async getLogStatsWithRetry(): Promise<LogStatsResponse> {
     let lastError: Error | null = null;
-    
+
     for (let attempt = 1; attempt <= this.retries; attempt++) {
       try {
         return await this.getLogStats();
       } catch (error) {
         lastError = error as Error;
         console.warn(`Log stats retrieval attempt ${attempt} failed:`, error);
-        
+
         if (attempt < this.retries) {
           // Exponential backoff
           const delay = Math.pow(2, attempt) * 1000;
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
         }
       }
     }
-    
-    throw lastError || new Error('Failed to retrieve log statistics after all retries');
+
+    throw (
+      lastError ||
+      new Error("Failed to retrieve log statistics after all retries")
+    );
   }
 
   /**
@@ -176,28 +194,28 @@ export class LogService {
   ): () => void {
     const interval = options.interval || 5000; // 5 seconds
     const retries = options.retries || 3;
-    
+
     let isPolling = true;
     let timeoutId: NodeJS.Timeout;
-    
+
     const poll = async () => {
       if (!isPolling) return;
-      
+
       try {
         const logs = await this.getLogsWithRetry(request);
         onUpdate(logs);
       } catch (error) {
         onError(error as Error);
       }
-      
+
       if (isPolling) {
         timeoutId = setTimeout(poll, interval);
       }
     };
-    
+
     // Start polling
     poll();
-    
+
     // Return stop function
     return () => {
       isPolling = false;
@@ -217,28 +235,28 @@ export class LogService {
   ): () => void {
     const interval = options.interval || 10000; // 10 seconds
     const retries = options.retries || 3;
-    
+
     let isPolling = true;
     let timeoutId: NodeJS.Timeout;
-    
+
     const poll = async () => {
       if (!isPolling) return;
-      
+
       try {
         const stats = await this.getLogStatsWithRetry();
         onUpdate(stats);
       } catch (error) {
         onError(error as Error);
       }
-      
+
       if (isPolling) {
         timeoutId = setTimeout(poll, interval);
       }
     };
-    
+
     // Start polling
     poll();
-    
+
     // Return stop function
     return () => {
       isPolling = false;
@@ -251,10 +269,13 @@ export class LogService {
   /**
    * Fetch with timeout
    */
-  private async fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+  private async fetchWithTimeout(
+    url: string,
+    options: RequestInit = {}
+  ): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-    
+
     try {
       const response = await fetch(url, {
         ...options,
@@ -264,7 +285,7 @@ export class LogService {
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (error instanceof Error && error.name === "AbortError") {
         throw new Error(`Request timeout after ${this.timeout}ms`);
       }
       throw error;
@@ -276,34 +297,36 @@ export class LogService {
    */
   getLogLevelColor(level: string): string {
     switch (level) {
-      case 'error':
-        return 'text-red-500';
-      case 'warn':
-        return 'text-yellow-500';
-      case 'info':
-        return 'text-blue-500';
-      case 'debug':
-        return 'text-gray-500';
+      case "error":
+        return "text-red-500";
+      case "warn":
+        return "text-yellow-500";
+      case "info":
+        return "text-blue-500";
+      case "debug":
+        return "text-gray-500";
       default:
-        return 'text-gray-400';
+        return "text-gray-400";
     }
   }
 
   /**
    * Get log level badge variant for UI display
    */
-  getLogLevelBadgeVariant(level: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+  getLogLevelBadgeVariant(
+    level: string
+  ): "default" | "secondary" | "destructive" | "outline" {
     switch (level) {
-      case 'error':
-        return 'destructive';
-      case 'warn':
-        return 'outline';
-      case 'info':
-        return 'default';
-      case 'debug':
-        return 'secondary';
+      case "error":
+        return "destructive";
+      case "warn":
+        return "outline";
+      case "info":
+        return "default";
+      case "debug":
+        return "secondary";
       default:
-        return 'secondary';
+        return "secondary";
     }
   }
 
@@ -342,7 +365,7 @@ export class LogService {
         return `${diffDays}d ago`;
       }
     } catch {
-      return 'Unknown';
+      return "Unknown";
     }
   }
 }

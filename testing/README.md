@@ -124,9 +124,8 @@ Tests end-to-end service integration and functionality.
 
 ### Docker Compose Configurations
 
-- **`docker-compose.yaml`**: Base configuration with health checks
-- **`docker-compose.dev.yaml`**: Development overrides with hot reloading
-- **`docker-compose.prod.yaml`**: Production optimizations
+- **`docker-compose.yaml`**: Base production configuration with health checks
+- **`docker-compose.dev.yaml`**: Development overrides with hot reloading and volume mounts
 
 ### Test Configuration
 

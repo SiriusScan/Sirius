@@ -3,9 +3,10 @@ module github.com/SiriusScan/sirius-api
 go 1.24.0
 
 require (
-	github.com/SiriusScan/go-api v0.0.9
+	github.com/SiriusScan/go-api v0.0.10
 	github.com/fatih/color v1.18.0
 	github.com/gofiber/fiber/v2 v2.49.2
+	github.com/valkey-io/valkey-go v1.0.60
 )
 
 require (
@@ -24,7 +25,6 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/streadway/amqp v1.1.0 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
-	github.com/valkey-io/valkey-go v1.0.60 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.50.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect

@@ -81,10 +81,7 @@ main() {
     # Test 2: Development Docker Compose Configuration
     run_test "Development Docker Compose Config" "docker compose -f docker-compose.yaml -f docker-compose.dev.yaml config --quiet"
     
-    # Test 3: Production Docker Compose Configuration
-    run_test "Production Docker Compose Config" "docker compose -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet"
-    
-    # Test 4: sirius-ui Production Build
+    # Test 3: sirius-ui Production Build (base docker-compose.yaml is production-ready)
     run_test "sirius-ui Production Build" "docker build -t sirius-ui:test ./sirius-ui/ --target production"
     
     # Test 5: sirius-api Runner Build

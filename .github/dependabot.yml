@@ -1,0 +1,84 @@
+# Dependabot configuration for automatic dependency updates
+#
+# This configuration enables automated dependency updates for Go modules,
+# Docker images, and GitHub Actions. Dependabot will create PRs automatically
+# when new versions are available.
+#
+# See: https://docs.github.com/en/code-security/dependabot
+
+version: 2
+updates:
+  # Go modules in sirius-api
+  - package-ecosystem: "gomod"
+    directory: "/sirius-api"
+    schedule:
+      interval: "daily"
+      time: "06:00"
+      timezone: "America/Los_Angeles"
+    labels:
+      - "dependencies"
+      - "go"
+      - "sirius-api"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "0sm0s1z"
+    # Auto-merge minor and patch updates after tests pass
+    versioning-strategy: increase
+
+  # Go modules in sirius-engine
+  - package-ecosystem: "gomod"
+    directory: "/sirius-engine"
+    schedule:
+      interval: "daily"
+      time: "06:00"
+      timezone: "America/Los_Angeles"
+    labels:
+      - "dependencies"
+      - "go"
+      - "sirius-engine"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "0sm0s1z"
+    versioning-strategy: increase
+
+  # Docker images
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Los_Angeles"
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "0sm0s1z"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Los_Angeles"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "0sm0s1z"

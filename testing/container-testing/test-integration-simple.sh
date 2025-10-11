@@ -183,7 +183,7 @@ main() {
             ;;
         "prod")
             log "${YELLOW}🚀 Starting production environment...${NC}"
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+            docker compose up -d
             ;;
         *)
             log "${YELLOW}🚀 Starting base environment...${NC}"

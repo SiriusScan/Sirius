@@ -286,22 +286,33 @@ git checkout -b fix/123-brief-description
 cd testing/container-testing
 make validate-all
 
-# 5. COMMIT CHANGES
+# 5. COMMIT TO FEATURE BRANCH
 git add .
 git commit -m "fix: brief description
 
 - Detailed change 1
 - Detailed change 2
-- Closes #123"
+- Related to #123"
 
 # 6. PUSH BRANCH
 git push origin fix/123-brief-description
 
-# 7. TEST ON BRANCH
-# Verify changes work as expected
-# Run all relevant tests
+# 7. TEST ON BRANCH (CRITICAL - HUMAN VALIDATION REQUIRED)
+# ⚠️  DO NOT SKIP THIS STEP ⚠️
+# - Deploy and run containers in development mode
+# - Verify all services start correctly
+# - Check logs for errors
+# - Test all affected functionality
+# - Deploy and run containers in production mode
+# - Verify production build works
+# - Test all services in production configuration
+# 
+# 🛑 STOP: Get human approval before merging to main
+# - Review test results with team/stakeholders
+# - Confirm no errors in logs
+# - Validate all functionality works as expected
 
-# 8. MERGE TO MAIN
+# 8. MERGE TO MAIN (ONLY AFTER APPROVAL)
 git checkout main
 git pull origin main
 git merge fix/123-brief-description
@@ -312,11 +323,15 @@ git push origin main
 # 10. UPDATE GITHUB ISSUE
 # - Add comment with test results
 # - Confirm deployment successful
-# - Close issue (or let "Closes #123" in commit do it)
+# - Close issue with "Closes #123" or manually
 
 # 11. CLEANUP BRANCH
 git branch -d fix/123-brief-description
 git push origin --delete fix/123-brief-description
+
+# 12. CLEANUP TEMPORARY FILES
+# - Remove any temporary files from tmp/ directory
+# - Commit cleanup if needed
 ```
 
 ### Workflow Decision Matrix
@@ -796,16 +811,21 @@ git commit -m "your message"
 - **Always run pre-commit checks** before committing
 - **Use clear, descriptive commit messages**
 - **Keep commits focused** on a single change
-- **Test your changes** before committing
+- **Test your changes thoroughly** in both dev and prod modes before merging
+- **Get human approval** before merging to main branch
 - **Update documentation** when making structural changes
+- **Clean up temporary files** before finalizing
 
 ### Don't Do This
 
 - **Don't commit broken code** - fix it first
 - **Don't skip pre-commit checks** - they catch issues
+- **Don't skip human testing validation** - automated tests aren't enough
+- **Don't merge to main without approval** - always get human sign-off
 - **Don't use vague commit messages** like "fix stuff"
 - **Don't commit large, unrelated changes** in one commit
 - **Don't force push to main** unless absolutely necessary
+- **Don't leave temporary files** in the repository
 
 ## Quick Reference
 

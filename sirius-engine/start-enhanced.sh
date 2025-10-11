@@ -57,6 +57,50 @@ trap cleanup SIGTERM SIGINT
 echo "Starting Sirius Engine services..."
 echo "Environment: ${GO_ENV:-production}"
 
+# Start system monitor if available
+if [ -d "/system-monitor" ]; then
+    echo "Starting system monitor..."
+    cd /system-monitor
+    if [ "$GO_ENV" = "development" ] && [ -f "main.go" ]; then
+        echo "Running system monitor with go run (development mode)"
+        CONTAINER_NAME=sirius-engine go run main.go >> /tmp/system-monitor.log 2>&1 &
+    elif [ -f "./system-monitor" ] && [ -x "./system-monitor" ]; then
+        echo "Running system monitor binary (production mode)"
+        CONTAINER_NAME=sirius-engine ./system-monitor >> /tmp/system-monitor.log 2>&1 &
+    else
+        echo "Error: System monitor not found (neither main.go nor binary)"
+        exit 1
+    fi
+    SYSTEM_MONITOR_PID=$!
+    sleep 2
+    check_service "System Monitor" $SYSTEM_MONITOR_PID
+    echo "System monitor started with PID: $SYSTEM_MONITOR_PID"
+else
+    echo "Warning: System monitor directory not found"
+fi
+
+# Start app administrator if available
+if [ -d "/app-administrator" ]; then
+    echo "Starting app administrator..."
+    cd /app-administrator
+    if [ "$GO_ENV" = "development" ] && [ -f "main.go" ]; then
+        echo "Running app administrator with go run (development mode)"
+        CONTAINER_NAME=sirius-engine go run main.go >> /tmp/administrator.log 2>&1 &
+    elif [ -f "./administrator" ] && [ -x "./administrator" ]; then
+        echo "Running app administrator binary (production mode)"
+        CONTAINER_NAME=sirius-engine ./administrator >> /tmp/administrator.log 2>&1 &
+    else
+        echo "Error: App administrator not found (neither main.go nor binary)"
+        exit 1
+    fi
+    ADMINISTRATOR_PID=$!
+    sleep 1
+    check_service "App Administrator" $ADMINISTRATOR_PID
+    echo "App administrator started with PID: $ADMINISTRATOR_PID"
+else
+    echo "Warning: App administrator directory not found"
+fi
+
 # Determine service paths
 SCANNER_PATH=$(get_service_path "scanner")
 TERMINAL_PATH=$(get_service_path "terminal")
@@ -67,7 +111,7 @@ echo "  Scanner: $SCANNER_PATH"
 echo "  Terminal: $TERMINAL_PATH"
 echo "  Agent: $AGENT_PATH"
 
-# Start scanner service if path is available
+# Start scanner service if path is available (non-fatal if it fails)
 if [ -n "$SCANNER_PATH" ]; then
     cd "$SCANNER_PATH"
     echo "Starting scanner service from $SCANNER_PATH..."
@@ -83,7 +127,11 @@ if [ -n "$SCANNER_PATH" ]; then
     fi
     SCANNER_PID=$!
     sleep 2
-    check_service "Scanner" $SCANNER_PID
+    # Check if scanner started, but don't fail if it didn't
+    if ! kill -0 $SCANNER_PID 2>/dev/null; then
+        echo "Warning: Scanner failed to start, but continuing with other services"
+        SCANNER_PID=""
+    fi
 else
     echo "Warning: Scanner service path not found"
 fi
@@ -147,6 +195,12 @@ echo "Services started successfully. Monitoring..."
 
 # Monitor services
 while true; do
+    if [ -n "$SYSTEM_MONITOR_PID" ]; then
+        check_service "System Monitor" $SYSTEM_MONITOR_PID
+    fi
+    if [ -n "$ADMINISTRATOR_PID" ]; then
+        check_service "App Administrator" $ADMINISTRATOR_PID
+    fi
     if [ -n "$SCANNER_PID" ]; then
         check_service "Scanner" $SCANNER_PID
     fi

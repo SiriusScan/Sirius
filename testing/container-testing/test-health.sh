@@ -150,7 +150,7 @@ main() {
             ;;
         "prod")
             log "${YELLOW}🚀 Starting production environment...${NC}"
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+            docker compose up -d
             ;;
         *)
             log "${YELLOW}🚀 Starting base environment...${NC}"
@@ -186,7 +186,7 @@ main() {
     run_test "Valkey Connectivity" "docker exec sirius-valkey redis-cli ping | grep -q PONG"
     
     # Test 7: RabbitMQ connectivity
-    run_test "RabbitMQ Connectivity" "docker exec sirius-rabbitmq rabbitmqctl status | grep -q 'running'"
+    run_test "RabbitMQ Connectivity" "docker exec sirius-rabbitmq rabbitmqctl status | grep -q 'RabbitMQ version'"
     
     # Test 8: Port accessibility
     run_test "Port 3000 Accessible" "curl -s -f http://localhost:3000 | grep -q 'html'"

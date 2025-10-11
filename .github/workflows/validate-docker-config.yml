@@ -64,17 +64,18 @@ jobs:
 
           echo "✅ No local override files found in repository"
 
-      - name: Validate example template exists
+      - name: Validate no outdated template files
         run: |
-          echo "🔍 Validating example template..."
+          echo "🔍 Checking for outdated template files..."
 
-          if [ ! -f "docker-compose.local.example.yaml" ]; then
-            echo "❌ FAIL: docker-compose.local.example.yaml template is missing"
-            echo "💡 This template helps developers set up local overrides"
+          # Check for old template files that should not exist
+          if [ -f "docker-compose.local.example.yaml" ]; then
+            echo "❌ FAIL: docker-compose.local.example.yaml is an outdated template"
+            echo "💡 This file is from an old implementation and should be removed"
             exit 1
           fi
 
-          echo "✅ Example template exists"
+          echo "✅ No outdated template files found"
 
       - name: Summary
         if: success()
@@ -84,7 +85,7 @@ jobs:
           echo "📋 What was validated:"
           echo "  ✅ Volume mounts are properly commented in docker-compose.override.yaml"
           echo "  ✅ No local override files accidentally committed"
-          echo "  ✅ Example template file exists for developers"
+          echo "  ✅ No outdated template files found"
           echo ""
           echo "💡 For local development, developers should:"
           echo "  1. Run './scripts/dev-setup.sh init' to create local overrides"

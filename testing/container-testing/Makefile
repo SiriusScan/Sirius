@@ -49,8 +49,8 @@ build-dev:
 
 build-prod:
 	@echo "🔨 Building production configuration..."
-	docker compose -f docker-compose.yaml -f docker-compose.prod.yaml config --quiet
-	@echo "✅ Production configuration is valid"
+	docker compose config --quiet
+	@echo "✅ Production configuration is valid (base docker-compose.yaml)"
 
 build-all: build-base build-dev build-prod
 	@echo "🎉 All configurations are valid!"
@@ -82,8 +82,8 @@ dev:
 
 prod:
 	@echo "🚀 Starting production environment..."
-	docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
-	@echo "✅ Production environment started"
+	docker compose up -d
+	@echo "✅ Production environment started (base docker-compose.yaml is production-ready)"
 	@echo "🌐 UI: http://localhost:3000"
 	@echo "🔌 API: http://localhost:9001"
 	@echo "⚙️  Engine: http://localhost:5174"

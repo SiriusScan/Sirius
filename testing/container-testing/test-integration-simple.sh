@@ -125,7 +125,7 @@ test_core_functionality() {
     run_test "Valkey Connectivity" "docker exec sirius-valkey redis-cli ping | grep -q PONG"
     
     # Test 8: Message queue connectivity
-    run_test "RabbitMQ Connectivity" "docker exec sirius-rabbitmq rabbitmqctl status | grep -q 'running'"
+    run_test "RabbitMQ Connectivity" "docker exec sirius-rabbitmq rabbitmqctl status | grep -q 'RabbitMQ version'"
 }
 
 # Test service communication
@@ -183,7 +183,7 @@ main() {
             ;;
         "prod")
             log "${YELLOW}🚀 Starting production environment...${NC}"
-            docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+            docker compose up -d
             ;;
         *)
             log "${YELLOW}🚀 Starting base environment...${NC}"

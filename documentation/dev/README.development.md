@@ -77,6 +77,12 @@ nano docker-compose.local.yaml
 ./scripts/dev-setup.sh start-extended
 ```
 
+**Hot Reloading in Extended Mode:**
+- Changes to minor-projects code are automatically reflected in containers
+- Engine services use `go run` for hot reloading with Air
+- No need to rebuild containers when modifying scanner/terminal/agent code
+- Changes are not tracked by the main Sirius repository (volume mounts)
+
 ## File Structure
 
 ```

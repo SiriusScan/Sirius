@@ -1,8 +1,8 @@
-# Sirius Scan
+# Sirius Scan v0.4.0
 
 ![Sirius Scan Dashboard](/documentation/dash-dark.gif)
 
-Sirius is an open-source comprehensive vulnerability scanner that leverages community-driven security intelligence and automated penetration testing capabilities. Get started in minutes with our Docker-based setup.
+Sirius is an open-source comprehensive vulnerability scanner that leverages community-driven security intelligence and automated penetration testing capabilities. **v0.4.0** introduces comprehensive system monitoring and observability features. Get started in minutes with our Docker-based setup.
 
 ## 🚀 Quick Start Guide
 
@@ -31,6 +31,22 @@ open http://localhost:3000
 - Password: `password`
 
 **⚠️ Security Notice**: Change these default credentials immediately in production environments.
+
+## 🆕 What's New in v0.4.0
+
+### System Monitoring & Observability
+
+- **Real-time Health Monitoring**: Live service health checks for all components
+- **Centralized Logging**: Unified log collection and management system
+- **Performance Metrics**: Container resource utilization tracking
+- **System Dashboard**: Comprehensive monitoring interface at `/system-monitor`
+
+### Enhanced Reliability
+
+- **Improved Container Builds**: Production-ready Docker configurations
+- **Better Error Handling**: Comprehensive error management and recovery
+- **SSH Troubleshooting**: Enhanced debugging capabilities for deployments
+- **Automated Testing**: Robust container testing and validation
 
 ### 🔧 Installation Options
 
@@ -216,9 +232,7 @@ Advanced operations console:
 - **Batch Operations**: Bulk scanning and management operations
 - **System Diagnostics**: Real-time system health and performance monitoring
 
-## 🛠️ Development & Customization
-
-### 🎯 End User Setup (Recommended)
+## 🛠️ Standard Setup
 
 Perfect for security professionals and penetration testers:
 
@@ -235,94 +249,25 @@ This configuration provides:
 - ✅ No additional setup required
 - ✅ Production-ready security scanning
 
-### 🔧 Developer Setup (Advanced)
+## 🤝 Contributing
 
-For developers contributing to Sirius or building custom integrations:
+Want to contribute to Sirius? We welcome contributions from the community!
 
-#### Prerequisites for Development
+**For Developers**: Check out our comprehensive [Contributing Guide](./documentation/contributing.md) for:
 
-- Git repositories for individual components
-- Go 1.21+ for backend development
-- Node.js 20+ for frontend development
-- Understanding of Docker multi-stage builds
+- 🔧 Development environment setup
+- 🔄 Development workflow and best practices
+- 🧪 Testing and quality assurance
+- 📝 Code standards and Git workflow
+- 🚀 Submitting pull requests
 
-#### Setup Development Environment
+**Quick Links**:
+- [Development Setup](./documentation/contributing.md#development-environment-setup)
+- [Testing Guide](./documentation/contributing.md#testing--quality-assurance)
+- [Code Standards](./documentation/contributing.md#code-standards)
+- [GitHub Issues](https://github.com/SiriusScan/Sirius/issues)
 
-1. **Clone Component Repositories** (Optional - for component development):
-
-```bash
-# Create development directory structure
-mkdir -p ../minor-projects && cd ../minor-projects
-
-# Clone only the components you want to develop:
-git clone https://github.com/SiriusScan/go-api.git          # REST API backend
-git clone https://github.com/SiriusScan/app-scanner.git    # Scanning engine
-git clone https://github.com/SiriusScan/app-terminal.git   # Terminal service
-git clone https://github.com/SiriusScan/app-agent.git      # Remote agents
-git clone https://github.com/SiriusScan/sirius-nse.git     # NSE scripts
-```
-
-2. **Enable Development Mode**:
-
-Edit `docker-compose.override.yaml` and uncomment volume mounts for components you're developing:
-
-```yaml
-# Uncomment ONLY for repositories you have cloned:
-# - ../minor-projects/app-agent:/app-agent        # Agent development
-# - ../minor-projects/app-scanner:/app-scanner    # Scanner development
-# - ../minor-projects/app-terminal:/app-terminal  # Terminal development
-# - ../minor-projects/go-api:/go-api              # API development
-```
-
-3. **Start Development Environment**:
-
-```bash
-cd Sirius
-docker compose down && docker compose up -d --build
-```
-
-#### Development Features
-
-- **🔥 Hot Reload**: Live code reloading with Air for Go services
-- **📝 Live Editing**: Frontend changes reflect immediately
-- **🐛 Debug Mode**: Detailed logging and error reporting
-- **🔍 Development Tools**: Access to Go toolchain and debugging utilities
-
-#### Development Commands
-
-```bash
-# View real-time logs
-docker compose logs -f sirius-engine
-
-# Access development container
-docker exec -it sirius-engine bash
-
-# Check live reload status
-docker exec sirius-engine ps aux | grep air
-
-# Restart specific service
-docker restart sirius-engine
-
-# Rebuild with changes
-docker compose up -d --build
-```
-
-### 🧪 Testing & Quality Assurance
-
-```bash
-# Run comprehensive test suite
-./run_tests.sh --all
-
-# Run specific test categories
-./run_tests.sh --models      # Backend model tests
-./run_tests.sh --ui          # Frontend UI tests
-./run_tests.sh --integration # Integration tests
-./run_tests.sh --security    # Security validation tests
-
-# Manual testing commands
-docker exec sirius-engine nmap --version
-docker exec sirius-api go test ./...
-```
+Join our community and help make security scanning accessible to everyone!
 
 ## 🔌 API & Integration
 
@@ -378,6 +323,19 @@ docker system df              # Check disk space
 # Solutions
 docker compose down && docker compose up -d --build  # Fresh restart
 docker system prune -f                               # Clean up space
+```
+
+**Problem**: Infrastructure services (PostgreSQL, RabbitMQ, Valkey) don't start
+
+```bash
+# This occurs when using only docker-compose.dev.yaml
+# The dev file is an OVERRIDE file, not standalone
+
+# ❌ Wrong (only starts 3 services):
+docker compose -f docker-compose.dev.yaml up -d
+
+# ✅ Correct (starts all 6 services):
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
 ```
 
 **Problem**: "Port already in use" errors
@@ -448,6 +406,18 @@ docker exec sirius-rabbitmq rabbitmqctl list_queues
 
 # Access management interface
 open http://localhost:15672  # guest/guest
+```
+
+**Problem**: RabbitMQ schema integrity check failed
+
+```bash
+# This occurs when RabbitMQ has old data from an incompatible version
+# Solution: Remove old volumes and restart fresh
+
+docker compose down -v  # For standard setup
+# Or for development:
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
 ```
 
 #### 🌐 Network & Connectivity
@@ -588,7 +558,7 @@ docker compose pull  # Update images regularly
 - [❓ FAQ](https://sirius.publickey.io/docs/community/faq) - Frequently asked questions
 - [🐛 GitHub Issues](https://github.com/SiriusScan/Sirius/issues) - Bug reports and feature requests
 - [💬 Discord Community](https://sirius.publickey.io/community) - Real-time community support
-- [🤝 Contributing Guide](https://sirius.publickey.io/docs/community/contributing) - How to contribute to Sirius
+- [🤝 Contributing Guide](./documentation/contributing.md) - How to contribute to Sirius
 - [📧 Support Contact](mailto:support@publickey.io) - Direct technical support
 
 ## 📊 Performance & Scaling

@@ -1,0 +1,145 @@
+---
+alwaysApply: true
+---
+
+# Task Management and Project Tracking
+
+## Core Task Management Principles
+
+When working with any project that has task files (`tasks/*.json`) or project plans (`documentation/dev-notes/*-plan.md`):
+
+### Always Include Task Context
+
+**Required Documentation for Task Work:**
+
+- [README.tasks.md](mdc:documentation/dev/operations/README.tasks.md) - Task management system guidelines
+- [README.new-project.md](mdc:documentation/dev/operations/README.new-project.md) - Project workflow and structure
+
+### Task File Integration
+
+**When working on projects with tasks:**
+
+- **Check current task status** before starting work
+- **Identify available tasks** (pending status, dependencies met)
+- **Update task status** as work progresses
+- **Reference task IDs** in commit messages when relevant
+- **Mark tasks complete** immediately when finished
+
+### Project Structure Awareness
+
+**Standard Project Files:**
+
+- `tasks/{sprint-name}.json` - Detailed task breakdown and tracking
+- `documentation/dev-notes/{sprint-name}-plan.md` - High-level project overview
+- Feature branch: `feature/{sprint-name}` for development work
+
+### Task Status Management
+
+**Status Values:**
+
+- `pending` - Task not started (default)
+- `in_progress` - Currently being worked on
+- `done` - Completed successfully
+- `blocked` - Cannot proceed (waiting for external dependency)
+
+**Update Pattern:**
+
+1. Start work: Change to `in_progress`
+2. Complete work: Change to `done`
+3. Hit blocker: Change to `blocked`
+4. Resolve blocker: Change back to `in_progress`
+
+### Dependency Resolution
+
+**Before starting any task:**
+
+- Check all dependencies are completed
+- Only work on tasks with status `pending` and no incomplete dependencies
+- Update dependent tasks when completing work
+
+### Git Integration
+
+**Standard Workflow:**
+
+- Create feature branch: `git checkout -b feature/{sprint-name}`
+- Commit task changes with code changes
+- Reference task IDs in commit messages
+- Merge to main when project complete
+
+### Task File Maintenance
+
+**Regular Updates:**
+
+- Update status as work progresses
+- Add details if requirements change
+- Update dependencies if new relationships discovered
+- Refine test strategies based on implementation
+
+### Cleanup Requirements
+
+**Every project must include:**
+
+- Final cleanup task to remove temporary files
+- Update documentation as needed
+- Merge feature branch back to main
+- Clean up project files
+
+## Context Shaping for Task Work
+
+### High Priority Context
+
+- Current task file content and status
+- Project plan document for context
+- Task management guidelines
+- Git workflow standards
+
+### Medium Priority Context
+
+- Related documentation based on task content
+- Architecture references for technical tasks
+- Testing guidelines for verification tasks
+
+### Low Priority Context
+
+- General development standards
+- Historical project context
+- Future enhancement planning
+
+## Task Completion Checklist
+
+When completing any task:
+
+- [ ] Verify work meets task requirements
+- [ ] Test using provided test strategy
+- [ ] Update task status to `done`
+- [ ] Check dependent tasks for availability
+- [ ] Commit changes with descriptive message
+- [ ] Reference task ID in commit message
+
+## Common Task Patterns
+
+### Starting New Work
+
+1. Review task file for available tasks
+2. Select highest priority available task
+3. Update status to `in_progress`
+4. Follow task details and requirements
+5. Complete work and mark as `done`
+
+### Handling Blockers
+
+1. Update task status to `blocked`
+2. Add details about the blocker
+3. Work on other available tasks
+4. Return when blocker is resolved
+
+### Project Completion
+
+1. Complete all tasks including cleanup
+2. Update project plan with final status
+3. Merge feature branch to main
+4. Clean up temporary files and branches
+
+---
+
+_This rule ensures consistent task management and project tracking across all development work. Always check your tasks, mark them complete, and ask for support when needed._

@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for sirius-api
 
 # Development stage - for local development with volume mounts
-FROM golang:1.23-alpine AS development
+FROM golang:1.24-alpine AS development
 
 # Install runtime dependencies
 RUN apk add --no-cache \
@@ -19,17 +19,21 @@ WORKDIR /api
 # Change ownership
 RUN chown -R appuser:appgroup /api
 
+# Copy startup script
+COPY start-dev.sh /start-dev.sh
+RUN chmod +x /start-dev.sh
+
 # Switch to non-root user
 USER appuser
 
 # Expose port
 EXPOSE 9001
 
-# For development, we'll run go directly with volume-mounted source
-CMD ["sh", "-c", "cd /api && go mod tidy && go run main.go"]
+# For development, use startup script to safely handle optional services
+CMD ["/start-dev.sh"]
 
 # Stage 1: Builder stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -43,24 +47,26 @@ RUN apk add --no-cache \
 # Copy source code first
 COPY . .
 
-# Clone the absolute latest go-api dependency with no caching
-RUN rm -rf ../go-api && \
-    GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone --no-single-branch https://github.com/SiriusScan/go-api.git ../go-api && \
-    cd ../go-api && \
-    git fetch --all && \
-    git reset --hard origin/main && \
-    echo "✅ Using go-api commit: $(git rev-parse HEAD)" && \
-    echo "✅ Latest commit message: $(git log -1 --pretty=format:'%s')" && \
-    echo "✅ Available functions in host package:" && \
-    grep -n "func.*GetHostWithEnhancedData\|func.*GetHostWithSources\|func.*AddHostWithSource" sirius/host/*.go && \
-    echo "✅ Available ScanSource type:" && \
-    grep -n "type.*ScanSource" sirius/postgres/models/scan_source.go
+# Use production go.mod (without replace directive)
+RUN cp go.mod.prod go.mod
 
-# Download dependencies with the cloned go-api
+# Download dependencies using the published go-api module
 RUN go mod download
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o sirius-api main.go
+
+# Clone and build system monitor from separate repository
+RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/app-system-monitor && \
+    cd /tmp/app-system-monitor && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o system-monitor main.go
+
+# Clone and build app administrator from separate repository
+RUN git clone https://github.com/SiriusScan/app-administrator.git /tmp/app-administrator && \
+    cd /tmp/app-administrator && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o administrator main.go
 
 # Stage 2: Runtime stage
 FROM alpine:latest AS runner
@@ -77,11 +83,21 @@ RUN addgroup -g 1001 appgroup && \
 # Set working directory
 WORKDIR /app
 
-# Copy binary from builder stage
+# Create directories for services
+RUN mkdir -p /system-monitor
+
+# Copy binaries from builder stage
 COPY --from=builder /app/sirius-api /app/sirius-api
+COPY --from=builder /tmp/app-system-monitor/system-monitor /system-monitor/system-monitor
+COPY --from=builder /tmp/app-administrator/administrator /app/administrator
+
+# Note: go-api dependency is now included in the binary, no need to copy separately
+
+# Set permissions
+RUN chmod +x /system-monitor/system-monitor /app/administrator /app/sirius-api
 
 # Change ownership
-RUN chown -R appuser:appgroup /app
+RUN chown -R appuser:appgroup /app /system-monitor
 
 # Switch to non-root user
 USER appuser
@@ -89,5 +105,5 @@ USER appuser
 # Expose port
 EXPOSE 9001
 
-# Run the application
-CMD ["./sirius-api"]
+# Run the application with system monitor and administrator
+CMD ["sh", "-c", "CONTAINER_NAME=sirius-api /system-monitor/system-monitor >> /tmp/system-monitor.log 2>&1 & CONTAINER_NAME=sirius-api /app/administrator >> /tmp/administrator.log 2>&1 & /app/sirius-api"]

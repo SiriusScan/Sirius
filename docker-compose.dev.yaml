@@ -23,8 +23,15 @@ services:
       - ./sirius-ui/tailwind.config.ts:/app/tailwind.config.ts
       - ./sirius-ui/package.json:/app/package.json
       - ./sirius-ui/postcss.config.js:/app/postcss.config.js
+      # Mount startup scripts for live updates
+      - ./sirius-ui/start-dev.sh:/app/start-dev.sh
+      - ./sirius-ui/start-prod.sh:/app/start-prod.sh
       # Preserve node_modules from container to avoid architecture conflicts
       - node_modules:/app/node_modules
+      # Add system monitor from separate repository
+      - ../minor-projects/app-system-monitor:/system-monitor
+      # Add app administrator from separate repository
+      - ../minor-projects/app-administrator:/app-administrator
     environment:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
@@ -32,6 +39,12 @@ services:
       - DATABASE_URL=file:./dev.db
       - NEXTAUTH_SECRET=development-secret-key
       - NEXTAUTH_URL=http://localhost:3000
+      - VALKEY_HOST=sirius-valkey
+      - VALKEY_PORT=6379
+      - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
+      - SIRIUS_API_URL=http://sirius-api:9001
+      - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
+      - CONTAINER_NAME=sirius-ui
     ports:
       - "3000:3000"
       - "3001:3001" # Development port
@@ -46,6 +59,12 @@ services:
       - ./sirius-api:/api
       # Enable for local go-api development with source-aware functionality:
       - ../minor-projects/go-api:/go-api
+      # Add system monitor from separate repository
+      - ../minor-projects/app-system-monitor:/system-monitor
+      # Add app administrator from separate repository
+      - ../minor-projects/app-administrator:/app-administrator
+    ports:
+      - "9001:9001"
     environment:
       - GO_ENV=development
       - API_PORT=9001
@@ -58,6 +77,7 @@ services:
       - VALKEY_PORT=6379
       - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
       - LOG_LEVEL=debug
+      - CONTAINER_NAME=sirius-api
 
   sirius-engine:
     build:
@@ -73,6 +93,10 @@ services:
       - ../minor-projects/go-api:/go-api
       - ../minor-projects/sirius-nse:/sirius-nse
       - ../minor-projects/sirius-agent-modules:/app-agent/sirius-agent-modules
+      # Add system monitor from separate repository
+      - ../minor-projects/app-system-monitor:/system-monitor
+      # Add app administrator from separate repository
+      - ../minor-projects/app-administrator:/app-administrator
     environment:
       - GO_ENV=development
       - ENGINE_MAIN_PORT=5174
@@ -91,6 +115,7 @@ services:
       - AGENT_ID=sirius-engine
       - HOST_ID=sirius-engine
       - ENABLE_SCRIPTING=true
+      - CONTAINER_NAME=sirius-engine
 
 volumes:
   node_modules:

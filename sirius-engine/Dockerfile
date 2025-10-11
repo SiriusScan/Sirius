@@ -25,6 +25,12 @@ ARG APP_AGENT_COMMIT_SHA=main
 # Clone and build repositories
 WORKDIR /repos
 
+# Clone go-api first (needed by other components)
+RUN git clone https://github.com/SiriusScan/go-api.git && \
+    cd go-api && \
+    git checkout ${GO_API_COMMIT_SHA} && \
+    go mod tidy
+
 # Clone app-scanner
 RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     cd app-scanner && \
@@ -32,22 +38,15 @@ RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     go mod download && \
     CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o scanner main.go
 
-# Clone go-api first (needed by other components)
-RUN git clone https://github.com/SiriusScan/go-api.git && \
-    cd go-api && \
-    git checkout ${GO_API_COMMIT_SHA} && \
-    go mod tidy
-
-# Copy and build app-terminal from local directory
-COPY apps/app-terminal /repos/app-terminal
-RUN cd /repos/app-terminal && \
+# Clone and build app-terminal from GitHub
+RUN git clone https://github.com/SiriusScan/app-terminal.git && \
+    cd app-terminal && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o terminal cmd/main.go
 
-# Copy and build app-agent from local directory  
-COPY apps/app-agent /repos/app-agent
-RUN cd /repos/app-agent && \
-    go mod tidy && \
+# Clone and build app-agent from GitHub
+RUN git clone https://github.com/SiriusScan/app-agent.git && \
+    cd app-agent && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o agent cmd/agent/main.go && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server cmd/server/main.go && \
@@ -58,6 +57,18 @@ RUN cd /repos/app-agent && \
 RUN git clone https://github.com/SiriusScan/sirius-nse.git && \
     cd sirius-nse && \
     git checkout ${SIRIUS_NSE_COMMIT_SHA}
+
+# Clone and build app-system-monitor from GitHub
+RUN git clone https://github.com/SiriusScan/app-system-monitor.git && \
+    cd app-system-monitor && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o system-monitor main.go
+
+# Clone and build app-administrator from GitHub
+RUN git clone https://github.com/SiriusScan/app-administrator.git && \
+    cd app-administrator && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o administrator main.go
 
 # Stage 2: Development stage with Go compiler and tools
 FROM golang:1.23-bullseye AS development
@@ -141,7 +152,7 @@ RUN mkdir -p /opt/sirius/nse && \
     chmod -R 755 /opt/sirius
 
 # Create application directories
-RUN mkdir -p /app-scanner /app-terminal /app-agent /go-api /sirius-nse
+RUN mkdir -p /app-scanner /app-terminal /app-agent /go-api /sirius-nse /system-monitor /app-administrator
 
 # Copy built applications and repositories from builder stage for fallback
 COPY --from=builder /repos/app-scanner /app-scanner-src/
@@ -149,6 +160,9 @@ COPY --from=builder /repos/app-terminal /app-terminal-src/
 COPY --from=builder /repos/app-agent /app-agent-src/
 COPY --from=builder /repos/go-api /go-api/
 COPY --from=builder /repos/sirius-nse /sirius-nse/
+COPY --from=builder /repos/app-system-monitor/system-monitor /system-monitor/
+COPY --from=builder /repos/app-administrator/administrator /app-administrator/
+RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 
 # Copy NSE scripts and manifest to the expected location
 RUN mkdir -p /opt/sirius/nse/sirius-nse && \
@@ -260,7 +274,7 @@ RUN mkdir -p /opt/sirius/nse && \
     chmod -R 755 /opt/sirius
 
 # Create application directories
-RUN mkdir -p /app-scanner /app-terminal /app-agent /go-api /sirius-nse
+RUN mkdir -p /app-scanner /app-terminal /app-agent /go-api /sirius-nse /system-monitor /app-administrator
 
 # Copy built applications and repositories from builder stage
 COPY --from=builder /repos/app-scanner/scanner /app-scanner/
@@ -274,6 +288,9 @@ COPY --from=builder /repos/app-agent/command-sender /app-agent/
 COPY --from=builder /repos/app-agent /app-agent-src/
 COPY --from=builder /repos/go-api /go-api/
 COPY --from=builder /repos/sirius-nse /sirius-nse/
+COPY --from=builder /repos/app-system-monitor/system-monitor /system-monitor/
+COPY --from=builder /repos/app-administrator/administrator /app-administrator/
+RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 
 # Copy NSE scripts and manifest to the expected location for production
 RUN mkdir -p /opt/sirius/nse/sirius-nse && \
@@ -293,7 +310,7 @@ RUN dos2unix /start.sh /start-enhanced.sh && \
     chmod +x /start.sh /start-enhanced.sh
 
 # Change ownership for non-root execution
-RUN chown -R sirius:sirius /engine /app-scanner /app-terminal /app-agent /go-api /sirius-nse /opt/sirius
+RUN chown -R sirius:sirius /engine /app-scanner /app-terminal /app-agent /go-api /sirius-nse /opt/sirius /system-monitor /app-administrator
 USER sirius
 
 # Expose ports

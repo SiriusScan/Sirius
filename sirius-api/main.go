@@ -117,8 +117,12 @@ func main() {
 	app := fiber.New()
 
 	// Add CORS middleware
+	allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if allowedOrigins == "" {
+		allowedOrigins = "*" // Default to allow all origins
+	}
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000", // or "*" to allow any origin
+		AllowOrigins: allowedOrigins,
 		AllowMethods: "GET,POST,HEAD,PUT,DELETE,PATCH",
 	}))
 

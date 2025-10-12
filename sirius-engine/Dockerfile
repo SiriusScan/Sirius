@@ -90,9 +90,19 @@ RUN apt-get update && \
     wget \
     bash \
     dos2unix \
-    nmap \
     unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Build and install Nmap 7.95 from source for compatibility with sirius-nse scripts
+RUN cd /tmp && \
+    wget https://nmap.org/dist/nmap-7.95.tar.bz2 && \
+    tar xjf nmap-7.95.tar.bz2 && \
+    cd nmap-7.95 && \
+    ./configure --without-zenmap --without-nmap-update && \
+    make && \
+    make install && \
+    cd / && \
+    rm -rf /tmp/nmap-7.95 /tmp/nmap-7.95.tar.bz2
 
 # Install air for live reloading (compatible version with Go 1.23)
 RUN go install github.com/air-verse/air@v1.52.3
@@ -211,13 +221,23 @@ RUN apt-get update && \
     build-essential \
     libssl-dev \
     libssh-dev \
-    nmap \
     ca-certificates \
     wget \
     curl \
     dos2unix \
     unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Build and install Nmap 7.95 from source for compatibility with sirius-nse scripts
+RUN cd /tmp && \
+    wget https://nmap.org/dist/nmap-7.95.tar.bz2 && \
+    tar xjf nmap-7.95.tar.bz2 && \
+    cd nmap-7.95 && \
+    ./configure --without-zenmap --without-nmap-update && \
+    make && \
+    make install && \
+    cd / && \
+    rm -rf /tmp/nmap-7.95 /tmp/nmap-7.95.tar.bz2
 
 # Install RustScan pre-built binary (much faster than compiling from source)
 RUN ARCH=$(uname -m) && \

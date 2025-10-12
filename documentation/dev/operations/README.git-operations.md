@@ -132,6 +132,7 @@ Thank you for reporting this issue! I've confirmed the problem and identified th
 **Diagnosis:** [Brief technical explanation]
 
 **Fix plan:**
+
 - [ ] [Step 1]
 - [ ] [Step 2]
 - [ ] [Step 3]
@@ -331,7 +332,7 @@ git push origin fix/123-brief-description
 # - Deploy and run containers in production mode
 # - Verify production build works
 # - Test all services in production configuration
-# 
+#
 # 🛑 STOP: Get human approval before merging to main
 # - Review test results with team/stakeholders
 # - Confirm no errors in logs
@@ -909,6 +910,7 @@ This section captures insights from real-world issue resolution to continuously 
 **Issue Type**: User-reported bug affecting authentication functionality
 
 **What Went Well**:
+
 - ✅ Updated Git operations documentation was immediately useful for handling user-reported issues
 - ✅ Feature branch workflow kept main branch stable during development
 - ✅ Pre-commit checks caught documentation index issues early
@@ -918,30 +920,35 @@ This section captures insights from real-world issue resolution to continuously 
 **Areas for Improvement**:
 
 1. **Database Management Gap**
+
    - **Problem**: No documentation about handling local database state changes during testing
    - **Impact**: Password change testing modified local database, unclear how to reset
    - **Solution**: Added database management section to sirius-ui README
    - **Future**: Document testing practices for database-interactive features upfront
 
 2. **Testing Checklist Needed**
+
    - **Problem**: General testing guidance exists but lacks specific checklists by issue type
    - **Impact**: Had to determine testing approach ad-hoc
    - **Solution**: Should create testing checklists for: frontend changes, backend API changes, database schema changes, authentication changes
    - **Future**: Add "Testing Strategy" section with issue-type-specific checklists
 
 3. **Issue Comment Templates Missing**
+
    - **Problem**: Had to craft GitHub issue comments from scratch
    - **Impact**: Time spent formatting responses, risk of missing important information
    - **Solution**: Should create templates for: acknowledgment, diagnosis update, resolution confirmation
    - **Future**: Add issue comment templates to documentation or use GitHub issue templates feature
 
 4. **Documentation Index Maintenance**
+
    - **Problem**: Pre-commit checks revealed missing files in documentation index
    - **Impact**: Commit failed, had to fix index mid-workflow
    - **Solution**: Updated index as part of commit
    - **Future**: Add reminder to update index when creating new documentation files
 
 5. **Branch Strategy Clarity**
+
    - **Problem**: Documentation references "main" but we use "demo" branch
    - **Impact**: Minor confusion about which branch is the integration branch
    - **Solution**: Followed actual branch structure (demo)
@@ -954,12 +961,14 @@ This section captures insights from real-world issue resolution to continuously 
    - **Future**: Create container-specific testing workflow document
 
 **Process Improvements Implemented**:
+
 - Added "Handling User-Reported Issues" workflow section
 - Enhanced database management documentation
 - Improved documentation index maintenance
 - Added database reset procedures to README
 
 **Recommendations for Next Iteration**:
+
 1. Create issue type-specific testing checklists
 2. Develop GitHub issue comment templates
 3. Add pre-commit reminder for documentation index updates
@@ -970,6 +979,7 @@ This section captures insights from real-world issue resolution to continuously 
 ### How to Use This Section
 
 **After resolving any significant issue**:
+
 1. Add a new timestamped entry with the issue identifier
 2. Document what went well (celebrate successes!)
 3. Identify improvement areas with specific impacts
@@ -978,6 +988,7 @@ This section captures insights from real-world issue resolution to continuously 
 6. Update relevant documentation sections based on learnings
 
 **Quarterly Review**:
+
 - Review all lessons learned entries
 - Identify patterns in improvement areas
 - Prioritize documentation updates

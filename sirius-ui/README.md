@@ -9,6 +9,7 @@
 ## Database Management
 
 ### Default Credentials
+
 - **Username**: `admin`
 - **Password**: `password`
 
@@ -17,12 +18,14 @@
 If you've modified the database during testing (e.g., changed the password) and need to reset it to default values:
 
 **Inside the container:**
+
 ```bash
 docker exec -it sirius-ui npx prisma db push --force-reset
 docker exec -it sirius-ui npm run seed
 ```
 
 **Or from your local machine (if running locally):**
+
 ```bash
 cd sirius-ui
 npx prisma db push --force-reset
@@ -30,6 +33,7 @@ npm run seed
 ```
 
 This will:
+
 1. Reset the database schema
 2. Recreate the default admin user with password: `password`
 

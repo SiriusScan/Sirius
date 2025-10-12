@@ -91,6 +91,10 @@ RUN apt-get update && \
     bash \
     dos2unix \
     unzip \
+    automake \
+    autoconf \
+    libtool \
+    perl \
     && rm -rf /var/lib/apt/lists/*
 
 # Build and install Nmap 7.95 from source for compatibility with sirius-nse scripts
@@ -98,7 +102,7 @@ RUN cd /tmp && \
     wget https://nmap.org/dist/nmap-7.95.tar.bz2 && \
     tar xjf nmap-7.95.tar.bz2 && \
     cd nmap-7.95 && \
-    ./configure --without-zenmap --without-nmap-update && \
+    ./configure --without-zenmap --without-nmap-update --without-ndiff && \
     make && \
     make install && \
     cd / && \
@@ -226,6 +230,10 @@ RUN apt-get update && \
     curl \
     dos2unix \
     unzip \
+    automake \
+    autoconf \
+    libtool \
+    perl \
     && rm -rf /var/lib/apt/lists/*
 
 # Build and install Nmap 7.95 from source for compatibility with sirius-nse scripts
@@ -233,7 +241,7 @@ RUN cd /tmp && \
     wget https://nmap.org/dist/nmap-7.95.tar.bz2 && \
     tar xjf nmap-7.95.tar.bz2 && \
     cd nmap-7.95 && \
-    ./configure --without-zenmap --without-nmap-update && \
+    ./configure --without-zenmap --without-nmap-update --without-ndiff && \
     make && \
     make install && \
     cd / && \

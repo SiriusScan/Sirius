@@ -102,6 +102,8 @@ RUN cd /tmp && \
     wget https://nmap.org/dist/nmap-7.95.tar.bz2 && \
     tar xjf nmap-7.95.tar.bz2 && \
     cd nmap-7.95 && \
+    touch aclocal.m4 configure Makefile.in config.h.in && \
+    find . -name Makefile.in -exec touch {} \; && \
     ./configure --without-zenmap --without-nmap-update --without-ndiff && \
     make && \
     make install && \
@@ -248,6 +250,8 @@ RUN cd /tmp && \
     wget https://nmap.org/dist/nmap-7.95.tar.bz2 && \
     tar xjf nmap-7.95.tar.bz2 && \
     cd nmap-7.95 && \
+    touch aclocal.m4 configure Makefile.in config.h.in && \
+    find . -name Makefile.in -exec touch {} \; && \
     ./configure --without-zenmap --without-nmap-update --without-ndiff && \
     make && \
     make install && \

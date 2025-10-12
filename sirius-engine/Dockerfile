@@ -108,6 +108,9 @@ RUN cd /tmp && \
     cd / && \
     rm -rf /tmp/nmap-7.95 /tmp/nmap-7.95.tar.bz2
 
+# Remove default Nmap scripts - will symlink to sirius-nse after it's copied
+RUN rm -rf /usr/local/share/nmap/scripts
+
 # Install air for live reloading (compatible version with Go 1.23)
 RUN go install github.com/air-verse/air@v1.52.3
 
@@ -183,6 +186,10 @@ RUN mkdir -p /opt/sirius/nse/sirius-nse && \
     cp -r /sirius-nse/* /opt/sirius/nse/sirius-nse/ 2>/dev/null || echo "No sirius-nse files to copy" && \
     chmod -R 755 /opt/sirius/nse
 
+# Symlink Nmap scripts directory to sirius-nse (ensures ONLY sirius-nse scripts are used)
+RUN ln -sf /opt/sirius/nse/sirius-nse/scripts /usr/local/share/nmap/scripts && \
+    echo "Symlinked Nmap scripts to sirius-nse"
+
 # Copy configuration and scripts
 COPY .air.toml .air.toml
 COPY start.sh /start.sh
@@ -246,6 +253,9 @@ RUN cd /tmp && \
     make install && \
     cd / && \
     rm -rf /tmp/nmap-7.95 /tmp/nmap-7.95.tar.bz2
+
+# Remove default Nmap scripts - will symlink to sirius-nse after it's copied
+RUN rm -rf /usr/local/share/nmap/scripts
 
 # Install RustScan pre-built binary (much faster than compiling from source)
 RUN ARCH=$(uname -m) && \
@@ -324,6 +334,10 @@ RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 RUN mkdir -p /opt/sirius/nse/sirius-nse && \
     cp -r /sirius-nse/* /opt/sirius/nse/sirius-nse/ 2>/dev/null || echo "No sirius-nse files to copy" && \
     chmod -R 755 /opt/sirius/nse
+
+# Symlink Nmap scripts directory to sirius-nse (ensures ONLY sirius-nse scripts are used)
+RUN ln -sf /opt/sirius/nse/sirius-nse/scripts /usr/local/share/nmap/scripts && \
+    echo "Symlinked Nmap scripts to sirius-nse"
 
 # Create non-root user for security
 RUN groupadd -r sirius && useradd -r -g sirius sirius

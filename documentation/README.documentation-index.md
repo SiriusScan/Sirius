@@ -73,6 +73,10 @@ This document provides a complete index of all documentation files in the Sirius
 
 - [README.documentation-testing.md](dev/test/README.documentation-testing.md) - Documentation validation and linting
 
+### Testing Checklists
+
+- [CHECKLIST.testing-by-type.md](dev/test/CHECKLIST.testing-by-type.md) - Issue-type-specific testing checklists for thorough validation
+
 ## AI and Rules Documentation
 
 ### AI Rules

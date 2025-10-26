@@ -6,12 +6,12 @@ require (
 	github.com/SiriusScan/go-api v0.0.10
 	github.com/fatih/color v1.18.0
 	github.com/gofiber/fiber/v2 v2.49.2
-	github.com/valkey-io/valkey-go v1.0.60
+	github.com/google/uuid v1.6.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jackc/pgx/v5 v5.5.5 // indirect
@@ -23,8 +23,10 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/streadway/amqp v1.1.0 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
+	github.com/valkey-io/valkey-go v1.0.60 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.50.0 // indirect
 	github.com/valyala/tcplisten v1.0.0 // indirect

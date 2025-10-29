@@ -46,6 +46,13 @@ This project uses a **dynamic documentation discovery system** that automaticall
 - [README.tasks.md](mdc:documentation/dev/operations/README.tasks.md) - Task management system
 - [README.new-project.md](mdc:documentation/dev/operations/README.new-project.md) - Project workflow and structure
 
+**For Agent Identity Work:**
+
+- [ABOUT.agent-identities.md](mdc:.cursor/agents/docs/ABOUT.agent-identities.md) - Agent identity system
+- [TEMPLATE.agent-identity.md](mdc:.cursor/agents/docs/TEMPLATE.agent-identity.md) - Universal agent template
+- [SPECIFICATION.agent-identity.md](mdc:.cursor/agents/docs/SPECIFICATION.agent-identity.md) - Technical specification
+- [INDEX.agent-identities.md](mdc:.cursor/agents/docs/INDEX.agent-identities.md) - Agent registry
+
 ## Documentation System Integration
 
 ### YAML Front Matter Usage
@@ -244,6 +251,86 @@ When recommending new cursor rules:
 - **Update documentation references** - Keep file paths and content current
 - **Consolidate similar rules** - Merge rules that have overlapping scope
 - **Remove obsolete rules** - Delete rules that are no longer needed
+
+## Agent Identity System
+
+### Purpose
+
+The Agent Identity System provides structured, role-specific context for AI interactions across the Sirius project. Each agent identity is a carefully crafted document that enables confident fresh conversations by providing essential role context.
+
+### Available Agent Slash Commands
+
+Use these slash commands to invoke agent identities:
+
+- `/bot-agent-engineer` - Agent system development (Go/gRPC)
+- `/bot-api-engineer` - REST API development (Go/Fiber)
+- `/bot-ui-engineer` - Frontend development (Next.js/React)
+- `/bot-identity-recruiter` - Creates new agent identities (meta-bot)
+
+### When to Use Agent Identities
+
+- **Starting new conversations** - Fresh, validated context for any role
+- **Role-specific work** - Focused expertise for specific domains
+- **Context shaping** - Consistent, validated role definitions
+- **Cross-role coordination** - Understanding responsibilities and interfaces
+
+### Key Agent Identity Documents
+
+- **[ABOUT.agent-identities.md](mdc:.cursor/agents/docs/ABOUT.agent-identities.md)** - System philosophy and standards
+- **[TEMPLATE.agent-identity.md](mdc:.cursor/agents/docs/TEMPLATE.agent-identity.md)** - Universal agent template
+- **[SPECIFICATION.agent-identity.md](mdc:.cursor/agents/docs/SPECIFICATION.agent-identity.md)** - Technical requirements
+- **[INDEX.agent-identities.md](mdc:.cursor/agents/docs/INDEX.agent-identities.md)** - Complete agent registry
+- **[GUIDE.creating-agent-identities.md](mdc:.cursor/agents/docs/GUIDE.creating-agent-identities.md)** - Creation guide
+- **[REFERENCE.integration-levels.md](mdc:.cursor/agents/docs/REFERENCE.integration-levels.md)** - Integration patterns
+
+### Agent Identity Validation
+
+Agent identities must pass automated validation:
+
+```bash
+# Full agent validation
+cd testing/container-testing
+make lint-agents
+
+# Quick validation
+make lint-agents-quick
+
+# Index validation
+make lint-agent-index
+
+# Complete validation including agents
+make validate-all
+```
+
+### Creating New Agent Identities
+
+1. **Review existing agents** in [INDEX.agent-identities.md](mdc:.cursor/agents/docs/INDEX.agent-identities.md)
+2. **Copy template** from [TEMPLATE.agent-identity.md](mdc:.cursor/agents/docs/TEMPLATE.agent-identity.md)
+3. **Follow specification** in [SPECIFICATION.agent-identity.md](mdc:.cursor/agents/docs/SPECIFICATION.agent-identity.md)
+4. **Determine integration level** using [REFERENCE.integration-levels.md](mdc:.cursor/agents/docs/REFERENCE.integration-levels.md)
+5. **Validate before committing** with `make lint-agents`
+6. **Update index** in [INDEX.agent-identities.md](mdc:.cursor/agents/docs/INDEX.agent-identities.md)
+
+### Integration with Development Workflow
+
+Agent identities are validated automatically in pre-commit hooks:
+
+- Modified agent files trigger quick validation
+- Index consistency checked automatically
+- Full validation included in CI/CD pipeline
+- Pre-commit prevents invalid agent commits
+
+### Agent Identity Best Practices
+
+- ✅ Keep within 200-400 line target
+- ✅ Include concrete examples for engineering roles
+- ✅ Link to comprehensive documentation
+- ✅ Use appropriate integration level
+- ✅ Validate before committing
+- ❌ Don't create agents for temporary needs
+- ❌ Don't duplicate existing agent functionality
+- ❌ Don't include implementation details (link to docs instead)
+- ❌ Don't exceed 500 lines (maximum limit)
 
 ## Troubleshooting
 

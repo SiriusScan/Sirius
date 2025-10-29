@@ -11,6 +11,7 @@ import {
   isRememberMeEnabled,
   redirectToDashboard,
 } from "~/utils/auth";
+import { ActiveConstellationV2Loader } from "~/components/loaders";
 
 // Types
 interface LoginFormData {
@@ -259,10 +260,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
   if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-violet-900 via-purple-900 to-indigo-900">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-violet-400 border-t-transparent" />
-          <p className="text-white">Loading...</p>
-        </div>
+        <ActiveConstellationV2Loader size="full" label="Loading..." />
       </div>
     );
   }

@@ -1,0 +1,338 @@
+---
+description: Cursor rules for using Playwright MCP for browser testing and validation
+globs: sirius-ui/**/*.tsx, sirius-ui/**/*.ts, sirius-ui/**/*.jsx, sirius-ui/**/*.js
+alwaysApply: false
+---
+
+# Playwright Browser Testing Rules
+
+## When to Use Playwright
+
+**The AI should use Playwright MCP server for:**
+
+### Testing & Validation
+
+- **UI Implementation Validation**: Verify new React components render and function correctly
+- **Form Testing**: Test form submissions, validations, and user inputs
+- **Integration Testing**: Verify UI-to-API data flow and interactions
+- **User Flow Testing**: Test complete user journeys (login → navigate → action → result)
+
+### Troubleshooting & Debugging
+
+- **Bug Reproduction**: Reproduce user-reported UI issues in the browser
+- **Console Error Inspection**: Capture JavaScript errors and warnings
+- **Network Request Analysis**: Verify API calls are made correctly
+- **Visual Debugging**: Capture screenshots of error states
+
+### Development Support
+
+- **Design Verification**: Check component layouts and responsive behavior
+- **Regression Testing**: Verify existing functionality after changes
+- **API Integration Checks**: Confirm frontend properly calls backend endpoints
+- **State Management Testing**: Verify state updates and data flow
+
+## When NOT to Use Playwright
+
+**Do NOT use Playwright for:**
+
+- ❌ Backend API testing (use curl or API tools)
+- ❌ Unit tests (use Jest/Vitest)
+- ❌ Build/compilation issues (check logs directly)
+- ❌ Database queries (use database tools)
+- ❌ Performance testing (use dedicated tools)
+
+## Required Documentation
+
+When working with Playwright, include:
+
+- [README.playwright.md](mdc:documentation/dev/ai-rules/README.playwright.md) - Complete Playwright testing guide
+- [README.container-testing.md](mdc:documentation/dev/test/README.container-testing.md) - Container testing context
+
+## Critical: Docker Network Access
+
+**ALWAYS use `host.docker.internal` for URLs:**
+
+```typescript
+✅ CORRECT:
+- http://host.docker.internal:3000  // UI
+- http://host.docker.internal:9001  // API
+
+❌ WRONG:
+- http://localhost:3000
+- http://127.0.0.1:3000
+```
+
+**Why:** The Playwright MCP server runs inside Docker and cannot access `localhost`. Use Docker's special DNS name `host.docker.internal` to access services on the host machine.
+
+## Testing Workflow
+
+### 1. Initial Navigation
+
+```yaml
+Step 1: Navigate to page
+  - Use: browser_navigate
+  - URL: http://host.docker.internal:3000/path
+
+Step 2: Wait for load
+  - Use: browser_wait_for
+  - Time: 2-3 seconds for async content
+```
+
+### 2. Authentication (if required)
+
+```yaml
+Step 1: Fill credentials
+  - Username: admin
+  - Password: password
+
+Step 2: Submit
+  - Click: "Join the Pack" button
+
+Step 3: Wait for redirect
+  - Wait: 3 seconds
+  - Verify: Redirected to dashboard
+```
+
+### 3. Interaction Testing
+
+```yaml
+Step 1: Take snapshot
+  - Use: browser_snapshot
+  - Purpose: Get element refs
+
+Step 2: Interact with elements
+  - Use element refs from snapshot
+  - Type, click, select as needed
+
+Step 3: Verify results
+  - Check console messages
+  - Check network requests
+  - Take screenshot if needed
+```
+
+### 4. Verification
+
+```yaml
+Step 1: Check network activity
+  - Use: browser_network_requests
+  - Verify: Expected API calls made
+
+Step 2: Check console
+  - Use: browser_console_messages
+  - Look for: Errors or warnings
+
+Step 3: Visual verification
+  - Use: browser_snapshot or browser_take_screenshot
+  - Confirm: UI state is correct
+```
+
+## Common Test Patterns
+
+### Testing Form Submission
+
+```yaml
+Pattern: 1. Navigate to form page
+  2. Fill required fields
+  3. Submit form
+  4. Verify API request (queue.sendMsg, etc.)
+  5. Check UI updates
+  6. Verify no console errors
+```
+
+### Testing API Integration
+
+```yaml
+Pattern: 1. Navigate to page that loads data
+  2. Wait for API calls to complete
+  3. Check network requests
+  4. Verify data displays correctly
+  5. Test error scenarios
+```
+
+### Debugging UI Issues
+
+```yaml
+Pattern: 1. Navigate to problematic page
+  2. Take snapshot for structure
+  3. Get console messages
+  4. Get network requests
+  5. Take screenshot
+  6. Analyze and identify issue
+```
+
+## Playwright Tools Quick Reference
+
+| Tool                       | Purpose              | Common Use            |
+| -------------------------- | -------------------- | --------------------- |
+| `browser_navigate`         | Load a page          | Initial navigation    |
+| `browser_snapshot`         | Get page structure   | Find element refs     |
+| `browser_click`            | Click elements       | Buttons, links        |
+| `browser_type`             | Type text            | Forms, inputs         |
+| `browser_wait_for`         | Wait for conditions  | Page load, async data |
+| `browser_network_requests` | View API calls       | Verify integrations   |
+| `browser_console_messages` | Get console logs     | Debug errors          |
+| `browser_take_screenshot`  | Capture visual state | Document issues       |
+
+## Best Practices
+
+### ✅ DO:
+
+1. **Always use host.docker.internal URLs**
+
+   ```
+   http://host.docker.internal:3000
+   ```
+
+2. **Wait for page loads and async operations**
+
+   ```yaml
+   - Navigate
+   - Wait 2-3 seconds
+   - Then interact
+   ```
+
+3. **Take snapshots before interactions**
+
+   ```yaml
+   - Snapshot to get refs
+   - Use refs for clicks/types
+   ```
+
+4. **Check network requests after actions**
+
+   ```yaml
+   - Perform action
+   - Get network requests
+   - Verify API calls
+   ```
+
+5. **Capture console messages**
+   ```yaml
+   - After interactions
+   - Look for errors
+   - Verify debug logs
+   ```
+
+### ❌ DON'T:
+
+1. **Use localhost or 127.0.0.1**
+
+   - Always use host.docker.internal
+
+2. **Interact immediately after navigation**
+
+   - Wait for page to fully load
+
+3. **Use stale element refs**
+
+   - Take fresh snapshot before each interaction set
+
+4. **Ignore console errors**
+
+   - Always check console messages
+
+5. **Skip network verification**
+   - Verify expected API calls were made
+
+## Example: Complete Test Flow
+
+```yaml
+Test: Scanner Page Functionality
+
+Setup:
+  - Ensure containers running
+  - Verify UI accessible
+
+Step 1: Authentication
+  - Navigate: http://host.docker.internal:3000
+  - Wait: 3 seconds
+  - Type username: "admin"
+  - Type password: "password"
+  - Click: "Join the Pack"
+  - Wait: 3 seconds
+
+Step 2: Navigate to Scanner
+  - Click: Scanner link
+  - Wait: 2 seconds
+  - Verify: Page loaded
+
+Step 3: Add Target
+  - Snapshot: Get input ref
+  - Type: "192.168.1.100"
+  - Click: Add button
+  - Verify: Target in list
+
+Step 4: Start Scan
+  - Select template: "High Risk Scan"
+  - Click: "Start Scan"
+  - Get network requests
+  - Verify: queue.sendMsg called
+  - Verify: store.setValue called
+  - Check console: No errors
+
+Step 5: Verification
+  - Snapshot: Check UI updates
+  - Screenshot: Document state
+  - Network: Verify ongoing polling
+```
+
+## Troubleshooting Common Issues
+
+### Connection Refused
+
+```
+Error: net::ERR_CONNECTION_REFUSED
+Solution: Use host.docker.internal not localhost
+```
+
+### Element Not Found
+
+```
+Problem: Element ref is stale
+Solution: Take fresh snapshot before interaction
+```
+
+### Timeout Errors
+
+```
+Problem: Page loads slowly
+Solution: Increase wait time (3-5 seconds)
+```
+
+### API Not Called
+
+```
+Problem: Action didn't trigger API
+Solution: Check console for errors, verify element interaction worked
+```
+
+## Integration with Development Workflow
+
+### When to Run Playwright Tests
+
+1. **After UI Changes**
+
+   - Verify components render
+   - Test interactions work
+   - Check user flows
+
+2. **Bug Reports**
+
+   - Reproduce issues
+   - Capture error state
+   - Verify fixes
+
+3. **Feature Development**
+
+   - Validate new features
+   - Test edge cases
+   - Verify integrations
+
+4. **Code Review**
+   - Validate implementations
+   - Check error handling
+   - Test user experience
+
+---
+
+_This rule integrates with our testing system. For complete Playwright documentation, see [README.playwright.md](mdc:documentation/dev/ai-rules/README.playwright.md)._

@@ -1,0 +1,99 @@
+product: app-scanner
+product_path: ../../../minor-projects/app-scanner
+docker_service_name: sirius-engine
+
+metadata:
+  name: "Scanning Engine Engineer"
+  title: "Scanning Engine Engineer (Go/Nmap/NSE)"
+  description: "Develops and maintains the vulnerability scanning engine using Go, Nmap, NSE scripts, and RabbitMQ"
+  role_type: engineering
+  version: "1.0.0"
+  last_updated: "2025-10-25"
+  author: "Sirius Team"
+
+  specialization:
+    - vulnerability scanning
+    - nmap integration
+    - nse script management
+    - message queue processing
+
+  technology_stack:
+    - Go
+    - Nmap
+    - NSE (Lua)
+    - RabbitMQ
+    - ValKey
+    - Docker
+
+  system_integration_level: high
+
+  categories:
+    - backend
+    - security
+    - scanning
+
+  tags:
+    - go
+    - nmap
+    - nse
+    - vulnerability-scanning
+    - rabbitmq
+    - docker
+
+  related_docs:
+    - "documentation/dev/apps/scanner/README.scanner.md"
+    - "documentation/dev/architecture/README.architecture.md"
+
+  dependencies:
+    - "../../../minor-projects/app-scanner"
+    - "../../../minor-projects/go-api"
+    - "../../../minor-projects/sirius-nse"
+
+  llm_context: high
+  context_window_target: 1400
+
+generation:
+  include_file_structure: true
+  file_structure_depth: 3
+  file_structure_ignore:
+    - tmp
+    - bin
+    - node_modules
+    - .git
+    - dist
+    - vendor
+    - testdata
+
+  include_ports: false # Scanner runs inside sirius-engine, no dedicated ports
+
+  include_dependencies: true
+  dependencies_source: go.mod
+  dependencies_grouping:
+    "Core Scanning Tools":
+      - "github.com/lair-framework/go-nmap"
+      - "github.com/projectdiscovery/naabu/v2"
+    "Sirius Internal":
+      - "github.com/SiriusScan/go-api"
+    "Message Queue":
+      - "github.com/streadway/amqp"
+    "Networking":
+      - "github.com/miekg/dns"
+      - "github.com/projectdiscovery/dnsx"
+      - "github.com/projectdiscovery/fastdialer"
+      - "github.com/projectdiscovery/retryabledns"
+    "Database":
+      - "gorm.io/driver/postgres"
+      - "gorm.io/gorm"
+
+  include_config_examples: true
+  config_files:
+    - path: nmap-args/args.txt
+      title: "Nmap Script Arguments"
+    - path: manifest.json
+      title: "NSE Repository Manifest"
+
+  extract_code_patterns_from_docs:
+    - ../../documentation/dev/apps/scanner/README.scanner.md
+
+template_path: ../../.cursor/agents/templates/scanning-engine-engineer.template.md
+output_path: ../../.cursor/commands/bot-scanning-engine-engineer.md

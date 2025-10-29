@@ -6,8 +6,8 @@ import {
   TabsTrigger,
 } from "~/components/lib/ui/tabs";
 import AgentTemplatesTab from "./AgentTemplatesTab";
-import AgentScriptsTab from "./AgentScriptsTab";
 import AgentSettingsTab from "./AgentSettingsTab";
+import { RepositoriesTab } from "../repositories/RepositoriesTab";
 import { api } from "~/utils/api";
 
 interface AgentScannerSettingsProps {
@@ -24,16 +24,6 @@ interface AgentScannerSettingsProps {
   // Template settings
   enableTemplates: boolean;
   setEnableTemplates: (value: boolean) => void;
-  templatePriority: string;
-  setTemplatePriority: (value: string) => void;
-
-  // Script settings
-  enableScripts: boolean;
-  setEnableScripts: (value: boolean) => void;
-  scriptTimeout: number;
-  setScriptTimeout: (value: number) => void;
-  scriptSandbox: boolean;
-  setScriptSandbox: (value: boolean) => void;
 }
 
 const AgentScannerSettings: React.FC<AgentScannerSettingsProps> = ({
@@ -50,16 +40,6 @@ const AgentScannerSettings: React.FC<AgentScannerSettingsProps> = ({
   // Template settings
   enableTemplates,
   setEnableTemplates,
-  templatePriority,
-  setTemplatePriority,
-
-  // Script settings
-  enableScripts,
-  setEnableScripts,
-  scriptTimeout,
-  setScriptTimeout,
-  scriptSandbox,
-  setScriptSandbox,
 }) => {
   return (
     <div className="flex h-full w-full flex-col">
@@ -68,20 +48,14 @@ const AgentScannerSettings: React.FC<AgentScannerSettingsProps> = ({
           Agent Scanner Settings
         </h3>
         <p className="text-sm text-gray-400">
-          Configure custom templates, scripts, and agent synchronization
-          settings.
+          Configure custom templates and agent synchronization settings.
         </p>
       </div>
 
       <Tabs defaultValue="templates" className="w-full flex-1">
         <TabsList className="mb-6 grid w-full grid-cols-3">
           <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="scripts" className="relative">
-            Scripts
-            <span className="ml-2 rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-400">
-              Experimental
-            </span>
-          </TabsTrigger>
+          <TabsTrigger value="repositories">Repositories</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
@@ -89,20 +63,11 @@ const AgentScannerSettings: React.FC<AgentScannerSettingsProps> = ({
           <AgentTemplatesTab
             enableTemplates={enableTemplates}
             setEnableTemplates={setEnableTemplates}
-            templatePriority={templatePriority}
-            setTemplatePriority={setTemplatePriority}
           />
         </TabsContent>
 
-        <TabsContent value="scripts" className="h-full w-full">
-          <AgentScriptsTab
-            enableScripts={enableScripts}
-            setEnableScripts={setEnableScripts}
-            scriptTimeout={scriptTimeout}
-            setScriptTimeout={setScriptTimeout}
-            scriptSandbox={scriptSandbox}
-            setScriptSandbox={setScriptSandbox}
-          />
+        <TabsContent value="repositories" className="h-full w-full">
+          <RepositoriesTab />
         </TabsContent>
 
         <TabsContent value="settings" className="h-full w-full">

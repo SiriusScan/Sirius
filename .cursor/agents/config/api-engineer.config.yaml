@@ -1,0 +1,86 @@
+product: sirius-api
+product_path: /Users/oz/Projects/Sirius-Project/Sirius/sirius-api
+docker_service_name: sirius-api
+
+metadata:
+  name: "API Engineer"
+  title: "API Engineer (sirius-api/Go/Fiber)"
+  description: "Develops REST API backend with Fiber framework for vulnerability data management and scan operations"
+  role_type: engineering
+  version: "1.0.0"
+  last_updated: "2025-10-25"
+  author: "Sirius Team"
+  specialization:
+    - "REST API"
+    - "Go Fiber framework"
+    - "PostgreSQL"
+    - "RabbitMQ"
+    - "Valkey"
+  technology_stack:
+    - "Go"
+    - "Fiber"
+    - "PostgreSQL"
+    - "RabbitMQ"
+    - "Valkey"
+    - "Docker"
+  system_integration_level: high
+  categories: ["backend", "api", "microservices"]
+  tags:
+    [
+      "go",
+      "fiber",
+      "rest-api",
+      "postgresql",
+      "rabbitmq",
+      "valkey",
+      "microservices",
+    ]
+  related_docs:
+    - "documentation/dev/architecture/README.architecture.md"
+    - "documentation/dev/README.development.md"
+  dependencies: ["sirius-api/"]
+  llm_context: high
+  context_window_target: 1200
+
+generation:
+  include_file_structure: true
+  file_structure_depth: 2
+  file_structure_ignore:
+    - node_modules
+    - dist
+    - bin
+    - .git
+    - tmp
+    - vendor
+
+  include_ports: true
+  ports_config:
+    "3001": "HTTP REST API server"
+    "9091": "Prometheus metrics endpoint"
+
+  include_dependencies: true
+  dependencies_source: go.mod
+  dependencies_grouping:
+    "Web Framework":
+      - "github.com/gofiber/fiber/v2"
+    "Database":
+      - "github.com/lib/pq"
+      - "github.com/jmoiron/sqlx"
+    "Messaging":
+      - "github.com/rabbitmq/amqp091-go"
+    "Caching":
+      - "github.com/valkey-io/valkey-go"
+    "Utilities":
+      - "github.com/google/uuid"
+      - "gopkg.in/yaml.v3"
+
+  include_config_examples: true
+  config_files:
+    - path: .env.example
+      title: "Environment Configuration"
+
+  extract_code_patterns_from_docs:
+    - ../../documentation/dev/architecture/README.architecture.md
+
+template_path: ../../.cursor/agents/templates/api-engineer.template.md
+output_path: ../../.cursor/commands/bot-api-engineer.md

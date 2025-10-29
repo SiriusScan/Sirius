@@ -8,6 +8,7 @@ import Header from "./Header";
 import Sidebar from "./Sidebar";
 import { Toaster } from "~/components/lib/ui/sonner";
 import { debugLog, debugRouting } from "~/utils/debug";
+import { ActiveConstellationV2Loader } from "~/components/loaders";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -37,7 +38,7 @@ const Layout = ({ children, title = "Sirius Scan" }: LayoutProps) => {
     debugLog("Layout", "Rendering loading state - session loading");
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-t-2 border-violet-500"></div>
+        <ActiveConstellationV2Loader size="full" label="Loading..." />
       </div>
     );
   }
@@ -50,7 +51,7 @@ const Layout = ({ children, title = "Sirius Scan" }: LayoutProps) => {
     );
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-t-2 border-violet-500"></div>
+        <ActiveConstellationV2Loader size="full" label="Loading..." />
       </div>
     );
   }

@@ -7,6 +7,10 @@ import { userRouter } from "~/server/api/routers/user";
 import { terminalRouter } from "~/server/api/routers/terminal";
 import { agentRouter } from "~/server/api/routers/agent";
 import { scannerRouter } from "~/server/api/routers/scanner";
+import { templatesRouter } from "~/server/api/routers/templates";
+import { scriptsRouter } from "~/server/api/routers/scripts";
+import { agentTemplatesRouter } from "~/server/api/routers/agent-templates";
+import { repositoriesRouter } from "~/server/api/routers/repositories";
 import { createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -24,6 +28,10 @@ export const appRouter = createTRPCRouter({
   terminal: terminalRouter,
   agent: agentRouter,
   scanner: scannerRouter,
+  templates: templatesRouter,
+  scripts: scriptsRouter,
+  agentTemplates: agentTemplatesRouter,
+  repositories: repositoriesRouter,
 });
 
 // export type definition of API

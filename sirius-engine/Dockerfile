@@ -35,6 +35,12 @@ RUN git clone https://github.com/SiriusScan/go-api.git && \
 RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     cd app-scanner && \
     git checkout ${APP_SCANNER_COMMIT_SHA} && \
+    # Fix Port struct compilation errors: Port struct uses Number, not ID
+    # Replace ID: in Port struct literals and port.ID field accesses
+    sed -i '/sirius\.Port{/,/}/s/ID:\s*\([^,}]*\)/Number: \1/g' modules/rustscan/rustscan.go && \
+    sed -i '/sirius\.Port{/,/}/s/ID:\s*\([^,}]*\)/Number: \1/g' modules/nmap/nmap.go && \
+    sed -i '/sirius\.Port{/,/}/s/ID:\s*\([^,}]*\)/Number: \1/g' modules/naabu/naabu.go && \
+    sed -i 's/port\.ID/port.Number/g' internal/scan/manager.go && \
     go mod download && \
     CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o scanner main.go
 
@@ -47,11 +53,12 @@ RUN git clone https://github.com/SiriusScan/app-terminal.git && \
 # Clone and build app-agent from GitHub
 RUN git clone https://github.com/SiriusScan/app-agent.git && \
     cd app-agent && \
+    git checkout ${APP_AGENT_COMMIT_SHA} && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o agent cmd/agent/main.go && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server cmd/server/main.go && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o command-receiver cmd/command-receiver/main.go && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o command-sender cmd/command-sender/main.go
+    (test -f cmd/command-receiver/main.go && CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o command-receiver cmd/command-receiver/main.go || echo "command-receiver not found, skipping") && \
+    (test -f cmd/command-sender/main.go && CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o command-sender cmd/command-sender/main.go || echo "command-sender not found, skipping")
 
 # Clone sirius-nse
 RUN git clone https://github.com/SiriusScan/sirius-nse.git && \
@@ -229,6 +236,7 @@ WORKDIR /engine
 # Install runtime dependencies
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    git \
     libpcap-dev \
     libicu-dev \
     build-essential \
@@ -325,9 +333,9 @@ COPY --from=builder /repos/app-terminal/terminal /app-terminal/
 COPY --from=builder /repos/app-terminal /app-terminal-src/
 COPY --from=builder /repos/app-agent/agent /app-agent/
 COPY --from=builder /repos/app-agent/server /app-agent/
-COPY --from=builder /repos/app-agent/command-receiver /app-agent/
-COPY --from=builder /repos/app-agent/command-sender /app-agent/
 COPY --from=builder /repos/app-agent /app-agent-src/
+RUN test -f /app-agent-src/command-receiver && cp /app-agent-src/command-receiver /app-agent/ || echo "command-receiver not found, skipping" && \
+    test -f /app-agent-src/command-sender && cp /app-agent-src/command-sender /app-agent/ || echo "command-sender not found, skipping"
 COPY --from=builder /repos/go-api /go-api/
 COPY --from=builder /repos/sirius-nse /sirius-nse/
 COPY --from=builder /repos/app-system-monitor/system-monitor /system-monitor/

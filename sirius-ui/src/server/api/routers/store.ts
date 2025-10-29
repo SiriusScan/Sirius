@@ -67,51 +67,51 @@ const DEFAULT_REPOSITORIES = [
 ];
 
 export const storeRouter = createTRPCRouter({
-  // Initialize NSE scripts with the proper manifest structure
+  // Initialize NSE scripts from the sirius-nse repository
+  // Read NSE scripts status from ValKey (populated by scanner at startup)
   initializeNseScripts: publicProcedure.mutation(async () => {
     try {
-      // Create a basic manifest structure with fallback scripts
-      const manifest = {
-        name: "sirius-nse",
-        version: "0.1.0",
-        description: "NSE scripts for Sirius",
-        scripts: {},
-      };
+      // ✅ CORRECT: Read from ValKey (scanner populates this at startup)
+      // The scanner manages the sirius-nse repository and syncs to ValKey
+      const manifestData = await valkey.get(NSE_MANIFEST_KEY);
 
-      // Add each script to the manifest
-      for (const script of fallbackScripts) {
-        const scriptId = script.id;
-        manifest.scripts[scriptId] = {
-          name: script.name,
-          path: `scripts/${scriptId}.nse`,
-          protocol: script.tags[0] || "*",
-        };
-
-        // Store each script content separately
-        const scriptContent = {
-          content: script.code,
-          metadata: {
-            author: script.author,
-            tags: script.tags,
-            description: script.description,
-          },
-          updatedAt: Date.now(),
-        };
-
-        await valkey.set(
-          `${NSE_SCRIPT_PREFIX}${scriptId}`,
-          JSON.stringify(scriptContent)
+      if (!manifestData) {
+        console.warn(
+          "No NSE manifest found in ValKey. Scanner may not have started yet."
         );
+        return {
+          success: false,
+          count: 0,
+          message:
+            "No scripts found. The scanner will sync scripts when it starts.",
+        };
       }
 
-      // Store the manifest
-      await valkey.set(NSE_MANIFEST_KEY, JSON.stringify(manifest));
+      // Parse the manifest
+      const manifest = JSON.parse(manifestData);
+      const scripts = manifest.scripts || {};
 
-      console.log("Successfully initialized NSE scripts with manifest");
-      return { success: true, count: fallbackScripts.length };
+      // Count scripts (handle both object and array formats)
+      const count = Array.isArray(scripts)
+        ? scripts.length
+        : Object.keys(scripts).length;
+
+      console.log(
+        `Found ${count} NSE scripts in ValKey (synced by scanner)`
+      );
+
+      return {
+        success: true,
+        count,
+        message: `Found ${count} NSE scripts (synced by scanner)`,
+      };
     } catch (error) {
-      console.error("Failed to initialize NSE scripts:", error);
-      return { success: false, error: String(error) };
+      console.error("Failed to read NSE scripts from ValKey:", error);
+      return {
+        success: false,
+        error: String(error),
+        message: "Failed to read NSE scripts from ValKey",
+      };
     }
   }),
 
@@ -159,13 +159,24 @@ export const storeRouter = createTRPCRouter({
             const scriptContentData = await valkey.get(
               `${NSE_SCRIPT_PREFIX}${id}`
             );
-            let scriptContent = {
+            let scriptContent: {
+              content: string;
+              metadata?: {
+                author?: string;
+                tags?: string[];
+                description?: string;
+              };
+            } = {
               content: "-- No code available",
-              metadata: {},
+              metadata: undefined,
             };
 
             if (scriptContentData) {
-              scriptContent = JSON.parse(scriptContentData);
+              try {
+                scriptContent = JSON.parse(scriptContentData);
+              } catch (parseError) {
+                console.warn(`Failed to parse script content for ${id}`);
+              }
             }
 
             return {

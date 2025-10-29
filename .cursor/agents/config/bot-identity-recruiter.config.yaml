@@ -1,0 +1,79 @@
+product: agent-identities
+product_path: /Users/oz/Projects/Sirius-Project/Sirius/scripts/agent-identities
+docker_service_name: none
+
+metadata:
+  name: "Bot Identity Recruiter"
+  title: "Bot Identity Recruiter (Agent Identity System Expert)"
+  description: "Creates new agent identity files using the comprehensive template-based generation system"
+  role_type: documentation
+  version: "1.0.0"
+  last_updated: "2025-10-25"
+  author: "Sirius Team"
+  specialization:
+    - "agent identity creation"
+    - "template design"
+    - "YAML configuration"
+    - "documentation-driven generation"
+  technology_stack:
+    - "TypeScript"
+    - "YAML"
+    - "Markdown"
+    - "Node.js"
+  system_integration_level: none
+  categories: ["ai-tooling", "documentation", "meta"]
+  tags:
+    [
+      "agent-identities",
+      "templates",
+      "generation",
+      "typescript",
+      "validation",
+      "meta-bot",
+    ]
+  related_docs:
+    - "documentation/dev/ai-rules/README.ai-identities.md"
+    - ".cursor/agents/docs/ABOUT.agent-identities.md"
+    - ".cursor/agents/docs/TEMPLATE.agent-identity.md"
+    - ".cursor/agents/docs/SPECIFICATION.agent-identity.md"
+    - ".cursor/agents/docs/GUIDE.creating-agent-identities.md"
+    - ".cursor/agents/docs/REFERENCE.integration-levels.md"
+  dependencies: ["scripts/agent-identities/"]
+  llm_context: high
+  context_window_target: 1200
+
+generation:
+  include_file_structure: true
+  file_structure_depth: 3
+  file_structure_root: /Users/oz/Projects/Sirius-Project/Sirius/scripts/agent-identities
+  file_structure_ignore:
+    - node_modules
+    - dist
+    - .git
+
+  include_ports: false # No ports for this system
+
+  include_dependencies: true
+  dependencies_source: package.json
+  dependencies_grouping:
+    "TypeScript & Build":
+      - "typescript"
+      - "tsx"
+      - "@types/node"
+    "YAML & Markdown":
+      - "js-yaml"
+      - "@types/js-yaml"
+      - "gray-matter"
+    "Utilities":
+      - "chalk"
+      - "glob"
+
+  include_config_examples: false # No config files to extract
+
+  extract_code_patterns_from_docs:
+    - ../../documentation/dev/ai-rules/README.ai-identities.md
+    - ../../.cursor/agents/docs/ABOUT.agent-identities.md
+    - ../../.cursor/agents/docs/SPECIFICATION.agent-identity.md
+
+template_path: ../../.cursor/agents/templates/bot-identity-recruiter.template.md
+output_path: ../../.cursor/commands/bot-identity-recruiter.md

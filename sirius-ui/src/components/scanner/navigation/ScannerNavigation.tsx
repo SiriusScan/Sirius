@@ -1,6 +1,11 @@
 import React from "react";
 
-export type ScannerType = "general" | "nmap" | "rustscan" | "agent";
+export type ScannerType =
+  | "general"
+  | "nmap"
+  | "rustscan"
+  | "agent"
+  | "templates";
 
 interface ScannerNavigationProps {
   activeScanner: ScannerType;
@@ -53,6 +58,16 @@ const ScannerNavigation: React.FC<ScannerNavigationProps> = ({
           onClick={() => setActiveScanner("agent")}
         >
           Agent
+        </button>
+        <button
+          className={`rounded-lg px-4 py-2.5 text-left transition-colors ${
+            activeScanner === "templates"
+              ? "bg-violet-600/20 text-white"
+              : "text-gray-400 hover:bg-violet-600/10"
+          }`}
+          onClick={() => setActiveScanner("templates")}
+        >
+          Templates
         </button>
       </div>
     </div>

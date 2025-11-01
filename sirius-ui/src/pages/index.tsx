@@ -12,6 +12,7 @@ import {
   redirectToDashboard,
 } from "~/utils/auth";
 import { ActiveConstellationV2Loader } from "~/components/loaders";
+import SiriusLogo from "~/components/icons/SiriusLogo";
 
 // Types
 interface LoginFormData {
@@ -299,10 +300,11 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           >
             {/* Logo */}
             <div className="mb-8">
-              <img
-                src="/sirius-scan.png"
-                alt="Sirius Scan"
-                className="h-20 w-auto transition-transform hover:scale-105"
+              <SiriusLogo
+                height="80px"
+                iconFill="white"
+                textFill="white"
+                className="transition-transform hover:scale-105"
               />
             </div>
 

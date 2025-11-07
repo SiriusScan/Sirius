@@ -56,9 +56,7 @@ RUN git clone https://github.com/SiriusScan/app-agent.git && \
     git checkout ${APP_AGENT_COMMIT_SHA} && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o agent cmd/agent/main.go && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server cmd/server/main.go && \
-    (test -f cmd/command-receiver/main.go && CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o command-receiver cmd/command-receiver/main.go || echo "command-receiver not found, skipping") && \
-    (test -f cmd/command-sender/main.go && CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o command-sender cmd/command-sender/main.go || echo "command-sender not found, skipping")
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server cmd/server/main.go
 
 # Clone sirius-nse
 RUN git clone https://github.com/SiriusScan/sirius-nse.git && \
@@ -334,8 +332,6 @@ COPY --from=builder /repos/app-terminal /app-terminal-src/
 COPY --from=builder /repos/app-agent/agent /app-agent/
 COPY --from=builder /repos/app-agent/server /app-agent/
 COPY --from=builder /repos/app-agent /app-agent-src/
-RUN test -f /app-agent-src/command-receiver && cp /app-agent-src/command-receiver /app-agent/ || echo "command-receiver not found, skipping" && \
-    test -f /app-agent-src/command-sender && cp /app-agent-src/command-sender /app-agent/ || echo "command-sender not found, skipping"
 COPY --from=builder /repos/go-api /go-api/
 COPY --from=builder /repos/sirius-nse /sirius-nse/
 COPY --from=builder /repos/app-system-monitor/system-monitor /system-monitor/

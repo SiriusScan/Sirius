@@ -32,4 +32,26 @@ if grep -E "^\s*-\s+\.\./minor-projects/" "$OVERRIDE_FILE" > /dev/null; then
     echo ""
 fi
 
+# Check for modified agent identity files
+echo ""
+echo "🤖 Checking modified agent identity files..."
+
+AGENTS_DIR=".cursor/agents"
+MODIFIED_AGENTS=$(git diff --cached --name-only --diff-filter=ACM | grep "^${AGENTS_DIR}/.*\.agent\.md$" || true)
+
+if [ -n "$MODIFIED_AGENTS" ]; then
+    echo "📝 Found modified agent files, running quick validation..."
+    
+    if ! bash scripts/agent-identities/lint-agents-quick.sh > /dev/null 2>&1; then
+        echo "❌ Agent identity validation failed!"
+        echo "💡 Run 'cd testing/container-testing && make lint-agents' for detailed errors"
+        exit 1
+    fi
+    
+    echo "✅ Agent identity validation passed"
+else
+    echo "ℹ️  No agent identity files modified"
+fi
+
+echo ""
 echo "✅ Pre-commit validation passed" 

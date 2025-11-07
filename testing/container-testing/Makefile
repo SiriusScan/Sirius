@@ -1,7 +1,7 @@
 # SiriusScan Docker Testing Makefile
 # Provides easy commands for testing and development
 
-.PHONY: help build test test-build test-health test-integration test-all clean logs lint-docs lint-docs-quick
+.PHONY: help build test test-build test-health test-integration test-all clean logs lint-docs lint-docs-quick lint-agents lint-agents-quick lint-agent-index regenerate-agents regenerate-agent check-agent-sync
 
 # Default target
 help:
@@ -35,6 +35,14 @@ help:
 	@echo "  lint-docs      Run full documentation linting"
 	@echo "  lint-docs-quick Run quick documentation checks"
 	@echo "  lint-index     Check documentation index completeness"
+	@echo ""
+	@echo "Agent Identity Commands:"
+	@echo "  regenerate-agents   Regenerate all agent identities"
+	@echo "  regenerate-agent    Regenerate specific agent (PRODUCT=name)"
+	@echo "  check-agent-sync    Check if agent identities need regeneration"
+	@echo "  lint-agents         Run full agent identity linting"
+	@echo "  lint-agents-quick   Run quick agent checks"
+	@echo "  lint-agent-index    Check agent identity index completeness"
 
 # Build commands
 build-base:
@@ -135,6 +143,37 @@ lint-index:
 	../../scripts/documentation/lint-index.sh
 	@echo "✅ Index linting completed!"
 
-# Full validation including documentation
-validate-all: build-all test-all lint-docs
-	@echo "🎉 Full validation with documentation linting completed successfully!"
+# Agent identity linting commands
+lint-agents:
+	@echo "🤖 Running full agent identity linting..."
+	cd ../../scripts/agent-identities && npm run validate
+	@echo "✅ Agent identity linting completed!"
+
+lint-agents-quick:
+	@echo "🤖 Running quick agent checks..."
+	cd ../../scripts/agent-identities && npm run validate
+	@echo "✅ Quick agent checks completed!"
+
+lint-agent-index:
+	@echo "🤖 Checking agent identity index..."
+	cd ../../scripts/agent-identities && npm run check-sync
+	@echo "✅ Agent index linting completed!"
+
+# Agent identity generation commands
+regenerate-agents:
+	@echo "🔄 Regenerating agent identities..."
+	cd ../../scripts/agent-identities && npm run generate -- --all
+	@echo "✅ Agent identities regenerated!"
+
+regenerate-agent:
+	@echo "🔄 Regenerating $(PRODUCT) agent identity..."
+	cd ../../scripts/agent-identities && npm run generate -- --product=$(PRODUCT)
+	@echo "✅ $(PRODUCT) agent identity regenerated!"
+
+check-agent-sync:
+	@echo "🔍 Checking agent identity sync status..."
+	cd ../../scripts/agent-identities && npm run check-sync
+
+# Full validation including documentation and agents
+validate-all: build-all test-all lint-docs lint-agents
+	@echo "🎉 Complete validation including documentation and agent identities completed successfully!"

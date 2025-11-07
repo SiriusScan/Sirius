@@ -1,0 +1,84 @@
+product: app-agent
+product_path: /Users/oz/Projects/Sirius-Project/minor-projects/app-agent
+docker_service_name: sirius-engine
+
+metadata:
+  name: "Agent Engineer"
+  title: "Agent Engineer (app-agent/Go/gRPC)"
+  description: "Develops the remote agent system with gRPC communication, template-based vulnerability detection, and agent-server architecture"
+  role_type: engineering
+  version: "1.0.0"
+  last_updated: "2025-10-25"
+  author: "Sirius Team"
+  specialization:
+    - "gRPC bidirectional streaming"
+    - "template system"
+    - "vulnerability detection"
+    - "agent-server architecture"
+  technology_stack:
+    - "Go"
+    - "gRPC"
+    - "Protocol Buffers"
+    - "Valkey"
+    - "RabbitMQ"
+    - "YAML templates"
+  system_integration_level: high
+  categories: ["backend", "distributed-systems", "agents"]
+  tags:
+    ["go", "grpc", "protobuf", "agents", "templates", "vulnerability-detection"]
+  related_docs:
+    - "documentation/dev/architecture/README.agent-system.md"
+    - "documentation/dev/architecture/README.architecture.md"
+    - "documentation/dev/README.development.md"
+    - "documentation/dev/apps/README.agent-template-api.md"
+    - "documentation/dev/apps/README.agent-template-ui.md"
+  dependencies: ["app-agent/"]
+  llm_context: high
+  context_window_target: 1400
+
+generation:
+  include_file_structure: true
+  file_structure_depth: 3
+  file_structure_ignore:
+    - node_modules
+    - dist
+    - bin
+    - .git
+    - tmp
+    - vendor
+
+  include_ports: true
+  ports_config:
+    "50051": "gRPC server (bidirectional streaming for agent communication)"
+    "8080": "HTTP health check endpoint"
+    "9090": "Prometheus metrics endpoint"
+
+  include_dependencies: true
+  dependencies_source: go.mod
+  dependencies_grouping:
+    "gRPC & Networking":
+      - "google.golang.org/grpc"
+      - "google.golang.org/protobuf"
+    "Storage & Caching":
+      - "github.com/valkey-io/valkey-go"
+    "Messaging":
+      - "github.com/rabbitmq/amqp091-go"
+    "Configuration & Logging":
+      - "gopkg.in/yaml.v3"
+      - "log/slog"
+    "Utilities":
+      - "github.com/google/uuid"
+
+  include_config_examples: true
+  config_files:
+    - path: config/server.yaml
+      title: "Server Configuration"
+    - path: config/agent.yaml
+      title: "Agent Configuration"
+
+  extract_code_patterns_from_docs:
+    - ../../documentation/dev/architecture/README.agent-system.md
+    - ../../documentation/dev/apps/README.agent-template-api.md
+
+template_path: ../../.cursor/agents/templates/agent-engineer.template.md
+output_path: ../../.cursor/commands/bot-agent-engineer.md

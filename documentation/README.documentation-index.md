@@ -28,6 +28,7 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.development.md](dev/README.development.md) - Development environment setup and workflow
 - [README.developer-guide.md](dev/README.developer-guide.md) - Comprehensive developer guide for Sirius project
 - [QUICK-REFERENCE.md](dev/QUICK-REFERENCE.md) - Quick reference guide for common operations
+- [QUICKREF.template-types.md](dev/QUICKREF.template-types.md) - Quick reference for documentation template types
 - [README.sirius-event-log.md](dev/development/README.sirius-event-log.md) - Sirius event logging system and event management
 
 ### Contributing
@@ -43,6 +44,20 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.system-monitor.md](dev/architecture/README.system-monitor.md) - System monitoring architecture and implementation
 - [README.administrator.md](dev/architecture/README.administrator.md) - Administrator service architecture and design
 - [README.cicd.md](dev/architecture/README.cicd.md) - CI/CD pipeline architecture and workflows
+- [README.go-api-sdk.md](dev/architecture/README.go-api-sdk.md) - Go API SDK architecture, design patterns, and integration guide
+- [ARCHITECTURE.nse-repository-management.md](dev/architecture/ARCHITECTURE.nse-repository-management.md) - NSE repository management architecture
+
+## Application Documentation
+
+### Agent System
+
+- [README.agent-system.md](dev/apps/agent/README.agent-system.md) - Agent system architecture and design
+- [README.agent-template-api.md](dev/apps/agent/README.agent-template-api.md) - API endpoints for managing agent vulnerability detection templates
+- [README.agent-template-ui.md](dev/apps/agent/README.agent-template-ui.md) - User interface workflows for managing agent templates
+
+### Scanner
+
+- [README.scanner.md](dev/apps/scanner/README.scanner.md) - Scanner application documentation
 
 ## Operations Documentation
 
@@ -58,6 +73,10 @@ This document provides a complete index of all documentation files in the Sirius
 ### Deployment
 
 - [README.terraform-deployment.md](dev/operations/README.terraform-deployment.md) - Terraform-based deployment processes
+
+### SDK Management
+
+- [README.sdk-releases.md](dev/operations/README.sdk-releases.md) - SDK release process and dependency management
 
 ## Testing Documentation
 
@@ -82,6 +101,8 @@ This document provides a complete index of all documentation files in the Sirius
 ### AI Rules
 
 - [ABOUT.ai-rules.md](dev/ai-rules/ABOUT.ai-rules.md) - AI development rules and guidelines
+- [README.ai-identities.md](dev/ai-rules/README.ai-identities.md) - AI identity system and agent personas
+- [README.playwright.md](dev/ai-rules/README.playwright.md) - Playwright browser testing guide for automated testing and validation
 
 ## Template Documentation
 

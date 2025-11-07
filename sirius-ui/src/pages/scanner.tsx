@@ -17,11 +17,14 @@ import { Button } from "~/components/lib/ui/button";
 import { type TargetType } from "~/hooks/useStartScan";
 import { TemplatePicker } from "~/components/scanner/TemplatePicker";
 import { TargetInput } from "~/components/scanner/TargetInput";
-import { type ScanTemplate } from "~/types/scanTypes";
-import ConfigView from "~/components/scanner/ConfigView";
+import { type ScanProfile } from "~/types/scanTypes";
+import ProfileManager from "~/components/scanner/profile/ProfileManager";
+import ProfileSelector from "~/components/scanner/ProfileSelector";
 import AdvancedView from "~/components/scanner/AdvancedView";
 import { VulnerabilityTable } from "~/components/VulnerabilityTable";
 import { scannerVulnerabilityColumns } from "~/components/ScannerVulnerabilityColumns";
+import ChipTargetInput from "~/components/scanner/target-patterns/ChipTargetInput";
+import { Play, Server, AlertTriangle, CheckCircle } from "lucide-react";
 // Source attribution components (available but simplified for scanner interface)
 // import { columnsWithSources } from "~/components/VulnerabilityTableSourceColumns";
 // import { SourceFilterInterface } from "~/components/SourceFilterInterface";
@@ -38,37 +41,37 @@ const ScanNavigator: React.FC<ScanNavigatorProps> = ({
   view,
 }) => {
   return (
-    <div className="border-b border-gray-200 dark:border-gray-700">
+    <div className="sticky top-0 z-20 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
       <nav className="-mb-px flex space-x-8 overflow-x-auto">
         <button
           onClick={() => handleViewNavigator("scan")}
           className={cn(
-            "whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium",
+            "whitespace-nowrap border-b-2 px-2 py-4 text-sm font-medium transition-colors md:px-4",
             view === "scan"
-              ? "border-violet-500 text-violet-600 dark:border-violet-400 dark:text-violet-300"
-              : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200"
+              ? "border-violet-500 text-violet-300"
+              : "border-transparent text-gray-400 hover:border-violet-500/40 hover:text-gray-200"
           )}
         >
           Scan Monitor
         </button>
         <button
-          onClick={() => handleViewNavigator("config")}
+          onClick={() => handleViewNavigator("profiles")}
           className={cn(
-            "whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium",
-            view === "config"
-              ? "border-violet-500 text-violet-600 dark:border-violet-400 dark:text-violet-300"
-              : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200"
+            "whitespace-nowrap border-b-2 px-2 py-4 text-sm font-medium transition-colors md:px-4",
+            view === "profiles"
+              ? "border-violet-500 text-violet-300"
+              : "border-transparent text-gray-400 hover:border-violet-500/40 hover:text-gray-200"
           )}
         >
-          Configuration
+          Profiles
         </button>
         <button
           onClick={() => handleViewNavigator("advanced")}
           className={cn(
-            "whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium",
+            "whitespace-nowrap border-b-2 px-2 py-4 text-sm font-medium transition-colors md:px-4",
             view === "advanced"
-              ? "border-violet-500 text-violet-600 dark:border-violet-400 dark:text-violet-300"
-              : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200"
+              ? "border-violet-500 text-violet-300"
+              : "border-transparent text-gray-400 hover:border-violet-500/40 hover:text-gray-200"
           )}
         >
           Advanced
@@ -84,7 +87,9 @@ const ScannerContent: React.FC = () => {
     "host-table"
   );
   const [targets, setTargets] = useState<string[]>([]);
-  const [inputValue, setInputValue] = useState("");
+  const [parsedTargets, setParsedTargets] = useState<
+    import("~/utils/targetParser").ParsedTarget[]
+  >([]);
   const [hostList, setHostList] = useState<EnvironmentTableData[]>([]);
   const [vulnerabilityList, setVulnerabilityList] = useState<
     VulnerabilityTableData[]
@@ -93,8 +98,8 @@ const ScannerContent: React.FC = () => {
   const [target, setTarget] = useState("");
   const { initiateScan, isLoading, error } = useStartScan();
   const scanResults = useScanResults();
-  const [selectedTemplate, setSelectedTemplate] =
-    useState<ScanTemplate>("quick");
+  const [selectedProfile, setSelectedProfile] =
+    useState<ScanProfile>("high-risk"); // Default to high-risk profile
   const [selectedVulnerabilities, setSelectedVulnerabilities] = useState<
     string[]
   >([]);
@@ -203,9 +208,8 @@ const ScannerContent: React.FC = () => {
             </div>
           </div>
           <div>
-            <strong>Scan Template:</strong> ${
-              selectedTemplate.charAt(0).toUpperCase() +
-              selectedTemplate.slice(1)
+            <strong>Scan Profile:</strong> ${
+              selectedProfile.charAt(0).toUpperCase() + selectedProfile.slice(1)
             }<br>
             <strong>Targets:</strong> ${targets.join(", ") || "None"}<br>
             <strong>Scan Date:</strong> ${new Date().toLocaleDateString()}
@@ -423,19 +427,38 @@ const ScannerContent: React.FC = () => {
   //   sourceFilters
   // );
 
+  const handleTargetsChange = useCallback(
+    (targets: import("~/utils/targetParser").ParsedTarget[]) => {
+      setParsedTargets(targets);
+      // Also update the local targets state for report generation
+      setTargets(targets.map((t) => t.value));
+    },
+    []
+  );
+
   const handleScan = async () => {
     try {
-      if (!targets.length) {
+      if (!parsedTargets || parsedTargets.length === 0) {
         throw new Error("No targets specified");
       }
 
-      await initiateScan(
-        targets.map((target) => ({
-          value: target,
-          type: determineTargetType(target),
-        })),
-        selectedTemplate
+      // Validate that we have at least one valid target
+      const validTargets = parsedTargets.filter(
+        (t) => t.isValid && !t.warning?.includes("Duplicate")
       );
+
+      if (validTargets.length === 0) {
+        console.error("No valid targets to scan");
+        return;
+      }
+
+      // Convert ParsedTargets to the format expected by initiateScan
+      const scanTargets = validTargets.map((target) => ({
+        value: target.value,
+        type: determineTargetType(target.value),
+      }));
+
+      await initiateScan(scanTargets, selectedProfile);
     } catch (err) {
       console.error("Scan failed:", err);
     }
@@ -489,107 +512,158 @@ const ScannerContent: React.FC = () => {
   };
 
   return (
-    <div className="relative z-20 mb-5 mt-[-40px] h-56">
-      <div className="z-10 flex flex-row items-center">
-        <div className="bg-paper ml-8 mt-4 flex flex-col gap-4 rounded-md">
-          <ScanForm
-            inputValue={inputValue}
-            setInputValue={setInputValue}
-            targetList={targets}
-            addTarget={handleAddTarget}
-            removeTarget={handleRemoveTarget}
-            startScan={handleScan}
-            selectedTemplate={selectedTemplate}
-            setSelectedTemplate={setSelectedTemplate}
-          />
-          <ScanNavigator
-            view={activeView}
-            handleViewNavigator={handleViewChange}
-          />
+    <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
+      <ScanNavigator view={activeView} handleViewNavigator={handleViewChange} />
 
-          <div className="py-4">
-            {activeView === "scan" && (
-              <>
-                <div className="rounded border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
-                  {scanResults.scanResult ? (
-                    <ScanStatus results={scanResults.scanResult} />
-                  ) : (
-                    <div>Loading scan status…</div>
-                  )}
-                  <div className="flex gap-4 p-2 text-xl font-thin">
-                    <div
-                      className={`flex cursor-pointer flex-col ${
-                        activeTable === "host-table" ? "font-light" : ""
-                      } hover:font-normal`}
-                      onClick={() => {
-                        setActiveTable("host-table");
-                        setDisplayScanDetails(true);
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      aria-label="Show host table"
-                    >
-                      Hosts
-                    </div>
-                    <div className="font-thin text-violet-100/40">|</div>
-                    <div
-                      className={`flex cursor-pointer flex-col ${
-                        activeTable === "vuln-table" ? "font-light" : ""
-                      } hover:font-normal`}
-                      onClick={() => {
-                        setActiveTable("vuln-table");
-                        setDisplayScanDetails(true);
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      aria-label="Show vulnerability table"
-                    >
-                      Vulnerabilities
-                    </div>
-                    {/* Source info toggle removed for simplicity */}
-                  </div>
-                  {displayScanDetails && (
-                    <>
-                      {activeTable === "host-table" && (
-                        <div className="mt-4">
-                          <EnvironmentDataTable
-                            columns={hostColumns}
-                            data={hostList as any}
-                          />
-                        </div>
-                      )}
-                      {activeTable === "vuln-table" && (
-                        <div className="mt-4">
-                          <VulnerabilityTable
-                            columns={scannerVulnerabilityColumns}
-                            data={vulnerabilityList}
-                            onSelectionChange={(selected) => {
-                              setSelectedVulnerabilities(
-                                selected.map((v) => v.cve)
-                              );
-                            }}
-                            onGenerateReport={handleGenerateReport}
-                          />
-                        </div>
-                      )}
-                    </>
-                  )}
+      <div className="mt-6 space-y-6">
+        {activeView === "scan" && (
+          <>
+            {/* Target Input - Only shown in Scan Monitor */}
+            <div className="scanner-section scanner-section-padding scanner-section-hover">
+              <ChipTargetInput onTargetsChange={handleTargetsChange} />
+            </div>
+
+            {/* Scan Profile + Start Scan - Compact horizontal layout */}
+            <div className="scanner-section-primary scanner-section-padding">
+              <div className="flex flex-col gap-4 md:flex-row md:items-end">
+                <div className="flex-1 md:max-w-md">
+                  <label className="mb-2 block text-sm font-medium text-violet-200">
+                    Scan Profile
+                  </label>
+                  <ProfileSelector
+                    value={selectedProfile}
+                    onChange={setSelectedProfile}
+                  />
                 </div>
-                <hr className="pb-4" />
-              </>
-            )}
-            {activeView === "config" && (
-              <div className="rounded-lg border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
-                <ConfigView />
+                <Button
+                  onClick={handleScan}
+                  disabled={parsedTargets.length === 0 || isLoading}
+                  className="h-12 bg-gradient-to-r from-violet-600 to-purple-600 px-8 text-base font-semibold text-white shadow-lg hover:from-violet-500 hover:to-purple-500 disabled:opacity-50"
+                >
+                  <Play className="mr-2 h-5 w-5 fill-current" />
+                  {isLoading ? "Scanning..." : "Start Scan"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Results Section */}
+            {scanResults.scanResult ? (
+              <div className="scanner-section scanner-section-padding scanner-section-hover min-h-[400px]">
+                <ScanStatus results={scanResults.scanResult} />
+
+                <div className="scanner-divider"></div>
+
+                {/* Enhanced Tab Navigation */}
+                <div className="mb-4 flex gap-2 border-b border-violet-500/20">
+                  <button
+                    onClick={() => {
+                      setActiveTable("host-table");
+                      setDisplayScanDetails(true);
+                    }}
+                    className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                      activeTable === "host-table"
+                        ? "border-violet-500 text-violet-300"
+                        : "border-transparent text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    <Server className="h-4 w-4" />
+                    Hosts
+                    {hostList.length > 0 && (
+                      <span className="ml-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-xs">
+                        {hostList.length}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTable("vuln-table");
+                      setDisplayScanDetails(true);
+                    }}
+                    className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                      activeTable === "vuln-table"
+                        ? "border-violet-500 text-violet-300"
+                        : "border-transparent text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    <AlertTriangle className="h-4 w-4" />
+                    Vulnerabilities
+                    {vulnerabilityList.length > 0 && (
+                      <span className="ml-1 rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-300">
+                        {vulnerabilityList.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {displayScanDetails && (
+                  <>
+                    {activeTable === "host-table" && (
+                      <div className="scanner-table-wrapper mt-4">
+                        <EnvironmentDataTable
+                          columns={hostColumns}
+                          data={hostList as any}
+                        />
+                      </div>
+                    )}
+                    {activeTable === "vuln-table" && (
+                      <div className="scanner-table-wrapper mt-4">
+                        <VulnerabilityTable
+                          columns={scannerVulnerabilityColumns}
+                          data={vulnerabilityList}
+                          onSelectionChange={(selected) => {
+                            setSelectedVulnerabilities(
+                              selected.map((v) => v.cve)
+                            );
+                          }}
+                          onGenerateReport={handleGenerateReport}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="scanner-section scanner-section-hover flex min-h-[400px] flex-col items-center justify-center p-12 text-center">
+                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-violet-500/20">
+                  <Server className="h-10 w-10 text-violet-400" />
+                </div>
+                <h3 className="mb-2 text-lg font-semibold text-white">
+                  No Scan Results Yet
+                </h3>
+                <p className="mb-6 text-sm text-gray-400">
+                  Configure your targets and profile above, then click "Start
+                  Scan" to begin vulnerability scanning.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Add targets
+                  </div>
+                  <span className="hidden md:inline">→</span>
+                  <div className="flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Select profile
+                  </div>
+                  <span className="hidden md:inline">→</span>
+                  <div className="flex items-center gap-1">
+                    <Play className="h-3 w-3" />
+                    Start scan
+                  </div>
+                </div>
               </div>
             )}
-            {activeView === "advanced" && (
-              <div className="rounded-lg  border-violet-700/10 p-4 shadow-md dark:bg-violet-300/5">
-                <AdvancedView />
-              </div>
-            )}
+          </>
+        )}
+        {activeView === "profiles" && (
+          <div className="scanner-section scanner-section-padding scanner-section-hover">
+            <ProfileManager />
           </div>
-        </div>
+        )}
+        {activeView === "advanced" && (
+          <div className="scanner-section scanner-section-padding scanner-section-hover">
+            <AdvancedView />
+          </div>
+        )}
       </div>
     </div>
   );

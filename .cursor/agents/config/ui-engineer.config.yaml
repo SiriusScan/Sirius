@@ -1,0 +1,89 @@
+product: sirius-ui
+product_path: /Users/oz/Projects/Sirius-Project/Sirius/sirius-ui
+docker_service_name: sirius-ui
+
+metadata:
+  name: "UI Engineer"
+  title: "UI Engineer (sirius-ui/Next.js/TypeScript/React)"
+  description: "Develops frontend application using Next.js, TypeScript, React, and Tailwind CSS for vulnerability scanning interface"
+  role_type: engineering
+  version: "1.0.0"
+  last_updated: "2025-10-25"
+  author: "Sirius Team"
+  specialization:
+    - "Next.js App Router"
+    - "TypeScript"
+    - "React components"
+    - "tRPC"
+    - "Tailwind CSS"
+  technology_stack:
+    - "Next.js"
+    - "TypeScript"
+    - "React"
+    - "tRPC"
+    - "Tailwind CSS"
+    - "Prisma"
+    - "shadcn/ui"
+  system_integration_level: medium
+  categories: ["frontend", "ui", "web"]
+  tags:
+    ["nextjs", "typescript", "react", "trpc", "tailwind", "prisma", "shadcn"]
+  related_docs:
+    - "documentation/dev/README.development.md"
+    - "documentation/dev/architecture/README.architecture.md"
+  dependencies: ["sirius-ui/"]
+  llm_context: high
+  context_window_target: 1200
+
+generation:
+  include_file_structure: true
+  file_structure_depth: 3
+  file_structure_ignore:
+    - node_modules
+    - .next
+    - dist
+    - build
+    - .git
+
+  include_ports: true
+  ports_config:
+    "3000": "Next.js development server"
+    "9092": "Prometheus metrics endpoint"
+
+  include_dependencies: true
+  dependencies_source: package.json
+  dependencies_grouping:
+    "Framework":
+      - "next"
+      - "react"
+      - "react-dom"
+    "Type Safety":
+      - "typescript"
+      - "@types/react"
+      - "@types/node"
+    "API Integration":
+      - "@trpc/client"
+      - "@trpc/server"
+      - "@trpc/react-query"
+    "Database":
+      - "@prisma/client"
+      - "prisma"
+    "UI Components":
+      - "tailwindcss"
+      - "shadcn/ui"
+    "Form Handling":
+      - "react-hook-form"
+      - "zod"
+
+  include_config_examples: true
+  config_files:
+    - path: .env.example
+      title: "Environment Configuration"
+    - path: tailwind.config.ts
+      title: "Tailwind Configuration"
+
+  extract_code_patterns_from_docs:
+    - ../../documentation/dev/architecture/README.architecture.md
+
+template_path: ../../.cursor/agents/templates/ui-engineer.template.md
+output_path: ../../.cursor/commands/bot-ui-engineer.md

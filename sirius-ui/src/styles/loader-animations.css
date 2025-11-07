@@ -1,0 +1,40 @@
+/* Sirius Loader Animations - Minimal set for ActiveConstellationV2Loader */
+
+/* Orbit animation for constellation stars */
+@keyframes loader-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Circuit pulse - white to orange/gold */
+@keyframes circuit-pulse-strong {
+  0%, 100% {
+    fill: #e5e7eb;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+  }
+  50% {
+    fill: #fb923c;
+    filter: drop-shadow(0 0 12px rgba(251, 146, 60, 1))
+            drop-shadow(0 0 20px rgba(251, 146, 60, 0.8));
+  }
+}
+
+/* Reduced motion fallback */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes loader-orbit {
+    from, to {
+      transform: none;
+    }
+  }
+  
+  @keyframes circuit-pulse-strong {
+    from, to {
+      fill: #e5e7eb;
+      filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+    }
+  }
+}

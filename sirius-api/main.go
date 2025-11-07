@@ -143,7 +143,20 @@ func main() {
 	app.Use(middleware.SDKPerformanceMetricsMiddleware())
 
 	vulnerabilityRouteSetter := &routes.VulnerabilityRouteSetter{}
-	routes.SetupRoutes(app, &routes.HostRouteSetter{}, &routes.AppRouteSetter{}, vulnerabilityRouteSetter)
+	templateRouteSetter := &routes.TemplateRouteSetter{}
+	scriptRouteSetter := &routes.ScriptRouteSetter{}
+	agentTemplateRouteSetter := &routes.AgentTemplateRouteSetter{}
+	agentTemplateRepositoryRouteSetter := &routes.AgentTemplateRepositoryRouteSetter{}
+	routes.SetupRoutes(
+		app,
+		&routes.HostRouteSetter{},
+		&routes.AppRouteSetter{},
+		vulnerabilityRouteSetter,
+		templateRouteSetter,
+		scriptRouteSetter,
+		agentTemplateRepositoryRouteSetter, // Must be before agentTemplateRouteSetter to avoid :id matching
+		agentTemplateRouteSetter,
+	)
 
 	log.Println("🚀 Sirius API starting on port 9001...")
 	app.Listen(":9001")

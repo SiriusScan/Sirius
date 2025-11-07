@@ -20,6 +20,7 @@ import {
 import { cn } from "~/components/lib/utils";
 import { debugLog } from "~/utils/debug";
 import PageWrapper from "~/components/PageWrapper";
+import { ActiveConstellationV2Loader } from "~/components/loaders";
 import {
   Search,
   Filter,
@@ -1279,10 +1280,7 @@ const EnvironmentContent = () => {
       <div className="px-4">
         {isDataLoading ? (
           <div className="flex h-64 items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-violet-500"></div>
-            <span className="ml-2">
-              Loading hosts and vulnerability data...
-            </span>
+            <ActiveConstellationV2Loader size="xl" label="Loading hosts and vulnerability data..." />
           </div>
         ) : error ? (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-400">

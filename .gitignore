@@ -64,3 +64,7 @@ vendor/
 
 # Docker
 .dockerignore
+
+# Server template repos
+/var/sirius/template-repos/
+sirius-engine/custom-templates/

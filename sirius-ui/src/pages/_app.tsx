@@ -4,6 +4,7 @@ import { type AppType } from "next/app";
 import { useEffect } from "react";
 import { api } from "~/utils/api";
 import "~/styles/globals.css";
+import "~/styles/loader-animations.css";
 import { ToastProvider } from "~/components/Toast";
 import ErrorBoundary from "~/components/ErrorBoundary";
 import { createRouteMonitor } from "~/utils/debug";

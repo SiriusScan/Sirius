@@ -123,6 +123,75 @@
   }
 }
 
+/* Sidebar Navigation Animations */
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(167, 139, 250, 0.3),
+                0 0 20px rgba(167, 139, 250, 0.2),
+                inset 0 0 10px rgba(167, 139, 250, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(167, 139, 250, 0.5),
+                0 0 30px rgba(167, 139, 250, 0.3),
+                inset 0 0 15px rgba(167, 139, 250, 0.2);
+  }
+}
+
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes rotate-subtle {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(3deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes icon-bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.1);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 
 
 @layer base {
@@ -131,5 +200,51 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Base scanner section - subtle and clean */
+  .scanner-section {
+    @apply relative border border-violet-500/20 rounded-lg bg-gray-900/20 backdrop-blur-sm;
+    box-shadow: 
+      0 0 0 1px rgba(139, 92, 246, 0.05) inset,
+      0 2px 4px rgba(0, 0, 0, 0.3),
+      0 8px 16px rgba(139, 92, 246, 0.03);
+  }
+  
+  /* Primary section - for important interactive areas */
+  .scanner-section-primary {
+    @apply relative border border-violet-500/30 rounded-lg bg-violet-500/[0.03] backdrop-blur-sm;
+    box-shadow: 
+      0 0 0 1px rgba(139, 92, 246, 0.1) inset,
+      0 2px 4px rgba(0, 0, 0, 0.3),
+      0 12px 24px rgba(139, 92, 246, 0.08);
+  }
+  
+  /* Scrollable content wrapper for tables */
+  .scanner-table-wrapper {
+    @apply overflow-x-auto overflow-y-visible -mx-4 px-4 md:-mx-6 md:px-6;
+  }
+  
+  /* Hover state for interactive sections */
+  .scanner-section-hover {
+    @apply transition-all duration-200;
+  }
+  
+  .scanner-section-hover:hover {
+    @apply border-violet-500/30;
+    box-shadow: 
+      0 0 0 1px rgba(139, 92, 246, 0.15) inset,
+      0 4px 8px rgba(0, 0, 0, 0.4),
+      0 12px 24px rgba(139, 92, 246, 0.08);
+  }
+  
+  .scanner-section-padding {
+    @apply p-4 md:p-6;
+  }
+  
+  .scanner-divider {
+    @apply border-t border-violet-500/10 my-6;
   }
 }

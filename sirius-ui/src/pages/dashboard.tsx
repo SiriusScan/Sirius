@@ -1,343 +1,402 @@
 import { type NextPage } from "next";
-import { api } from "~/utils/api";
+import { useRouter } from "next/router";
+import { useState, useCallback } from "react";
 import Layout from "~/components/Layout";
-import DashNumberCard from "~/components/DashNumberCard";
-import { VulnerabilitySeverityCardsVertical } from "~/components/VulnerabilitySeverityCards";
-import { useMemo } from "react";
+import { Button } from "~/components/lib/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/lib/ui/select";
+import {
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  Target,
+  AlertTriangle,
+} from "lucide-react";
 
 // Icons
 import DashboardIcon from "~/components/icons/DashboardIcon";
-import HostsIcon from "~/components/icons/HostsIcon";
 import VulnerabilityIcon from "~/components/icons/VulnerabilityIcon";
-import { Button } from "~/components/lib/ui/button";
-import { useRouter } from "next/router";
+import { Shield, Server, Activity } from "lucide-react";
 
-// Helper function to determine severity from risk score
-const determineSeverity = (
-  riskScore: number
-): "critical" | "high" | "medium" | "low" | "informational" => {
-  if (riskScore >= 9.0) return "critical";
-  if (riskScore >= 7.0) return "high";
-  if (riskScore >= 4.0) return "medium";
-  if (riskScore > 0) return "low";
-  return "informational";
-};
+// Dashboard components
+import { DashboardCard } from "~/components/dashboard/DashboardCard";
+import { DashboardHeroCard } from "~/components/dashboard/DashboardHeroCard";
+import { CriticalAlertBanner } from "~/components/dashboard/CriticalAlertBanner";
+import { DashboardSection } from "~/components/dashboard/DashboardGrid";
+import {
+  VulnerabilityTrendChart,
+  VulnerabilityTrendChartSkeleton,
+} from "~/components/dashboard/VulnerabilityTrendChart";
+import {
+  TopVulnerableHostsWidget,
+  TopVulnerableHostsWidgetSkeleton,
+} from "~/components/dashboard/TopVulnerableHostsWidget";
+import {
+  SecurityScoreGauge,
+  SecurityScoreGaugeSkeleton,
+} from "~/components/dashboard/SecurityScoreGauge";
+import {
+  SystemHealthMiniWidget,
+  SystemHealthMiniWidgetSkeleton,
+} from "~/components/dashboard/SystemHealthMiniWidget";
+import {
+  RecentActivityTimeline,
+  RecentActivityTimelineSkeleton,
+} from "~/components/dashboard/RecentActivityTimeline";
+import { VulnerabilitySeverityCardsHorizontal } from "~/components/VulnerabilitySeverityCards";
+
+// Hook
+import { useDashboardData } from "~/hooks/useDashboardData";
 
 const Dashboard: NextPage = () => {
   const router = useRouter();
-
-  // Get vulnerability data from API
-  const { data: vulnerabilityData, isLoading: vulnerabilityLoading } =
-    api.vulnerability.getAllVulnerabilities.useQuery();
-
-  // Get agent data from API
-  const { data: agentData, isLoading: agentLoading } =
-    api.agent.listAgentsWithHosts.useQuery();
-
-  // Get host data from API
-  const { data: hostData, isLoading: hostLoading } =
-    api.host.getAllHosts.useQuery();
-
-  // Calculate vulnerability statistics
-  const vulnerabilityStats = useMemo(() => {
-    if (!vulnerabilityData?.vulnerabilities) {
-      return {
-        total: 0,
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-        informational: 0,
-      };
+  const [refreshInterval, setRefreshInterval] = useState<string>("30");
+  const [showSystemHealth, setShowSystemHealth] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("showSystemHealth");
+      return stored ? stored === "true" : false;
     }
+    return false;
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const vulns = vulnerabilityData.vulnerabilities;
-    const stats = {
-      total: vulns.length,
-      critical: 0,
-      high: 0,
-      medium: 0,
-      low: 0,
-      informational: 0,
-    };
+  // Fetch dashboard data
+  const { data, isLoading, error, lastUpdated, refresh } = useDashboardData({
+    enableSystemMetrics: showSystemHealth,
+    vulnerabilityRefetch: parseInt(refreshInterval) * 1000,
+    hostRefetch: parseInt(refreshInterval) * 1000,
+    agentRefetch: Math.min(parseInt(refreshInterval), 30) * 1000, // Agent status more frequent
+  });
 
-    vulns.forEach((vuln) => {
-      const severity = determineSeverity(vuln.riskScore);
-      stats[severity]++;
-    });
+  // Manual refresh handler
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refresh();
+    setIsRefreshing(false);
+  }, [refresh]);
 
-    return stats;
-  }, [vulnerabilityData]);
-
-  // Calculate agent statistics
-  const agentStats = useMemo(() => {
-    if (!agentData) {
-      return {
-        total: 0,
-        online: 0,
-      };
+  // Toggle system health visibility
+  const toggleSystemHealth = useCallback(() => {
+    const newValue = !showSystemHealth;
+    setShowSystemHealth(newValue);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("showSystemHealth", String(newValue));
     }
-
-    return {
-      total: agentData.length,
-      online: agentData.filter(
-        (agent) => agent.status?.toLowerCase() === "online"
-      ).length,
-    };
-  }, [agentData]);
-
-  // Dashboard metrics for top-level cards
-  const dashboardMetrics = [
-    {
-      title: "Agents",
-      number: agentStats.total,
-      color: "green",
-      icon: (
-        <HostsIcon className="h-4 w-4 fill-gray-700 text-white" fill="white" />
-      ),
-    },
-    {
-      title: "Hosts",
-      number: hostData?.length || 0,
-      color: "blue",
-      icon: (
-        <HostsIcon className="h-4 w-4 fill-gray-700 text-white" fill="white" />
-      ),
-    },
-    {
-      title: "Vulnerabilities",
-      number: vulnerabilityStats.total,
-      color: "red",
-      icon: (
-        <VulnerabilityIcon
-          className="h-4 w-4 fill-gray-700 text-white"
-          fill="red"
-        />
-      ),
-    },
-    {
-      title: "Critical Issues",
-      number: vulnerabilityStats.critical,
-      color: "purple",
-      icon: (
-        <VulnerabilityIcon
-          className="h-4 w-4 fill-gray-700 text-white"
-          fill="purple"
-        />
-      ),
-    },
-  ];
-
-  const isLoading = vulnerabilityLoading || agentLoading || hostLoading;
+  }, [showSystemHealth]);
 
   return (
     <Layout title="Security Dashboard">
-      <div className="relative z-20 mb-5">
-        {/* Dashboard Header */}
-        <div className="z-10 flex flex-row items-center justify-between">
-          <div className="flex items-center">
-            <DashboardIcon className="ml-4 mt-7 flex dark:fill-white" />
-            <h1 className="ml-3 mt-5 flex text-4xl font-extralight">
-              asdfadsfSecurity Dashboard
-            </h1>
-          </div>
-        </div>
-
-        {/* Top-Level Vulnerability Distribution Cards */}
-        <div className="mt-6 flex gap-8">
-          {dashboardMetrics.map((metric) => (
-            <DashNumberCard
-              key={metric.title}
-              title={metric.title}
-              number={isLoading ? 0 : metric.number}
-              color={metric.color}
-              icon={metric.icon}
-            />
-          ))}
-        </div>
-
-        {/* Main Dashboard Content */}
-        <div className="mt-8">
-          {/* Vulnerability Overview Section */}
-          <div className="mb-8">
-            <h2 className="mb-4 text-2xl font-light">Vulnerability Overview</h2>
-
-            {isLoading ? (
-              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="flex h-[400px] items-center justify-center">
-                  <div className="text-center">
-                    <div className="mx-auto mb-4 h-16 w-16 animate-spin rounded-full border-b-2 border-t-2 border-blue-500"></div>
-                    <h3 className="mb-2 text-xl font-medium text-gray-900 dark:text-white">
-                      Loading Dashboard Data
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Fetching vulnerability and agent information...
-                    </p>
-                  </div>
-                </div>
+      <div className="relative z-20 space-y-8">
+        {/* Glassmorphism Header */}
+        <div className="sticky top-0 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 pb-4 pt-6 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-violet-500/10 ring-2 ring-violet-500/20">
+                <Shield className="h-7 w-7 text-violet-400" />
               </div>
-            ) : vulnerabilityStats.total === 0 ? (
-              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="flex h-[400px] items-center justify-center">
-                  <div className="text-center">
-                    <VulnerabilityIcon className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-                    <h3 className="mb-2 text-xl font-medium text-gray-900 dark:text-white">
-                      No Vulnerabilities Found
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Run a security scan to discover vulnerabilities in your
-                      environment.
-                    </p>
-                  </div>
-                </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-white">
+                  Security Command Center
+                </h1>
+                <p className="text-sm text-violet-300/70">
+                  Real-time security posture and vulnerability analytics
+                </p>
               </div>
-            ) : (
-              <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-                  {/* Vulnerability Statistics */}
-                  <div className="lg:col-span-2">
-                    <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">
-                      Vulnerability Summary
-                    </h3>
-                    <div className="space-y-4">
-                      {/* Critical Vulnerabilities */}
-                      <div className="flex items-center justify-between rounded-lg bg-red-50 p-4 dark:bg-red-900/20">
-                        <div className="flex items-center">
-                          <div className="mr-3 h-3 w-3 rounded-full bg-red-500"></div>
-                          <span className="font-medium text-red-700 dark:text-red-300">
-                            Critical
-                          </span>
-                        </div>
-                        <span className="text-2xl font-bold text-red-700 dark:text-red-300">
-                          {vulnerabilityStats.critical}
-                        </span>
-                      </div>
-
-                      {/* High Vulnerabilities */}
-                      <div className="flex items-center justify-between rounded-lg bg-orange-50 p-4 dark:bg-orange-900/20">
-                        <div className="flex items-center">
-                          <div className="mr-3 h-3 w-3 rounded-full bg-orange-500"></div>
-                          <span className="font-medium text-orange-700 dark:text-orange-300">
-                            High
-                          </span>
-                        </div>
-                        <span className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                          {vulnerabilityStats.high}
-                        </span>
-                      </div>
-
-                      {/* Medium Vulnerabilities */}
-                      <div className="flex items-center justify-between rounded-lg bg-yellow-50 p-4 dark:bg-yellow-900/20">
-                        <div className="flex items-center">
-                          <div className="mr-3 h-3 w-3 rounded-full bg-yellow-500"></div>
-                          <span className="font-medium text-yellow-700 dark:text-yellow-300">
-                            Medium
-                          </span>
-                        </div>
-                        <span className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
-                          {vulnerabilityStats.medium}
-                        </span>
-                      </div>
-
-                      {/* Low Vulnerabilities */}
-                      <div className="flex items-center justify-between rounded-lg bg-green-50 p-4 dark:bg-green-900/20">
-                        <div className="flex items-center">
-                          <div className="mr-3 h-3 w-3 rounded-full bg-green-500"></div>
-                          <span className="font-medium text-green-700 dark:text-green-300">
-                            Low
-                          </span>
-                        </div>
-                        <span className="text-2xl font-bold text-green-700 dark:text-green-300">
-                          {vulnerabilityStats.low}
-                        </span>
-                      </div>
-
-                      {/* Informational */}
-                      <div className="flex items-center justify-between rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-                        <div className="flex items-center">
-                          <div className="mr-3 h-3 w-3 rounded-full bg-blue-500"></div>
-                          <span className="font-medium text-blue-700 dark:text-blue-300">
-                            Informational
-                          </span>
-                        </div>
-                        <span className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                          {vulnerabilityStats.informational}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Agent Status */}
-                  <div>
-                    <h3 className="mb-4 text-lg font-medium text-gray-900 dark:text-white">
-                      Agent Status
-                    </h3>
-                    <div className="space-y-4">
-                      <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                        <div className="text-center">
-                          <div className="text-3xl font-bold text-gray-900 dark:text-white">
-                            {agentStats.total}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            Total Agents
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                        <div className="text-center">
-                          <div className="text-3xl font-bold text-green-600 dark:text-green-400">
-                            {agentStats.online}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            Online Agents
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
-                        <div className="text-center">
-                          <div className="text-3xl font-bold text-gray-600 dark:text-gray-400">
-                            {agentStats.total - agentStats.online}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            Offline Agents
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Quick Actions Section */}
-          <div className="mt-12">
-            <h2 className="mb-6 text-2xl font-light">Quick Actions</h2>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <ActionCard
-                title="Start New Scan"
-                description="Initiate a comprehensive security scan of your network"
-                icon={<VulnerabilityIcon className="h-6 w-6" />}
-                buttonText="Start Scan"
-                buttonAction={() => router.push("/scanner")}
-              />
-              <ActionCard
-                title="View All Hosts"
-                description="Browse and manage all discovered hosts in your network"
-                icon={<HostsIcon className="h-6 w-6" />}
-                buttonText="View Hosts"
-                buttonAction={() => router.push("/host")}
-              />
-              <ActionCard
-                title="Manage Agents"
-                description="View and control connected security agents"
-                icon={<HostsIcon className="h-6 w-6" />}
-                buttonText="View Agents"
-                buttonAction={() => router.push("/terminal")}
-              />
             </div>
+
+            <div className="flex items-center gap-3">
+              {/* Last updated */}
+              {lastUpdated && (
+                <span className="text-xs text-gray-400">
+                  Updated {lastUpdated.toLocaleTimeString()}
+                </span>
+              )}
+
+              {/* Refresh interval selector */}
+              <Select
+                value={refreshInterval}
+                onValueChange={setRefreshInterval}
+              >
+                <SelectTrigger className="w-32 border-violet-500/20 bg-gray-800/50 backdrop-blur-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Manual</SelectItem>
+                  <SelectItem value="10">10s</SelectItem>
+                  <SelectItem value="30">30s</SelectItem>
+                  <SelectItem value="60">1m</SelectItem>
+                  <SelectItem value="300">5m</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Refresh button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="border-violet-500/20 bg-violet-500/10 hover:bg-violet-500/20"
+              >
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${
+                    isRefreshing ? "animate-spin" : ""
+                  }`}
+                />
+                Refresh
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Error Alert */}
+        {error && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 backdrop-blur-sm">
+            <div className="flex items-center gap-2 text-sm text-red-400">
+              <Activity className="h-4 w-4" />
+              <span>Error loading dashboard data: {error}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Critical Alert Banner */}
+        {data && data.vulnerabilities.critical > 0 && (
+          <CriticalAlertBanner criticalCount={data.vulnerabilities.critical} />
+        )}
+
+        {/* Hero Metrics Row - Large, Dramatic Cards */}
+        <div className="grid gap-6 md:grid-cols-3">
+          <DashboardHeroCard
+            title="Total Vulnerabilities"
+            value={data?.vulnerabilities.total || 0}
+            icon={Target}
+            trend={
+              data?.vulnerabilities.total
+                ? { value: "+12 this week", direction: "up" }
+                : undefined
+            }
+            cta={{ label: "View All", href: "/vulnerabilities" }}
+            variant="default"
+          />
+
+          <DashboardHeroCard
+            title="Critical Issues"
+            value={data?.vulnerabilities.critical || 0}
+            icon={AlertTriangle}
+            subtitle={
+              data?.vulnerabilities.critical
+                ? "⚠️ Action Required"
+                : "✓ No Critical Issues"
+            }
+            cta={
+              data?.vulnerabilities.critical
+                ? {
+                    label: "Fix Now",
+                    href: "/vulnerabilities?severity=CRITICAL",
+                  }
+                : undefined
+            }
+            variant={data?.vulnerabilities.critical ? "critical" : "success"}
+          />
+
+          <DashboardHeroCard
+            title="Active Hosts"
+            value={`${data?.hosts.online || 0} / ${data?.hosts.total || 0}`}
+            icon={Server}
+            subtitle={
+              data?.hosts.total
+                ? `${Math.round(
+                    ((data?.hosts.online || 0) / data.hosts.total) * 100
+                  )}% online`
+                : "No hosts discovered"
+            }
+            cta={{ label: "View Hosts", href: "/host" }}
+            variant="default"
+          />
+        </div>
+
+        {/* Severity Breakdown - Prominent Section */}
+        <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-6 backdrop-blur-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <Activity className="h-5 w-5 text-violet-400" />
+            <h2 className="text-lg font-semibold text-violet-300">
+              Vulnerability Breakdown by Severity
+            </h2>
+          </div>
+          {data ? (
+            <VulnerabilitySeverityCardsHorizontal
+              counts={data.vulnerabilities}
+            />
+          ) : (
+            <div className="flex justify-center gap-4">
+              {[...Array(5)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-24 w-32 animate-pulse rounded-lg bg-gray-800"
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Main Visualizations - Two Column Layout */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Left: Vulnerability Trend Chart - Takes 2 columns */}
+          <div className="lg:col-span-2">
+            <DashboardCard
+              title="Vulnerability Trends"
+              icon={<Activity className="h-4 w-4 text-violet-400" />}
+              loading={isLoading}
+              className="border-violet-500/20 bg-gray-900/50 backdrop-blur-sm"
+            >
+              {data ? (
+                <VulnerabilityTrendChart
+                  currentCounts={data.vulnerabilities}
+                  height={400}
+                />
+              ) : (
+                <VulnerabilityTrendChartSkeleton height={400} />
+              )}
+            </DashboardCard>
+          </div>
+
+          {/* Right Column: Stacked Widgets */}
+          <div className="space-y-6">
+            {/* Top Vulnerable Hosts */}
+            <DashboardCard
+              title="Most Vulnerable Hosts"
+              icon={<Server className="h-4 w-4 text-violet-400" />}
+              loading={isLoading}
+              className="border-violet-500/20 bg-gray-900/50 backdrop-blur-sm"
+            >
+              {!isLoading ? (
+                <TopVulnerableHostsWidget height={180} limit={5} />
+              ) : (
+                <TopVulnerableHostsWidgetSkeleton height={180} />
+              )}
+            </DashboardCard>
+
+            {/* Security Score Gauge */}
+            <DashboardCard
+              title="Security Posture Score"
+              icon={<Shield className="h-4 w-4 text-violet-400" />}
+              loading={isLoading}
+              className="border-violet-500/20 bg-gray-900/50 backdrop-blur-sm"
+            >
+              {data ? (
+                <SecurityScoreGauge
+                  vulnerabilityCounts={data.vulnerabilities}
+                  totalHosts={data.hosts.total}
+                  vulnerableHosts={data.hosts.withVulnerabilities}
+                  totalAgents={data.agents.total}
+                  onlineAgents={data.agents.online}
+                />
+              ) : (
+                <SecurityScoreGaugeSkeleton />
+              )}
+            </DashboardCard>
+          </div>
+        </div>
+
+        {/* System Health Section (Toggle-able) */}
+        <DashboardSection>
+          <button
+            onClick={toggleSystemHealth}
+            className="flex w-full items-center justify-between rounded-lg border border-violet-500/20 bg-gray-900/50 p-4 text-sm font-medium backdrop-blur-sm transition-all hover:border-violet-500/40 hover:bg-gray-900/70"
+          >
+            <span className="flex items-center gap-2 text-violet-300">
+              <Activity className="h-4 w-4" />
+              System Health Monitoring
+            </span>
+            {showSystemHealth ? (
+              <ChevronUp className="h-4 w-4 text-violet-400" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-violet-400" />
+            )}
+          </button>
+
+          {showSystemHealth && (
+            <div className="mt-4 duration-300 animate-in fade-in-50">
+              {!isLoading ? (
+                <SystemHealthMiniWidget />
+              ) : (
+                <SystemHealthMiniWidgetSkeleton />
+              )}
+            </div>
+          )}
+        </DashboardSection>
+
+        {/* Bottom Section: Activity & Actions */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Recent Activity Timeline - Takes 2 columns */}
+          <div className="lg:col-span-2">
+            <DashboardCard
+              title="Recent Security Events"
+              icon={<Activity className="h-4 w-4 text-violet-400" />}
+              loading={isLoading}
+              className="border-violet-500/20 bg-gray-900/50 backdrop-blur-sm"
+            >
+              {data ? (
+                <RecentActivityTimeline
+                  vulnerabilityCount={data.vulnerabilities.total}
+                  hostCount={data.hosts.total}
+                  agentCount={data.agents.total}
+                  limit={10}
+                />
+              ) : (
+                <RecentActivityTimelineSkeleton />
+              )}
+            </DashboardCard>
+          </div>
+
+          {/* Quick Actions */}
+          <div>
+            <DashboardCard
+              title="Quick Actions"
+              icon={<Activity className="h-4 w-4 text-violet-400" />}
+              className="border-violet-500/20 bg-gray-900/50 backdrop-blur-sm"
+            >
+              <div className="space-y-3">
+                <ActionButton
+                  icon={
+                    <VulnerabilityIcon
+                      className="h-5 w-5"
+                      fill="currentColor"
+                    />
+                  }
+                  title="Start New Scan"
+                  description="Initiate a security scan"
+                  onClick={() => router.push("/scanner")}
+                />
+                <ActionButton
+                  icon={<Server className="h-5 w-5" />}
+                  title="View All Hosts"
+                  description="Browse discovered hosts"
+                  onClick={() => router.push("/host")}
+                />
+                <ActionButton
+                  icon={
+                    <VulnerabilityIcon
+                      className="h-5 w-5"
+                      fill="currentColor"
+                    />
+                  }
+                  title="View Vulnerabilities"
+                  description="Review all findings"
+                  onClick={() => router.push("/vulnerabilities")}
+                />
+                <ActionButton
+                  icon={<Activity className="h-5 w-5" />}
+                  title="Manage Agents"
+                  description="Control security agents"
+                  onClick={() => router.push("/terminal")}
+                />
+              </div>
+            </DashboardCard>
           </div>
         </div>
       </div>
@@ -345,44 +404,36 @@ const Dashboard: NextPage = () => {
   );
 };
 
-export default Dashboard;
-
-// Action Card Component
-interface ActionCardProps {
+// Action Button Component
+interface ActionButtonProps {
+  icon: React.ReactNode;
   title: string;
   description: string;
-  icon: React.ReactNode;
-  buttonText: string;
-  buttonAction: () => void;
-  isDestructive?: boolean;
+  onClick: () => void;
 }
 
-const ActionCard: React.FC<ActionCardProps> = ({
+const ActionButton: React.FC<ActionButtonProps> = ({
+  icon,
   title,
   description,
-  icon,
-  buttonText,
-  buttonAction,
-  isDestructive = false,
+  onClick,
 }) => {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
-      <div className="mb-4 flex items-center">
-        <div className="mr-3 rounded-lg bg-blue-100 p-2 dark:bg-blue-900">
-          {icon}
-        </div>
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-          {title}
-        </h3>
+    <button
+      onClick={onClick}
+      className="group flex w-full items-center gap-3 rounded-lg border border-violet-500/20 bg-gray-800/50 p-3 text-left transition-all hover:border-violet-500/50 hover:bg-violet-500/10 hover:shadow-lg hover:shadow-violet-500/5"
+    >
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400 ring-1 ring-violet-500/20 transition-all group-hover:bg-violet-500/20 group-hover:ring-violet-500/40">
+        {icon}
       </div>
-      <p className="mb-4 text-gray-600 dark:text-gray-400">{description}</p>
-      <Button
-        onClick={buttonAction}
-        variant={isDestructive ? "destructive" : "default"}
-        className="w-full"
-      >
-        {buttonText}
-      </Button>
-    </div>
+      <div className="flex-1">
+        <div className="font-medium text-white group-hover:text-violet-300">
+          {title}
+        </div>
+        <div className="text-xs text-gray-400">{description}</div>
+      </div>
+    </button>
   );
 };
+
+export default Dashboard;

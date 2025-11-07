@@ -1,5 +1,6 @@
 import React, { useState, useEffect, ReactNode } from "react";
 import { debugLog } from "~/utils/debug";
+import { ActiveConstellationV2Loader } from "~/components/loaders";
 
 interface PageWrapperProps {
   children: ReactNode;
@@ -40,10 +41,7 @@ export const PageWrapper: React.FC<PageWrapperProps> = ({
   if (!isReady) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent"></div>
-          <p className="text-gray-400">Loading {pageName}...</p>
-        </div>
+        <ActiveConstellationV2Loader size="full" label={`Loading ${pageName}...`} />
       </div>
     );
   }

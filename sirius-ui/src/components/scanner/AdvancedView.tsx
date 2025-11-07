@@ -7,6 +7,7 @@ import GeneralScannerSettings from "./general/GeneralScannerSettings";
 import NmapScannerSettings from "./nmap/NmapScannerSettings";
 import RustScanScannerSettings from "./rustscan/RustScanScannerSettings";
 import AgentScannerSettings from "./agent/AgentScannerSettings";
+import TemplatesScannerSettings from "./templates/TemplatesScannerSettings";
 
 interface AdvancedViewProps {
   // Props if any
@@ -46,27 +47,23 @@ const AdvancedView: React.FC<AdvancedViewProps> = () => {
   const [agentTimeout, setAgentTimeout] = useState(300);
   const [agentConcurrency, setAgentConcurrency] = useState(3);
   const [enableTemplates, setEnableTemplates] = useState(true);
-  const [templatePriority, setTemplatePriority] = useState("high");
-  const [enableScripts, setEnableScripts] = useState(true);
-  const [scriptTimeout, setScriptTimeout] = useState(60);
-  const [scriptSandbox, setScriptSandbox] = useState(true);
 
   return (
-    <div className="rounded-lg bg-gray-800/20 p-6">
+    <div>
       <h2 className="mb-6 text-xl font-bold text-white">Advanced Scanner</h2>
 
-      <div className="flex min-h-[800px] space-x-8">
+      <div className="flex min-h-[600px] flex-col space-y-6 md:min-h-[800px] md:flex-row md:space-x-8 md:space-y-0">
         {/* Scanner Navigation Sidebar - Fixed width */}
-        <div className="w-64 flex-shrink-0">
+        <div className="md:w-64 md:flex-shrink-0">
           <ScannerNavigation
             activeScanner={activeScanner}
             setActiveScanner={setActiveScanner}
           />
         </div>
 
-        {/* Content Area - Fixed width with better spacing */}
-        <div className="flex-1">
-          <div className="h-full overflow-y-auto pr-2">
+        {/* Content Area - Flexible with proper overflow handling */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex-1 overflow-x-auto overflow-y-visible">
             {/* General Settings */}
             {activeScanner === "general" && (
               <GeneralScannerSettings
@@ -140,29 +137,11 @@ const AdvancedView: React.FC<AdvancedViewProps> = () => {
                 // Template settings
                 enableTemplates={enableTemplates}
                 setEnableTemplates={setEnableTemplates}
-                templatePriority={templatePriority}
-                setTemplatePriority={setTemplatePriority}
-                // Script settings
-                enableScripts={enableScripts}
-                setEnableScripts={setEnableScripts}
-                scriptTimeout={scriptTimeout}
-                setScriptTimeout={setScriptTimeout}
-                scriptSandbox={scriptSandbox}
-                setScriptSandbox={setScriptSandbox}
               />
             )}
-          </div>
 
-          <div className="mt-6 flex justify-end border-t border-gray-700 pt-4">
-            <Button
-              size="default"
-              className="mr-3 bg-gray-700 text-white hover:bg-gray-600"
-            >
-              Reset
-            </Button>
-            <Button className="bg-violet-600 text-white hover:bg-violet-500">
-              Save Configuration
-            </Button>
+            {/* Templates Settings */}
+            {activeScanner === "templates" && <TemplatesScannerSettings />}
           </div>
         </div>
       </div>

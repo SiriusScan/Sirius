@@ -22,7 +22,7 @@ services:
       - ./sirius-ui/next.config.mjs:/app/next.config.mjs
       - ./sirius-ui/tailwind.config.ts:/app/tailwind.config.ts
       - ./sirius-ui/package.json:/app/package.json
-      - ./sirius-ui/postcss.config.js:/app/postcss.config.js
+      - ./sirius-ui/postcss.config.cjs:/app/postcss.config.cjs
       # Mount startup scripts for live updates
       - ./sirius-ui/start-dev.sh:/app/start-dev.sh
       - ./sirius-ui/start-prod.sh:/app/start-prod.sh
@@ -32,6 +32,8 @@ services:
       - ../minor-projects/app-system-monitor:/system-monitor
       # Add app administrator from separate repository
       - ../minor-projects/app-administrator:/app-administrator
+      # Note: UI reads NSE scripts from ValKey (populated by scanner)
+      # No sirius-nse volume mount needed - scanner manages repos independently
     environment:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1

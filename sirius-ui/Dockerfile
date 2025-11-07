@@ -7,7 +7,8 @@ FROM node:18-alpine AS base
 RUN apk add --no-cache \
     libc6-compat \
     openssl \
-    ca-certificates
+    ca-certificates \
+    git
 
 # Set working directory
 WORKDIR /app
@@ -21,6 +22,15 @@ COPY package.json package.json.bak
 RUN sed -i 's/bunx prisma generate/npx prisma generate/g' package.json && \
     sed -i 's/bun next/npx next/g' package.json && \
     sed -i 's/bun run/npm run/g' package.json
+
+# Clone sirius-nse repository for NSE scripts (needed by scanner profile management)
+# This ensures scripts are available in both dev and production environments
+ARG SIRIUS_NSE_COMMIT_SHA=main
+RUN mkdir -p /sirius-nse && \
+    git clone https://github.com/SiriusScan/sirius-nse.git /sirius-nse && \
+    cd /sirius-nse && \
+    git checkout ${SIRIUS_NSE_COMMIT_SHA} && \
+    echo "✅ Cloned sirius-nse repository ($(git rev-parse --short HEAD))"
 
 # Development stage
 FROM base AS development

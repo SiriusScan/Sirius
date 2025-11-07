@@ -1,6 +1,10 @@
 // src/types/scanTypes.ts
 
-export type ScanTemplate = "quick" | "full" | "discovery" | "vuln";
+// Profile ID is now a string referencing a stored profile
+export type ScanProfile = string;
+
+// Legacy type alias for backwards compatibility during migration
+export type ScanTemplate = ScanProfile;
 
 export type TargetType =
   | "single_ip"
@@ -16,7 +20,8 @@ export interface Target {
 }
 
 export interface ScanOptions {
-  template: ScanTemplate;
+  profile_id: string; // References a scan profile (formerly template_id)
+  template_id?: string; // Legacy field for backwards compatibility
   port_range?: string;
   aggressive?: boolean;
   exclude_ports?: string[];

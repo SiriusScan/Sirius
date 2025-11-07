@@ -1,0 +1,118 @@
+import React from "react";
+import { LoaderWrapper, type LoaderSize } from "./LoaderWrapper";
+
+interface ActiveConstellationV2LoaderProps {
+  size?: LoaderSize;
+  speed?: number;
+  className?: string;
+}
+
+/**
+ * ActiveConstellationV2Loader - Refined constellation with no lines or pulsing
+ * Clean orbiting stars with bright white wolf logo
+ */
+export const ActiveConstellationV2Loader: React.FC<
+  ActiveConstellationV2LoaderProps
+> = ({ size = "xl", speed = 1, className = "" }) => {
+  // Stars for constellation - various distances and speeds
+  const stars = Array.from({ length: 12 }, (_, i) => {
+    const angle = (i / 12) * 360;
+    const radius = 70 + (i % 3) * 12;
+    const orbitSpeed = 4 + (i % 3) * 2; // Varying speeds
+    const delay = (i / 12) * orbitSpeed;
+
+    return {
+      angle,
+      radius,
+      orbitSpeed,
+      delay,
+      size: 2.5 + (i % 2) * 0.5,
+    };
+  });
+
+  return (
+    <LoaderWrapper
+      size={size}
+      speed={speed}
+      className={className}
+      label="Loading"
+    >
+      <div className="relative">
+        {/* Wolf with NO pulse - stays steady and bright white */}
+        <div className="relative z-10">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 780 780"
+            className="h-full w-full"
+            fill="currentColor"
+          >
+            {/* Bright white wolf - no transparency */}
+            <path
+              className="text-white"
+              d="M20.24,291.92c1.94-.21.61,1.94.49,2.99-1.1,10.43-3.04,20.96-3.55,31.46-4.75,98.19,21.49,185.46,84.07,261.02,94.52,114.12,261.21,171.6,404.49,123.54,81.86-27.45,152.43-87.37,190.47-165.02-47.83,36.01-100.92,68.62-160.81,79.68-17.55,3.24-34.68,4.32-52.47,5.12-3.9-.54-4.87-6.82-6.91-10.11-11.14-17.87-33.43-20.54-48.83-6.23-2.54,2.36-3.81,6.7-7.36,6.52-3.78-.19-15.4-4.85-19.6-6.51-43.86-17.35-79.63-53.73-103.18-93.82l-5.82-11.67c.71,22.08,5.34,44.79,12.97,65.51,18.65,50.62,63.3,94.75,118.01,102.49.23,1.75-2.27.93-3.48.99-10.93.5-25.89-1.93-36.7-4.31-74.39-16.44-134.89-76.52-148.82-151.68-2.56-.4-1.56.22-2.09,1.41-1.98,4.4-4.24,11.3-5.92,16.07-4.4,12.47-6.68,27.35-11.04,38.96-.4,1.06-.41,2.4-1.94,2.55-2-8.4-5.64-16.31-7.52-24.99-9.23-42.58,2.04-72.91,6.39-113.63,4.6-43.09-11.3-80.11-42.86-108.89-18.77-17.11-47.89-28.84-45.99-58.97.2-3.15,2.86-18.6,6.45-18.56l50.52,27.04c1.36-1.47-10.69-33.58-12.53-37.96-10.6-25.23-30.08-44.48-17.32-73.39,1.08-2.44,7.6-13.94,9.37-14.63,1.36-.53,2.86,3.16,4.55,4.44,4.71,3.57,11.29,4.52,16.94,5.55-13.19-10.81-22.86-16.1-12.42-33.91,2.95-5.04,19.89-26.44,25.71-24.95,3.06.79,22.6,25.07,26.68,29.39,19.27,20.4,51.08,52.95,78.03,60.97,22.42,6.67,39.56,6.4,61.66,18.34,30.47,16.46,49.29,46.7,80.31,62.69,28.83,14.86,61.64,21.87,94.02,22.49-14.54,30.52-44.82,52.16-78.99,54-.41,1.52.39,1.66.98,2.51,37.23,53.6,103.31,85.14,165.03,50,96.9-55.15,37.44-188.91-16.04-253.99C516.13,46.03,371.56,1.11,236.23,42.9l20.32-11.17c170.37-72.7,371.92-.77,464.85,156.5,122.34,207.05,22.61,477.85-198.92,563.42-177.15,68.42-377.04-8.27-469.42-171.08C3.78,493.76-6.77,387.92,20.24,291.92ZM344.22,280.91c-5.07-12.32-10.21-28.97-21.08-37.41-11.94-9.28-29.39-10.25-43.91-11.58,22.09,15.79,45.21,30.22,64.99,48.99ZM433.38,464.05c11.98,3.56,23.37,9.66,35.33,13.88,69.16,24.43,138.63,22.05,203.19-13.85,18.84-10.48,43.7-29,57.35-45.65,5.34-6.51,5.57-16.5,6.02-24.98,1.23-23.41-.95-47.4-4.05-70.54l-7.13,18.35c-41.8,94.69-138.85,138.5-238.86,110.14-7.52-2.13-36.54-11.59-41.39-15.61-1.89-1.57-5.16-10.3-8.1-13.9-23.67-29.03-72.23-4.73-58.29,33.29,8.77,23.92,40.65,28.4,55.93,8.86ZM326.24,464.91c20.06,71.63,89.34,113.01,158.8,126.69,21.77,4.29,52.14,11.73,67.6-8.77,3.26-4.32,4.1-8.98,7.24-12.76,42.84-3.18,85.64-17.3,121.87-40.13,7.54-4.75,17.33-11.25,23.95-17.05,14.57-12.77,14.61-32.88,20.54-50.46l-38.7,29.3c-35.64,23.73-89.74,45.73-132.87,47.24-4.15.14-6.78-4.13-10.52-6.47-22.15-13.83-46.71-1.05-51.5,23.48-64.99-8.57-125.38-39.77-166.41-91.06Z"
+            />
+
+            {/* Circuits pulse with orange - steady animation */}
+            <path
+              style={{
+                animation: `circuit-pulse-strong ${
+                  1.5 / speed
+                }s ease-in-out infinite`,
+              }}
+              d="M445.95,623.15c21.7-4.51,22.81,27.61,1.78,25.77-15.15-1.32-14.8-23.06-1.78-25.77Z"
+            />
+            <path
+              style={{
+                animation: `circuit-pulse-strong ${
+                  1.5 / speed
+                }s ease-in-out infinite`,
+                animationDelay: `${0.3 / speed}s`,
+              }}
+              d="M403.94,427.12c23.32-5.28,26.08,31.17,2.77,29.86-16.07-.9-16.68-26.71-2.77-29.86Z"
+            />
+            <path
+              style={{
+                animation: `circuit-pulse-strong ${
+                  1.5 / speed
+                }s ease-in-out infinite`,
+                animationDelay: `${0.6 / speed}s`,
+              }}
+              d="M524.01,546.15c19.91-2.15,22.96,28.06,4.64,30.67-22.6,3.22-23.67-28.62-4.64-30.67Z"
+            />
+          </svg>
+        </div>
+
+        {/* Orbiting stars - NO LINES, NO PULSE - just steady orbiting */}
+        <svg
+          className="absolute inset-0 h-full w-full"
+          viewBox="-100 -100 200 200"
+        >
+          {stars.map((star, i) => (
+            <g
+              key={`star-${i}`}
+              style={{
+                animation: `loader-orbit ${
+                  star.orbitSpeed / speed
+                }s linear infinite`,
+                transformOrigin: "center",
+                animationDirection: i % 2 === 0 ? "normal" : "reverse",
+              }}
+            >
+              <circle
+                cx={Math.cos((star.angle * Math.PI) / 180) * star.radius}
+                cy={Math.sin((star.angle * Math.PI) / 180) * star.radius}
+                r={star.size}
+                fill="rgba(251, 146, 60, 0.9)"
+                style={{
+                  filter: "drop-shadow(0 0 4px rgba(251, 146, 60, 0.8))",
+                }}
+              />
+            </g>
+          ))}
+        </svg>
+      </div>
+    </LoaderWrapper>
+  );
+};
+
+export default ActiveConstellationV2Loader;

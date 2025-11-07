@@ -1,9 +1,14 @@
 // src/hooks/useStartScan.ts
-import { useState } from 'react';
+import { useState } from "react";
 import { api } from "~/utils/api";
 import { type ScanTemplate, type ScanResult } from "~/types/scanTypes";
 
-export type TargetType = 'single_ip' | 'ip_range' | 'cidr' | 'dns_name' | 'dns_wildcard';
+export type TargetType =
+  | "single_ip"
+  | "ip_range"
+  | "cidr"
+  | "dns_name"
+  | "dns_wildcard";
 
 interface Target {
   value: string;
@@ -14,7 +19,7 @@ interface ScanRequest {
   id: string;
   targets: Target[];
   options: {
-    template: ScanTemplate;
+    template_id: string;
   };
   priority: number;
 }
@@ -32,7 +37,7 @@ export const useStartScan = () => {
 
   const initiateScan = async (
     targets: Target[],
-    template: ScanTemplate,
+    templateId: string,
     priority: number = 3
   ) => {
     try {
@@ -43,7 +48,7 @@ export const useStartScan = () => {
         id: generateScanId(),
         targets,
         options: {
-          template,
+          template_id: templateId,
         },
         priority,
       };
@@ -54,7 +59,7 @@ export const useStartScan = () => {
       const scan: ScanResult = {
         id: scanRequest.id,
         status: "running",
-        targets: targets.map(t => t.value),
+        targets: targets.map((t) => t.value),
         hosts: [],
         hosts_completed: 0,
         vulnerabilities: [],
@@ -63,14 +68,15 @@ export const useStartScan = () => {
 
       await updateScan.mutateAsync({
         key: "currentScan",
-        value: btoa(JSON.stringify(scan))
+        value: btoa(JSON.stringify(scan)),
       });
 
       await utils.store.getValue.invalidate();
 
       return scan;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to start scan';
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to start scan";
       setError(errorMessage);
       throw err;
     } finally {

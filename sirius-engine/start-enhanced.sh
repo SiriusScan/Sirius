@@ -73,8 +73,13 @@ if [ -d "/system-monitor" ]; then
     fi
     SYSTEM_MONITOR_PID=$!
     sleep 2
-    check_service "System Monitor" $SYSTEM_MONITOR_PID
-    echo "System monitor started with PID: $SYSTEM_MONITOR_PID"
+    # Check if system monitor started, but don't fail if it didn't
+    if ! kill -0 $SYSTEM_MONITOR_PID 2>/dev/null; then
+        echo "Warning: System Monitor failed to start, but continuing with other services"
+        SYSTEM_MONITOR_PID=""
+    else
+        echo "System monitor started with PID: $SYSTEM_MONITOR_PID"
+    fi
 else
     echo "Warning: System monitor directory not found"
 fi
@@ -95,8 +100,13 @@ if [ -d "/app-administrator" ]; then
     fi
     ADMINISTRATOR_PID=$!
     sleep 1
-    check_service "App Administrator" $ADMINISTRATOR_PID
-    echo "App administrator started with PID: $ADMINISTRATOR_PID"
+    # Check if app administrator started, but don't fail if it didn't
+    if ! kill -0 $ADMINISTRATOR_PID 2>/dev/null; then
+        echo "Warning: App Administrator failed to start, but continuing with other services"
+        ADMINISTRATOR_PID=""
+    else
+        echo "App administrator started with PID: $ADMINISTRATOR_PID"
+    fi
 else
     echo "Warning: App administrator directory not found"
 fi

@@ -35,6 +35,12 @@ RUN git clone https://github.com/SiriusScan/go-api.git && \
 RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     cd app-scanner && \
     git checkout ${APP_SCANNER_COMMIT_SHA} && \
+    # Fix Port struct compilation errors: Port struct uses Number, not ID
+    # Replace ID: with Number: in Port struct literals (handles all patterns)
+    sed -i 's/ID:\s*p\.Port/Number: p.Port/g' modules/naabu/naabu.go && \
+    sed -i 's/ID:\s*port\.PortId/Number: port.PortId/g' modules/nmap/nmap.go && \
+    sed -i '/sirius\.Port{/,/}/s/ID:\s*port/Number: port/g' modules/rustscan/rustscan.go && \
+    sed -i 's/port\.ID/port.Number/g' internal/scan/manager.go && \
     go mod download && \
     CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o scanner main.go
 

@@ -17,7 +17,6 @@ func (e *EventRouteSetter) SetupRoutes(app *fiber.App) {
 	api.Get("/", handlers.GetEvents)                                  // List events with filters
 	api.Get("/:id", handlers.GetEvent)                                 // Get single event by event_id
 	api.Get("/stats", handlers.GetEventStats)                          // Get event statistics
-	api.Post("/mark-read", handlers.MarkEventsRead)                    // Mark events as read (future)
 	api.Get("/by-entity", handlers.GetEventsByEntity)                  // Get events by entity
 	api.Get("/by-severity/:severity", handlers.GetRecentEventsBySeverity) // Get events by severity
 }

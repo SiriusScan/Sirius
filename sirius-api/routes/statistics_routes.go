@@ -16,6 +16,5 @@ func (StatisticsRoutes) SetupRoutes(app *fiber.App) {
 	// Host statistics endpoints
 	hosts := api.Group("/hosts")
 	hosts.Get("/most-vulnerable", handlers.GetMostVulnerableHosts)
-	hosts.Post("/most-vulnerable/invalidate", handlers.InvalidateVulnerableHostsCache)
 }
 

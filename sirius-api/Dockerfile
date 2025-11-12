@@ -47,8 +47,8 @@ RUN apk add --no-cache \
 # Copy source code first
 COPY . .
 
-# Use production go.mod (without replace directive)
-RUN cp go.mod.prod go.mod
+# Use production go.mod and go.sum (without replace directive)
+RUN cp go.mod.prod go.mod && cp go.sum.prod go.sum
 
 # Download dependencies using the published go-api module
 RUN go mod download

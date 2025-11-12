@@ -1,137 +1,75 @@
 package handlers
 
 import (
-	"context"
-	"fmt"
+	"log"
 	"strconv"
 
-	"github.com/SiriusScan/go-api/sirius/snapshot"
-	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/gofiber/fiber/v2"
 )
 
 // GetVulnerabilityTrends handles GET /api/v1/statistics/vulnerability-trends
 func GetVulnerabilityTrends(c *fiber.Ctx) error {
-	// Parse query parameters - now uses limit (number of snapshots) instead of days
-	limitParam := c.Query("limit", "7")
-	limit, err := strconv.Atoi(limitParam)
-	if err != nil || limit < 1 {
-		limit = 7
+	// Parse query parameters
+	limitStr := c.Query("limit", "10")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 10
 	}
-	if limit > 10 {
-		limit = 10 // Cap at maximum retention
-	}
-
-	// Initialize Valkey store and snapshot manager
-	kvStore, err := store.NewValkeyStore()
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to connect to data store",
-		})
-	}
-	defer kvStore.Close()
-
-	manager := snapshot.NewSnapshotManager(kvStore)
-	ctx := context.Background()
-
-	// Get trend data (returns up to limit most recent snapshots)
-	snapshots, err := manager.GetTrendData(ctx, limit)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("Failed to retrieve trend data: %v", err),
-		})
+	if limit > 100 {
+		limit = 100
 	}
 
-	return c.JSON(fiber.Map{
-		"snapshots":        snapshots,
-		"limit_requested":  limit,
-		"snapshots_returned": len(snapshots),
+	// TODO: Implement vulnerability trends when go-api/sirius/snapshot package is available
+	log.Printf("GetVulnerabilityTrends called with limit=%d", limit)
+	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
+		"error": "Vulnerability trends not yet implemented",
+		"message": "This endpoint will be available in a future update",
 	})
 }
 
 // GetSnapshot handles GET /api/v1/statistics/vulnerability-snapshot/:snapshotId
 func GetSnapshot(c *fiber.Ctx) error {
 	snapshotID := c.Params("snapshotId")
-
 	if snapshotID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Snapshot ID is required",
 		})
 	}
 
-	kvStore, err := store.NewValkeyStore()
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to connect to data store",
-		})
-	}
-	defer kvStore.Close()
-
-	manager := snapshot.NewSnapshotManager(kvStore)
-	ctx := context.Background()
-
-	snapshot, err := manager.GetSnapshot(ctx, snapshotID)
-	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": fmt.Sprintf("Snapshot not found for ID %s", snapshotID),
-		})
-	}
-
-	return c.JSON(snapshot)
+	// TODO: Implement snapshot retrieval when go-api/sirius/snapshot package is available
+	log.Printf("GetSnapshot called with snapshotId=%s", snapshotID)
+	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
+		"error": "Snapshot retrieval not yet implemented",
+		"snapshot_id": snapshotID,
+	})
 }
 
-// CreateSnapshot handles POST /api/v1/statistics/vulnerability-snapshot (manual trigger)
+// CreateSnapshot handles POST /api/v1/statistics/vulnerability-snapshot
 func CreateSnapshot(c *fiber.Ctx) error {
-	// Optional: Add authentication/authorization check here
-
-	kvStore, err := store.NewValkeyStore()
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to connect to data store",
-		})
-	}
-	defer kvStore.Close()
-
-	manager := snapshot.NewSnapshotManager(kvStore)
-	ctx := context.Background()
-
-	// Pass empty string to auto-generate timestamp-based snapshot ID
-	snapshot, err := manager.CreateSnapshot(ctx, "")
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": fmt.Sprintf("Failed to create snapshot: %v", err),
-		})
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"message":  "Snapshot created successfully",
-		"snapshot": snapshot,
+	// TODO: Implement snapshot creation when go-api/sirius/snapshot package is available
+	log.Printf("CreateSnapshot called")
+	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
+		"error": "Snapshot creation not yet implemented",
+		"message": "This endpoint will be available in a future update",
 	})
 }
 
 // ListSnapshots handles GET /api/v1/statistics/vulnerability-snapshots
 func ListSnapshots(c *fiber.Ctx) error {
-	kvStore, err := store.NewValkeyStore()
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to connect to data store",
-		})
+	// Parse query parameters
+	limitStr := c.Query("limit", "50")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 50
 	}
-	defer kvStore.Close()
-
-	manager := snapshot.NewSnapshotManager(kvStore)
-	ctx := context.Background()
-
-	snapshotIDs, err := manager.ListSnapshots(ctx)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to list snapshots",
-		})
+	if limit > 500 {
+		limit = 500
 	}
 
-	return c.JSON(fiber.Map{
-		"available_snapshot_ids": snapshotIDs,
-		"count":                  len(snapshotIDs),
+	// TODO: Implement snapshot listing when go-api/sirius/snapshot package is available
+	log.Printf("ListSnapshots called with limit=%d", limit)
+	return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
+		"error": "Snapshot listing not yet implemented",
+		"message": "This endpoint will be available in a future update",
 	})
 }
-

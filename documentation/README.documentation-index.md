@@ -30,6 +30,7 @@ This document provides a complete index of all documentation files in the Sirius
 - [QUICK-REFERENCE.md](dev/QUICK-REFERENCE.md) - Quick reference guide for common operations
 - [QUICKREF.template-types.md](dev/QUICKREF.template-types.md) - Quick reference for documentation template types
 - [README.sirius-event-log.md](dev/development/README.sirius-event-log.md) - Sirius event logging system and event management
+- [README.ui-style-guide.md](dev/development/README.ui-style-guide.md) - UI style guide and design system documentation
 
 ### Contributing
 

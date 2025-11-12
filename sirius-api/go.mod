@@ -10,6 +10,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+replace github.com/SiriusScan/go-api => /go-api
+
 require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

@@ -147,6 +147,9 @@ func main() {
 	scriptRouteSetter := &routes.ScriptRouteSetter{}
 	agentTemplateRouteSetter := &routes.AgentTemplateRouteSetter{}
 	agentTemplateRepositoryRouteSetter := &routes.AgentTemplateRepositoryRouteSetter{}
+	eventRouteSetter := &routes.EventRouteSetter{}
+	snapshotRouteSetter := &routes.SnapshotRouteSetter{}
+	statisticsRouteSetter := &routes.StatisticsRoutes{}
 	routes.SetupRoutes(
 		app,
 		&routes.HostRouteSetter{},
@@ -156,6 +159,9 @@ func main() {
 		scriptRouteSetter,
 		agentTemplateRepositoryRouteSetter, // Must be before agentTemplateRouteSetter to avoid :id matching
 		agentTemplateRouteSetter,
+		eventRouteSetter,        // Event routes for scan events
+		snapshotRouteSetter,     // Snapshot and vulnerability trend routes
+		statisticsRouteSetter,   // Statistics routes
 	)
 
 	log.Println("🚀 Sirius API starting on port 9001...")

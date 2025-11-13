@@ -5,6 +5,9 @@ export default {
   darkMode: "class", // This enables dark mode support, switchable by using the 'dark' class
   theme: {
     extend: {
+      fontFamily: {
+        orbitron: ["Orbitron", "sans-serif"],
+      },
       colors: {
         // Light Mode
         primary: "#7C3AED",

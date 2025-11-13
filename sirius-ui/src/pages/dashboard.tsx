@@ -2,21 +2,7 @@ import { type NextPage } from "next";
 import { useRouter } from "next/router";
 import { useState, useCallback } from "react";
 import Layout from "~/components/Layout";
-import { Button } from "~/components/lib/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/lib/ui/select";
-import {
-  RefreshCw,
-  ChevronDown,
-  ChevronUp,
-  Target,
-  AlertTriangle,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, Target, AlertTriangle } from "lucide-react";
 
 // Icons
 import DashboardIcon from "~/components/icons/DashboardIcon";
@@ -55,7 +41,6 @@ import { useDashboardData } from "~/hooks/useDashboardData";
 
 const Dashboard: NextPage = () => {
   const router = useRouter();
-  const [refreshInterval, setRefreshInterval] = useState<string>("30");
   const [showSystemHealth, setShowSystemHealth] = useState(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("showSystemHealth");
@@ -63,22 +48,14 @@ const Dashboard: NextPage = () => {
     }
     return false;
   });
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Fetch dashboard data
-  const { data, isLoading, error, lastUpdated, refresh } = useDashboardData({
+  // Fetch dashboard data (no auto-refresh)
+  const { data, isLoading, error } = useDashboardData({
     enableSystemMetrics: showSystemHealth,
-    vulnerabilityRefetch: parseInt(refreshInterval) * 1000,
-    hostRefetch: parseInt(refreshInterval) * 1000,
-    agentRefetch: Math.min(parseInt(refreshInterval), 30) * 1000, // Agent status more frequent
+    vulnerabilityRefetch: false,
+    hostRefetch: false,
+    agentRefetch: false,
   });
-
-  // Manual refresh handler
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await refresh();
-    setIsRefreshing(false);
-  }, [refresh]);
 
   // Toggle system health visibility
   const toggleSystemHealth = useCallback(() => {
@@ -91,64 +68,61 @@ const Dashboard: NextPage = () => {
 
   return (
     <Layout title="Security Dashboard">
-      <div className="relative z-20 space-y-8">
-        {/* Glassmorphism Header */}
-        <div className="sticky top-0 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 pb-4 pt-6 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="relative z-20 space-y-6">
+        {/* Header with Integrated Stats */}
+        <div className="sticky top-0 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 py-4 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
+          <div className="flex items-center justify-between gap-8">
+            {/* Left: Title */}
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-violet-500/10 ring-2 ring-violet-500/20">
-                <Shield className="h-7 w-7 text-violet-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 ring-1 ring-violet-500/20">
+                <Shield className="h-5 w-5 text-violet-400" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold tracking-tight text-white">
+                <h1 className="text-xl font-bold tracking-tight text-white">
                   Security Command Center
                 </h1>
-                <p className="text-sm text-violet-300/70">
+                <p className="text-xs text-violet-300/60">
                   Real-time security posture and vulnerability analytics
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Last updated */}
-              {lastUpdated && (
-                <span className="text-xs text-gray-400">
-                  Updated {lastUpdated.toLocaleTimeString()}
-                </span>
-              )}
+            {/* Right: Quick Stats */}
+            <div className="flex items-center gap-6">
+              {/* Total Vulnerabilities */}
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-violet-400" />
+                <div>
+                  <div className="text-xs text-violet-300/60">
+                    Vulnerabilities
+                  </div>
+                  <div className="text-lg font-bold text-white">
+                    {data?.vulnerabilities.total || 0}
+                  </div>
+                </div>
+              </div>
 
-              {/* Refresh interval selector */}
-              <Select
-                value={refreshInterval}
-                onValueChange={setRefreshInterval}
-              >
-                <SelectTrigger className="w-32 border-violet-500/20 bg-gray-800/50 backdrop-blur-sm">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Manual</SelectItem>
-                  <SelectItem value="10">10s</SelectItem>
-                  <SelectItem value="30">30s</SelectItem>
-                  <SelectItem value="60">1m</SelectItem>
-                  <SelectItem value="300">5m</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Critical Issues */}
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+                <div>
+                  <div className="text-xs text-violet-300/60">Critical</div>
+                  <div className="text-lg font-bold text-red-400">
+                    {data?.vulnerabilities.critical || 0}
+                  </div>
+                </div>
+              </div>
 
-              {/* Refresh button */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="border-violet-500/20 bg-violet-500/10 hover:bg-violet-500/20"
-              >
-                <RefreshCw
-                  className={`mr-2 h-4 w-4 ${
-                    isRefreshing ? "animate-spin" : ""
-                  }`}
-                />
-                Refresh
-              </Button>
+              {/* Active Hosts */}
+              <div className="flex items-center gap-2">
+                <Server className="h-4 w-4 text-violet-400" />
+                <div>
+                  <div className="text-xs text-violet-300/60">Hosts</div>
+                  <div className="text-lg font-bold text-white">
+                    {data?.hosts.online || 0}/{data?.hosts.total || 0}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

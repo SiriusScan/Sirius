@@ -9,10 +9,8 @@ import {
   setRememberMe,
   getRememberedUsername,
   isRememberMeEnabled,
-  redirectToDashboard,
 } from "~/utils/auth";
 import { ActiveConstellationV2Loader } from "~/components/loaders";
-import SiriusLogo from "~/components/icons/SiriusLogo";
 
 // Types
 interface LoginFormData {
@@ -95,7 +93,7 @@ const LoginForm: React.FC<{
         <div>
           <label
             htmlFor="username"
-            className="mb-2 block text-sm font-semibold text-[#9a8686]/80"
+            className="mb-2 block text-sm font-semibold text-slate-200/90"
           >
             Username
           </label>
@@ -105,11 +103,12 @@ const LoginForm: React.FC<{
             value={formData.username}
             onChange={handleInputChange("username")}
             className={cn(
-              "w-full rounded-lg border-2 bg-transparent px-4 py-3 text-lg text-violet-100",
-              "border-[#f7c1ac]/50 placeholder-[#9a8686]/50",
+              "w-full rounded-lg border-2 bg-transparent px-4 py-3 text-lg text-slate-50",
+              "border-cyan-500/50 placeholder-slate-300/50",
               "transition-all duration-200",
-              "hover:border-[#e88d7c]/70 focus:border-violet-500/60 focus:outline-none",
-              "focus:ring-2 focus:ring-violet-500/20",
+              "hover:border-blue-500/70 focus:border-cyan-500/80 focus:outline-none",
+              "focus:ring-2 focus:ring-cyan-400/30",
+              "focus:shadow-[0_0_15px_rgba(6,182,212,0.3)]",
               displayError && "border-red-500/50"
             )}
             placeholder="Enter your username"
@@ -123,7 +122,7 @@ const LoginForm: React.FC<{
         <div>
           <label
             htmlFor="password"
-            className="mb-2 block text-sm font-semibold text-[#9a8686]/80"
+            className="mb-2 block text-sm font-semibold text-slate-200/90"
           >
             Password
           </label>
@@ -133,11 +132,12 @@ const LoginForm: React.FC<{
             value={formData.password}
             onChange={handleInputChange("password")}
             className={cn(
-              "w-full rounded-lg border-2 bg-transparent px-4 py-3 text-lg text-violet-100",
-              "border-[#f7c1ac]/50 placeholder-[#9a8686]/50",
+              "w-full rounded-lg border-2 bg-transparent px-4 py-3 text-lg text-slate-50",
+              "border-cyan-500/50 placeholder-slate-300/50",
               "transition-all duration-200",
-              "hover:border-[#e88d7c]/70 focus:border-violet-500/60 focus:outline-none",
-              "focus:ring-2 focus:ring-violet-500/20",
+              "hover:border-blue-500/70 focus:border-cyan-500/80 focus:outline-none",
+              "focus:ring-2 focus:ring-cyan-400/30",
+              "focus:shadow-[0_0_15px_rgba(6,182,212,0.3)]",
               displayError && "border-red-500/50"
             )}
             placeholder="Enter your password"
@@ -158,16 +158,16 @@ const LoginForm: React.FC<{
           </div>
         )}
 
-        <label className="flex cursor-pointer items-center space-x-3 text-[#9a8686]/90">
+        <label className="flex cursor-pointer items-center space-x-3 text-slate-200/90">
           <input
             type="checkbox"
             checked={formData.rememberMe}
             onChange={handleInputChange("rememberMe")}
             disabled={isLoading}
             className={cn(
-              "h-4 w-4 rounded border-2 border-[#f7c1ac]/50",
-              "bg-transparent text-violet-500 transition-colors",
-              "focus:ring-2 focus:ring-violet-500/20 focus:ring-offset-0",
+              "h-4 w-4 rounded border-2 border-cyan-500/50",
+              "bg-transparent text-cyan-500 transition-colors",
+              "focus:ring-2 focus:ring-cyan-400/30 focus:ring-offset-0",
               "cursor-pointer disabled:opacity-50"
             )}
           />
@@ -180,12 +180,12 @@ const LoginForm: React.FC<{
         disabled={isLoading || !formData.username || !formData.password}
         className={cn(
           "w-full rounded-lg py-4 text-lg font-bold transition-all duration-200",
-          "bg-gradient-to-r from-[#e9809a] via-[#f7ae99] to-[#f7ae99]",
-          "text-black shadow-lg",
-          "hover:from-[#e9809a] hover:via-[#9e8f9b] hover:to-[#9e8f9b]",
-          "hover:scale-[1.02] hover:text-white hover:shadow-xl",
-          "focus:outline-none focus:ring-2 focus:ring-violet-500/50",
-          "disabled:transform-none disabled:cursor-not-allowed disabled:opacity-50"
+          "bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500",
+          "text-white shadow-lg shadow-cyan-500/20",
+          "hover:from-cyan-400 hover:via-blue-400 hover:to-purple-400",
+          "hover:scale-[1.02] hover:shadow-xl hover:shadow-cyan-500/30",
+          "focus:outline-none focus:ring-2 focus:ring-cyan-400/50",
+          "disabled:transform-none disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
         )}
       >
         {isLoading ? (
@@ -219,15 +219,20 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
   // Handle successful authentication redirect
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
+      // Set loading state before navigation
+      setIsLoading(true);
+
       // Check for return URL in query params
       const returnUrl = router.query.return as string;
       if (returnUrl && returnUrl !== "/") {
-        window.location.href = decodeURIComponent(returnUrl);
+        // Use router.push for smoother client-side navigation
+        void router.push(decodeURIComponent(returnUrl));
       } else {
-        redirectToDashboard();
+        // Use router.push instead of window.location.href for smoother transition
+        void router.push("/dashboard");
       }
     }
-  }, [session, status, router.query.return]);
+  }, [session, status, router.query.return, router]);
 
   // Handle login form submission
   const handleLogin = useCallback(async (formData: LoginFormData) => {
@@ -257,18 +262,13 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
     }
   }, []);
 
-  // Show loading spinner during session check
-  if (status === "loading") {
+  // Show loading spinner during session check or while redirecting
+  if (status === "loading" || (status === "authenticated" && session?.user)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-violet-900 via-purple-900 to-indigo-900">
-        <ActiveConstellationV2Loader size="full" label="Loading..." />
+        <ActiveConstellationV2Loader size="full" />
       </div>
     );
-  }
-
-  // If already authenticated, don't show login form
-  if (session?.user) {
-    return null;
   }
 
   return (
@@ -293,29 +293,32 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
           <div
             className={cn(
               "relative flex h-auto w-full max-w-md flex-col items-center",
-              "rounded-xl border-2 border-[#f7c1ac]/40 bg-black/20 backdrop-blur-md",
-              "px-8 py-8 text-white shadow-2xl",
-              "hover:shadow-3xl transition-all duration-300"
+              "rounded-xl border-2 border-cyan-500/50 bg-black/30 backdrop-blur-md",
+              "px-8 py-8 text-white shadow-2xl shadow-cyan-900/20",
+              "transition-all duration-300"
             )}
           >
-            {/* Logo */}
-            <div className="mb-8">
-              <SiriusLogo
-                height="80px"
-                iconFill="white"
-                textFill="white"
-                className="transition-transform hover:scale-105"
-              />
+            {/* Animated Loader */}
+            <div className="mb-6">
+              <ActiveConstellationV2Loader size="lg" speed={1} />
             </div>
 
-            {/* Welcome Text */}
+            {/* Brand Title - Retro console futuristic style, horizontal */}
             <div className="mb-6 text-center">
-              <h1 className="mb-2 text-2xl font-bold text-white">
-                Welcome Back
-              </h1>
-              <p className="text-sm text-[#9a8686]/80">
-                Sign in to access your security dashboard
-              </p>
+              <div className="flex items-baseline justify-center gap-3">
+                <h1
+                  className="text-5xl font-black tracking-[0.15em] text-white drop-shadow-[0_0_8px_rgba(6,182,212,0.6)]"
+                  style={{ fontFamily: "Orbitron, sans-serif" }}
+                >
+                  SIRIUS
+                </h1>
+                <h2
+                  className="text-3xl font-light tracking-[0.3em] text-cyan-400 drop-shadow-[0_0_6px_rgba(6,182,212,0.5)]"
+                  style={{ fontFamily: "Orbitron, sans-serif" }}
+                >
+                  SCAN
+                </h2>
+              </div>
             </div>
 
             {/* Login Form */}
@@ -326,7 +329,7 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
             />
 
             {/* Footer Text */}
-            <div className="mt-6 text-center text-xs text-[#9a8686]/60">
+            <div className="mt-6 text-center text-xs text-slate-300/60">
               <p>Secure your network with Sirius Scan</p>
             </div>
           </div>

@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { env } from "~/env.mjs";
 
-const API_BASE_URL = process.env.SIRIUS_API_URL || "http://sirius-api:9001";
+const API_BASE_URL = env.SIRIUS_API_URL || "http://localhost:9001";
 
 // Template interfaces
 export interface Template {

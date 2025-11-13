@@ -1,6 +1,6 @@
 import { type NextPage } from "next";
 import { useSession } from "next-auth/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Layout from "~/components/Layout";
 import {
   Card,
@@ -37,6 +37,7 @@ import {
 import { LogDashboard } from "~/components/LogDashboard";
 import { SystemResourcesDashboard } from "~/components/SystemResourcesDashboard";
 import { DockerLogsViewer } from "~/components/DockerLogsViewer";
+import { api } from "~/utils/api";
 
 // Service configuration
 const serviceConfig = [
@@ -172,8 +173,26 @@ const SystemMonitor: NextPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [resourceData, setResourceData] = useState<any>(null);
   const [resourceLoading, setResourceLoading] = useState(false);
-  const [errorLogs, setErrorLogs] = useState<any[]>([]);
-  const [errorLogsLoading, setErrorLogsLoading] = useState(false);
+
+  // Fetch recent events and filter for error/warning/critical
+  const { data: eventsData, isLoading: errorEventsLoading } =
+    api.events.getRecentEvents.useQuery({
+      limit: 50, // Get more to filter from
+    });
+
+  // Filter for error, warning, and critical events
+  const recentErrorEvents = useMemo(() => {
+    if (!eventsData?.events) return [];
+
+    return eventsData.events
+      .filter(
+        (event) =>
+          event.severity === "error" ||
+          event.severity === "warning" ||
+          event.severity === "critical"
+      )
+      .slice(0, 3); // Take top 3
+  }, [eventsData]);
 
   // Load resource data for dashboard
   const loadResourceData = async () => {
@@ -195,29 +214,6 @@ const SystemMonitor: NextPage = () => {
     }
   };
 
-  // Load recent error logs for dashboard
-  const loadErrorLogs = async () => {
-    try {
-      setErrorLogsLoading(true);
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/logs?limit=200`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        // Filter for error and warn level logs and take top 3
-        const errorLogs = (data.logs || [])
-          .filter((log: any) => log.level === "error" || log.level === "warn")
-          .slice(0, 3);
-        setErrorLogs(errorLogs);
-      }
-    } catch (error) {
-      console.error("Error loading error logs:", error);
-    } finally {
-      setErrorLogsLoading(false);
-    }
-  };
 
   // Get uptime for a specific service from resource data
   const getServiceUptime = (serviceId: string): string | undefined => {
@@ -260,9 +256,8 @@ const SystemMonitor: NextPage = () => {
       }
     );
 
-    // Load resource data and error logs on mount
+    // Load resource data on mount
     loadResourceData();
-    loadErrorLogs();
 
     // Cleanup on unmount
     return () => {
@@ -551,23 +546,23 @@ const SystemMonitor: NextPage = () => {
               </div>
             </div>
 
-            {/* Recent Error Logs */}
+            {/* Recent Error Events */}
             <div>
               <h2 className="mb-4 text-xl font-medium text-white">
                 Recent Issues
               </h2>
-              {errorLogsLoading ? (
+              {errorEventsLoading ? (
                 <div className="flex h-32 items-center justify-center">
                   <div className="flex items-center space-x-2">
                     <RefreshCw className="h-6 w-6 animate-spin" />
-                    <span>Loading error logs...</span>
+                    <span>Loading events...</span>
                   </div>
                 </div>
-              ) : errorLogs.length > 0 ? (
+              ) : recentErrorEvents.length > 0 ? (
                 <div className="space-y-3">
-                  {errorLogs.map((log, index) => (
+                  {recentErrorEvents.map((event, index) => (
                     <Card
-                      key={index}
+                      key={event.event_id || index}
                       className="bg-paper border-red-500/20 shadow-md shadow-red-300/10 dark:bg-red-300/5"
                     >
                       <CardContent className="p-4">
@@ -578,20 +573,23 @@ const SystemMonitor: NextPage = () => {
                           <div className="min-w-0 flex-1">
                             <div className="mb-1 flex items-center space-x-2">
                               <span className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-800">
-                                {log.level?.toUpperCase() || "ERROR"}
+                                {event.severity?.toUpperCase() || "ERROR"}
                               </span>
                               <span className="text-sm text-muted-foreground">
-                                {log.service ||
-                                  log.container_name ||
-                                  log.container}
+                                {event.service || "Unknown"}
                               </span>
                               <span className="text-sm text-muted-foreground">
-                                {new Date(log.timestamp).toLocaleString()}
+                                {new Date(event.timestamp).toLocaleString()}
                               </span>
                             </div>
-                            <p className="break-words text-sm text-white">
-                              {log.message}
+                            <p className="break-words text-sm font-medium text-white">
+                              {event.title}
                             </p>
+                            {event.description && (
+                              <p className="mt-1 break-words text-xs text-gray-400">
+                                {event.description}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </CardContent>
@@ -607,11 +605,11 @@ const SystemMonitor: NextPage = () => {
                       </div>
                       <div>
                         <p className="text-lg font-medium text-white">
-                          No Recent Errors
+                          No Recent Issues
                         </p>
                         <p className="text-sm text-gray-400">
-                          System is running smoothly with no error logs in the
-                          last 200 entries
+                          System is running smoothly with no error, warning, or
+                          critical events
                         </p>
                       </div>
                     </div>

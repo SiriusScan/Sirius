@@ -112,6 +112,8 @@ services:
       - VALKEY_PORT=6379
       - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
       - LOG_LEVEL=debug
+      # Scanner configuration for API communication
+      - SIRIUS_API_URL=http://sirius-api:9001
       # Agent configuration for API communication
       - API_BASE_URL=http://sirius-api:9001
       - AGENT_ID=sirius-engine

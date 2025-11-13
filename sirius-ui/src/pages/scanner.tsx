@@ -1,7 +1,6 @@
 // In src/components/scanner/Scanner.tsx
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "~/components/Layout";
-import PageWrapper from "~/components/PageWrapper";
 import { ScanStatus } from "~/components/scanner/ScanStatus";
 import { EnvironmentDataTable } from "~/components/EnvironmentDataTable";
 
@@ -12,11 +11,8 @@ import {
 } from "~/types/scanTypes";
 import { useScanResults } from "~/hooks/useScanResults";
 import { useStartScan } from "~/hooks/useStartScan";
-import ScanForm from "~/components/scanner/ScanForm";
 import { Button } from "~/components/lib/ui/button";
 import { type TargetType } from "~/hooks/useStartScan";
-import { TemplatePicker } from "~/components/scanner/TemplatePicker";
-import { TargetInput } from "~/components/scanner/TargetInput";
 import { type ScanProfile } from "~/types/scanTypes";
 import ProfileManager from "~/components/scanner/profile/ProfileManager";
 import ProfileSelector from "~/components/scanner/ProfileSelector";
@@ -24,11 +20,17 @@ import AdvancedView from "~/components/scanner/AdvancedView";
 import { VulnerabilityTable } from "~/components/VulnerabilityTable";
 import { scannerVulnerabilityColumns } from "~/components/ScannerVulnerabilityColumns";
 import ChipTargetInput from "~/components/scanner/target-patterns/ChipTargetInput";
-import { Play, Server, AlertTriangle, CheckCircle } from "lucide-react";
-// Source attribution components (available but simplified for scanner interface)
-// import { columnsWithSources } from "~/components/VulnerabilityTableSourceColumns";
-// import { SourceFilterInterface } from "~/components/SourceFilterInterface";
-// import { useSourceFiltering } from "~/hooks/useSourceFiltering";
+import ScanIcon from "~/components/icons/ScanIcon";
+import {
+  Play,
+  Server,
+  AlertTriangle,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  ExternalLink,
+} from "lucide-react";
 import { cn } from "~/components/lib/utils";
 
 interface ScanNavigatorProps {
@@ -41,43 +43,41 @@ const ScanNavigator: React.FC<ScanNavigatorProps> = ({
   view,
 }) => {
   return (
-    <div className="sticky top-0 z-20 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
-      <nav className="-mb-px flex space-x-8 overflow-x-auto">
-        <button
-          onClick={() => handleViewNavigator("scan")}
-          className={cn(
-            "whitespace-nowrap border-b-2 px-2 py-4 text-sm font-medium transition-colors md:px-4",
-            view === "scan"
-              ? "border-violet-500 text-violet-300"
-              : "border-transparent text-gray-400 hover:border-violet-500/40 hover:text-gray-200"
-          )}
-        >
-          Scan Monitor
-        </button>
-        <button
-          onClick={() => handleViewNavigator("profiles")}
-          className={cn(
-            "whitespace-nowrap border-b-2 px-2 py-4 text-sm font-medium transition-colors md:px-4",
-            view === "profiles"
-              ? "border-violet-500 text-violet-300"
-              : "border-transparent text-gray-400 hover:border-violet-500/40 hover:text-gray-200"
-          )}
-        >
-          Profiles
-        </button>
-        <button
-          onClick={() => handleViewNavigator("advanced")}
-          className={cn(
-            "whitespace-nowrap border-b-2 px-2 py-4 text-sm font-medium transition-colors md:px-4",
-            view === "advanced"
-              ? "border-violet-500 text-violet-300"
-              : "border-transparent text-gray-400 hover:border-violet-500/40 hover:text-gray-200"
-          )}
-        >
-          Advanced
-        </button>
-      </nav>
-    </div>
+    <nav className="flex gap-2 overflow-x-auto py-2">
+      <button
+        onClick={() => handleViewNavigator("scan")}
+        className={cn(
+          "whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
+          view === "scan"
+            ? "bg-violet-500/20 text-violet-300 shadow-sm ring-1 ring-violet-500/30"
+            : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+        )}
+      >
+        Scan Monitor
+      </button>
+      <button
+        onClick={() => handleViewNavigator("profiles")}
+        className={cn(
+          "whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
+          view === "profiles"
+            ? "bg-violet-500/20 text-violet-300 shadow-sm ring-1 ring-violet-500/30"
+            : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+        )}
+      >
+        Profiles
+      </button>
+      <button
+        onClick={() => handleViewNavigator("advanced")}
+        className={cn(
+          "whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
+          view === "advanced"
+            ? "bg-violet-500/20 text-violet-300 shadow-sm ring-1 ring-violet-500/30"
+            : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+        )}
+      >
+        Advanced
+      </button>
+    </nav>
   );
 };
 
@@ -103,6 +103,15 @@ const ScannerContent: React.FC = () => {
   const [selectedVulnerabilities, setSelectedVulnerabilities] = useState<
     string[]
   >([]);
+
+  // Collapsible controls state
+  const [controlsCollapsed, setControlsCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("scanner.controlsCollapsed");
+      return stored ? stored === "true" : false;
+    }
+    return false;
+  });
   // Simplified source info for scanner (disabled for now)
   // const [showSourceInfo, setShowSourceInfo] = useState(false);
   // const [sourceFilters, setSourceFilters] = useState<SourceFilterState>({
@@ -458,11 +467,34 @@ const ScannerContent: React.FC = () => {
         type: determineTargetType(target.value),
       }));
 
+      // Auto-collapse controls when scan starts
+      setControlsCollapsed(true);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("scanner.controlsCollapsed", "true");
+      }
+
       await initiateScan(scanTargets, selectedProfile);
     } catch (err) {
       console.error("Scan failed:", err);
     }
   };
+
+  // Persist collapsed state
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        "scanner.controlsCollapsed",
+        String(controlsCollapsed)
+      );
+    }
+  }, [controlsCollapsed]);
+
+  // Auto-collapse when scan is running
+  useEffect(() => {
+    if (isLoading && !controlsCollapsed) {
+      setControlsCollapsed(true);
+    }
+  }, [isLoading, controlsCollapsed]);
 
   const determineTargetType = (value: string): TargetType => {
     // CIDR pattern (e.g., 192.168.1.0/24)
@@ -512,39 +544,152 @@ const ScannerContent: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 md:px-6">
-      <ScanNavigator view={activeView} handleViewNavigator={handleViewChange} />
+    <div className="relative z-20 -mt-20 space-y-6">
+      {/* Compact Page Header */}
+      <div className="sticky top-2 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10 ring-2 ring-violet-500/20">
+            <ScanIcon
+              width="24px"
+              height="24px"
+              fill="currentColor"
+              className="text-violet-400"
+            />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-white">
+            Scan Dashboard
+          </h1>
+        </div>
+      </div>
 
-      <div className="mt-6 space-y-6">
+      {/* Navigation Tabs with Show Controls Button */}
+      <div className="-mx-4 flex items-center justify-between px-4 md:-mx-6 md:px-6">
+        <ScanNavigator
+          view={activeView}
+          handleViewNavigator={handleViewChange}
+        />
+        {/* Show Controls Button - Aligned with tabs */}
+        {activeView === "scan" &&
+          scanResults.scanResult &&
+          controlsCollapsed && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setControlsCollapsed(false)}
+              className="border-violet-500/20 bg-violet-500/5 text-violet-300 duration-200 animate-in fade-in-50 hover:bg-violet-500/10"
+            >
+              <ChevronDown className="mr-2 h-4 w-4" />
+              Show Controls
+            </Button>
+          )}
+      </div>
+
+      <div className="space-y-6">
         {activeView === "scan" && (
           <>
-            {/* Target Input - Only shown in Scan Monitor */}
-            <div className="scanner-section scanner-section-padding scanner-section-hover">
-              <ChipTargetInput onTargetsChange={handleTargetsChange} />
-            </div>
+            {(!controlsCollapsed || !scanResults.scanResult) && (
+              <div
+                className={cn(
+                  "scanner-section-primary scanner-section-padding space-y-4 overflow-hidden transition-all duration-300 ease-in-out",
+                  controlsCollapsed && scanResults.scanResult
+                    ? "-mt-6 mb-0 max-h-0 py-0 opacity-0"
+                    : "max-h-[800px] opacity-100 animate-in fade-in-50 slide-in-from-top-2"
+                )}
+              >
+                {/* Collapsible Header - Only show when scan results exist */}
+                {scanResults.scanResult && (
+                  <button
+                    onClick={() => {
+                      setControlsCollapsed(true);
+                      if (typeof window !== "undefined") {
+                        localStorage.setItem(
+                          "scanner.controlsCollapsed",
+                          "true"
+                        );
+                      }
+                    }}
+                    className="flex w-full items-center justify-between text-left"
+                  >
+                    <h2 className="text-lg font-semibold text-violet-300">
+                      Scan Controls
+                    </h2>
+                    <ChevronUp className="h-4 w-4 text-violet-400" />
+                  </button>
+                )}
+                {!scanResults.scanResult && (
+                  <h2 className="text-lg font-semibold text-violet-300">
+                    Scan Controls
+                  </h2>
+                )}
 
-            {/* Scan Profile + Start Scan - Compact horizontal layout */}
-            <div className="scanner-section-primary scanner-section-padding">
-              <div className="flex flex-col gap-4 md:flex-row md:items-end">
-                <div className="flex-1 md:max-w-md">
-                  <label className="mb-2 block text-sm font-medium text-violet-200">
-                    Scan Profile
-                  </label>
-                  <ProfileSelector
-                    value={selectedProfile}
-                    onChange={setSelectedProfile}
-                  />
+                {/* Consolidated Controls - Two Column Layout */}
+                <div className="grid gap-6 md:grid-cols-2">
+                  {/* Left: Scan Targets */}
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-violet-200">
+                      Scan Targets
+                    </label>
+                    <ChipTargetInput onTargetsChange={handleTargetsChange} />
+                  </div>
+
+                  {/* Right: Profile + Start Button */}
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-violet-200">
+                        Scan Profile
+                      </label>
+                      <ProfileSelector
+                        value={selectedProfile}
+                        onChange={setSelectedProfile}
+                      />
+                    </div>
+                    <Button
+                      onClick={handleScan}
+                      disabled={parsedTargets.length === 0 || isLoading}
+                      className="h-12 bg-gradient-to-r from-violet-600 to-purple-600 px-8 text-base font-semibold text-white shadow-lg hover:from-violet-500 hover:to-purple-500 disabled:opacity-50"
+                    >
+                      <Play className="mr-2 h-5 w-5 fill-current" />
+                      {isLoading ? "Scanning..." : "Start Scan"}
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  onClick={handleScan}
-                  disabled={parsedTargets.length === 0 || isLoading}
-                  className="h-12 bg-gradient-to-r from-violet-600 to-purple-600 px-8 text-base font-semibold text-white shadow-lg hover:from-violet-500 hover:to-purple-500 disabled:opacity-50"
-                >
-                  <Play className="mr-2 h-5 w-5 fill-current" />
-                  {isLoading ? "Scanning..." : "Start Scan"}
-                </Button>
+
+                {/* Agent Download Banner */}
+                <div className="mt-6 rounded-lg border border-violet-500/20 bg-violet-500/5 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 ring-1 ring-violet-500/20">
+                        <Download className="h-5 w-5 text-violet-400" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-violet-200">
+                          Need the Sirius Agent?
+                        </h3>
+                        <p className="text-xs text-gray-400">
+                          Download from GitHub to enable remote scanning
+                          capabilities
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        window.open(
+                          "https://github.com/SiriusScan/app-agent/releases",
+                          "_blank",
+                          "noopener,noreferrer"
+                        )
+                      }
+                      className="border-violet-500/30 bg-violet-500/5 text-violet-300 hover:bg-violet-500/10 hover:text-violet-200"
+                    >
+                      <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                      Get Agent
+                    </Button>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Results Section */}
             {scanResults.scanResult ? (
@@ -553,50 +698,70 @@ const ScannerContent: React.FC = () => {
 
                 <div className="scanner-divider"></div>
 
-                {/* Enhanced Tab Navigation */}
-                <div className="mb-4 flex gap-2 border-b border-violet-500/20">
+                {/* Enhanced Tab Navigation with Collapse Toggle */}
+                <div className="mb-4 flex items-center justify-between border-b border-violet-500/20">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setActiveTable("host-table");
+                        setDisplayScanDetails(true);
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
+                        activeTable === "host-table"
+                          ? "border-violet-500 text-violet-300"
+                          : "border-transparent text-gray-400 hover:text-gray-200"
+                      )}
+                    >
+                      <Server className="h-4 w-4" />
+                      Hosts
+                      {hostList.length > 0 && (
+                        <span className="ml-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-xs">
+                          {hostList.length}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setActiveTable("vuln-table");
+                        setDisplayScanDetails(true);
+                      }}
+                      className={cn(
+                        "flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
+                        activeTable === "vuln-table"
+                          ? "border-violet-500 text-violet-300"
+                          : "border-transparent text-gray-400 hover:text-gray-200"
+                      )}
+                    >
+                      <AlertTriangle className="h-4 w-4" />
+                      Vulnerabilities
+                      {vulnerabilityList.length > 0 && (
+                        <span className="ml-1 rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-300">
+                          {vulnerabilityList.length}
+                        </span>
+                      )}
+                    </button>
+                  </div>
                   <button
-                    onClick={() => {
-                      setActiveTable("host-table");
-                      setDisplayScanDetails(true);
-                    }}
-                    className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                      activeTable === "host-table"
-                        ? "border-violet-500 text-violet-300"
-                        : "border-transparent text-gray-400 hover:text-gray-200"
-                    }`}
+                    onClick={() => setDisplayScanDetails(!displayScanDetails)}
+                    className="flex items-center gap-2 text-sm text-violet-300 hover:text-violet-200"
                   >
-                    <Server className="h-4 w-4" />
-                    Hosts
-                    {hostList.length > 0 && (
-                      <span className="ml-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-xs">
-                        {hostList.length}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setActiveTable("vuln-table");
-                      setDisplayScanDetails(true);
-                    }}
-                    className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                      activeTable === "vuln-table"
-                        ? "border-violet-500 text-violet-300"
-                        : "border-transparent text-gray-400 hover:text-gray-200"
-                    }`}
-                  >
-                    <AlertTriangle className="h-4 w-4" />
-                    Vulnerabilities
-                    {vulnerabilityList.length > 0 && (
-                      <span className="ml-1 rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-300">
-                        {vulnerabilityList.length}
-                      </span>
+                    {displayScanDetails ? (
+                      <>
+                        <ChevronUp className="h-4 w-4" />
+                        Hide Details
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="h-4 w-4" />
+                        Show Details
+                      </>
                     )}
                   </button>
                 </div>
 
                 {displayScanDetails && (
-                  <>
+                  <div className="duration-300 animate-in fade-in-50">
                     {activeTable === "host-table" && (
                       <div className="scanner-table-wrapper mt-4">
                         <EnvironmentDataTable
@@ -619,7 +784,7 @@ const ScannerContent: React.FC = () => {
                         />
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             ) : (
@@ -671,10 +836,8 @@ const ScannerContent: React.FC = () => {
 
 const Scanner: React.FC = () => {
   return (
-    <Layout>
-      <PageWrapper pageName="Scanner">
-        <ScannerContent />
-      </PageWrapper>
+    <Layout title="Scanner">
+      <ScannerContent />
     </Layout>
   );
 };

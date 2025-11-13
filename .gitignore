@@ -5,7 +5,7 @@
 *.so
 *.dylib
 system-monitor
-sirius-api
+sirius-api/sirius-api
 administrator
 air
 test-build

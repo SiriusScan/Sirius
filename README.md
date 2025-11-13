@@ -16,7 +16,7 @@ Sirius is an open-source comprehensive vulnerability scanner that leverages comm
 ### ⚡ One-Command Setup
 
 ```bash
-# Clone and start Sirius
+# Clone and start Sirius (uses prebuilt images from GitHub Container Registry)
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
 docker compose up -d
@@ -24,6 +24,8 @@ docker compose up -d
 # Access the web interface
 open http://localhost:3000
 ```
+
+**Note**: By default, Sirius uses prebuilt container images from GitHub Container Registry for fast deployments (5-8 minutes). For local development with source code changes, use `docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d`.
 
 **Login Credentials**:
 

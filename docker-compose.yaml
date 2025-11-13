@@ -90,13 +90,8 @@ services:
           cpus: "0.1"
 
   sirius-ui:
-    build:
-      context: ./sirius-ui/
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_CLIENTVAR: "clientvar"
-        SKIP_ENV_VALIDATION: "1"
-      target: production
+    image: ghcr.io/siriusscan/sirius-ui:${IMAGE_TAG:-latest}
+    pull_policy: always
     container_name: sirius-ui
     hostname: sirius-ui
     restart: unless-stopped
@@ -130,9 +125,8 @@ services:
           cpus: "0.25"
 
   sirius-api:
-    build:
-      context: ./sirius-api/
-      target: runner
+    image: ghcr.io/siriusscan/sirius-api:${IMAGE_TAG:-latest}
+    pull_policy: always
     container_name: sirius-api
     hostname: sirius-api
     restart: unless-stopped
@@ -171,9 +165,8 @@ services:
       retries: 3
 
   sirius-engine:
-    build:
-      context: ./sirius-engine/
-      target: runtime
+    image: ghcr.io/siriusscan/sirius-engine:${IMAGE_TAG:-latest}
+    pull_policy: always
     container_name: sirius-engine
     hostname: sirius-engine
     restart: unless-stopped

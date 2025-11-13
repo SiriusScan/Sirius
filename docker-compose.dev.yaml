@@ -4,16 +4,14 @@
 
 services:
   sirius-ui:
-    image: sirius-sirius-ui:dev
     build:
-      context: ./sirius-ui
+      context: ./sirius-ui/
       dockerfile: Dockerfile
       target: development # Use development stage
-      tags:
-        - sirius-sirius-ui:dev
-        - sirius-sirius-ui:latest
       args:
         NEXT_PUBLIC_CLIENTVAR: "clientvar"
+    # Override registry image with local dev build
+    image: sirius-sirius-ui:dev
     volumes:
       # Mount source code for live reloading
       - ./sirius-ui/src:/app/src
@@ -57,6 +55,8 @@ services:
     build:
       context: ./sirius-api/
       target: development # Use development stage
+    # Override image for dev builds
+    image: sirius-sirius-api:dev
     volumes:
       - ./sirius-api:/api
       # Enable for local go-api development with source-aware functionality:
@@ -85,6 +85,8 @@ services:
     build:
       context: ./sirius-engine/
       target: development # Use development stage
+    # Override image for dev builds
+    image: sirius-sirius-engine:dev
     volumes:
       - ./sirius-engine:/engine
       # Development volume mounts (require ../minor-projects/ structure):

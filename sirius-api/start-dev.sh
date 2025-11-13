@@ -26,7 +26,23 @@ fi
 
 # Start the main API
 echo "🎯 Starting Sirius API..."
-cd /api
+cd /api || { echo "❌ Failed to change to /api directory"; exit 1; }
+if [ ! -f "go.mod" ]; then
+    echo "❌ go.mod not found in /api, waiting for volume mount..."
+    sleep 2
+    if [ ! -f "go.mod" ]; then
+        echo "❌ go.mod still not found after wait, aborting"
+        exit 1
+    fi
+fi
+if [ ! -f "main.go" ]; then
+    echo "❌ main.go not found in /api, waiting for volume mount..."
+    sleep 2
+    if [ ! -f "main.go" ]; then
+        echo "❌ main.go still not found after wait, aborting"
+        exit 1
+    fi
+fi
 go mod tidy
 exec go run main.go
 

@@ -244,3 +244,6 @@ export function getCVSSValueLabel(metric: string, value: string): string {
 
 
 
+
+
+

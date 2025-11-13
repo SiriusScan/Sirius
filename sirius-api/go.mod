@@ -3,7 +3,7 @@ module github.com/SiriusScan/sirius-api
 go 1.24.0
 
 require (
-	github.com/SiriusScan/go-api v0.0.10
+	github.com/SiriusScan/go-api v0.0.12
 	github.com/fatih/color v1.18.0
 	github.com/gofiber/fiber/v2 v2.49.2
 	github.com/google/uuid v1.6.0

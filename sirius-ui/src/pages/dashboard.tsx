@@ -14,6 +14,7 @@ import { DashboardCard } from "~/components/dashboard/DashboardCard";
 import { DashboardHeroCard } from "~/components/dashboard/DashboardHeroCard";
 import { CriticalAlertBanner } from "~/components/dashboard/CriticalAlertBanner";
 import { DashboardSection } from "~/components/dashboard/DashboardGrid";
+import { CreateSnapshotButton } from "~/components/dashboard/CreateSnapshotButton";
 import {
   VulnerabilityTrendChart,
   VulnerabilityTrendChartSkeleton,
@@ -22,10 +23,6 @@ import {
   TopVulnerableHostsWidget,
   TopVulnerableHostsWidgetSkeleton,
 } from "~/components/dashboard/TopVulnerableHostsWidget";
-import {
-  SecurityScoreGauge,
-  SecurityScoreGaugeSkeleton,
-} from "~/components/dashboard/SecurityScoreGauge";
 import {
   SystemHealthMiniWidget,
   SystemHealthMiniWidgetSkeleton,
@@ -68,60 +65,53 @@ const Dashboard: NextPage = () => {
 
   return (
     <Layout title="Security Dashboard">
-      <div className="relative z-20 space-y-6">
-        {/* Header with Integrated Stats */}
-        <div className="sticky top-0 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 py-4 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
-          <div className="flex items-center justify-between gap-8">
-            {/* Left: Title */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 ring-1 ring-violet-500/20">
-                <Shield className="h-5 w-5 text-violet-400" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight text-white">
-                  Security Command Center
-                </h1>
-                <p className="text-xs text-violet-300/60">
-                  Real-time security posture and vulnerability analytics
-                </p>
+      <div className="relative z-20 -mt-20 space-y-8">
+        {/* Compact Single-Line Header */}
+        <div className="sticky top-2 z-30 -mx-4 flex border-b border-violet-500/20 bg-gray-900/95 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
+          <div className="flex items-center gap-3">
+            {/* Left-aligned Title */}
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10 ring-2 ring-violet-500/20">
+              <Shield className="h-6 w-6 text-violet-400" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">
+              Security Command Center
+            </h1>
+          </div>
+
+          {/* Quick Stats Pills - Positioned Below */}
+          <div className="ml-4 mt-1 flex items-center gap-3">
+            {/* Total Vulnerabilities */}
+            <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5">
+              <Target className="h-4 w-4 text-violet-400" />
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-sm font-semibold text-white">
+                  {data?.vulnerabilities.total || 0}
+                </span>
+                <span className="text-xs text-violet-300/60">
+                  vulnerabilities
+                </span>
               </div>
             </div>
 
-            {/* Right: Quick Stats */}
-            <div className="flex items-center gap-6">
-              {/* Total Vulnerabilities */}
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-violet-400" />
-                <div>
-                  <div className="text-xs text-violet-300/60">
-                    Vulnerabilities
-                  </div>
-                  <div className="text-lg font-bold text-white">
-                    {data?.vulnerabilities.total || 0}
-                  </div>
-                </div>
+            {/* Critical Issues */}
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5">
+              <AlertTriangle className="h-4 w-4 text-red-400" />
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-sm font-semibold text-red-400">
+                  {data?.vulnerabilities.critical || 0}
+                </span>
+                <span className="text-xs text-violet-300/60">critical</span>
               </div>
+            </div>
 
-              {/* Critical Issues */}
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-400" />
-                <div>
-                  <div className="text-xs text-violet-300/60">Critical</div>
-                  <div className="text-lg font-bold text-red-400">
-                    {data?.vulnerabilities.critical || 0}
-                  </div>
-                </div>
-              </div>
-
-              {/* Active Hosts */}
-              <div className="flex items-center gap-2">
-                <Server className="h-4 w-4 text-violet-400" />
-                <div>
-                  <div className="text-xs text-violet-300/60">Hosts</div>
-                  <div className="text-lg font-bold text-white">
-                    {data?.hosts.online || 0}/{data?.hosts.total || 0}
-                  </div>
-                </div>
+            {/* Active Hosts */}
+            <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5">
+              <Server className="h-4 w-4 text-violet-400" />
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-sm font-semibold text-white">
+                  {data?.hosts.online || 0}/{data?.hosts.total || 0}
+                </span>
+                <span className="text-xs text-violet-300/60">hosts</span>
               </div>
             </div>
           </div>
@@ -193,39 +183,41 @@ const Dashboard: NextPage = () => {
           />
         </div>
 
-        {/* Severity Breakdown - Prominent Section */}
-        <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-6 backdrop-blur-sm">
-          <div className="mb-4 flex items-center gap-2">
-            <Activity className="h-5 w-5 text-violet-400" />
-            <h2 className="text-lg font-semibold text-violet-300">
-              Vulnerability Breakdown by Severity
-            </h2>
-          </div>
-          {data ? (
-            <VulnerabilitySeverityCardsHorizontal
-              counts={data.vulnerabilities}
-            />
-          ) : (
-            <div className="flex justify-center gap-4">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-24 w-32 animate-pulse rounded-lg bg-gray-800"
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Main Visualizations - Two Column Layout */}
         <div className="grid gap-6 lg:grid-cols-3">
-          {/* Left: Vulnerability Trend Chart - Takes 2 columns */}
-          <div className="lg:col-span-2">
+          {/* Left Column: Stacked Components */}
+          <div className="space-y-6 lg:col-span-2">
+            {/* Severity Breakdown */}
+            <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-6 backdrop-blur-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Activity className="h-5 w-5 text-violet-400" />
+                <h2 className="text-lg font-semibold text-violet-300">
+                  Vulnerability Breakdown by Severity
+                </h2>
+              </div>
+              {data ? (
+                <VulnerabilitySeverityCardsHorizontal
+                  counts={data.vulnerabilities}
+                />
+              ) : (
+                <div className="flex justify-center gap-4">
+                  {[...Array(5)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-24 w-32 animate-pulse rounded-lg bg-gray-800"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Vulnerability Trend Chart */}
             <DashboardCard
               title="Vulnerability Trends"
               icon={<Activity className="h-4 w-4 text-violet-400" />}
               loading={isLoading}
               className="border-violet-500/20 bg-gray-900/50 backdrop-blur-sm"
+              actions={<CreateSnapshotButton />}
             >
               {data ? (
                 <VulnerabilityTrendChart
@@ -238,9 +230,8 @@ const Dashboard: NextPage = () => {
             </DashboardCard>
           </div>
 
-          {/* Right Column: Stacked Widgets */}
-          <div className="space-y-6">
-            {/* Top Vulnerable Hosts */}
+          {/* Right Column: Most Vulnerable Hosts */}
+          <div>
             <DashboardCard
               title="Most Vulnerable Hosts"
               icon={<Server className="h-4 w-4 text-violet-400" />}
@@ -251,26 +242,6 @@ const Dashboard: NextPage = () => {
                 <TopVulnerableHostsWidget height={180} limit={5} />
               ) : (
                 <TopVulnerableHostsWidgetSkeleton height={180} />
-              )}
-            </DashboardCard>
-
-            {/* Security Score Gauge */}
-            <DashboardCard
-              title="Security Posture Score"
-              icon={<Shield className="h-4 w-4 text-violet-400" />}
-              loading={isLoading}
-              className="border-violet-500/20 bg-gray-900/50 backdrop-blur-sm"
-            >
-              {data ? (
-                <SecurityScoreGauge
-                  vulnerabilityCounts={data.vulnerabilities}
-                  totalHosts={data.hosts.total}
-                  vulnerableHosts={data.hosts.withVulnerabilities}
-                  totalAgents={data.agents.total}
-                  onlineAgents={data.agents.online}
-                />
-              ) : (
-                <SecurityScoreGaugeSkeleton />
               )}
             </DashboardCard>
           </div>

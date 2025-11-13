@@ -1,6 +1,7 @@
 import React, { useMemo } from "react";
 import { Skeleton } from "~/components/lib/ui/skeleton";
 import { AlertTriangle, Server, Shield, Activity } from "lucide-react";
+import { api } from "~/utils/api";
 
 interface ActivityEvent {
   id: string;
@@ -19,79 +20,39 @@ interface RecentActivityTimelineProps {
   limit?: number;
 }
 
-// Static mock timeline events
-const STATIC_MOCK_EVENTS: ActivityEvent[] = (() => {
-  const now = new Date();
-  const hoursAgo = (hours: number) =>
-    new Date(now.getTime() - hours * 60 * 60 * 1000);
+// Map backend event_type to frontend type
+const mapEventTypeToType = (eventType: string): "vulnerability" | "scan" | "agent" | "host" => {
+  if (eventType.includes("vulnerability") || eventType.includes("vulnerabilities")) {
+    return "vulnerability";
+  }
+  if (eventType.includes("scan")) {
+    return "scan";
+  }
+  if (eventType.includes("host")) {
+    return "host";
+  }
+  if (eventType.includes("agent")) {
+    return "agent";
+  }
+  // Default to scan for unknown types
+  return "scan";
+};
 
-  return [
-    {
-      id: "event-1",
-      type: "vulnerability",
-      title: "Critical Vulnerabilities Detected",
-      description: "Discovered 12 new critical vulnerabilities during scan",
-      timestamp: hoursAgo(2),
-      severity: "critical",
-    },
-    {
-      id: "event-2",
-      type: "scan",
-      title: "Network Scan Completed",
-      description: "Successfully scanned 10 hosts in production network",
-      timestamp: hoursAgo(3),
-      severity: "info",
-    },
-    {
-      id: "event-3",
-      type: "host",
-      title: "New Hosts Discovered",
-      description: "Added 3 new hosts to inventory",
-      timestamp: hoursAgo(5),
-      severity: "info",
-    },
-    {
-      id: "event-4",
-      type: "agent",
-      title: "Agent Connected",
-      description: "Security agent web-server-01 is now online",
-      timestamp: hoursAgo(8),
-      severity: "info",
-    },
-    {
-      id: "event-5",
-      type: "scan",
-      title: "Port Scan Initiated",
-      description: "Started comprehensive port scan on 192.168.1.0/24",
-      timestamp: hoursAgo(10),
-      severity: "info",
-    },
-    {
-      id: "event-6",
-      type: "vulnerability",
-      title: "Vulnerability Database Updated",
-      description: "NVD database synchronized with 152 new CVEs",
-      timestamp: hoursAgo(14),
-      severity: "info",
-    },
-    {
-      id: "event-7",
-      type: "host",
-      title: "Host Configuration Changed",
-      description: "db-primary firewall rules updated",
-      timestamp: hoursAgo(18),
-      severity: "info",
-    },
-    {
-      id: "event-8",
-      type: "agent",
-      title: "System Health Check",
-      description: "All 3 agents passed health verification",
-      timestamp: hoursAgo(24),
-      severity: "info",
-    },
-  ];
-})();
+// Map backend severity to frontend severity
+const mapSeverity = (severity: string): "critical" | "high" | "medium" | "low" | "info" => {
+  switch (severity.toLowerCase()) {
+    case "critical":
+      return "critical";
+    case "error":
+      return "high";
+    case "warning":
+      return "medium";
+    case "info":
+      return "info";
+    default:
+      return "info";
+  }
+};
 
 const getEventIcon = (type: string) => {
   switch (type) {
@@ -145,9 +106,63 @@ const RecentActivityTimelineComponent: React.FC<
   className = "",
   limit = 10,
 }) => {
-  // Use static mock events, sliced to limit
-  const events = useMemo(() => STATIC_MOCK_EVENTS.slice(0, limit), [limit]);
+  // Fetch recent events from API
+  const { data: eventsData, isLoading, error } = api.events.getRecentEvents.useQuery({
+    limit,
+  });
 
+  // Map backend events to ActivityEvent format
+  const events = useMemo(() => {
+    if (!eventsData?.events) return [];
+
+    return eventsData.events.map((event) => ({
+      id: event.event_id,
+      type: mapEventTypeToType(event.event_type),
+      title: event.title,
+      description: event.description || "",
+      timestamp: new Date(event.timestamp),
+      severity: mapSeverity(event.severity),
+    })) as ActivityEvent[];
+  }, [eventsData]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className={`space-y-1 ${className}`}>
+        <div className="mb-3 flex items-center justify-between">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-24" />
+        </div>
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex gap-3">
+              <Skeleton className="h-4 w-4 flex-shrink-0 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+              <Skeleton className="h-3 w-16" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div
+        className={`flex flex-col items-center justify-center py-8 ${className}`}
+      >
+        <AlertTriangle className="mb-2 h-12 w-12 text-red-500 opacity-50" />
+        <p className="text-sm text-red-400">Error loading events</p>
+        <p className="text-xs text-muted-foreground">{error.message}</p>
+      </div>
+    );
+  }
+
+  // Empty state
   if (events.length === 0) {
     return (
       <div
@@ -168,7 +183,7 @@ const RecentActivityTimelineComponent: React.FC<
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-medium">Recent Activity</h3>
         <span className="text-xs text-muted-foreground">
-          Simulated timeline
+          {events.length} {events.length === 1 ? "event" : "events"}
         </span>
       </div>
 
@@ -213,10 +228,6 @@ const RecentActivityTimelineComponent: React.FC<
         })}
       </div>
 
-      {/* Footer note */}
-      <div className="mt-4 text-center text-xs text-muted-foreground">
-        Timeline shows simulated recent events
-      </div>
     </div>
   );
 };

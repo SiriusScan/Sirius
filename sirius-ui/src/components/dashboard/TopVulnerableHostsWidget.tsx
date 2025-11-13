@@ -1,19 +1,14 @@
-import React, { useMemo } from "react";
-import dynamic from "next/dynamic";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { api } from "~/utils/api";
 import { Skeleton } from "~/components/lib/ui/skeleton";
-import { Server } from "lucide-react";
-
-const ResponsiveBar = dynamic(
-  () => import("@nivo/bar").then((m) => m.ResponsiveBar),
-  { ssr: false }
-);
+import { Server, ChevronRight, RefreshCw } from "lucide-react";
 
 interface TopVulnerableHostsWidgetProps {
   className?: string;
   height?: number;
   limit?: number;
+  onRefresh?: () => void;
 }
 
 interface HostVulnerabilityData {
@@ -25,152 +20,382 @@ interface HostVulnerabilityData {
   medium: number;
   low: number;
   informational: number;
+  weightedScore?: number;
+}
+
+interface HostCardProps {
+  rank: number;
+  host: HostVulnerabilityData;
+  onClick: () => void;
+  animationDelay: number;
+}
+
+// Severity color mapping
+const SEVERITY_COLORS = {
+  critical: {
+    bg: "bg-red-600",
+    text: "text-red-600",
+    badge: "bg-red-600/20 text-red-400 border-red-600/30",
+  },
+  high: {
+    bg: "bg-orange-500",
+    text: "text-orange-500",
+    badge: "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  },
+  medium: {
+    bg: "bg-yellow-500",
+    text: "text-yellow-500",
+    badge: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+  },
+  low: {
+    bg: "bg-green-500",
+    text: "text-green-500",
+    badge: "bg-green-500/20 text-green-400 border-green-500/30",
+  },
+  informational: {
+    bg: "bg-blue-500",
+    text: "text-blue-500",
+    badge: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  },
+};
+
+// Rank badge styling - top 3 get special treatment
+const getRankBadgeClass = (rank: number): string => {
+  if (rank === 1) {
+    return "bg-gradient-to-br from-red-600 to-red-700 text-white ring-2 ring-red-500/50";
+  }
+  if (rank === 2) {
+    return "bg-gradient-to-br from-orange-500 to-orange-600 text-white ring-2 ring-orange-500/50";
+  }
+  if (rank === 3) {
+    return "bg-gradient-to-br from-yellow-500 to-yellow-600 text-white ring-2 ring-yellow-500/50";
+  }
+  return "bg-violet-500/20 text-violet-300 ring-1 ring-violet-500/30";
+};
+
+// Compact severity legend component
+const SeverityLegend: React.FC = () => {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-3 text-xs">
+      <span className="text-muted-foreground">Severity:</span>
+      <div className="flex items-center gap-1.5">
+        <div className="h-2.5 w-2.5 rounded-full bg-red-600" />
+        <span className="text-muted-foreground">Critical</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+        <span className="text-muted-foreground">High</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
+        <span className="text-muted-foreground">Medium</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
+        <span className="text-muted-foreground">Low</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+        <span className="text-muted-foreground">Info</span>
+      </div>
+    </div>
+  );
+};
+
+// Individual host card component
+const HostCard: React.FC<HostCardProps> = ({
+  rank,
+  host,
+  onClick,
+  animationDelay,
+}) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Calculate percentages for stacked bar
+  const total = host.total;
+  const criticalPercent = (host.critical / total) * 100;
+  const highPercent = (host.high / total) * 100;
+  const mediumPercent = (host.medium / total) * 100;
+  const lowPercent = (host.low / total) * 100;
+  const infoPercent = (host.informational / total) * 100;
+
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="group w-full cursor-pointer rounded-lg border border-violet-500/20 bg-gray-900/50 p-3 text-left backdrop-blur-sm transition-all duration-200 hover:scale-[1.02] hover:border-violet-500/40 hover:bg-gray-900/70 hover:shadow-lg hover:shadow-violet-500/5"
+      style={{
+        animation: `fade-in-up 0.3s ease-out ${animationDelay}s both`,
+      }}
+      aria-label={`View details for ${
+        host.hostname || host.hostId
+      } - Rank ${rank} - ${host.total} vulnerabilities`}
+    >
+      <div className="flex items-start gap-3">
+        {/* Rank Badge */}
+        <div
+          className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold transition-transform duration-200 group-hover:scale-110 ${getRankBadgeClass(
+            rank
+          )}`}
+        >
+          {rank}
+        </div>
+
+        {/* Host Information */}
+        <div className="flex-1 space-y-2">
+          {/* Host Name and Total */}
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="font-semibold text-white">
+                {host.hostname || host.hostId}
+              </div>
+              {host.hostname && (
+                <div className="text-xs text-muted-foreground">
+                  {host.hostId}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <div className="text-sm font-medium text-violet-300">
+                  {host.total} total
+                </div>
+                {host.weightedScore !== undefined && (
+                  <div className="text-xs text-muted-foreground">
+                    Risk: {host.weightedScore.toFixed(2)}
+                  </div>
+                )}
+              </div>
+              <ChevronRight
+                className={`h-4 w-4 text-violet-400 transition-transform duration-200 ${
+                  isHovered ? "translate-x-1" : ""
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* Stacked Bar */}
+          <div className="h-3 w-full overflow-hidden rounded-full bg-gray-800">
+            <div className="flex h-full">
+              {host.critical > 0 && (
+                <div
+                  className={`${SEVERITY_COLORS.critical.bg} transition-all duration-500`}
+                  style={{ width: `${criticalPercent}%` }}
+                  title={`${host.critical} Critical`}
+                />
+              )}
+              {host.high > 0 && (
+                <div
+                  className={`${SEVERITY_COLORS.high.bg} transition-all duration-500`}
+                  style={{ width: `${highPercent}%` }}
+                  title={`${host.high} High`}
+                />
+              )}
+              {host.medium > 0 && (
+                <div
+                  className={`${SEVERITY_COLORS.medium.bg} transition-all duration-500`}
+                  style={{ width: `${mediumPercent}%` }}
+                  title={`${host.medium} Medium`}
+                />
+              )}
+              {host.low > 0 && (
+                <div
+                  className={`${SEVERITY_COLORS.low.bg} transition-all duration-500`}
+                  style={{ width: `${lowPercent}%` }}
+                  title={`${host.low} Low`}
+                />
+              )}
+              {host.informational > 0 && (
+                <div
+                  className={`${SEVERITY_COLORS.informational.bg} transition-all duration-500`}
+                  style={{ width: `${infoPercent}%` }}
+                  title={`${host.informational} Informational`}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Severity Count Badges */}
+          <div className="flex flex-wrap gap-1.5">
+            {host.critical > 0 && (
+              <span
+                className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SEVERITY_COLORS.critical.badge}`}
+              >
+                {host.critical} Crit
+              </span>
+            )}
+            {host.high > 0 && (
+              <span
+                className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SEVERITY_COLORS.high.badge}`}
+              >
+                {host.high} High
+              </span>
+            )}
+            {host.medium > 0 && (
+              <span
+                className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SEVERITY_COLORS.medium.badge}`}
+              >
+                {host.medium} Med
+              </span>
+            )}
+            {host.low > 0 && (
+              <span
+                className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SEVERITY_COLORS.low.badge}`}
+              >
+                {host.low} Low
+              </span>
+            )}
+            {host.informational > 0 && (
+              <span
+                className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SEVERITY_COLORS.informational.badge}`}
+              >
+                {host.informational} Info
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+};
+
+// Helper function for relative time display
+function formatRelativeTime(timestamp?: string): string {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 const TopVulnerableHostsWidgetComponent: React.FC<
   TopVulnerableHostsWidgetProps
-> = ({ className = "", height = 280, limit = 5 }) => {
+> = ({ className = "", height, limit = 5, onRefresh }) => {
   const router = useRouter();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const utils = api.useContext();
 
-  // Fetch host data
-  const { data: hosts, isLoading } = api.host.getAllHosts.useQuery();
-  const { data: vulnData } = api.vulnerability.getAllVulnerabilities.useQuery();
+  // Fetch real data from API
+  const {
+    data: vulnerableHostsData,
+    isLoading,
+    error,
+    refetch,
+  } = api.statistics.getMostVulnerableHosts.useQuery(
+    { limit, refresh: false },
+    {
+      refetchOnWindowFocus: false,
+      staleTime: 300000, // 5 minutes
+    }
+  );
 
-  // Static mock data for top vulnerable hosts
-  const STATIC_MOCK_HOSTS: HostVulnerabilityData[] = [
-    {
-      hostId: "192.168.1.10",
-      hostname: "web-server-01",
-      total: 47,
-      critical: 5,
-      high: 12,
-      medium: 18,
-      low: 10,
-      informational: 2,
-    },
-    {
-      hostId: "192.168.1.25",
-      hostname: "db-primary",
-      total: 38,
-      critical: 3,
-      high: 9,
-      medium: 15,
-      low: 9,
-      informational: 2,
-    },
-    {
-      hostId: "192.168.1.50",
-      hostname: "app-server-02",
-      total: 32,
-      critical: 2,
-      high: 8,
-      medium: 12,
-      low: 8,
-      informational: 2,
-    },
-    {
-      hostId: "192.168.1.100",
-      hostname: "mail-server",
-      total: 28,
-      critical: 1,
-      high: 6,
-      medium: 11,
-      low: 8,
-      informational: 2,
-    },
-    {
-      hostId: "192.168.1.150",
-      hostname: "file-server",
-      total: 22,
-      critical: 1,
-      high: 4,
-      medium: 9,
-      low: 6,
-      informational: 2,
-    },
-  ];
-
-  // Use static mock data or limit based on prop
-  const topHosts = useMemo<HostVulnerabilityData[]>(() => {
-    return STATIC_MOCK_HOSTS.slice(0, limit);
-  }, [limit]);
-
-  // Prepare chart data
-  const chartData = useMemo(() => {
-    return topHosts.map((host) => ({
-      host: host.hostname || host.hostId,
-      hostId: host.hostId,
-      Critical: host.critical,
-      High: host.high,
-      Medium: host.medium,
-      Low: host.low,
-      Info: host.informational,
-    }));
-  }, [topHosts]);
-
-  const theme = {
-    text: {
-      fontSize: 11,
-      fill: "currentColor",
-    },
-    axis: {
-      domain: {
-        line: {
-          stroke: "currentColor",
-          strokeWidth: 1,
-          strokeOpacity: 0.2,
-        },
-      },
-      ticks: {
-        line: {
-          stroke: "currentColor",
-          strokeWidth: 1,
-          strokeOpacity: 0.2,
-        },
-        text: {
-          fontSize: 10,
-          fill: "currentColor",
-          opacity: 0.7,
-        },
-      },
-    },
-    grid: {
-      line: {
-        stroke: "currentColor",
-        strokeWidth: 1,
-        strokeOpacity: 0.1,
-      },
-    },
-    legends: {
-      text: {
-        fontSize: 10,
-        fill: "currentColor",
-      },
-    },
-    tooltip: {
-      container: {
-        background: "hsl(var(--background))",
-        color: "hsl(var(--foreground))",
-        fontSize: 12,
-        borderRadius: "6px",
-        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-        border: "1px solid hsl(var(--border))",
-      },
-    },
+  // Manual refresh handler
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Invalidate tRPC query cache with exact query parameters
+      await utils.statistics.getMostVulnerableHosts.invalidate({
+        limit,
+        refresh: false,
+      });
+      // Refetch the data
+      await refetch();
+      onRefresh?.();
+    } catch (err) {
+      console.error("Failed to refresh vulnerable hosts:", err);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
+  // Transform API data to component format
+  const topHosts = useMemo<HostVulnerabilityData[]>(() => {
+    if (!vulnerableHostsData?.hosts) {
+      console.log("TopVulnerableHostsWidget: No hosts data", {
+        vulnerableHostsData,
+      });
+      return [];
+    }
+
+    console.log("TopVulnerableHostsWidget: Processing hosts", {
+      hostCount: vulnerableHostsData.hosts.length,
+      hosts: vulnerableHostsData.hosts,
+    });
+
+    return vulnerableHostsData.hosts.map((host) => ({
+      hostId: host.hostIp,
+      hostname: host.hostname,
+      total: host.totalVulnerabilities,
+      critical: host.severityCounts?.critical || 0,
+      high: host.severityCounts?.high || 0,
+      medium: host.severityCounts?.medium || 0,
+      low: host.severityCounts?.low || 0,
+      informational: host.severityCounts?.informational || 0,
+      weightedScore: host.weightedRiskScore,
+    }));
+  }, [vulnerableHostsData]);
+
+  const handleHostClick = (hostId: string) => {
+    router.push(`/host/${hostId}`);
+  };
+
+  // Show loading state
   if (isLoading) {
-    return <TopVulnerableHostsWidgetSkeleton height={height} />;
+    return <TopVulnerableHostsWidgetSkeleton />;
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className={`flex flex-col ${className}`}>
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <div className="text-sm text-red-500">
+              Failed to load vulnerable hosts data
+            </div>
+            {error.message && (
+              <div className="text-xs text-red-400/70">{error.message}</div>
+            )}
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`}
+            />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state if no data (but not if error)
+  if (!vulnerableHostsData) {
+    return (
+      <div className={`flex flex-col ${className}`}>
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            Loading vulnerable hosts...
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (topHosts.length === 0) {
     return (
-      <div
-        className={`flex flex-col items-center justify-center ${className}`}
-        style={{ height: `${height}px` }}
-      >
-        <Server className="mb-2 h-12 w-12 text-muted-foreground opacity-50" />
-        <p className="text-sm text-muted-foreground">
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-violet-500/10 ring-1 ring-violet-500/20">
+          <Server className="h-8 w-8 text-violet-400" />
+        </div>
+        <p className="text-sm font-medium text-white">
           No vulnerable hosts found
         </p>
         <p className="text-xs text-muted-foreground">
@@ -182,86 +407,44 @@ const TopVulnerableHostsWidgetComponent: React.FC<
 
   return (
     <div className={`flex flex-col ${className}`}>
-      <div className="mb-2 text-xs text-muted-foreground">
-        Top {topHosts.length} most vulnerable{" "}
-        {topHosts.length === 1 ? "host" : "hosts"}
-      </div>
-      <div style={{ height: `${height}px` }}>
-        <ResponsiveBar
-          data={chartData}
-          theme={theme}
-          keys={["Critical", "High", "Medium", "Low", "Info"]}
-          indexBy="host"
-          layout="horizontal"
-          margin={{ top: 10, right: 100, bottom: 30, left: 120 }}
-          padding={0.3}
-          valueScale={{ type: "linear" }}
-          indexScale={{ type: "band", round: true }}
-          colors={["#dc2626", "#ea580c", "#ca8a04", "#16a34a", "#2563eb"]}
-          borderRadius={4}
-          axisTop={null}
-          axisRight={null}
-          axisBottom={{
-            tickSize: 5,
-            tickPadding: 5,
-            tickRotation: 0,
-            legend: "Vulnerabilities",
-            legendPosition: "middle",
-            legendOffset: 25,
-          }}
-          axisLeft={{
-            tickSize: 5,
-            tickPadding: 5,
-            tickRotation: 0,
-          }}
-          enableLabel={false}
-          enableGridY={false}
-          labelSkipWidth={12}
-          labelSkipHeight={12}
-          legends={[
-            {
-              dataFrom: "keys",
-              anchor: "bottom-right",
-              direction: "column",
-              justify: false,
-              translateX: 90,
-              translateY: 0,
-              itemsSpacing: 2,
-              itemWidth: 80,
-              itemHeight: 16,
-              itemDirection: "left-to-right",
-              itemOpacity: 0.85,
-              symbolSize: 10,
-              effects: [
-                {
-                  on: "hover",
-                  style: {
-                    itemOpacity: 1,
-                  },
-                },
-              ],
-            },
-          ]}
-          onClick={(node) => {
-            const hostId = chartData.find(
-              (d) => d.host === node.indexValue
-            )?.hostId;
-            if (hostId) {
-              router.push(`/host/${hostId}`);
-            }
-          }}
-          tooltip={({ id, value, indexValue, data }) => (
-            <div className="rounded-md border bg-background p-2 shadow-lg">
-              <div className="font-medium">{indexValue}</div>
-              <div className="text-sm">
-                <span className="font-medium">{id}:</span> {value}
-              </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                Click to view host details
-              </div>
-            </div>
+      {/* Header with Cache Info and Refresh Button */}
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-xs text-muted-foreground">
+          Top {vulnerableHostsData.total} most vulnerable{" "}
+          {vulnerableHostsData.total === 1 ? "host" : "hosts"}
+          {vulnerableHostsData.cached && vulnerableHostsData.cachedAt && (
+            <span className="ml-2 text-xs text-muted-foreground">
+              (Cached {formatRelativeTime(vulnerableHostsData.cachedAt)})
+            </span>
           )}
-        />
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-1 text-xs text-primary transition-colors hover:underline disabled:opacity-50"
+          title="Refresh vulnerability data"
+        >
+          <RefreshCw
+            className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`}
+          />
+          {isRefreshing ? "Refreshing..." : "Refresh"}
+        </button>
+      </div>
+
+      {/* Severity Legend */}
+      <SeverityLegend />
+
+      {/* Host Cards */}
+      <div className="space-y-2">
+        {topHosts.map((host, index) => (
+          <HostCard
+            key={host.hostId}
+            rank={index + 1}
+            host={host}
+            onClick={() => handleHostClick(host.hostId)}
+            animationDelay={index * 0.05}
+          />
+        ))}
       </div>
     </div>
   );
@@ -275,11 +458,46 @@ export const TopVulnerableHostsWidget = React.memo(
 // Loading skeleton
 export const TopVulnerableHostsWidgetSkeleton: React.FC<{
   height?: number;
-}> = ({ height = 280 }) => {
+}> = ({ height }) => {
   return (
-    <div className="flex flex-col space-y-2">
-      <Skeleton className="h-4 w-32" />
-      <Skeleton className="w-full" style={{ height: `${height}px` }} />
+    <div className="flex flex-col space-y-3">
+      {/* Header skeleton */}
+      <div className="mb-2 flex items-center justify-between">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-4 w-16" />
+      </div>
+
+      {/* Legend skeleton */}
+      <div className="flex gap-3">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-4 w-12" />
+      </div>
+
+      {/* Host card skeletons */}
+      {[...Array(5)].map((_, i) => (
+        <div
+          key={i}
+          className="flex gap-3 rounded-lg border border-violet-500/20 bg-gray-900/50 p-3"
+        >
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <div className="flex justify-between">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-16" />
+            </div>
+            <Skeleton className="h-3 w-full rounded-full" />
+            <div className="flex gap-1.5">
+              <Skeleton className="h-5 w-14" />
+              <Skeleton className="h-5 w-14" />
+              <Skeleton className="h-5 w-14" />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };

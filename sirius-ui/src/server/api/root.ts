@@ -11,6 +11,8 @@ import { templatesRouter } from "~/server/api/routers/templates";
 import { scriptsRouter } from "~/server/api/routers/scripts";
 import { agentTemplatesRouter } from "~/server/api/routers/agent-templates";
 import { repositoriesRouter } from "~/server/api/routers/repositories";
+import { statisticsRouter } from "~/server/api/routers/statistics";
+import { eventsRouter } from "~/server/api/routers/events";
 import { createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -32,6 +34,8 @@ export const appRouter = createTRPCRouter({
   scripts: scriptsRouter,
   agentTemplates: agentTemplatesRouter,
   repositories: repositoriesRouter,
+  statistics: statisticsRouter,
+  events: eventsRouter,
 });
 
 // export type definition of API

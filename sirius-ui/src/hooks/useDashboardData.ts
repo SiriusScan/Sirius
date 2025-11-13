@@ -57,9 +57,9 @@ export interface DashboardDataState {
 export const useDashboardData = (
   options: {
     enableSystemMetrics?: boolean;
-    vulnerabilityRefetch?: number;
-    hostRefetch?: number;
-    agentRefetch?: number;
+    vulnerabilityRefetch?: number | false;
+    hostRefetch?: number | false;
+    agentRefetch?: number | false;
     systemMetricsRefetch?: number;
   } = {}
 ): DashboardDataState => {
@@ -80,9 +80,11 @@ export const useDashboardData = (
     error: vulnError,
     refetch: refetchVulns,
   } = api.vulnerability.getAllVulnerabilities.useQuery(undefined, {
-    refetchInterval: vulnerabilityRefetch,
+    refetchInterval:
+      vulnerabilityRefetch === false ? undefined : vulnerabilityRefetch,
     refetchOnWindowFocus: false,
-    staleTime: vulnerabilityRefetch,
+    staleTime:
+      vulnerabilityRefetch === false ? undefined : vulnerabilityRefetch,
     keepPreviousData: true, // Prevent flash on refetch
   });
 
@@ -93,9 +95,9 @@ export const useDashboardData = (
     error: hostError,
     refetch: refetchHosts,
   } = api.host.getAllHosts.useQuery(undefined, {
-    refetchInterval: hostRefetch,
+    refetchInterval: hostRefetch === false ? undefined : hostRefetch,
     refetchOnWindowFocus: false,
-    staleTime: hostRefetch,
+    staleTime: hostRefetch === false ? undefined : hostRefetch,
     keepPreviousData: true, // Prevent flash on refetch
   });
 
@@ -106,9 +108,9 @@ export const useDashboardData = (
     error: agentError,
     refetch: refetchAgents,
   } = api.agent.listAgentsWithHosts.useQuery(undefined, {
-    refetchInterval: agentRefetch,
+    refetchInterval: agentRefetch === false ? undefined : agentRefetch,
     refetchOnWindowFocus: false,
-    staleTime: agentRefetch,
+    staleTime: agentRefetch === false ? undefined : agentRefetch,
     keepPreviousData: true, // Prevent flash on refetch
   });
 

@@ -119,5 +119,10 @@ services:
       - ENABLE_SCRIPTING=true
       - CONTAINER_NAME=sirius-engine
 
+networks:
+  default:
+    external: true
+    name: sirius
+
 volumes:
   node_modules:

@@ -6,7 +6,7 @@ description: >-
   vulnerability detection, and agent-server architecture
 role_type: engineering
 version: 1.0.0
-last_updated: '2025-10-25'
+last_updated: '2025-11-14'
 author: Sirius Team
 specialization:
   - gRPC bidirectional streaming
@@ -42,7 +42,7 @@ dependencies:
   - app-agent/
 llm_context: high
 context_window_target: 1400
-_generated_at: '2025-10-25T21:52:06.962Z'
+_generated_at: '2025-11-14T03:35:43.710Z'
 _source_files:
   - /Users/oz/Projects/Sirius-Project/minor-projects/app-agent
   - docker-compose.yaml
@@ -57,9 +57,11 @@ _source_files:
 # Agent Engineer (app-agent/Go/gRPC)
 
 <!-- MANUAL SECTION: role-summary -->
+
 Develops the app-agent system - distributed agent-server architecture for remote vulnerability scanning. Focuses on gRPC bidirectional streaming, YAML template system for detection, cross-platform agents (Linux/Windows/macOS), and coordination between server and remote agents.
 
 **Core Focus Areas:**
+
 - **gRPC Server/Client Architecture** - Bidirectional streaming, agent lifecycle management
 - **Template-Based Detection** - YAML template system for vulnerability scanning
 - **Cross-Platform Agents** - Linux, Windows, macOS support
@@ -70,7 +72,7 @@ Develops the app-agent system - distributed agent-server architecture for remote
 ## Key Documentation
 
 <!-- AUTO-GENERATED: documentation-links -->
-<!-- Generated: 2025-10-25T21:52:06.962Z -->
+<!-- Generated: 2025-11-14T03:35:43.710Z -->
 <!-- Sources:  -->
 
 - [README.agent-system](mdc:documentation/dev/documentation/dev/architecture/README.agent-system.md)
@@ -83,7 +85,7 @@ Develops the app-agent system - distributed agent-server architecture for remote
 ## Project Location
 
 <!-- AUTO-GENERATED: file-structure -->
-<!-- Generated: 2025-10-25T21:52:06.960Z -->
+<!-- Generated: 2025-11-14T03:35:43.709Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/minor-projects/app-agent -->
 
 ```
@@ -92,6 +94,8 @@ app-agent/
 │   ├── commands/
 │   │   ├── project-intro.md
 │   │   └── sirius-context.md
+│   ├── plans/
+│   │   └── agent-template-repository-management-75445b0b.plan.md
 │   └── rules/
 │       ├── cursor_rules.mdc
 │       ├── dev_workflow.mdc
@@ -124,7 +128,8 @@ app-agent/
 │       └── main.go  # Main application entry point
 ├── documentation/
 │   ├── agent_template_system_PRD.md
-│   └── AGENT-COMMANDS-REFERENCE.md
+│   ├── AGENT-COMMANDS-REFERENCE.md
+│   └── RISK-SCORING.md
 ├── github.com/
 │   └── SiriusScan/
 │       └── app-agent/
@@ -136,6 +141,7 @@ app-agent/
 │   ├── cmd/  # Main applications
 │   │   ├── module.go
 │   │   ├── root.go
+│   │   ├── scan.go
 │   │   ├── server.go  # Server implementation
 │   │   └── template.go
 │   ├── command/
@@ -185,8 +191,11 @@ app-agent/
 │   │   ├── interfaces.go
 │   │   └── types.go  # Type definitions
 │   ├── server/
+│   │   ├── repository_manager.go
 │   │   ├── server.go  # Server implementation
 │   │   ├── template_manager.go
+│   │   ├── template_priority.go
+│   │   ├── template_sync_queue.go
 │   │   └── valkey_client.go
 │   ├── shell/
 │   │   └── shell.go
@@ -203,6 +212,7 @@ app-agent/
 │       ├── fingerprint/
 │       ├── parser/
 │       ├── reporting/
+│       ├── risk/
 │       ├── storage/
 │       ├── types/
 │       └── valkey/
@@ -234,8 +244,13 @@ app-agent/
 │       └── hello.proto
 ├── scripts/  # Utility scripts
 │   ├── build.sh
+│   ├── diagnose-template-sync.sh
+│   ├── fix-live-test-metadata.sh
+│   ├── fix-template-metadata-simple.sh
+│   ├── fix-template-metadata.sh
 │   ├── generate_proto.sh
-│   └── test-error-scenarios.sh
+│   ├── test-error-scenarios.sh
+│   └── verify-template-sync-fix.sh
 ├── sirius-agent-modules/
 ├── sirius-ui/
 │   └── src/  # Source code
@@ -248,7 +263,11 @@ app-agent/
 │   │   ├── 04-weak-password.yaml
 │   │   ├── 05-dangerous-eval.yaml
 │   │   ├── 06-pickle-loads.yaml
-│   │   └── 07-ssl-disabled.yaml
+│   │   ├── 07-ssl-disabled.yaml
+│   │   ├── 08-custom-score-example.yaml
+│   │   ├── 09-cvss-vector-example.yaml
+│   │   ├── 10-cvss-score-example.yaml
+│   │   └── 11-severity-only-example.yaml
 │   └── examples/
 │       └── README.md  # Project documentation
 ├── testing/  # Test files
@@ -271,14 +290,10 @@ app-agent/
 │   ├── Dockerfile.linux
 │   ├── Makefile  # Build automation
 │   └── run-integration-tests.sh
-├── CUSTOM-TEMPLATES-UI-HANDOFF-ANALYSIS.md
 ├── Dockerfile
 ├── Dockerfile.windows
-├── ERROR-HANDLING-AUDIT.md
 ├── go.mod  # Go module definition
 ├── go.sum
-├── IMPLEMENTATION-COMPLETE.md
-├── PHASE-11.3-COMPLETION-SUMMARY.md
 ├── README.md  # Project documentation
 ├── server_commands.log
 └── sirius-agent
@@ -288,27 +303,32 @@ app-agent/
 ## Core Responsibilities
 
 <!-- MANUAL SECTION: responsibilities -->
+
 ### Primary Responsibilities
 
 1. **gRPC Server Development**
+
    - Implement bidirectional streaming for agent communication
    - Handle agent registration and lifecycle management
    - Distribute commands to registered agents
    - Manage template synchronization across agents
 
 2. **Agent Client Development**
+
    - Develop cross-platform agent clients (Linux, Windows, macOS)
    - Implement secure command execution
    - Handle heartbeat and status reporting
    - Synchronize templates from server
 
 3. **Template System**
+
    - Design and implement YAML template parser
    - Create template execution engine
    - Build template validation system
    - Develop detection module registry
 
 4. **Integration Development**
+
    - Integrate with Valkey for template storage
    - Connect with RabbitMQ for command queueing
    - Work with API team for REST endpoints
@@ -319,12 +339,12 @@ app-agent/
    - Test cross-platform compatibility
    - Deploy in Docker containers
    - Monitor agent health and performance
-<!-- END MANUAL SECTION -->
+   <!-- END MANUAL SECTION -->
 
 ## Technology Stack
 
 <!-- AUTO-GENERATED: dependencies -->
-<!-- Generated: 2025-10-25T21:52:06.960Z -->
+<!-- Generated: 2025-11-14T03:35:43.710Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/minor-projects/app-agent/go.mod -->
 
 **gRPC & Networking:**
@@ -350,6 +370,7 @@ app-agent/
 ### Architecture Overview
 
 <!-- MANUAL SECTION: architecture -->
+
 **Agent-Server Architecture:**
 
 ```
@@ -364,6 +385,7 @@ app-agent/
 ```
 
 **Key Integration Points:**
+
 - **sirius-api**: REST endpoints for agent management
 - **sirius-ui**: Template management interface
 - **Valkey**: Template storage and caching
@@ -374,7 +396,7 @@ app-agent/
 ### Network Configuration
 
 <!-- AUTO-GENERATED: ports -->
-<!-- Generated: 2025-10-25T21:52:06.960Z -->
+<!-- Generated: 2025-11-14T03:35:43.709Z -->
 <!-- Sources: docker-compose.yaml -->
 
 Error extracting ports: Error: Failed to read file docker-compose.yaml: Error: ENOENT: no such file or directory, open '/Users/oz/Projects/Sirius-Project/Sirius/scripts/agent-identities/docker-compose.yaml'
@@ -383,7 +405,7 @@ Error extracting ports: Error: Failed to read file docker-compose.yaml: Error: E
 ## Configuration
 
 <!-- AUTO-GENERATED: config-examples -->
-<!-- Generated: 2025-10-25T21:52:06.960Z -->
+<!-- Generated: 2025-11-14T03:35:43.710Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/minor-projects/app-agent/config/server.yaml, /Users/oz/Projects/Sirius-Project/minor-projects/app-agent/config/agent.yaml -->
 
 **Server Configuration:** Error reading file - Error: Failed to read file /Users/oz/Projects/Sirius-Project/minor-projects/app-agent/config/server.yaml: Error: ENOENT: no such file or directory, open '/Users/oz/Projects/Sirius-Project/minor-projects/app-agent/config/server.yaml'
@@ -394,6 +416,7 @@ Error extracting ports: Error: Failed to read file docker-compose.yaml: Error: E
 ## Development Workflow
 
 <!-- MANUAL SECTION: development-workflow -->
+
 ### Container-Based Development
 
 All backend development happens **inside the sirius-engine container**:
@@ -421,12 +444,14 @@ LOG_LEVEL=debug ./bin/server
 ### Key Development Differences
 
 **Development Mode:**
+
 - Server: `localhost:50051` (no TLS)
 - Agent: Connects to localhost
 - Logging: Debug level, pretty print
 - Config: `config/server.dev.yaml`
 
 **Production Mode:**
+
 - Server: TLS enabled with certificates
 - Agent: Connects to production server
 - Logging: JSON structured logs
@@ -435,6 +460,7 @@ LOG_LEVEL=debug ./bin/server
 ### Hot Reload
 
 The `/app-agent` directory is mounted into the container:
+
 ```yaml
 volumes:
   - /Users/oz/Projects/Sirius-Project/minor-projects/app-agent:/app-agent
@@ -453,7 +479,7 @@ Changes to code are immediately reflected in the container.
 ## Go SDK and Best Practices
 
 <!-- AUTO-GENERATED: code-patterns -->
-<!-- Generated: 2025-10-25T21:52:06.962Z -->
+<!-- Generated: 2025-11-14T03:35:43.710Z -->
 <!-- Sources: ../../documentation/dev/architecture/README.agent-system.md, ../../documentation/dev/apps/README.agent-template-api.md -->
 
 No code patterns found in documentation
@@ -462,6 +488,7 @@ No code patterns found in documentation
 ## Common Development Tasks
 
 <!-- MANUAL SECTION: common-tasks -->
+
 ### Adding a New Command
 
 1. Create command package in `internal/commands/`
@@ -504,6 +531,7 @@ GOOS=darwin go test ./...
 # Test on Windows (if available)
 GOOS=windows go test ./...
 ```
+
 <!-- END MANUAL SECTION -->
 
 ## Troubleshooting
@@ -514,9 +542,11 @@ GOOS=windows go test ./...
 ## Best Practices
 
 <!-- MANUAL SECTION: best-practices -->
+
 ### gRPC Development
 
 **✅ DO:**
+
 - Use bidirectional streaming for agent communication
 - Implement proper error handling in stream handlers
 - Add context cancellation for graceful shutdown
@@ -525,6 +555,7 @@ GOOS=windows go test ./...
 - Handle network disconnections gracefully
 
 **❌ DON'T:**
+
 - Block stream handlers with long-running operations
 - Ignore context cancellation signals
 - Use unary calls for continuous communication
@@ -535,6 +566,7 @@ GOOS=windows go test ./...
 ### Template System Design
 
 **✅ DO:**
+
 - Validate templates before execution
 - Use typed structs for template parsing
 - Implement sandboxed execution environment
@@ -543,6 +575,7 @@ GOOS=windows go test ./...
 - Document template schema thoroughly
 
 **❌ DON'T:**
+
 - Execute untrusted templates without validation
 - Allow arbitrary code execution
 - Skip input sanitization
@@ -553,6 +586,7 @@ GOOS=windows go test ./...
 ### Agent Development
 
 **✅ DO:**
+
 - Implement secure command execution
 - Validate all inputs from server
 - Report errors back to server
@@ -561,6 +595,7 @@ GOOS=windows go test ./...
 - Monitor system resource usage
 
 **❌ DON'T:**
+
 - Execute commands without validation
 - Trust all server communications blindly
 - Ignore resource limits
@@ -571,6 +606,7 @@ GOOS=windows go test ./...
 ### Error Handling
 
 **✅ DO:**
+
 - Return errors with context (`fmt.Errorf`)
 - Log errors at appropriate levels
 - Use structured logging with slog
@@ -578,6 +614,7 @@ GOOS=windows go test ./...
 - Provide actionable error messages
 
 **❌ DON'T:**
+
 - Panic in production code
 - Ignore errors silently
 - Use generic error messages
@@ -587,6 +624,7 @@ GOOS=windows go test ./...
 ### Security Considerations
 
 **✅ DO:**
+
 - Validate all inputs (commands, templates, configs)
 - Use TLS for production gRPC connections
 - Implement proper authentication/authorization
@@ -595,6 +633,7 @@ GOOS=windows go test ./...
 - Rotate credentials regularly
 
 **❌ DON'T:**
+
 - Execute arbitrary shell commands
 - Store credentials in code
 - Skip input validation
@@ -606,6 +645,7 @@ GOOS=windows go test ./...
 ## Testing Checklist
 
 <!-- MANUAL SECTION: testing -->
+
 ### Before Committing
 
 - [ ] All unit tests pass: `go test ./...`
@@ -632,6 +672,7 @@ GOOS=windows go test ./...
 ## Quick Reference
 
 <!-- MANUAL SECTION: quick-reference -->
+
 ### Essential Commands
 
 ```bash
@@ -688,6 +729,7 @@ SERVER_ADDRESS=sirius-engine:50051
 LOG_LEVEL=info
 HEARTBEAT_INTERVAL=30s
 ```
+
 <!-- END MANUAL SECTION -->
 
 ---
@@ -695,4 +737,3 @@ HEARTBEAT_INTERVAL=30s
 **Last Updated:** 2025-10-25  
 **Version:** 1.0.0  
 **Maintainer:** Sirius Team
-

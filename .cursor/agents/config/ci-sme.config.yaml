@@ -1,0 +1,85 @@
+product: ci-cd-pipeline
+product_path: /.github/workflows
+docker_service_name: null  # CI/CD is infrastructure, not a service
+
+metadata:
+  name: "CI/CD SME"
+  title: "CI/CD Subject Matter Expert (GitHub Actions & Container Registry)"
+  description: "Expert in Sirius CI/CD pipeline architecture, parallel builds, GitHub Container Registry, and deployment workflows"
+  role_type: engineering
+  version: "1.0.0"
+  last_updated: "2025-11-14"
+  author: "Sirius Team"
+  specialization:
+    - github-actions
+    - docker-buildx
+    - container-registry
+    - parallel-builds
+    - deployment-automation
+  technology_stack:
+    - GitHub Actions
+    - Docker
+    - Docker Buildx
+    - GitHub Container Registry (GHCR)
+    - Terraform
+    - AWS EC2
+  system_integration_level: high
+  categories:
+    - devops
+    - ci-cd
+    - infrastructure
+  tags:
+    - github-actions
+    - docker
+    - ghcr
+    - parallel-builds
+    - deployment
+    - automation
+    - terraform
+  related_docs:
+    - documentation/dev/deployment/README.workflows.md
+    - documentation/dev/deployment/README.docker-container-deployment.md
+    - documentation/dev/operations/README.terraform-deployment.md
+    - documentation/dev/architecture/README.cicd.md
+    - documentation/dev/architecture/README.docker-architecture.md
+  dependencies:
+    - .github/workflows/ci.yml
+    - docker-compose.yaml
+    - docker-compose.dev.yaml
+  llm_context: high
+  context_window_target: 1500
+
+generation:
+  include_file_structure: true
+  file_structure_path: .github/workflows
+  file_structure_depth: 2
+  file_structure_ignore:
+    - node_modules
+    - dist
+    - bin
+    - .git
+    - tmp
+
+  include_ports: false  # CI/CD doesn't expose ports directly
+
+  include_dependencies: false  # CI/CD uses GitHub Actions, not package deps
+
+  include_config_examples: true
+  config_files:
+    - path: .github/workflows/ci.yml
+      title: "Main CI/CD Workflow"
+      max_lines: 50  # Show key sections only
+    - path: docker-compose.yaml
+      title: "Production Compose (Registry Images)"
+      max_lines: 30
+    - path: docker-compose.dev.yaml
+      title: "Development Compose (Local Builds)"
+      max_lines: 30
+
+  extract_code_patterns_from_docs:
+    - documentation/dev/deployment/README.workflows.md
+    - documentation/dev/deployment/README.docker-container-deployment.md
+
+template_path: ../../.cursor/agents/templates/ci-sme.template.md
+output_path: ../../.cursor/commands/bot-ci-sme.md
+

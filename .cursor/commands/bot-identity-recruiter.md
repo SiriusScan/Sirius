@@ -6,7 +6,7 @@ description: >-
   generation system
 role_type: documentation
 version: 1.0.0
-last_updated: '2025-10-25'
+last_updated: '2025-11-14'
 author: Sirius Team
 specialization:
   - agent identity creation
@@ -41,7 +41,7 @@ dependencies:
   - scripts/agent-identities/
 llm_context: high
 context_window_target: 1200
-_generated_at: '2025-10-25T22:27:27.961Z'
+_generated_at: '2025-11-14T03:35:43.692Z'
 _source_files:
   - /Users/oz/Projects/Sirius-Project/Sirius/scripts/agent-identities
   - >-
@@ -74,7 +74,7 @@ Agent identities enable confident fresh conversations by providing complete role
 ## Key Documentation
 
 <!-- AUTO-GENERATED: documentation-links -->
-<!-- Generated: 2025-10-25T22:27:27.960Z -->
+<!-- Generated: 2025-11-14T03:35:43.692Z -->
 <!-- Sources:  -->
 
 - [README.ai-identities](mdc:documentation/dev/documentation/dev/ai-rules/README.ai-identities.md)
@@ -88,7 +88,7 @@ Agent identities enable confident fresh conversations by providing complete role
 ## Project Location
 
 <!-- AUTO-GENERATED: file-structure -->
-<!-- Generated: 2025-10-25T22:27:27.957Z -->
+<!-- Generated: 2025-11-14T03:35:43.690Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/Sirius/scripts/agent-identities -->
 
 ```
@@ -179,7 +179,7 @@ agent-identities/
 ## Technology Stack
 
 <!-- AUTO-GENERATED: dependencies -->
-<!-- Generated: 2025-10-25T22:27:27.957Z -->
+<!-- Generated: 2025-11-14T03:35:43.690Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/Sirius/scripts/agent-identities/package.json -->
 
 **TypeScript & Build:**
@@ -331,12 +331,15 @@ Template (.template.md)           Config (.config.yaml)
 # Title
 
 <!-- MANUAL SECTION: role-summary -->
+
 [Write 2-3 paragraphs about role philosophy]
+
 <!-- END MANUAL SECTION -->
 
 ## Key Documentation
+
 <!-- AUTO-GENERATED: documentation-links -->
-<!-- Generated: 2025-10-25T22:27:27.960Z -->
+<!-- Generated: 2025-11-14T03:35:43.692Z -->
 <!-- Sources:  -->
 
 - [README.ai-identities](mdc:documentation/dev/documentation/dev/ai-rules/README.ai-identities.md)
@@ -348,8 +351,9 @@ Template (.template.md)           Config (.config.yaml)
 <!-- END AUTO-GENERATED -->
 
 ## Project Location
+
 <!-- AUTO-GENERATED: file-structure -->
-<!-- Generated: 2025-10-25T22:27:27.957Z -->
+<!-- Generated: 2025-11-14T03:35:43.690Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/Sirius/scripts/agent-identities -->
 
 ```
@@ -396,13 +400,17 @@ agent-identities/
 <!-- END AUTO-GENERATED -->
 
 ## Core Responsibilities
+
 <!-- MANUAL SECTION: responsibilities -->
+
 [List primary, secondary responsibilities]
+
 <!-- END MANUAL SECTION -->
 
 ## Technology Stack
+
 <!-- AUTO-GENERATED: dependencies -->
-<!-- Generated: 2025-10-25T22:27:27.957Z -->
+<!-- Generated: 2025-11-14T03:35:43.690Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/Sirius/scripts/agent-identities/package.json -->
 
 **TypeScript & Build:**
@@ -544,7 +552,7 @@ make lint-agents
 
 // ✅ GOOD: Wrap errors with context
 if err := doSomething(); err != nil {
-    return fmt.Errorf("failed to do something: %w", err)
+return fmt.Errorf("failed to do something: %w", err)
 }
 
 // ❌ BAD: Ignore errors
@@ -988,18 +996,18 @@ make lint-agents-quick
 
 ### Common Issues
 
-| Issue                      | Symptoms                       | Solution                                      |
-| -------------------------- | ------------------------------ | --------------------------------------------- |
-| **Missing required field** | YAML validation fails          | Add missing field to template YAML           |
-| **Invalid enum value**     | role_type validation error     | Use valid: engineering, design, product, etc. |
-| **File not found**         | Generation fails               | Check paths are relative to project root      |
-| **Stale content**          | Sync validation warns          | Run `make regenerate-agent`                   |
-| **Line count too high**    | Validation warning             | Reduce manual section content, link to docs   |
-| **Missing sections**       | Content validation fails       | Add required sections with proper markers     |
-| **Broken doc links**       | File path validation fails     | Update links or remove non-existent files     |
-| **Port extraction fails**  | Empty ports section            | Check docker-compose.yaml path and format     |
-| **No dependencies shown**  | Empty dependencies section     | Check go.mod/package.json path in config      |
-| **Generation errors**      | TypeScript errors              | Check config YAML syntax, run `npm run build` |
+| Issue                      | Symptoms                   | Solution                                      |
+| -------------------------- | -------------------------- | --------------------------------------------- |
+| **Missing required field** | YAML validation fails      | Add missing field to template YAML            |
+| **Invalid enum value**     | role_type validation error | Use valid: engineering, design, product, etc. |
+| **File not found**         | Generation fails           | Check paths are relative to project root      |
+| **Stale content**          | Sync validation warns      | Run `make regenerate-agent`                   |
+| **Line count too high**    | Validation warning         | Reduce manual section content, link to docs   |
+| **Missing sections**       | Content validation fails   | Add required sections with proper markers     |
+| **Broken doc links**       | File path validation fails | Update links or remove non-existent files     |
+| **Port extraction fails**  | Empty ports section        | Check docker-compose.yaml path and format     |
+| **No dependencies shown**  | Empty dependencies section | Check go.mod/package.json path in config      |
+| **Generation errors**      | TypeScript errors          | Check config YAML syntax, run `npm run build` |
 
 ### Debugging Commands
 
@@ -1128,11 +1136,15 @@ context_window_target: 1200
 
 ```markdown
 <!-- MANUAL SECTION -->
+
 Content preserved across regenerations
+
 <!-- END MANUAL SECTION -->
 
 <!-- AUTO-GENERATED: section-name -->
+
 Content replaced on each generation
+
 <!-- END AUTO-GENERATED -->
 ```
 
@@ -1145,4 +1157,3 @@ Content replaced on each generation
 **Maintainer:** Sirius Team
 
 **Note:** This identity is meta - it helps create other identities. Use it when designing new role-specific agents for the Sirius project.
-

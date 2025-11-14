@@ -6,7 +6,7 @@ description: >-
   CSS for vulnerability scanning interface
 role_type: engineering
 version: 1.0.0
-last_updated: '2025-10-25'
+last_updated: '2025-11-14'
 author: Sirius Team
 specialization:
   - Next.js App Router
@@ -42,7 +42,7 @@ dependencies:
   - sirius-ui/
 llm_context: high
 context_window_target: 1200
-_generated_at: '2025-10-25T21:52:06.948Z'
+_generated_at: '2025-11-14T03:35:43.674Z'
 _source_files:
   - /Users/oz/Projects/Sirius-Project/Sirius/sirius-ui
   - docker-compose.yaml
@@ -55,9 +55,11 @@ _source_files:
 # UI Engineer (sirius-ui/Next.js/TypeScript/React)
 
 <!-- MANUAL SECTION: role-summary -->
+
 Develops the frontend application for Sirius Scan using Next.js 14+ with App Router, TypeScript, React, and Tailwind CSS. Focuses on creating intuitive scanning interfaces, vulnerability dashboards, template management, and agent monitoring.
 
 **Core Focus Areas:**
+
 - **Next.js App Router** - Modern file-based routing with server components
 - **tRPC Integration** - Type-safe API communication
 - **Component Development** - Reusable React components with TypeScript
@@ -68,7 +70,7 @@ Develops the frontend application for Sirius Scan using Next.js 14+ with App Rou
 ## Key Documentation
 
 <!-- AUTO-GENERATED: documentation-links -->
-<!-- Generated: 2025-10-25T21:52:06.946Z -->
+<!-- Generated: 2025-11-14T03:35:43.673Z -->
 <!-- Sources:  -->
 
 - [README.development](mdc:documentation/dev/documentation/dev/README.development.md)
@@ -78,14 +80,13 @@ Develops the frontend application for Sirius Scan using Next.js 14+ with App Rou
 ## Project Location
 
 <!-- AUTO-GENERATED: file-structure -->
-<!-- Generated: 2025-10-25T21:52:06.942Z -->
+<!-- Generated: 2025-11-14T03:35:43.669Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/Sirius/sirius-ui -->
 
 ```
 sirius-ui/
 ├── docs/  # Documentation
 │   └── scanner.md
-├── postcss.config.js/
 ├── prisma/
 │   ├── migrations/
 │   │   ├── 20250608024601_init/
@@ -106,10 +107,12 @@ sirius-ui/
 │   ├── components/
 │   │   ├── agent/
 │   │   ├── auth/
+│   │   ├── dashboard/
 │   │   ├── editor/
 │   │   ├── host/
 │   │   ├── icons/
 │   │   ├── lib/
+│   │   ├── loaders/
 │   │   ├── scanner/
 │   │   ├── terminal/
 │   │   ├── vulnerability/
@@ -151,7 +154,10 @@ sirius-ui/
 │   │   ├── VulnerabilityTableSourceColumns.tsx
 │   │   ├── VulnerabilityTableViews.tsx
 │   │   └── VulnerabilityTimeline.tsx
+│   ├── documentation/
+│   │   └── repository-management-spec.md
 │   ├── hooks/
+│   │   ├── useDashboardData.ts
 │   │   ├── useScanResults.ts
 │   │   ├── useSourceFiltering.ts
 │   │   ├── useStartScan.ts
@@ -187,9 +193,11 @@ sirius-ui/
 │   │   └── terminalService.ts
 │   ├── styles/
 │   │   ├── editor.css
-│   │   └── globals.css
+│   │   ├── globals.css
+│   │   └── loader-animations.css
 │   ├── types/
 │   │   ├── agentTemplateTypes.ts
+│   │   ├── repositoryTypes.ts
 │   │   ├── scanner.ts
 │   │   ├── scanTypes.ts
 │   │   ├── templateBuilderTypes.ts
@@ -203,6 +211,7 @@ sirius-ui/
 │   │   ├── debug.ts
 │   │   ├── generate-mock-data.ts
 │   │   ├── monacoUtils.ts
+│   │   ├── riskScoreCalculator.ts
 │   │   ├── scriptTemplates.ts
 │   │   ├── sirius.ts
 │   │   ├── std.ts
@@ -227,6 +236,7 @@ sirius-ui/
 ├── postcss.config.cjs
 ├── prettier.config.cjs
 ├── README.md  # Project documentation
+├── REPOSITORY-SYNC-UI-COMPLETE.md
 ├── start-dev.sh
 ├── start-prod.sh
 ├── startup.sh
@@ -241,33 +251,39 @@ sirius-ui/
 ## Core Responsibilities
 
 <!-- MANUAL SECTION: responsibilities -->
+
 ### Primary Responsibilities
 
 1. **Component Development**
+
    - Create reusable React components
    - Implement responsive designs
    - Build form validation and handling
    - Develop data visualization components
 
 2. **Page Development**
+
    - Implement Next.js App Router pages
    - Create server and client components
    - Build loading and error states
    - Optimize performance with streaming
 
 3. **API Integration**
+
    - Integrate with sirius-api via tRPC
    - Handle API errors gracefully
    - Implement optimistic updates
    - Manage loading states
 
 4. **State Management**
+
    - Use React hooks for local state
    - Implement tRPC queries and mutations
    - Handle form state with React Hook Form
    - Manage global state when needed
 
 5. **UI/UX Implementation**
+
    - Design intuitive user interfaces
    - Implement accessible components
    - Create responsive layouts
@@ -278,12 +294,12 @@ sirius-ui/
    - Test user interactions
    - Deploy in Docker containers
    - Monitor performance metrics
-<!-- END MANUAL SECTION -->
+   <!-- END MANUAL SECTION -->
 
 ## Technology Stack
 
 <!-- AUTO-GENERATED: dependencies -->
-<!-- Generated: 2025-10-25T21:52:06.943Z -->
+<!-- Generated: 2025-11-14T03:35:43.670Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/Sirius/sirius-ui/package.json -->
 
 **Framework:**
@@ -291,7 +307,7 @@ sirius-ui/
 - `@mdx-js/react` (^3.1.0)
 - `@monaco-editor/react` (^4.7.0)
 - `@next-auth/prisma-adapter` (^1.0.7)
-- `@next/mdx` (^15.1.4)
+- `@next/mdx` (13.4.2)
 - `@radix-ui/react-avatar` (^1.0.3)
 - `@radix-ui/react-checkbox` (^1.0.4)
 - `@radix-ui/react-context-menu` (^2.2.7)
@@ -305,6 +321,7 @@ sirius-ui/
 - `@radix-ui/react-slot` (^1.0.2)
 - `@radix-ui/react-switch` (^1.1.3)
 - `@radix-ui/react-tabs` (^1.1.3)
+- `@radix-ui/react-tooltip` (^1.2.8)
 - `@tanstack/react-query` (^4.29.25)
 - `@tanstack/react-table` (^8.9.3)
 - `@trpc/next` (^10.34.0)
@@ -350,6 +367,7 @@ sirius-ui/
 ### Architecture Overview
 
 <!-- MANUAL SECTION: architecture -->
+
 **Frontend Architecture:**
 
 ```
@@ -377,6 +395,7 @@ sirius-ui/
 ```
 
 **Key Integration Points:**
+
 - **sirius-api**: REST API consumed via tRPC
 - **PostgreSQL**: Data access via Prisma ORM
 - **Real-time Updates**: Polling/SSE for scan progress
@@ -385,7 +404,7 @@ sirius-ui/
 ### Network Configuration
 
 <!-- AUTO-GENERATED: ports -->
-<!-- Generated: 2025-10-25T21:52:06.942Z -->
+<!-- Generated: 2025-11-14T03:35:43.669Z -->
 <!-- Sources: docker-compose.yaml -->
 
 Error extracting ports: Error: Failed to read file docker-compose.yaml: Error: ENOENT: no such file or directory, open '/Users/oz/Projects/Sirius-Project/Sirius/scripts/agent-identities/docker-compose.yaml'
@@ -394,7 +413,7 @@ Error extracting ports: Error: Failed to read file docker-compose.yaml: Error: E
 ## Configuration
 
 <!-- AUTO-GENERATED: config-examples -->
-<!-- Generated: 2025-10-25T21:52:06.944Z -->
+<!-- Generated: 2025-11-14T03:35:43.670Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/Sirius/sirius-ui/.env.example, /Users/oz/Projects/Sirius-Project/Sirius/sirius-ui/tailwind.config.ts -->
 
 **Environment Configuration** (`.env.example`):
@@ -438,6 +457,9 @@ export default {
   darkMode: "class", // This enables dark mode support, switchable by using the 'dark' class
   theme: {
     extend: {
+      fontFamily: {
+        orbitron: ["Orbitron", "sans-serif"],
+      },
       colors: {
         // Light Mode
         primary: "#7C3AED",
@@ -457,6 +479,49 @@ export default {
         "dark-background-to": "#2f3050",
         "dark-accent": "#5B21B6",
       },
+      animation: {
+        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        shimmer: "shimmer 3s linear infinite",
+        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "scan-line": "scan-line 2s ease-in-out infinite",
+        "rotate-subtle": "rotate-subtle 0.3s ease-in-out",
+        "icon-bounce": "icon-bounce 0.5s ease-in-out",
+        "fade-in-up": "fade-in-up 0.4s ease-out forwards",
+      },
+      keyframes: {
+        shimmer: {
+          "0%": { backgroundPosition: "-200% center" },
+          "100%": { backgroundPosition: "200% center" },
+        },
+        "pulse-glow": {
+          "0%, 100%": {
+            boxShadow:
+              "0 0 10px rgba(167, 139, 250, 0.3), 0 0 20px rgba(167, 139, 250, 0.2), inset 0 0 10px rgba(167, 139, 250, 0.1)",
+          },
+          "50%": {
+            boxShadow:
+              "0 0 20px rgba(167, 139, 250, 0.5), 0 0 30px rgba(167, 139, 250, 0.3), inset 0 0 15px rgba(167, 139, 250, 0.2)",
+          },
+        },
+        "scan-line": {
+          "0%": { transform: "translateY(-100%)", opacity: "0" },
+          "50%": { opacity: "1" },
+          "100%": { transform: "translateY(100%)", opacity: "0" },
+        },
+        "rotate-subtle": {
+          "0%": { transform: "rotate(0deg) scale(1)" },
+          "50%": { transform: "rotate(3deg) scale(1.05)" },
+          "100%": { transform: "rotate(0deg) scale(1)" },
+        },
+        "icon-bounce": {
+          "0%, 100%": { transform: "translateY(0) scale(1)" },
+          "50%": { transform: "translateY(-4px) scale(1.1)" },
+        },
+        "fade-in-up": {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+      },
     },
   },
   plugins: [],
@@ -468,6 +533,7 @@ export default {
 ## Development Workflow
 
 <!-- MANUAL SECTION: development-workflow -->
+
 ### Container-Based Development
 
 UI development happens in the sirius-ui container:
@@ -493,6 +559,7 @@ npm start
 ### Key Development Differences
 
 **Development Mode:**
+
 - Server: `localhost:3000`
 - API: `localhost:3001`
 - Hot reload: Enabled
@@ -500,6 +567,7 @@ npm start
 - Source maps: Enabled
 
 **Production Mode:**
+
 - Server: Docker network
 - API: Internal Docker network
 - Hot reload: Disabled
@@ -510,6 +578,7 @@ npm start
 ### Hot Reload
 
 The sirius-ui directory is mounted:
+
 ```yaml
 volumes:
   - ./sirius-ui:/app
@@ -530,7 +599,7 @@ Changes trigger automatic rebuild.
 ## Next.js and React Best Practices
 
 <!-- AUTO-GENERATED: code-patterns -->
-<!-- Generated: 2025-10-25T21:52:06.946Z -->
+<!-- Generated: 2025-11-14T03:35:43.673Z -->
 <!-- Sources: ../../documentation/dev/architecture/README.architecture.md -->
 
 No code patterns found in documentation
@@ -539,6 +608,7 @@ No code patterns found in documentation
 ## Common Development Tasks
 
 <!-- MANUAL SECTION: common-tasks -->
+
 ### Creating a New Page
 
 1. Create page in `src/app/` directory
@@ -568,28 +638,31 @@ No code patterns found in documentation
 // Use Tailwind CSS classes
 <div className="flex items-center gap-4 p-4 bg-gray-100 rounded-lg">
   <h2 className="text-xl font-bold text-gray-900">Title</h2>
-</div>
+</div>;
 
 // Use shadcn/ui components
-import { Button } from "~/components/ui/button"
-<Button variant="default" size="lg">Click Me</Button>
+import { Button } from "~/components/ui/button";
+<Button variant="default" size="lg">
+  Click Me
+</Button>;
 ```
 
 ### Form Handling
 
 ```tsx
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
 const schema = z.object({
   name: z.string().min(1),
-})
+});
 
 const { register, handleSubmit } = useForm({
   resolver: zodResolver(schema),
-})
+});
 ```
+
 <!-- END MANUAL SECTION -->
 
 ## Troubleshooting
@@ -600,9 +673,11 @@ const { register, handleSubmit } = useForm({
 ## Best Practices
 
 <!-- MANUAL SECTION: best-practices -->
+
 ### Component Design
 
 **✅ DO:**
+
 - Use TypeScript for type safety
 - Keep components small and focused
 - Use composition over inheritance
@@ -611,6 +686,7 @@ const { register, handleSubmit } = useForm({
 - Use server components when possible
 
 **❌ DON'T:**
+
 - Use `any` type
 - Create god components
 - Prop drill excessively
@@ -621,6 +697,7 @@ const { register, handleSubmit } = useForm({
 ### State Management
 
 **✅ DO:**
+
 - Use server state for API data (tRPC)
 - Use local state for UI state
 - Implement optimistic updates
@@ -629,6 +706,7 @@ const { register, handleSubmit } = useForm({
 - Cache data appropriately
 
 **❌ DON'T:**
+
 - Store API data in local state
 - Ignore loading states
 - Skip error handling
@@ -639,6 +717,7 @@ const { register, handleSubmit } = useForm({
 ### Performance
 
 **✅ DO:**
+
 - Use server components by default
 - Implement code splitting
 - Optimize images with Next.js Image
@@ -647,6 +726,7 @@ const { register, handleSubmit } = useForm({
 - Monitor bundle size
 
 **❌ DON'T:**
+
 - Use client components everywhere
 - Load everything upfront
 - Use regular img tags
@@ -657,6 +737,7 @@ const { register, handleSubmit } = useForm({
 ### Styling
 
 **✅ DO:**
+
 - Use Tailwind CSS utilities
 - Follow design system
 - Implement responsive design
@@ -665,6 +746,7 @@ const { register, handleSubmit } = useForm({
 - Test on multiple devices
 
 **❌ DON'T:**
+
 - Use inline styles
 - Create custom CSS unnecessarily
 - Ignore mobile layouts
@@ -675,6 +757,7 @@ const { register, handleSubmit } = useForm({
 ### Accessibility
 
 **✅ DO:**
+
 - Use semantic HTML
 - Add ARIA labels
 - Implement keyboard navigation
@@ -683,6 +766,7 @@ const { register, handleSubmit } = useForm({
 - Follow WCAG guidelines
 
 **❌ DON'T:**
+
 - Use divs for everything
 - Skip alt text on images
 - Ignore keyboard users
@@ -693,6 +777,7 @@ const { register, handleSubmit } = useForm({
 ### Error Handling
 
 **✅ DO:**
+
 - Show user-friendly error messages
 - Implement error boundaries
 - Log errors for debugging
@@ -701,6 +786,7 @@ const { register, handleSubmit } = useForm({
 - Add retry mechanisms
 
 **❌ DON'T:**
+
 - Show raw error messages
 - Let errors crash the app
 - Ignore errors silently
@@ -712,6 +798,7 @@ const { register, handleSubmit } = useForm({
 ## Testing Checklist
 
 <!-- MANUAL SECTION: testing -->
+
 ### Before Committing
 
 - [ ] All component tests pass: `npm test`
@@ -737,6 +824,7 @@ const { register, handleSubmit } = useForm({
 ## Quick Reference
 
 <!-- MANUAL SECTION: quick-reference -->
+
 ### Essential Commands
 
 ```bash
@@ -809,6 +897,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 # Node
 NODE_ENV=development
 ```
+
 <!-- END MANUAL SECTION -->
 
 ---
@@ -816,4 +905,3 @@ NODE_ENV=development
 **Last Updated:** 2025-10-25  
 **Version:** 1.0.0  
 **Maintainer:** Sirius Team
-

@@ -6,7 +6,7 @@ description: >-
   management and scan operations
 role_type: engineering
 version: 1.0.0
-last_updated: '2025-10-25'
+last_updated: '2025-11-14'
 author: Sirius Team
 specialization:
   - REST API
@@ -41,7 +41,7 @@ dependencies:
   - sirius-api/
 llm_context: high
 context_window_target: 1200
-_generated_at: '2025-10-25T21:52:06.955Z'
+_generated_at: '2025-11-14T03:35:43.696Z'
 _source_files:
   - /Users/oz/Projects/Sirius-Project/Sirius/sirius-api
   - docker-compose.yaml
@@ -53,9 +53,11 @@ _source_files:
 # API Engineer (sirius-api/Go/Fiber)
 
 <!-- MANUAL SECTION: role-summary -->
+
 Develops the REST API backend for Sirius Scan using Go and Fiber framework. Focuses on vulnerability data management, scan operations, host tracking, and integration with PostgreSQL, RabbitMQ, and Valkey.
 
 **Core Focus Areas:**
+
 - **REST API Development** - High-performance HTTP endpoints using Fiber
 - **Database Management** - PostgreSQL schema design and queries
 - **Message Queue Integration** - RabbitMQ for asynchronous scan processing
@@ -66,7 +68,7 @@ Develops the REST API backend for Sirius Scan using Go and Fiber framework. Focu
 ## Key Documentation
 
 <!-- AUTO-GENERATED: documentation-links -->
-<!-- Generated: 2025-10-25T21:52:06.955Z -->
+<!-- Generated: 2025-11-14T03:35:43.696Z -->
 <!-- Sources:  -->
 
 - [README.architecture](mdc:documentation/dev/documentation/dev/architecture/README.architecture.md)
@@ -76,45 +78,55 @@ Develops the REST API backend for Sirius Scan using Go and Fiber framework. Focu
 ## Project Location
 
 <!-- AUTO-GENERATED: file-structure -->
-<!-- Generated: 2025-10-25T21:52:06.952Z -->
+<!-- Generated: 2025-11-14T03:35:43.694Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/Sirius/sirius-api -->
 
 ```
 sirius-api/
 ├── handlers/
 │   ├── agent_template_handler.go
+│   ├── agent_template_repository_handler.go
 │   ├── app_handler.go
 │   ├── docker_handler.go
+│   ├── event_handler.go
 │   ├── health_handler.go
 │   ├── host_handler.go
 │   ├── log_handler.go
 │   ├── performance_handler.go
 │   ├── script_handler.go
+│   ├── snapshot_handler.go
+│   ├── statistics_handler.go
 │   ├── template_handler.go
 │   ├── test_handler.go
 │   └── vulnerability_handler.go
+├── integration_tests/
+│   └── snapshot_test.go
 ├── middleware/
 │   ├── logging_middleware.go
 │   └── sdk_logging_middleware.go
 ├── routes/
+│   ├── agent_template_repository_routes.go
 │   ├── agent_template_routes.go
 │   ├── app_routes.go
+│   ├── event_routes.go
 │   ├── host_routes.go
 │   ├── routes.go
 │   ├── script_routes.go
+│   ├── snapshot_routes.go
+│   ├── statistics_routes.go
 │   ├── template_routes.go
 │   └── vulnerability_routes.go
 ├── services/
 │   ├── docker_service.go
 │   ├── rabbitmq_service.go
 │   └── valkey_monitor_service.go
-├── BACKEND-INTEGRATION-REQUIREMENTS.md
 ├── Dockerfile
 ├── go.mod  # Go module definition
 ├── go.mod.prod
 ├── go.sum
 ├── go.sum.prod
 ├── main.go  # Main application entry point
+├── sirius-api
 └── start-dev.sh
 ```
 <!-- END AUTO-GENERATED -->
@@ -122,27 +134,32 @@ sirius-api/
 ## Core Responsibilities
 
 <!-- MANUAL SECTION: responsibilities -->
+
 ### Primary Responsibilities
 
 1. **API Endpoint Development**
+
    - Design and implement REST API endpoints
    - Handle request validation and error responses
    - Implement pagination and filtering
    - Optimize API performance
 
 2. **Database Operations**
+
    - Design PostgreSQL schemas
    - Write efficient SQL queries
    - Implement database migrations
    - Optimize query performance
 
 3. **Integration Development**
+
    - Integrate with RabbitMQ for scan queuing
    - Connect with Valkey for caching
    - Coordinate with sirius-engine for scan execution
    - Work with sirius-ui for frontend integration
 
 4. **Data Management**
+
    - Manage vulnerability data storage
    - Track host information and scan history
    - Handle CVE data from NVD
@@ -153,12 +170,12 @@ sirius-api/
    - Test database interactions
    - Deploy in Docker containers
    - Monitor API performance
-<!-- END MANUAL SECTION -->
+   <!-- END MANUAL SECTION -->
 
 ## Technology Stack
 
 <!-- AUTO-GENERATED: dependencies -->
-<!-- Generated: 2025-10-25T21:52:06.953Z -->
+<!-- Generated: 2025-11-14T03:35:43.695Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/Sirius/sirius-api/go.mod -->
 
 **Web Framework:**
@@ -176,6 +193,7 @@ sirius-api/
 
 **Utilities:**
 
+- `github.com/google/uuid`
 - `gopkg.in/yaml.v3`
 <!-- END AUTO-GENERATED -->
 
@@ -184,6 +202,7 @@ sirius-api/
 ### Architecture Overview
 
 <!-- MANUAL SECTION: architecture -->
+
 **API Architecture:**
 
 ```
@@ -199,6 +218,7 @@ sirius-api/
 ```
 
 **Key Integration Points:**
+
 - **sirius-ui**: Frontend consumes REST API
 - **sirius-engine**: Scan execution and results
 - **PostgreSQL**: Primary data store
@@ -209,7 +229,7 @@ sirius-api/
 ### Network Configuration
 
 <!-- AUTO-GENERATED: ports -->
-<!-- Generated: 2025-10-25T21:52:06.952Z -->
+<!-- Generated: 2025-11-14T03:35:43.695Z -->
 <!-- Sources: docker-compose.yaml -->
 
 Error extracting ports: Error: Failed to read file docker-compose.yaml: Error: ENOENT: no such file or directory, open '/Users/oz/Projects/Sirius-Project/Sirius/scripts/agent-identities/docker-compose.yaml'
@@ -218,7 +238,7 @@ Error extracting ports: Error: Failed to read file docker-compose.yaml: Error: E
 ## Configuration
 
 <!-- AUTO-GENERATED: config-examples -->
-<!-- Generated: 2025-10-25T21:52:06.953Z -->
+<!-- Generated: 2025-11-14T03:35:43.695Z -->
 <!-- Sources: /Users/oz/Projects/Sirius-Project/Sirius/sirius-api/.env.example -->
 
 **Environment Configuration:** Error reading file - Error: Failed to read file /Users/oz/Projects/Sirius-Project/Sirius/sirius-api/.env.example: Error: ENOENT: no such file or directory, open '/Users/oz/Projects/Sirius-Project/Sirius/sirius-api/.env.example'
@@ -227,6 +247,7 @@ Error extracting ports: Error: Failed to read file docker-compose.yaml: Error: E
 ## Development Workflow
 
 <!-- MANUAL SECTION: development-workflow -->
+
 ### Container-Based Development
 
 API development happens in the sirius-api container:
@@ -251,12 +272,14 @@ go test ./...
 ### Key Development Differences
 
 **Development Mode:**
+
 - Server: `localhost:3001`
 - Database: `localhost:5432`
 - CORS: Enabled for localhost:3000
 - Logging: Pretty print, debug level
 
 **Production Mode:**
+
 - Server: Docker network
 - Database: Internal Docker network
 - CORS: Restricted to production domains
@@ -265,6 +288,7 @@ go test ./...
 ### Hot Reload
 
 The sirius-api directory is mounted:
+
 ```yaml
 volumes:
   - ./sirius-api:/app
@@ -283,7 +307,7 @@ Changes are immediately reflected with Air hot reload.
 ## Go Fiber Best Practices
 
 <!-- AUTO-GENERATED: code-patterns -->
-<!-- Generated: 2025-10-25T21:52:06.955Z -->
+<!-- Generated: 2025-11-14T03:35:43.696Z -->
 <!-- Sources: ../../documentation/dev/architecture/README.architecture.md -->
 
 No code patterns found in documentation
@@ -292,6 +316,7 @@ No code patterns found in documentation
 ## Common Development Tasks
 
 <!-- MANUAL SECTION: common-tasks -->
+
 ### Adding a New Endpoint
 
 1. Define route in `routes/` directory
@@ -338,6 +363,7 @@ go tool pprof mem.prof
 # Load testing
 hey -n 10000 -c 100 http://localhost:3001/api/hosts
 ```
+
 <!-- END MANUAL SECTION -->
 
 ## Troubleshooting
@@ -348,9 +374,11 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 ## Best Practices
 
 <!-- MANUAL SECTION: best-practices -->
+
 ### REST API Design
 
 **✅ DO:**
+
 - Use consistent URL patterns
 - Return appropriate HTTP status codes
 - Implement proper error handling
@@ -359,6 +387,7 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 - Document endpoints thoroughly
 
 **❌ DON'T:**
+
 - Use verbs in URLs (use HTTP methods)
 - Return 200 for errors
 - Skip input validation
@@ -369,6 +398,7 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 ### Database Operations
 
 **✅ DO:**
+
 - Use prepared statements
 - Implement connection pooling
 - Create indexes for common queries
@@ -377,16 +407,18 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 - Monitor query performance
 
 **❌ DON'T:**
+
 - Use string concatenation for queries
 - Leave connections open
 - Skip indexes on foreign keys
-- Use SELECT * in production
+- Use SELECT \* in production
 - Ignore transaction boundaries
 - Hard-code database credentials
 
 ### Caching Strategy
 
 **✅ DO:**
+
 - Cache expensive queries
 - Set appropriate TTL values
 - Implement cache invalidation
@@ -395,6 +427,7 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 - Handle cache failures gracefully
 
 **❌ DON'T:**
+
 - Cache everything blindly
 - Use infinite TTL
 - Ignore stale data
@@ -405,6 +438,7 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 ### Error Handling
 
 **✅ DO:**
+
 - Return descriptive error messages
 - Use consistent error format
 - Log errors with context
@@ -412,6 +446,7 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 - Return appropriate status codes
 
 **❌ DON'T:**
+
 - Expose stack traces to clients
 - Use generic error messages
 - Ignore errors silently
@@ -421,6 +456,7 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 ### Security Considerations
 
 **✅ DO:**
+
 - Validate and sanitize inputs
 - Use parameterized queries
 - Implement rate limiting
@@ -429,6 +465,7 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 - Log security events
 
 **❌ DON'T:**
+
 - Trust user input
 - Use string concatenation in SQL
 - Allow unlimited requests
@@ -440,6 +477,7 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 ## Testing Checklist
 
 <!-- MANUAL SECTION: testing -->
+
 ### Before Committing
 
 - [ ] All unit tests pass: `go test ./...`
@@ -465,6 +503,7 @@ hey -n 10000 -c 100 http://localhost:3001/api/hosts
 ## Quick Reference
 
 <!-- MANUAL SECTION: quick-reference -->
+
 ### Essential Commands
 
 ```bash
@@ -525,6 +564,7 @@ VALKEY_ADDRESS=sirius-valkey:6379
 LOG_LEVEL=info
 LOG_FORMAT=json
 ```
+
 <!-- END MANUAL SECTION -->
 
 ---
@@ -532,4 +572,3 @@ LOG_FORMAT=json
 **Last Updated:** 2025-10-25  
 **Version:** 1.0.0  
 **Maintainer:** Sirius Team
-

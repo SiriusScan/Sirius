@@ -6,7 +6,7 @@ description: >-
   scripts, and RabbitMQ
 role_type: engineering
 version: 1.0.0
-last_updated: '2025-10-25'
+last_updated: '2025-11-14'
 author: Sirius Team
 specialization:
   - vulnerability scanning
@@ -41,7 +41,7 @@ dependencies:
   - ../../../minor-projects/sirius-nse
 llm_context: high
 context_window_target: 1400
-_generated_at: '2025-10-25T23:05:33.478Z'
+_generated_at: '2025-11-14T03:35:43.682Z'
 _source_files:
   - ../../../minor-projects/app-scanner
   - ../../../minor-projects/app-scanner/go.mod
@@ -76,7 +76,7 @@ The scanner operates as the core security assessment engine within Sirius, consu
 ## Key Documentation
 
 <!-- AUTO-GENERATED: documentation-links -->
-<!-- Generated: 2025-10-25T23:05:33.477Z -->
+<!-- Generated: 2025-11-14T03:35:43.682Z -->
 <!-- Sources:  -->
 
 - [README.scanner](mdc:documentation/dev/documentation/dev/apps/scanner/README.scanner.md)
@@ -86,7 +86,7 @@ The scanner operates as the core security assessment engine within Sirius, consu
 ## Project Location
 
 <!-- AUTO-GENERATED: file-structure -->
-<!-- Generated: 2025-10-25T23:05:33.474Z -->
+<!-- Generated: 2025-11-14T03:35:43.680Z -->
 <!-- Sources: ../../../minor-projects/app-scanner -->
 
 ```
@@ -122,6 +122,7 @@ app-scanner/
 │   │   ├── sync.go
 │   │   └── types.go  # Type definitions
 │   └── scan/
+│       ├── circular_ref_test.go
 │       ├── factory_test.go
 │       ├── factory.go
 │       ├── helpers_test.go
@@ -145,19 +146,27 @@ app-scanner/
 │       └── rustscan.go
 ├── nmap-args/
 │   └── args.txt
+├── scripts/  # Utility scripts
+│   └── migrate-scan-types.sh
 ├── sirius-engine/
 │   └── apps/
 │       └── app-scanner/
 ├── tests/
 │   └── test.go
 ├── app-scanner
+├── ARCHITECTURAL-FIX-PORT-PIPELINE.md
 ├── CHANGELOG.md
 ├── go.mod  # Go module definition
 ├── go.sum
 ├── LICENSE
 ├── main.go  # Main application entry point
 ├── manifest.json
+├── PORT-PIPELINE-IMPLEMENTED.md
+├── PORT-RANGE-OPTIMIZATION.md
 ├── README.md  # Project documentation
+├── SCAN-TYPES.md
+├── scanner-fixed
+├── test-circular-refs.sh
 └── test.xml
 ```
 <!-- END AUTO-GENERATED -->
@@ -197,10 +206,49 @@ app-scanner/
    - Enable analytics on scan effectiveness and tool performance
 
 5. **State Management**
+
    - Maintain real-time scan progress in ValKey for UI updates
    - Implement structured logging to RabbitMQ for audit trails
    - Coordinate distributed state across message queue and KV store
    - Handle graceful shutdown and context cancellation
+
+6. **NSE Repository Management Architecture**
+
+   > **Critical**: The scanner is the SOLE owner of NSE repository management. NO other components should manage repositories.
+
+   **Runtime Repository Management:**
+
+   - `RepoManager` (`internal/nse/repo.go`) - Clones Git repositories dynamically at runtime
+   - `SyncManager` (`internal/nse/sync.go`) - Synchronizes repository contents to ValKey (source of truth)
+   - Manages repositories at `/opt/sirius/nse/<repo-name>`
+   - Configured via `manifest.json` (supports arbitrary number of repositories)
+
+   **ValKey Integration:**
+
+   - `nse:repo-manifest` - Repository list configuration
+   - `nse:manifest` - Complete script manifest (612+ scripts)
+   - `nse:script:<id>` - Individual script content
+
+   **Integration Boundaries:**
+
+   - **Scanner**: Manages repos, syncs to ValKey (file system + ValKey write)
+   - **ValKey**: Source of truth for scripts (storage)
+   - **UI/API**: Display scripts, manage profiles (ValKey READ-ONLY)
+
+   **Anti-Patterns to AVOID:**
+
+   - ❌ NEVER clone repositories in Dockerfiles (breaks dynamic management)
+   - ❌ NEVER have UI/API read from `/opt/sirius/nse/` file system
+   - ❌ NEVER have non-scanner components populate ValKey script data
+   - ❌ NEVER create Docker volume mounts to sirius-nse for UI/API
+
+   **Best Practices:**
+
+   - ✅ ALWAYS read scripts from ValKey in UI/API components
+   - ✅ ALWAYS let scanner manage repository lifecycle
+   - ✅ ALWAYS use ValKey as the integration point
+
+   **See**: [ARCHITECTURE.nse-repository-management.md](../documentation/dev/architecture/ARCHITECTURE.nse-repository-management.md) for complete architectural details
 
 ### Secondary Responsibilities
 
@@ -214,7 +262,7 @@ app-scanner/
 ## Technology Stack
 
 <!-- AUTO-GENERATED: dependencies -->
-<!-- Generated: 2025-10-25T23:05:33.474Z -->
+<!-- Generated: 2025-11-14T03:35:43.680Z -->
 <!-- Sources: ../../../minor-projects/app-scanner/go.mod -->
 
 **Core Scanning Tools:**
@@ -641,10 +689,96 @@ for _, ip := range allIPs {
 
 <!-- END MANUAL SECTION -->
 
+## Critical: Canonical Scan Types
+
+<!-- MANUAL SECTION: canonical-scan-types -->
+
+**The scanner ONLY accepts three canonical scan type names. This is non-negotiable.**
+
+| Scan Type       | Tool       | Purpose                         |
+| --------------- | ---------- | ------------------------------- |
+| `enumeration`   | NAABU      | Fast port enumeration           |
+| `discovery`     | RustScan   | Host/service discovery          |
+| `vulnerability` | Nmap + NSE | Security vulnerability scanning |
+
+**❌ INVALID NAMES (will silently fail):**
+
+- `service-detection` → Use `discovery`
+- `vuln-scan` → Use `vulnerability`
+- `port-scan` → Use `enumeration`
+- Tool names (`nmap`, `rustscan`, `naabu`)
+
+**Why strict naming?**
+
+- Ensures consistent tool routing
+- Prevents silent scan failures
+- Makes logs clear and searchable
+- Enables proper validation
+
+**Warning signs of incorrect scan types:**
+
+```
+⚠️  Unknown scan type 'service-detection' for 192.168.1.100
+✅ All scan phases completed (0 seconds) <-- No actual scanning!
+```
+
+**Correct template format:**
+
+```json
+{
+  "scan_options": {
+    "scan_types": ["discovery", "vulnerability"],
+    "port_range": "1-10000"
+  }
+}
+```
+
+**See:** `../minor-projects/app-scanner/SCAN-TYPES.md` for complete documentation.
+
+<!-- END MANUAL SECTION -->
+
+## Port Range Configuration
+
+<!-- MANUAL SECTION: port-range-config -->
+
+**Every scan type respects the `port_range` setting from templates.**
+
+The port range flows through the entire scanning pipeline:
+
+```
+Template → ScanOptions → Factory → Strategy → Tool
+```
+
+**Supported formats:**
+
+- Single port: `"80"`
+- Range: `"1-1000"`
+- List: `"80,443,8080,8443"`
+- Top ports: `"top500"` (for quick template)
+
+**Common port ranges:**
+
+- **Quick scans:** `"1-1000"` or `"top500"`
+- **Balanced:** `"1-10000"`
+- **Comprehensive:** `"1-65535"`
+- **Targeted:** `"80,443,445,3389"` (specific services)
+
+**All tools respect port range:**
+
+- NAABU (`enumeration`) - Scans specified ports
+- RustScan (`discovery`) - Scans specified ports
+- Nmap (`vulnerability`) - Scans specified ports with NSE scripts
+
+**If missing:** Tools fall back to defaults (often wrong for your use case)
+
+**Best practice:** Always specify explicit port ranges in templates.
+
+<!-- END MANUAL SECTION -->
+
 ## Configuration Examples
 
 <!-- AUTO-GENERATED: config-examples -->
-<!-- Generated: 2025-10-25T23:05:33.475Z -->
+<!-- Generated: 2025-11-14T03:35:43.681Z -->
 <!-- Sources: ../../../minor-projects/app-scanner/nmap-args/args.txt, ../../../minor-projects/app-scanner/manifest.json -->
 
 **Nmap Script Arguments** (`nmap-args/args.txt`):

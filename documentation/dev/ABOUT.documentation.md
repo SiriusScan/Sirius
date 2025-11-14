@@ -13,6 +13,7 @@ prerequisites: []
 related_docs:
   - "README.documentation-index.md"
   - "TEMPLATE.documentation-standard.md"
+  - "deployment/README.workflows.md"
 dependencies: []
 llm_context: "high"
 search_keywords:

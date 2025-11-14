@@ -75,6 +75,7 @@ This document provides a complete index of all documentation files in the Sirius
 
 - [README.terraform-deployment.md](dev/operations/README.terraform-deployment.md) - Terraform-based deployment processes
 - [README.docker-container-deployment.md](dev/deployment/README.docker-container-deployment.md) - Docker container deployment using prebuilt registry images
+- [README.workflows.md](dev/deployment/README.workflows.md) - GitHub Actions workflow architecture and parallel build system
 
 ### SDK Management
 

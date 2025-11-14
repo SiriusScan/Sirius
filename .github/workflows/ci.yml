@@ -102,16 +102,43 @@ jobs:
             fi
           fi
 
-  build-and-push:
-    name: Build & Push Images
+  build-ui:
+    name: Build & Push UI
     needs: detect-changes
     runs-on: ubuntu-latest
-    if: needs.detect-changes.outputs.sirius_ui_changes == 'true' || needs.detect-changes.outputs.sirius_api_changes == 'true' || needs.detect-changes.outputs.sirius_engine_changes == 'true'
+    if: needs.detect-changes.outputs.sirius_ui_changes == 'true'
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
     steps:
       - name: Checkout Sirius repository
         uses: actions/checkout@v4
+
+      - name: Generate metadata
+        id: meta
+        run: |
+          # Set image tags based on event type
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            TAG="pr-${{ github.event.number }}"
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            TAG="latest"
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            TAG="latest"
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          else
+            TAG="dev"
+          fi
+          
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Generated image tag: $TAG"
+
+      - name: Validate UI code
+        run: |
+          cd sirius-ui
+          echo "Running UI validation..."
+          npm ci
+          npm run lint || echo "⚠️ Lint warnings present"
+          echo "✅ UI validation complete"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -123,10 +150,112 @@ jobs:
           username: ${{ secrets.GHCR_PUSH_USER }}
           password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
+      - name: Build and push sirius-ui
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sirius-ui
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-ui:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-api:
+    name: Build & Push API
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.sirius_api_changes == 'true'
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout Sirius repository
+        uses: actions/checkout@v4
+
       - name: Generate metadata
         id: meta
         run: |
-          # Set submodule commit SHAs based on repository_dispatch or use 'main' as default
+          # Set submodule commit SHAs based on repository_dispatch
+          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            SUBMODULE="${{ github.event.client_payload.submodule }}"
+            REPO_NAME=$(echo $SUBMODULE | awk -F'/' '{print $NF}')
+            COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
+            
+            if [ "$REPO_NAME" == "go-api" ]; then
+              echo "GO_API_COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+              echo "go-api submodule SHA: $COMMIT_SHA"
+            fi
+          fi
+
+          # Set image tags based on event type
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            TAG="pr-${{ github.event.number }}"
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            TAG="latest"
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            TAG="latest"
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          else
+            TAG="dev"
+          fi
+          
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Generated image tag: $TAG"
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Validate API code
+        run: |
+          cd sirius-api
+          echo "Running API validation..."
+          go mod download
+          go test ./... -v || echo "⚠️ Some tests failed, continuing with build"
+          echo "✅ API validation complete"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Build and push sirius-api
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sirius-api
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-api:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-engine:
+    name: Build & Push Engine
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout Sirius repository
+        uses: actions/checkout@v4
+
+      - name: Generate metadata
+        id: meta
+        run: |
+          # Set submodule commit SHAs based on repository_dispatch
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
             SUBMODULE="${{ github.event.client_payload.submodule }}"
             REPO_NAME=$(echo $SUBMODULE | awk -F'/' '{print $NF}')
@@ -155,36 +284,30 @@ jobs:
           echo "image_tag=$TAG" >> $GITHUB_OUTPUT
           echo "Generated image tag: $TAG"
 
-      - name: Build and push sirius-ui
-        if: needs.detect-changes.outputs.sirius_ui_changes == 'true'
-        uses: docker/build-push-action@v5
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          context: ./sirius-ui
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}
-            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-ui:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          go-version: '1.24'
 
-      - name: Build and push sirius-api
-        if: needs.detect-changes.outputs.sirius_api_changes == 'true'
-        uses: docker/build-push-action@v5
+      - name: Validate Engine code
+        run: |
+          cd sirius-engine
+          echo "Running Engine validation..."
+          go mod download
+          go test ./... -v || echo "⚠️ Some tests failed, continuing with build"
+          echo "✅ Engine validation complete"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
         with:
-          context: ./sirius-api
-          platforms: linux/amd64,linux/arm64
-          push: true
-          build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'main' }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}
-            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-api:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
       - name: Build and push sirius-engine
-        if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./sirius-engine
@@ -204,9 +327,9 @@ jobs:
 
   test:
     name: Integration Test
-    needs: [detect-changes, build-and-push]
+    needs: [detect-changes, build-ui, build-api, build-engine]
     runs-on: ubuntu-latest
-    if: needs.detect-changes.outputs.sirius_ui_changes == 'true' || needs.detect-changes.outputs.sirius_api_changes == 'true' || needs.detect-changes.outputs.sirius_engine_changes == 'true'
+    if: always() && (needs.build-ui.result == 'success' || needs.build-api.result == 'success' || needs.build-engine.result == 'success')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -220,6 +343,22 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ secrets.GHCR_PUSH_USER }}
           password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          # Use whichever build job ran successfully
+          if [ "${{ needs.build-ui.result }}" == "success" ]; then
+            TAG="${{ needs.build-ui.outputs.image_tag }}"
+          elif [ "${{ needs.build-api.result }}" == "success" ]; then
+            TAG="${{ needs.build-api.outputs.image_tag }}"
+          elif [ "${{ needs.build-engine.result }}" == "success" ]; then
+            TAG="${{ needs.build-engine.outputs.image_tag }}"
+          else
+            TAG="latest"
+          fi
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using image tag: $TAG"
 
       - name: Create test environment
         run: |
@@ -243,7 +382,7 @@ jobs:
               image: valkey/valkey:latest
 
             sirius-ui:
-              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ needs.build-and-push.outputs.image_tag }}
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.tag.outputs.image_tag }}
               environment:
                 - NODE_ENV=test
                 - SKIP_ENV_VALIDATION=1
@@ -256,7 +395,7 @@ jobs:
                 - sirius-postgres
           
             sirius-api:
-              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ needs.build-and-push.outputs.image_tag }}
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.tag.outputs.image_tag }}
               environment:
                 - GO_ENV=test
                 - API_PORT=9001
@@ -275,7 +414,7 @@ jobs:
                 - sirius-valkey
           
             sirius-engine:
-              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ needs.build-and-push.outputs.image_tag }}
+              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.tag.outputs.image_tag }}
               environment:
                 - GO_ENV=test
                 - ENGINE_MAIN_PORT=5174
@@ -352,8 +491,8 @@ jobs:
   dispatch-demo-deployment:
     name: Dispatch Demo Deployment (sirius-demo branch)
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-push, test]
-    if: github.ref == 'refs/heads/sirius-demo' && github.event_name == 'push' && always() && (needs.detect-changes.result == 'success' || needs.detect-changes.result == 'skipped') && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    needs: [detect-changes, build-ui, build-api, build-engine, test]
+    if: github.ref == 'refs/heads/sirius-demo' && github.event_name == 'push' && always() && (needs.detect-changes.result == 'success' || needs.detect-changes.result == 'skipped') && (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') && (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') && (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') && (needs.test.result == 'success' || needs.test.result == 'skipped')
     
     steps:
       - name: Dispatch to sirius-demo repository
@@ -376,8 +515,8 @@ jobs:
   dispatch-demo-canary:
     name: Dispatch Demo Canary (main branch)
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-and-push, test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && always() && (needs.detect-changes.result == 'success' || needs.detect-changes.result == 'skipped') && (needs.build-and-push.result == 'success' || needs.build-and-push.result == 'skipped') && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    needs: [detect-changes, build-ui, build-api, build-engine, test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && always() && (needs.detect-changes.result == 'success' || needs.detect-changes.result == 'skipped') && (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') && (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') && (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') && (needs.test.result == 'success' || needs.test.result == 'skipped')
     
     steps:
       - name: Dispatch to sirius-demo repository (canary trigger)

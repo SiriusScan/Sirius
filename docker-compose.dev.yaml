@@ -87,18 +87,13 @@ services:
       target: development # Use development stage
     # Override image for dev builds
     image: sirius-sirius-engine:dev
-    # Use host network for direct access to target networks
-    # This allows scanning hosts that have firewall rules blocking Docker subnets
-    network_mode: host
+    # Uses bridge networking (from base compose) with explicit port mapping:
+    #   5174:5174  - Engine main port
+    #   50051:50051 - Agent gRPC port
+    # This allows native agents on the host to connect via localhost:50051
     # Required for ICMP probes in ping++ fingerprinting
     cap_add:
       - NET_RAW
-    # Extra hosts for service discovery when using host network mode
-    extra_hosts:
-      - "sirius-valkey:127.0.0.1"
-      - "sirius-rabbitmq:127.0.0.1"
-      - "sirius-postgres:127.0.0.1"
-      - "sirius-api:127.0.0.1"
     volumes:
       - ./sirius-engine:/engine
       # Mount start scripts for hot reload of startup changes

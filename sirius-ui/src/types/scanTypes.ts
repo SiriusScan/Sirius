@@ -129,6 +129,7 @@ export interface HostWithSources {
 
 export interface PortWithSource {
   id: number;
+  number: number; // The actual port number (22, 80, 443, etc.)
   protocol: string;
   state: string;
   source: string;

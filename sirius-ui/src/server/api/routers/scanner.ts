@@ -1,9 +1,12 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { env } from "~/env.mjs";
+
+const API_BASE_URL = env.SIRIUS_API_URL || "http://localhost:9001";
 
 export interface ScanResult {
   id: string;
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed" | "cancelling" | "cancelled";
   targets: string[];
   hosts: string[];
   hostsCompleted: number;
@@ -15,6 +18,13 @@ export interface VulnerabilitySummary {
   severity: string;
   title: string;
   description: string;
+}
+
+export interface CancelScanResponse {
+  success: boolean;
+  message: string;
+  status?: string;
+  error?: string;
 }
 
 export const scannerRouter = createTRPCRouter({
@@ -92,6 +102,52 @@ export const scannerRouter = createTRPCRouter({
       } catch (error) {
         console.error("Error fetching scan status:", error);
         return null;
+      }
+    }),
+
+  // Cancel the current running scan
+  cancelScan: publicProcedure
+    .input(
+      z.object({
+        scanId: z.string().optional(),
+      }).optional()
+    )
+    .mutation(async ({ input }): Promise<CancelScanResponse> => {
+      try {
+        console.log("Cancelling scan:", input?.scanId || "current");
+
+        const response = await fetch(`${API_BASE_URL}/api/v1/scans/cancel`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            scan_id: input?.scanId,
+          }),
+        });
+
+        const data = await response.json() as CancelScanResponse;
+
+        if (!response.ok) {
+          return {
+            success: false,
+            message: data.error || "Failed to cancel scan",
+            error: data.error,
+          };
+        }
+
+        return {
+          success: true,
+          message: data.message || "Scan cancellation requested",
+          status: data.status,
+        };
+      } catch (error) {
+        console.error("Error cancelling scan:", error);
+        return {
+          success: false,
+          message: "Failed to cancel scan",
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
       }
     }),
 });

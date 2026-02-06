@@ -439,6 +439,75 @@ func detectSourceFromIP(clientIP string) string {
 	return ""
 }
 
+// UpdateHostRequest represents the request body for updating a host
+type UpdateHostRequest struct {
+	Hostname  *string      `json:"hostname,omitempty"`
+	OS        *string      `json:"os,omitempty"`
+	OSVersion *string      `json:"osversion,omitempty"`
+	Ports     []sirius.Port `json:"ports,omitempty"`
+	Notes     []string     `json:"notes,omitempty"`
+}
+
+// UpdateHost handles the PUT /host/:id route for updating host information
+func UpdateHost(c *fiber.Ctx) error {
+	hostIP := c.Params("id")
+	if hostIP == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Host IP is required",
+		})
+	}
+
+	log.Printf("Host_Handler: UpdateHost for IP %s", hostIP)
+
+	// Parse update request
+	var updateReq UpdateHostRequest
+	if err := c.BodyParser(&updateReq); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Error parsing request body: " + err.Error(),
+		})
+	}
+
+	// Build host object with updates
+	hostUpdate := sirius.Host{
+		IP: hostIP,
+	}
+
+	if updateReq.Hostname != nil {
+		hostUpdate.Hostname = *updateReq.Hostname
+	}
+	if updateReq.OS != nil {
+		hostUpdate.OS = *updateReq.OS
+	}
+	if updateReq.OSVersion != nil {
+		hostUpdate.OSVersion = *updateReq.OSVersion
+	}
+	if updateReq.Ports != nil {
+		hostUpdate.Ports = updateReq.Ports
+	}
+	if updateReq.Notes != nil {
+		hostUpdate.Notes = updateReq.Notes
+	}
+
+	// Use source-aware update with "manual" source for UI-driven updates
+	source := models.ScanSource{
+		Name:    "manual",
+		Version: "1.0",
+		Config:  "ui-update",
+	}
+
+	err := host.AddHostWithSource(hostUpdate, source)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error updating host: " + err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Host updated successfully",
+		"host_ip": hostIP,
+	})
+}
+
 // DeleteHost handles the POST /host/delete route
 func DeleteHost(c *fiber.Ctx) error {
 	// Read the raw request body

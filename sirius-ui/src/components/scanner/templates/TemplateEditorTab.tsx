@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ChevronRight,
   Filter,
+  Settings2,
 } from "lucide-react";
 import { api } from "~/utils/api";
 import ScriptTable from "../shared/ScriptTable";
@@ -41,6 +42,19 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
   const [collapsedProtocols, setCollapsedProtocols] = useState<Set<string>>(
     new Set()
   );
+
+  // Scan options state
+  const [scanTypes, setScanTypes] = useState<string[]>([
+    "fingerprint",
+    "enumeration",
+    "vulnerability",
+  ]);
+  const [portRange, setPortRange] = useState("");
+  const [aggressive, setAggressive] = useState(false);
+  const [maxRetries, setMaxRetries] = useState(2);
+  const [parallel, setParallel] = useState(true);
+  const [excludePorts, setExcludePorts] = useState("");
+  const [scanOptionsExpanded, setScanOptionsExpanded] = useState(false);
 
   const utils = api.useContext();
 
@@ -68,6 +82,16 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
       setName(existingTemplate.name);
       setDescription(existingTemplate.description || "");
       setSelectedScripts(existingTemplate.enabled_scripts || []);
+      // Initialize scan options from existing template
+      const opts = existingTemplate.scan_options;
+      if (opts) {
+        setScanTypes(opts.scan_types || ["fingerprint", "enumeration", "vulnerability"]);
+        setPortRange(opts.port_range || "");
+        setAggressive(opts.aggressive || false);
+        setMaxRetries(opts.max_retries || 2);
+        setParallel(opts.parallel ?? true);
+        setExcludePorts(opts.exclude_ports?.join(", ") || "");
+      }
     }
   }, [existingTemplate]);
 
@@ -162,6 +186,7 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
 
   const handleSave = () => {
     if (!name.trim()) return;
+    if (scanTypes.length === 0) return;
 
     const baseData = {
       name: name.trim(),
@@ -169,11 +194,14 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
       enabled_scripts: selectedScripts,
       type: "custom" as const,
       scan_options: {
-        scan_types: ["discovery", "vulnerability"],
-        port_range: "1-1000", // Top 1000 ports - fast and comprehensive (change to "1-65535" for full scan)
-        aggressive: false,
-        max_retries: 3,
-        parallel: true,
+        scan_types: scanTypes,
+        port_range: portRange,
+        aggressive: aggressive,
+        max_retries: maxRetries,
+        parallel: parallel,
+        exclude_ports: excludePorts
+          ? excludePorts.split(",").map((p) => p.trim()).filter(Boolean)
+          : undefined,
       },
     };
 
@@ -204,11 +232,14 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
         enabled_scripts: selectedScripts,
         type: "custom" as const,
         scan_options: {
-          scan_types: ["discovery", "vulnerability"],
-          port_range: "1-1000", // Top 1000 ports - fast and comprehensive (change to "1-65535" for full scan)
-          aggressive: false,
-          max_retries: 3,
-          parallel: true,
+          scan_types: scanTypes,
+          port_range: portRange,
+          aggressive: aggressive,
+          max_retries: maxRetries,
+          parallel: parallel,
+          exclude_ports: excludePorts
+            ? excludePorts.split(",").map((p) => p.trim()).filter(Boolean)
+            : undefined,
         },
       };
       createMutation.mutate({ id: newId, ...baseData });
@@ -315,6 +346,162 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
             rows={3}
           />
         </div>
+      </div>
+
+      {/* Scan Options - Collapsible */}
+      <div className="rounded-md border border-gray-700 bg-gray-800/20">
+        <div
+          className="flex cursor-pointer items-center justify-between p-4 transition-colors hover:bg-gray-700/30"
+          onClick={() => setScanOptionsExpanded(!scanOptionsExpanded)}
+        >
+          <div className="flex items-center gap-2">
+            {scanOptionsExpanded ? (
+              <ChevronDown className="h-4 w-4 text-gray-400" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-gray-400" />
+            )}
+            <Settings2 className="h-4 w-4 text-violet-400" />
+            <span className="font-medium text-white">Scan Options</span>
+            <span className="text-xs text-gray-500">
+              {scanTypes.length} phases, {portRange || "auto"} ports
+            </span>
+          </div>
+          <span className="text-xs text-gray-500">
+            Click to {scanOptionsExpanded ? "collapse" : "expand"}
+          </span>
+        </div>
+
+        {scanOptionsExpanded && (
+          <div className="space-y-6 border-t border-gray-700 p-4">
+            {/* Scan Phases */}
+            <div>
+              <Label className="mb-3 block text-gray-400">Scan Phases</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { id: "fingerprint", label: "Fingerprint", desc: "Host liveness & OS detection" },
+                  { id: "enumeration", label: "Enumeration", desc: "Port discovery via Naabu" },
+                  { id: "discovery", label: "Discovery", desc: "Broader port discovery" },
+                  { id: "vulnerability", label: "Vulnerability", desc: "NSE script scanning" },
+                ].map((phase) => (
+                  <div
+                    key={phase.id}
+                    className="flex items-start gap-2 rounded-md border border-gray-700 bg-gray-800/30 p-3"
+                  >
+                    <Checkbox
+                      id={`phase-${phase.id}`}
+                      checked={scanTypes.includes(phase.id)}
+                      disabled={isSystemProfile}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setScanTypes((prev) => [...prev, phase.id]);
+                        } else {
+                          setScanTypes((prev) => prev.filter((t) => t !== phase.id));
+                        }
+                      }}
+                    />
+                    <div>
+                      <Label
+                        htmlFor={`phase-${phase.id}`}
+                        className="cursor-pointer text-sm text-white"
+                      >
+                        {phase.label}
+                      </Label>
+                      <p className="text-xs text-gray-500">{phase.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {scanTypes.length === 0 && (
+                <p className="mt-2 text-xs text-red-400">
+                  At least one scan phase is required
+                </p>
+              )}
+            </div>
+
+            {/* Port Configuration */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="portRange" className="text-gray-400">
+                  Port Range
+                </Label>
+                <Input
+                  id="portRange"
+                  value={portRange}
+                  onChange={(e) => setPortRange(e.target.value)}
+                  placeholder="e.g., 22,80,443 or 1-1000"
+                  disabled={isSystemProfile}
+                  className="mt-1 border-gray-600 bg-gray-800/50 text-white disabled:opacity-60"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Leave empty to use discovered ports (recommended)
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="excludePorts" className="text-gray-400">
+                  Exclude Ports
+                </Label>
+                <Input
+                  id="excludePorts"
+                  value={excludePorts}
+                  onChange={(e) => setExcludePorts(e.target.value)}
+                  placeholder="e.g., 22,3389"
+                  disabled={isSystemProfile}
+                  className="mt-1 border-gray-600 bg-gray-800/50 text-white disabled:opacity-60"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Comma-separated ports to skip
+                </p>
+              </div>
+            </div>
+
+            {/* Scan Behavior */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="flex items-center gap-3 rounded-md border border-gray-700 bg-gray-800/30 p-3">
+                <Checkbox
+                  id="aggressive"
+                  checked={aggressive}
+                  disabled={isSystemProfile}
+                  onCheckedChange={(checked) => setAggressive(!!checked)}
+                />
+                <div>
+                  <Label htmlFor="aggressive" className="cursor-pointer text-sm text-white">
+                    Aggressive Mode
+                  </Label>
+                  <p className="text-xs text-gray-500">Faster but noisier</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-md border border-gray-700 bg-gray-800/30 p-3">
+                <Checkbox
+                  id="parallel"
+                  checked={parallel}
+                  disabled={isSystemProfile}
+                  onCheckedChange={(checked) => setParallel(!!checked)}
+                />
+                <div>
+                  <Label htmlFor="parallel" className="cursor-pointer text-sm text-white">
+                    Parallel Execution
+                  </Label>
+                  <p className="text-xs text-gray-500">Run scripts in parallel</p>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="maxRetries" className="text-gray-400">
+                  Max Retries
+                </Label>
+                <Input
+                  id="maxRetries"
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={maxRetries}
+                  onChange={(e) => setMaxRetries(Math.max(1, Math.min(5, parseInt(e.target.value) || 2)))}
+                  disabled={isSystemProfile}
+                  className="mt-1 border-gray-600 bg-gray-800/50 text-white disabled:opacity-60"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Script Selection */}
@@ -684,7 +871,7 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
             <Button
               onClick={handleSave}
               className="bg-violet-600 text-white hover:bg-violet-700"
-              disabled={!name.trim() || isLoading || scriptsLoading}
+              disabled={!name.trim() || scanTypes.length === 0 || isLoading || scriptsLoading}
             >
               <Save className="mr-2 h-4 w-4" />
               {isLoading

@@ -3,6 +3,7 @@ import Layout from "~/components/Layout";
 import { EnvironmentDataTable } from "~/components/EnvironmentDataTable";
 import { columns } from "~/components/EnvironmentDataTableColumns";
 import EnvironmentIcon from "~/components/icons/EnvironmentIcon";
+import { HostForm } from "~/components/environment/HostForm";
 import { api } from "~/utils/api";
 import { type EnvironmentTableData } from "~/server/api/routers/host";
 import { type HostVulnerabilityCounts } from "~/types/vulnerabilityTypes";
@@ -938,8 +939,12 @@ const EnvironmentSystemFingerprinting: React.FC<{
   );
 };
 
+// View mode type for Environment page
+type EnvironmentViewMode = "list" | "create";
+
 const EnvironmentContent = () => {
   const [activeView, setActiveView] = useState("table");
+  const [viewMode, setViewMode] = useState<EnvironmentViewMode>("list");
   const [networkSummary, setNetworkSummary] = useState({
     totalHosts: 0,
     activeHosts: 0,
@@ -1063,6 +1068,29 @@ const EnvironmentContent = () => {
     hostsCount: hosts?.length || 0,
   });
 
+  // Handle successful host creation
+  const handleHostCreated = () => {
+    setViewMode("list");
+  };
+
+  // Handle cancel from add host form
+  const handleCancelAddHost = () => {
+    setViewMode("list");
+  };
+
+  // Show Add Host form if in create mode
+  if (viewMode === "create") {
+    return (
+      <div className="relative z-20">
+        <HostForm
+          mode="create"
+          onCancel={handleCancelAddHost}
+          onSuccess={handleHostCreated}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative z-20">
       {/* Header */}
@@ -1078,11 +1106,11 @@ const EnvironmentContent = () => {
           </h1>
         </div>
         <div className="mr-4 flex items-center gap-2">
-          <button className="rounded-md bg-violet-500 px-4 py-2 text-sm font-medium text-white hover:bg-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2">
+          <button
+            onClick={() => setViewMode("create")}
+            className="rounded-md bg-violet-500 px-4 py-2 text-sm font-medium text-white hover:bg-violet-600 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+          >
             Add Host
-          </button>
-          <button className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700">
-            Schedule Scan
           </button>
         </div>
       </div>
@@ -1299,7 +1327,10 @@ const EnvironmentContent = () => {
             <p className="text-sm text-gray-500">
               Add hosts to your environment to start tracking vulnerabilities.
             </p>
-            <button className="mt-4 rounded-md bg-violet-500 px-4 py-2 text-sm font-medium text-white hover:bg-violet-600">
+            <button
+              onClick={() => setViewMode("create")}
+              className="mt-4 rounded-md bg-violet-500 px-4 py-2 text-sm font-medium text-white hover:bg-violet-600"
+            >
               Add First Host
             </button>
           </div>

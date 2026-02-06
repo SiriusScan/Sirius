@@ -425,7 +425,7 @@ export const HostOverview: React.FC<HostOverviewProps> = ({ host }) => {
                           ></div>
                           <div className="text-sm">
                             <span className="font-medium text-gray-900 dark:text-white">
-                              {port.id}
+                              {port.number}
                             </span>
                             <span className="ml-1 text-gray-500">
                               {port.protocol?.toLowerCase()}

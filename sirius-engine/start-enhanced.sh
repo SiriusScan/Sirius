@@ -126,8 +126,14 @@ if [ -n "$SCANNER_PATH" ]; then
     cd "$SCANNER_PATH"
     echo "Starting scanner service from $SCANNER_PATH..."
     if [ "$GO_ENV" = "development" ]; then
-        echo "Running scanner with go run (development mode)"
-        go run main.go &
+        # Use air for hot reload if .air.toml exists
+        if [ -f ".air.toml" ]; then
+            echo "Running scanner with air (hot reload enabled)"
+            air &
+        else
+            echo "Running scanner with go run (development mode)"
+            go run main.go &
+        fi
     elif has_binary "$SCANNER_PATH" "scanner"; then
         echo "Running production scanner binary"
         ./scanner &

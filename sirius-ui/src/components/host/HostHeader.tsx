@@ -1,18 +1,32 @@
 import React from "react";
-import { ShieldAlert, Tag, Download, RefreshCw } from "lucide-react";
+import { useRouter } from "next/router";
+import { ShieldAlert, RefreshCw, Pencil } from "lucide-react";
 import { type EnvironmentTableData } from "~/server/api/routers/host";
 
 interface HostHeaderProps {
   host: EnvironmentTableData;
-  onScan: () => void;
-  isScanning: boolean;
+  onScan?: () => void;
+  isScanning?: boolean;
+  onEdit?: () => void;
 }
 
 export const HostHeader: React.FC<HostHeaderProps> = ({
   host,
   onScan,
-  isScanning,
+  isScanning = false,
+  onEdit,
 }) => {
+  const router = useRouter();
+
+  // Navigate to scanner page with the host IP pre-filled as target
+  const handleScanNow = () => {
+    if (onScan) {
+      onScan();
+    }
+    // Navigate to scanner page with target query parameter
+    void router.push(`/scanner?target=${encodeURIComponent(host.ip)}`);
+  };
+
   return (
     <div className="mb-6">
       <div className="flex flex-col items-start justify-between space-y-3 md:flex-row md:items-center md:space-y-0">
@@ -43,8 +57,8 @@ export const HostHeader: React.FC<HostHeaderProps> = ({
 
         <div className="flex gap-2">
           <button
-            className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700"
-            onClick={onScan}
+            className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+            onClick={handleScanNow}
             disabled={isScanning}
           >
             <RefreshCw
@@ -53,15 +67,15 @@ export const HostHeader: React.FC<HostHeaderProps> = ({
             {isScanning ? "Scanning..." : "Scan Now"}
           </button>
 
-          <button className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700">
-            <Tag className="mr-1.5 h-4 w-4" />
-            Manage Tags
-          </button>
-
-          <button className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700">
-            <Download className="mr-1.5 h-4 w-4" />
-            Export Report
-          </button>
+          {onEdit && (
+            <button
+              className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800"
+              onClick={onEdit}
+            >
+              <Pencil className="mr-1.5 h-4 w-4" />
+              Edit Host
+            </button>
+          )}
         </div>
       </div>
 

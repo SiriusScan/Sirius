@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { ScanBar } from "../ScanBar";
 import ScanIcon from "../icons/ScanIcon";
 import { Badge } from "../lib/ui/badge";
+import { Button } from "../lib/ui/button";
 import { Result } from "postcss";
+import { Square } from "lucide-react";
 import { type ScanResult, type VulnerabilitySummary } from "~/types/scanTypes";
 
 interface VulnerabilityCountProps {
@@ -83,9 +85,11 @@ export const VulnerabilitySeverityCards: React.FC<
 
 interface ScanStatusProps {
   results: ScanResult;
+  onStopScan?: () => void;
+  isStopping?: boolean;
 }
 
-export const ScanStatus: React.FC<ScanStatusProps> = ({ results }) => {
+export const ScanStatus: React.FC<ScanStatusProps> = ({ results, onStopScan, isStopping }) => {
   // Count vulnerabilities by severity
   const severityCounts = results?.vulnerabilities?.reduce<
     Record<string, number>
@@ -107,12 +111,25 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({ results }) => {
               informational: severityCounts?.informational ?? 0,
             }}
           />
-          <ScanBar
-            isScanning={results?.status === "running"}
-            hasRun={results?.status === "completed"}
-            // hosts={results?.hosts?.length}
-            // hostsCompleted={results?.hosts_completed}
-          />
+          <div className="flex items-center gap-3">
+            <ScanBar
+              isScanning={results?.status === "running"}
+              hasRun={results?.status === "completed"}
+              isCancelling={results?.status === "cancelling"}
+              wasCancelled={results?.status === "cancelled"}
+            />
+            {(results?.status === "running" || results?.status === "cancelling") && onStopScan && (
+              <Button
+                onClick={onStopScan}
+                disabled={isStopping || results?.status === "cancelling"}
+                size="sm"
+                className="shrink-0 bg-gradient-to-r from-red-600 to-rose-600 px-4 text-sm font-semibold text-white shadow-lg hover:from-red-500 hover:to-rose-500 disabled:opacity-50"
+              >
+                <Square className="mr-1.5 h-3.5 w-3.5 fill-current" />
+                {isStopping || results?.status === "cancelling" ? "Stopping..." : "Stop"}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
       <div className="mt-2 flex gap-6 p-4">

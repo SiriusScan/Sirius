@@ -3,11 +3,15 @@ import { useState, useEffect, useRef } from "react";
 interface ScanBarProps {
   isScanning: boolean;
   hasRun?: boolean; // Optional prop to indicate if a scan has completed
+  isCancelling?: boolean; // Optional prop to indicate scan is being cancelled
+  wasCancelled?: boolean; // Optional prop to indicate scan was cancelled
 }
 
 export const ScanBar: React.FC<ScanBarProps> = ({
   isScanning,
   hasRun = false,
+  isCancelling = false,
+  wasCancelled = false,
 }) => {
   const [darkMode, setDarkMode] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -16,19 +20,19 @@ export const ScanBar: React.FC<ScanBarProps> = ({
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
-    if (isScanning) {
-      // Start timer when scanning begins
+    if (isScanning || isCancelling) {
+      // Start/continue timer when scanning or cancelling
       const startTime = Date.now();
       interval = setInterval(() => {
         setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
     } else {
-      // Store final time when scan completes
+      // Store final time when scan completes or is cancelled
       if (elapsedTime > 0) {
         finalTimeRef.current = elapsedTime;
       }
       // Only reset elapsed time if we're not preserving the final time
-      if (!hasRun) {
+      if (!hasRun && !wasCancelled) {
         setElapsedTime(0);
       }
     }
@@ -36,7 +40,7 @@ export const ScanBar: React.FC<ScanBarProps> = ({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isScanning, hasRun]);
+  }, [isScanning, isCancelling, hasRun, wasCancelled]);
 
   // Format elapsed time as mm:ss
   const formatTime = (seconds: number): string => {
@@ -47,11 +51,28 @@ export const ScanBar: React.FC<ScanBarProps> = ({
       .padStart(2, "0")}`;
   };
 
-  const gradientColors = darkMode
-    ? "linear-gradient(90deg, #2c3e50, #4ca1af)"
-    : "linear-gradient(90deg, #38bdf8, #0369a1)";
+  // Define gradient colors based on state
+  const getGradientColors = () => {
+    if (isCancelling) {
+      return "linear-gradient(90deg, #f59e0b, #d97706)"; // Orange/amber for cancelling
+    }
+    if (wasCancelled) {
+      return "linear-gradient(90deg, #ef4444, #dc2626)"; // Red for cancelled
+    }
+    return darkMode
+      ? "linear-gradient(90deg, #2c3e50, #4ca1af)"
+      : "linear-gradient(90deg, #38bdf8, #0369a1)";
+  };
+
+  const gradientColors = getGradientColors();
 
   const getStatusText = () => {
+    if (isCancelling) {
+      return `Stopping Scan... (${formatTime(elapsedTime)})`;
+    }
+    if (wasCancelled) {
+      return `Scan Cancelled - Time: ${formatTime(finalTimeRef.current)}`;
+    }
     if (isScanning) {
       return `Scan Time: ${formatTime(elapsedTime)}`;
     }
@@ -70,11 +91,11 @@ export const ScanBar: React.FC<ScanBarProps> = ({
           style={{
             background: gradientColors,
             backgroundSize: "200% 100%",
-            width: isScanning || hasRun ? "100%" : "0%",
+            width: isScanning || isCancelling || hasRun || wasCancelled ? "100%" : "0%",
             transition: "width 0.5s ease",
           }}
           className={`absolute h-3 rounded ${
-            isScanning ? "scan-animation" : ""
+            isScanning || isCancelling ? "scan-animation" : ""
           }`}
         />
       </div>

@@ -21,7 +21,9 @@ import { HostStatistics, type SiriusHost } from "~/server/api/routers/host";
 // Helper Functions
 // --------------------------
 
-const determineSeverity = (cvssScore: number): "critical" | "high" | "medium" | "low" | "informational" => {
+const determineSeverity = (
+  cvssScore: number
+): "critical" | "high" | "medium" | "low" | "informational" => {
   if (cvssScore >= 9.0) return "critical";
   if (cvssScore >= 7.0) return "high";
   if (cvssScore >= 4.0) return "medium";
@@ -91,25 +93,31 @@ const Host = () => {
   const osIcon = useMemo(() => selectOsIcon(host), [host]);
 
   // Map users to string array.
-  const userData = host.users?.map((user) => [
-    user.username,
-    user.type,
-    user.details ?? "N/A",
-  ]) ?? [];
+  const userData =
+    host.users?.map((user) => [
+      user.username,
+      user.type,
+      user.details ?? "N/A",
+    ]) ?? [];
 
   const vulnData: VulnTableRow[] = useMemo(() => {
-    return host.vulnerabilities?.map((vuln) => ({
-      id: vuln.vid,
-      severity: determineSeverity(vuln.riskScore),
-      cvss: vuln.riskScore,
-      cve: vuln.vid ?? "N/A",
-      count: 1,
-      description: vuln.description,
-      published: vuln.published,
-    })) ?? [];
+    return (
+      host.vulnerabilities?.map((vuln) => ({
+        id: vuln.vid,
+        severity: determineSeverity(vuln.riskScore),
+        cvss: vuln.riskScore,
+        cve: vuln.vid ?? "N/A",
+        count: 1,
+        description: vuln.description,
+        published: vuln.published,
+      })) ?? []
+    );
   }, [host.vulnerabilities]);
 
-  const { data: vulnStats } = api.host.getHostStatistics.useQuery({ hid: currentHost ?? "" });
+  const { data: vulnStats } = api.host.getHostStatistics.useQuery(
+    { hid: currentHost ?? "" },
+    { enabled: !!currentHost }
+  );
 
   const processedVulnMetrics = useMemo(() => {
     const defaultCounts = {
@@ -246,7 +254,11 @@ interface HostDetailsProps {
 const HostDetails = ({ host, vulnStats }: HostDetailsProps) => {
   const serviceHeaders = ["Name", "Port", "Fingerprint"];
   const serviceDataArray =
-    host.ports?.map((port) => [port.protocol, port.id?.toString(), port.state]) ?? [];
+    host.ports?.map((port) => [
+      port.protocol,
+      port.number?.toString(),
+      port.state,
+    ]) ?? [];
 
   // A small helper function for rendering tables.
   const renderTable = (headers: string[], data: string[][]) => (
@@ -257,7 +269,10 @@ const HostDetails = ({ host, vulnStats }: HostDetailsProps) => {
           className="h-14 border-b border-gray-300 dark:border-gray-600"
         >
           {headers.map((header, i) => (
-            <td key={i} className="pr-4 text-sm text-gray-600 dark:text-gray-400">
+            <td
+              key={i}
+              className="pr-4 text-sm text-gray-600 dark:text-gray-400"
+            >
               {row[i]}
             </td>
           ))}
@@ -272,7 +287,10 @@ const HostDetails = ({ host, vulnStats }: HostDetailsProps) => {
     ["Addresses", host.ip],
     ["Operating System", host.os.charAt(0).toUpperCase() + host.os.slice(1)],
     ["OS Version", host.osversion],
-    ["Asset Type", host.asset_type?.charAt(0).toUpperCase() + host.asset_type?.slice(1)],
+    [
+      "Asset Type",
+      host.asset_type?.charAt(0).toUpperCase() + host.asset_type?.slice(1),
+    ],
   ];
 
   const securityDetailsHeaders = ["Property", "Value"];

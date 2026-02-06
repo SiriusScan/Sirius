@@ -18,6 +18,7 @@ import HostOverview from "~/components/host/HostOverview";
 import HostVulnerabilities from "~/components/host/HostVulnerabilities";
 import HostSystemInfo from "~/components/host/HostSystemInfo";
 import HostNetwork from "~/components/host/HostNetwork";
+import { HostForm } from "~/components/environment/HostForm";
 
 import { type SiriusHost } from "~/server/api/routers/host";
 import { type EnvironmentTableData } from "~/server/api/routers/host";
@@ -50,7 +51,7 @@ interface CveItem {
 
 // Deduplicated port type with sources
 interface DeduplicatedPort {
-  id: number;
+  number: number;
   protocol: string;
   state: string;
   sources: string[];
@@ -91,6 +92,10 @@ const SourceBadge = ({ source }: { source: string }) => {
 };
 
 const HostDetailsPage = () => {
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/0719f123-01ff-44d7-a0c8-33ed4d058a22',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'[ip].tsx:HostDetailsPage-entry',message:'Component render started',data:{hookPhase:'initial'},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+  // #endregion
+  
   // Get IP from URL parameter
   const router = useRouter();
   const { ip } = router.query;
@@ -98,6 +103,7 @@ const HostDetailsPage = () => {
   // State for active tab
   const [activeTab, setActiveTab] = useState<TabType>("overview");
   const [isScanning, setIsScanning] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Fetch host data using the new source-aware API
   const {
@@ -125,25 +131,26 @@ const HostDetailsPage = () => {
 
     hostWithSources.port_sources.forEach((portSource) => {
       console.log(`🔍 Processing port source:`, portSource);
-      const portId = portSource.ID;
+      // Use the actual port number as the key for deduplication
+      const portNumber = portSource.Number;
 
-      if (portMap.has(portId)) {
+      if (portMap.has(portNumber)) {
         // Add source to existing port
-        const existing = portMap.get(portId)!;
+        const existing = portMap.get(portNumber)!;
         if (!existing.sources.includes(portSource.source)) {
           existing.sources.push(portSource.source);
         }
       } else {
         // Create new deduplicated port entry
-        portMap.set(portId, {
-          id: portSource.ID,
+        portMap.set(portNumber, {
+          number: portSource.Number, // Use actual port number, not DB row ID
           protocol: portSource.Protocol,
           state: portSource.State,
           sources: [portSource.source],
           service: undefined, // Service info would need to be added separately
         });
         console.log(
-          `✅ Created port ${portId} with state: "${portSource.State}"`
+          `✅ Created port ${portNumber} with state: "${portSource.State}"`
         );
       }
     });
@@ -298,10 +305,31 @@ const HostDetailsPage = () => {
     }, 3000);
   };
 
+  // Handle edit mode
+  const handleEditHost = () => {
+    setIsEditMode(true);
+  };
+
+  const handleEditCancel = () => {
+    setIsEditMode(false);
+  };
+
+  const handleEditSuccess = () => {
+    setIsEditMode(false);
+    void refetchHost();
+  };
+
   // Loading state
   const isLoadingAnyData = isHostLoading;
 
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/0719f123-01ff-44d7-a0c8-33ed4d058a22',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'[ip].tsx:before-loading-check',message:'Before loading early return',data:{isHostLoading,isHostError,hasHost:!!host},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+  // #endregion
+
   if (isHostLoading) {
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/0719f123-01ff-44d7-a0c8-33ed4d058a22',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'[ip].tsx:loading-early-return',message:'EARLY RETURN - loading state',data:{isHostLoading:true},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+    // #endregion
     return (
       <Layout>
         <div className="container mx-auto px-4 py-6">
@@ -342,12 +370,53 @@ const HostDetailsPage = () => {
     );
   }
 
+  // Prepare initial data for edit form
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/0719f123-01ff-44d7-a0c8-33ed4d058a22',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'[ip].tsx:editFormInitialData-useMemo',message:'REACHED useMemo after early returns',data:{willCallUseMemo:true},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+  // #endregion
+  const editFormInitialData = useMemo(() => {
+    if (!hostWithSources) return undefined;
+    return {
+      ip: hostWithSources.IP,
+      hostname: hostWithSources.Hostname || undefined,
+      os: hostWithSources.OS || undefined,
+      osversion: hostWithSources.OSVersion || undefined,
+      ports: deduplicatedPorts.map((p) => ({
+        number: p.number,
+        protocol: p.protocol,
+        state: p.state,
+      })),
+      notes: hostWithSources.Notes || undefined,
+    };
+  }, [hostWithSources, deduplicatedPorts]);
+
   // Main render with complete original layout
+  // If in edit mode, show the edit form
+  if (isEditMode) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-6">
+          <HostForm
+            mode="edit"
+            initialData={editFormInitialData}
+            onCancel={handleEditCancel}
+            onSuccess={handleEditSuccess}
+          />
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="container mx-auto px-4 py-6">
         {/* Host Header */}
-        <HostHeader host={host} onScan={handleScan} isScanning={isScanning} />
+        <HostHeader
+          host={host}
+          onScan={handleScan}
+          isScanning={isScanning}
+          onEdit={handleEditHost}
+        />
 
         {/* Vulnerability Severity Cards */}
         <div className="mb-6">

@@ -18,6 +18,7 @@ test-build
 *.swo
 *~
 tmp/
+.playwright-mcp/
 
 # OS generated files
 .DS_Store

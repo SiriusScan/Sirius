@@ -33,7 +33,7 @@ export type SiriusHost = {
 };
 
 type Port = {
-  id: number;
+  number: number;
   protocol: string;
   state: string;
 };
@@ -327,6 +327,7 @@ export type VulnerabilityWithSource = {
 
 export type PortWithSource = {
   ID: number;
+  Number: number; // The actual port number (22, 80, 443, etc.)
   CreatedAt: string;
   UpdatedAt: string;
   DeletedAt: string | null;
@@ -341,6 +342,73 @@ export type PortWithSource = {
 };
 
 export const hostRouter = createTRPCRouter({
+  // Create a new host in the environment
+  createHost: publicProcedure
+    .input(
+      z.object({
+        ip: z.string().min(1, "IP address is required"),
+        hostname: z.string().optional(),
+        os: z.string().optional(),
+        osversion: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const response = await httpClient.post("/host", {
+          ip: input.ip,
+          hostname: input.hostname || "",
+          os: input.os || "",
+          osversion: input.osversion || "",
+        });
+        return response.data as { message: string; host_ip?: string };
+      } catch (error) {
+        console.error("Error creating host:", error);
+        if (error instanceof Error) {
+          throw new Error(`Failed to create host: ${error.message}`);
+        }
+        throw new Error("Failed to create host");
+      }
+    }),
+
+  // Update an existing host
+  updateHost: publicProcedure
+    .input(
+      z.object({
+        ip: z.string().min(1, "IP address is required"),
+        hostname: z.string().optional(),
+        os: z.string().optional(),
+        osversion: z.string().optional(),
+        ports: z
+          .array(
+            z.object({
+              number: z.number(),
+              protocol: z.string(),
+              state: z.string(),
+            })
+          )
+          .optional(),
+        notes: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const response = await httpClient.put(`/host/${input.ip}`, {
+          hostname: input.hostname,
+          os: input.os,
+          osversion: input.osversion,
+          ports: input.ports,
+          notes: input.notes,
+        });
+        return response.data as { message: string; host_ip?: string };
+      } catch (error) {
+        console.error("Error updating host:", error);
+        if (error instanceof Error) {
+          throw new Error(`Failed to update host: ${error.message}`);
+        }
+        throw new Error("Failed to update host");
+      }
+    }),
+
   getHost: publicProcedure
     .input(z.object({ hid: z.string() }))
     .query(async ({ input }) => {

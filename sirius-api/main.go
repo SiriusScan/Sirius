@@ -150,6 +150,7 @@ func main() {
 	eventRouteSetter := &routes.EventRouteSetter{}
 	snapshotRouteSetter := &routes.SnapshotRouteSetter{}
 	statisticsRouteSetter := &routes.StatisticsRoutes{}
+	scanRouteSetter := &routes.ScanRouteSetter{}
 	routes.SetupRoutes(
 		app,
 		&routes.HostRouteSetter{},
@@ -162,6 +163,7 @@ func main() {
 		eventRouteSetter,        // Event routes for scan events
 		snapshotRouteSetter,     // Snapshot and vulnerability trend routes
 		statisticsRouteSetter,   // Statistics routes
+		scanRouteSetter,         // Scan control routes (cancel, status)
 	)
 
 	log.Println("🚀 Sirius API starting on port 9001...")

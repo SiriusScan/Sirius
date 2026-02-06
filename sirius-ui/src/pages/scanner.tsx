@@ -1,6 +1,8 @@
 // In src/components/scanner/Scanner.tsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/router";
 import Layout from "~/components/Layout";
+import { parseTargets, type ParsedTarget } from "~/utils/targetParser";
 import { ScanStatus } from "~/components/scanner/ScanStatus";
 import { EnvironmentDataTable } from "~/components/EnvironmentDataTable";
 
@@ -11,6 +13,7 @@ import {
 } from "~/types/scanTypes";
 import { useScanResults } from "~/hooks/useScanResults";
 import { useStartScan } from "~/hooks/useStartScan";
+import { useStopScan } from "~/hooks/useStopScan";
 import { Button } from "~/components/lib/ui/button";
 import { type TargetType } from "~/hooks/useStartScan";
 import { type ScanProfile } from "~/types/scanTypes";
@@ -23,6 +26,7 @@ import ChipTargetInput from "~/components/scanner/target-patterns/ChipTargetInpu
 import ScanIcon from "~/components/icons/ScanIcon";
 import {
   Play,
+  Square,
   Server,
   AlertTriangle,
   CheckCircle,
@@ -82,14 +86,13 @@ const ScanNavigator: React.FC<ScanNavigatorProps> = ({
 };
 
 const ScannerContent: React.FC = () => {
+  const router = useRouter();
   const [activeView, setActiveView] = useState("scan");
   const [activeTable, setActiveTable] = useState<"host-table" | "vuln-table">(
     "host-table"
   );
   const [targets, setTargets] = useState<string[]>([]);
-  const [parsedTargets, setParsedTargets] = useState<
-    import("~/utils/targetParser").ParsedTarget[]
-  >([]);
+  const [parsedTargets, setParsedTargets] = useState<ParsedTarget[]>([]);
   const [hostList, setHostList] = useState<EnvironmentTableData[]>([]);
   const [vulnerabilityList, setVulnerabilityList] = useState<
     VulnerabilityTableData[]
@@ -97,12 +100,23 @@ const ScannerContent: React.FC = () => {
   const [displayScanDetails, setDisplayScanDetails] = useState(true);
   const [target, setTarget] = useState("");
   const { initiateScan, isLoading, error } = useStartScan();
+  const { stopScan, isStopping, error: stopError } = useStopScan();
   const scanResults = useScanResults();
   const [selectedProfile, setSelectedProfile] =
     useState<ScanProfile>("high-risk"); // Default to high-risk profile
   const [selectedVulnerabilities, setSelectedVulnerabilities] = useState<
     string[]
   >([]);
+
+  // Parse initial targets from URL query parameters
+  const initialTargetsFromUrl = useMemo((): ParsedTarget[] => {
+    if (!router.isReady) return [];
+    const targetParam = router.query.target;
+    if (!targetParam) return [];
+    const targetValue = Array.isArray(targetParam) ? targetParam[0] : targetParam;
+    if (!targetValue) return [];
+    return parseTargets(targetValue);
+  }, [router.isReady, router.query.target]);
 
   // Collapsible controls state
   const [controlsCollapsed, setControlsCollapsed] = useState(() => {
@@ -479,6 +493,24 @@ const ScannerContent: React.FC = () => {
     }
   };
 
+  const handleStopScan = async () => {
+    try {
+      const scanId = scanResults.scanResult?.id;
+      const result = await stopScan(scanId);
+      if (result.success) {
+        console.log("Scan stop request sent successfully");
+      } else {
+        console.error("Failed to stop scan:", result.error);
+      }
+    } catch (err) {
+      console.error("Error stopping scan:", err);
+    }
+  };
+
+  // Determine if a scan is currently active (running or cancelling)
+  const isScanActive = scanResults.scanResult?.status === "running" || 
+                       scanResults.scanResult?.status === "cancelling";
+
   // Persist collapsed state
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -629,7 +661,10 @@ const ScannerContent: React.FC = () => {
                     <label className="mb-2 block text-sm font-medium text-violet-200">
                       Scan Targets
                     </label>
-                    <ChipTargetInput onTargetsChange={handleTargetsChange} />
+                    <ChipTargetInput 
+                      onTargetsChange={handleTargetsChange}
+                      initialTargets={initialTargetsFromUrl}
+                    />
                   </div>
 
                   {/* Right: Profile + Start Button */}
@@ -643,16 +678,39 @@ const ScannerContent: React.FC = () => {
                         onChange={setSelectedProfile}
                       />
                     </div>
-                    <Button
-                      onClick={handleScan}
-                      disabled={parsedTargets.length === 0 || isLoading}
-                      className="h-12 bg-gradient-to-r from-violet-600 to-purple-600 px-8 text-base font-semibold text-white shadow-lg hover:from-violet-500 hover:to-purple-500 disabled:opacity-50"
-                    >
-                      <Play className="mr-2 h-5 w-5 fill-current" />
-                      {isLoading ? "Scanning..." : "Start Scan"}
-                    </Button>
+                    {isScanActive ? (
+                      <Button
+                        onClick={handleStopScan}
+                        disabled={isStopping || scanResults.scanResult?.status === "cancelling"}
+                        className="h-12 bg-gradient-to-r from-red-600 to-rose-600 px-8 text-base font-semibold text-white shadow-lg hover:from-red-500 hover:to-rose-500 disabled:opacity-50"
+                      >
+                        <Square className="mr-2 h-5 w-5 fill-current" />
+                        {isStopping || scanResults.scanResult?.status === "cancelling" 
+                          ? "Stopping..." 
+                          : "Stop Scan"}
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleScan}
+                        disabled={parsedTargets.length === 0 || isLoading}
+                        className="h-12 bg-gradient-to-r from-violet-600 to-purple-600 px-8 text-base font-semibold text-white shadow-lg hover:from-violet-500 hover:to-purple-500 disabled:opacity-50"
+                      >
+                        <Play className="mr-2 h-5 w-5 fill-current" />
+                        {isLoading ? "Scanning..." : "Start Scan"}
+                      </Button>
+                    )}
                   </div>
                 </div>
+
+                {/* Stop Scan Error Display */}
+                {stopError && (
+                  <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+                    <div className="flex items-center gap-2 text-red-400">
+                      <AlertTriangle className="h-4 w-4" />
+                      <span className="text-sm">Failed to stop scan: {stopError}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Agent Download Banner */}
                 <div className="mt-6 rounded-lg border border-violet-500/20 bg-violet-500/5 p-4">
@@ -694,7 +752,11 @@ const ScannerContent: React.FC = () => {
             {/* Results Section */}
             {scanResults.scanResult ? (
               <div className="scanner-section scanner-section-padding scanner-section-hover min-h-[400px]">
-                <ScanStatus results={scanResults.scanResult} />
+                <ScanStatus 
+                  results={scanResults.scanResult} 
+                  onStopScan={handleStopScan}
+                  isStopping={isStopping}
+                />
 
                 <div className="scanner-divider"></div>
 

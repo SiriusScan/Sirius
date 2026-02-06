@@ -293,16 +293,18 @@ const TopVulnerableHostsWidgetComponent: React.FC<
     }
   );
 
-  // Manual refresh handler
+  // Manual refresh handler - forces backend cache invalidation via refresh=true
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // Invalidate tRPC query cache with exact query parameters
-      await utils.statistics.getMostVulnerableHosts.invalidate({
+      // Invalidate tRPC query cache
+      await utils.statistics.getMostVulnerableHosts.invalidate();
+      // Fetch with refresh=true to invalidate backend Valkey cache
+      await utils.client.statistics.getMostVulnerableHosts.query({
         limit,
-        refresh: false,
+        refresh: true, // Force backend cache invalidation
       });
-      // Refetch the data
+      // Refetch to update React Query cache
       await refetch();
       onRefresh?.();
     } catch (err) {

@@ -87,14 +87,30 @@ services:
       target: development # Use development stage
     # Override image for dev builds
     image: sirius-sirius-engine:dev
+    # Use host network for direct access to target networks
+    # This allows scanning hosts that have firewall rules blocking Docker subnets
+    network_mode: host
+    # Required for ICMP probes in ping++ fingerprinting
+    cap_add:
+      - NET_RAW
+    # Extra hosts for service discovery when using host network mode
+    extra_hosts:
+      - "sirius-valkey:127.0.0.1"
+      - "sirius-rabbitmq:127.0.0.1"
+      - "sirius-postgres:127.0.0.1"
+      - "sirius-api:127.0.0.1"
     volumes:
       - ./sirius-engine:/engine
+      # Mount start scripts for hot reload of startup changes
+      - ./sirius-engine/start-enhanced.sh:/start-enhanced.sh
+      - ./sirius-engine/start.sh:/start.sh
       # Development volume mounts (require ../minor-projects/ structure):
       # Enabled for local development with source-aware functionality
       - ../minor-projects/app-agent:/app-agent
       - ../minor-projects/app-scanner:/app-scanner
       - ../minor-projects/app-terminal:/app-terminal
       - ../minor-projects/go-api:/go-api
+      - ../minor-projects/ping++:/ping++
       - ../minor-projects/sirius-nse:/sirius-nse
       - ../minor-projects/sirius-agent-modules:/app-agent/sirius-agent-modules
       # Add system monitor from separate repository
@@ -125,8 +141,8 @@ services:
 
 networks:
   default:
-    external: true
     name: sirius
+    driver: bridge
 
 volumes:
   node_modules:

@@ -20,6 +20,20 @@ const ChipTargetInput: React.FC<PatternProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [initializedFromProps, setInitializedFromProps] = useState(false);
+
+  // Sync with initialTargets when they change (e.g., from URL params)
+  useEffect(() => {
+    if (initialTargets.length > 0 && !initializedFromProps) {
+      setTargets((prev) => {
+        // Merge initial targets with any existing targets, avoiding duplicates
+        const existingValues = new Set(prev.map((t) => t.value));
+        const newTargets = initialTargets.filter((t) => !existingValues.has(t.value));
+        return [...prev, ...newTargets];
+      });
+      setInitializedFromProps(true);
+    }
+  }, [initialTargets, initializedFromProps]);
 
   // Update parent when targets change
   useEffect(() => {

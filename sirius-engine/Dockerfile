@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for sirius-engine
 # Stage 1: Build stage with all dependencies
-FROM golang:1.23-bullseye AS builder
+FROM golang:1.24-bullseye AS builder
 
 # Set working directory
 WORKDIR /build
@@ -76,7 +76,7 @@ RUN git clone https://github.com/SiriusScan/app-administrator.git && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o administrator main.go
 
 # Stage 2: Development stage with Go compiler and tools
-FROM golang:1.23-bullseye AS development
+FROM golang:1.24-bullseye AS development
 
 # Set working directory
 WORKDIR /engine

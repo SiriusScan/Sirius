@@ -39,7 +39,7 @@ const AgentTemplatesTab: React.FC = () => {
     try {
       // Fetch full template with YAML content using manual fetch
       const response = await fetch(
-        `http://localhost:9001/api/agent-templates/${template.id}`
+        `${process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"}/api/agent-templates/${template.id}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch template");
@@ -57,7 +57,7 @@ const AgentTemplatesTab: React.FC = () => {
     try {
       // Fetch full template with YAML content for editing
       const response = await fetch(
-        `http://localhost:9001/api/agent-templates/${template.id}`
+        `${process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"}/api/agent-templates/${template.id}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch template");

@@ -1,12 +1,10 @@
-github.com/SiriusScan/go-api v0.0.12 h1:67kAtkfNLGEG5rmRl16xECYdZ4AeDayvcGzGzlghzDQ=
-github.com/SiriusScan/go-api v0.0.12/go.mod h1:3uw5dE8qotMGDkF7AF3pwVSxcLNJY7ZI8csTXEmkOkE=
+github.com/SiriusScan/go-api v0.0.14 h1:4Bm05xCVfySPAa+2HTq44cSGQhdofsPxeFocSSW6r8E=
+github.com/SiriusScan/go-api v0.0.14/go.mod h1:3uw5dE8qotMGDkF7AF3pwVSxcLNJY7ZI8csTXEmkOkE=
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=
 github.com/andybalholm/brotli v1.0.5/go.mod h1:fO7iG3H7G2nSZ7m0zPUDn85XEX2GTukHGRSepvi9Eig=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/fatih/color v1.18.0 h1:S8gINlzdQ840/4pfAwic/ZE0djQEH3wM94VfqLTZcOM=
-github.com/fatih/color v1.18.0/go.mod h1:4FelSpRwEGDpQ12mAdzqdOukCy4u8WUtOY6lkT/6HfU=
 github.com/gofiber/fiber/v2 v2.49.2 h1:ONEN3/Vc+dUCxxDgZZwpqvhISgHqb+bu+isBiEyKEQs=
 github.com/gofiber/fiber/v2 v2.49.2/go.mod h1:gNsKnyrmfEWFpJxQAV0qvW6l70K1dZGno12oLtukcts=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=

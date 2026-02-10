@@ -391,6 +391,3 @@ func storeScriptContent(ctx context.Context, kvStore store.KVStore, scriptID str
 
 	return nil
 }
-
-
-

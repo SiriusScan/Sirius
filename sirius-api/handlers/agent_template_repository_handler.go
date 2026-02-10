@@ -535,11 +535,3 @@ func publishSyncJob(msg SyncJobMessage) error {
 
 	return queue.Send(syncJobQueue, string(data))
 }
-
-
-
-
-
-
-
-

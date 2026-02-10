@@ -59,7 +59,7 @@ func GetEvents(c *fiber.Ctx) error {
 	if err != nil {
 		slog.Error("Failed to retrieve events", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to retrieve events",
+			"error":   "Failed to retrieve events",
 			"details": err.Error(),
 		})
 	}
@@ -85,7 +85,7 @@ func GetEvent(c *fiber.Ctx) error {
 	if err != nil {
 		slog.Error("Failed to retrieve event", "event_id", eventID, "error", err)
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "Event not found",
+			"error":   "Event not found",
 			"details": err.Error(),
 		})
 	}
@@ -99,7 +99,7 @@ func GetEventStats(c *fiber.Ctx) error {
 	if err != nil {
 		slog.Error("Failed to retrieve event statistics", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to retrieve event statistics",
+			"error":   "Failed to retrieve event statistics",
 			"details": err.Error(),
 		})
 	}
@@ -116,7 +116,7 @@ func MarkEventsRead(c *fiber.Ctx) error {
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+			"error":   "Invalid request body",
 			"details": err.Error(),
 		})
 	}
@@ -130,8 +130,8 @@ func MarkEventsRead(c *fiber.Ctx) error {
 	// TODO: Implement read status tracking in database
 	// For now, just return success
 	return c.JSON(fiber.Map{
-		"message": "Mark as read functionality will be implemented in a future update",
-		"event_ids": req.EventIDs,
+		"message":      "Mark as read functionality will be implemented in a future update",
+		"event_ids":    req.EventIDs,
 		"marked_count": len(req.EventIDs),
 	})
 }
@@ -157,16 +157,16 @@ func GetEventsByEntity(c *fiber.Ctx) error {
 	if err != nil {
 		slog.Error("Failed to retrieve events for entity", "entity_type", entityType, "entity_id", entityID, "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to retrieve events",
+			"error":   "Failed to retrieve events",
 			"details": err.Error(),
 		})
 	}
 
 	return c.JSON(fiber.Map{
 		"entity_type": entityType,
-		"entity_id": entityID,
-		"events": eventList,
-		"count": len(eventList),
+		"entity_id":   entityID,
+		"events":      eventList,
+		"count":       len(eventList),
 	})
 }
 
@@ -189,15 +189,14 @@ func GetRecentEventsBySeverity(c *fiber.Ctx) error {
 	if err != nil {
 		slog.Error("Failed to retrieve events by severity", "severity", severity, "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to retrieve events",
+			"error":   "Failed to retrieve events",
 			"details": err.Error(),
 		})
 	}
 
 	return c.JSON(fiber.Map{
 		"severity": severity,
-		"events": eventList,
-		"count": len(eventList),
+		"events":   eventList,
+		"count":    len(eventList),
 	})
 }
-

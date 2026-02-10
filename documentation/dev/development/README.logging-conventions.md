@@ -36,7 +36,7 @@ This document defines the project-wide logging standards for all Sirius services
 ### Supported Values
 
 | Value   | Description                                              |
-|---------|----------------------------------------------------------|
+| ------- | -------------------------------------------------------- |
 | `debug` | Everything, including per-host scan phases and cache ops |
 | `info`  | Startup, significant events, scan-level progress         |
 | `warn`  | Non-fatal issues, degraded behavior, retries             |
@@ -46,10 +46,10 @@ Default: **`info`** (when `LOG_LEVEL` is unset or unrecognized).
 
 ### Per-Environment Defaults
 
-| Environment                | `sirius-api` | `sirius-engine` (scanner) | `app-agent` |
-|----------------------------|:------------:|:-------------------------:|:-----------:|
-| **Production** (`docker-compose.yaml`) | `error`      | `info`                    | `info`      |
-| **Development** (`docker-compose.dev.yaml`) | `info`       | `info`                    | `info`      |
+| Environment                                 | `sirius-api` | `sirius-engine` (scanner) | `app-agent` |
+| ------------------------------------------- | :----------: | :-----------------------: | :---------: |
+| **Production** (`docker-compose.yaml`)      |   `error`    |          `info`           |   `info`    |
+| **Development** (`docker-compose.dev.yaml`) |    `info`    |          `info`           |   `info`    |
 
 To temporarily enable debug output during development, override in `docker-compose.dev.yaml` or pass as an environment variable:
 
@@ -73,6 +73,7 @@ func main() {
 ```
 
 Helper functions:
+
 - `slogger.Level()` -- returns the current `slog.Level`
 - `slogger.IsDebug()` -- returns true when debug logging is active
 
@@ -145,17 +146,17 @@ slog.Info(fmt.Sprintf("Scan %s completed: %d hosts, %d vulns", scanID, hostCount
 
 Use consistent field names across the project:
 
-| Field         | Description                  |
-|---------------|------------------------------|
-| `error`       | Error value                  |
-| `ip`          | Host IP address              |
-| `scan_id`     | Scan identifier              |
-| `host_count`  | Number of hosts              |
-| `template_id` | Template identifier          |
-| `queue`       | Queue name                   |
-| `duration`    | Operation duration           |
-| `port_count`  | Number of ports              |
-| `script_id`   | Script identifier            |
+| Field         | Description         |
+| ------------- | ------------------- |
+| `error`       | Error value         |
+| `ip`          | Host IP address     |
+| `scan_id`     | Scan identifier     |
+| `host_count`  | Number of hosts     |
+| `template_id` | Template identifier |
+| `queue`       | Queue name          |
+| `duration`    | Operation duration  |
+| `port_count`  | Number of ports     |
+| `script_id`   | Script identifier   |
 
 ## Anti-Patterns
 

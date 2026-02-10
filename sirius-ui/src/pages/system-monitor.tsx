@@ -2,20 +2,9 @@ import { type NextPage } from "next";
 import { useSession } from "next-auth/react";
 import { useState, useEffect, useMemo } from "react";
 import Layout from "~/components/Layout";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "~/components/lib/ui/card";
 import { Badge } from "~/components/lib/ui/badge";
 import { Button } from "~/components/lib/ui/button";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "~/components/lib/ui/tabs";
+import { cn } from "~/components/lib/utils";
 import {
   RefreshCw,
   Server,
@@ -28,6 +17,7 @@ import {
   Activity,
   HardDrive,
   CheckCircle,
+  type LucideIcon,
 } from "lucide-react";
 import {
   healthCheckService,
@@ -39,7 +29,17 @@ import { SystemResourcesDashboard } from "~/components/SystemResourcesDashboard"
 import { DockerLogsViewer } from "~/components/DockerLogsViewer";
 import { api } from "~/utils/api";
 
-// Service configuration
+// ── Tab definitions ───────────────────────────────────────────────────────────
+type MonitorTab = "services" | "resources" | "logs";
+
+const monitorTabs: Array<{ id: MonitorTab; label: string; icon: LucideIcon }> =
+  [
+    { id: "services", label: "Dashboard", icon: Server },
+    { id: "resources", label: "Resources", icon: HardDrive },
+    { id: "logs", label: "System Logs", icon: FileText },
+  ];
+
+// ── Service configuration ─────────────────────────────────────────────────────
 const serviceConfig = [
   {
     id: "sirius-ui",
@@ -81,6 +81,7 @@ const serviceConfig = [
 
 type ServiceStatus = "up" | "down" | "loading" | "error";
 
+// ── ServiceStatusCard ─────────────────────────────────────────────────────────
 const ServiceStatusCard: React.FC<{
   serviceConfig: (typeof serviceConfig)[0];
   serviceHealth: ServiceHealth | null;
@@ -120,20 +121,17 @@ const ServiceStatusCard: React.FC<{
 
   const status = serviceHealth?.status || "loading";
   const message = serviceHealth?.message || "Checking...";
-  const timestamp = serviceHealth?.timestamp
-    ? new Date(serviceHealth.timestamp)
-    : new Date();
   const port = serviceHealth?.port;
 
   return (
-    <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
-      <CardHeader className="pb-3">
+    <div className="rounded-xl border border-gray-700/50 bg-gray-800/40">
+      <div className="p-6 pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Icon className="h-5 w-5 text-violet-400" />
-            <CardTitle className="text-lg font-medium text-white">
+            <h3 className="text-lg font-medium text-white">
               {serviceConfig.name}
-            </CardTitle>
+            </h3>
           </div>
           <Badge className={`${getStatusColor(status)} border`}>
             {getStatusIcon(status)} {status.toUpperCase()}
@@ -143,8 +141,8 @@ const ServiceStatusCard: React.FC<{
         {message && message !== "Checking..." && (
           <p className="mt-1 text-xs text-gray-500">{message}</p>
         )}
-      </CardHeader>
-      <CardContent className="pt-0">
+      </div>
+      <div className="px-6 pb-6 pt-0">
         <div className="space-y-2">
           {port && (
             <div className="flex justify-between text-sm">
@@ -159,15 +157,17 @@ const ServiceStatusCard: React.FC<{
             </div>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 
+// ── Page Component ────────────────────────────────────────────────────────────
 const SystemMonitor: NextPage = () => {
   const { data: sessionData } = useSession();
+  const [activeTab, setActiveTab] = useState<MonitorTab>("services");
   const [systemHealth, setSystemHealth] = useState<SystemHealthResponse | null>(
-    null
+    null,
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,7 +177,7 @@ const SystemMonitor: NextPage = () => {
   // Fetch recent events and filter for error/warning/critical
   const { data: eventsData, isLoading: errorEventsLoading } =
     api.events.getRecentEvents.useQuery({
-      limit: 50, // Get more to filter from
+      limit: 50,
     });
 
   // Filter for error, warning, and critical events
@@ -189,9 +189,9 @@ const SystemMonitor: NextPage = () => {
         (event) =>
           event.severity === "error" ||
           event.severity === "warning" ||
-          event.severity === "critical"
+          event.severity === "critical",
       )
-      .slice(0, 3); // Take top 3
+      .slice(0, 3);
   }, [eventsData]);
 
   // Load resource data for dashboard
@@ -201,7 +201,7 @@ const SystemMonitor: NextPage = () => {
       const response = await fetch(
         `${
           process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/resources`
+        }/api/v1/system/resources`,
       );
       if (response.ok) {
         const data = await response.json();
@@ -214,12 +214,10 @@ const SystemMonitor: NextPage = () => {
     }
   };
 
-
   // Get uptime for a specific service from resource data
   const getServiceUptime = (serviceId: string): string | undefined => {
     if (!resourceData?.containers) return undefined;
 
-    // Map service IDs to container names
     const containerNameMap: Record<string, string> = {
       "sirius-ui": "sirius-ui",
       "sirius-api": "sirius-api",
@@ -233,7 +231,7 @@ const SystemMonitor: NextPage = () => {
     if (!containerName) return undefined;
 
     const container = resourceData.containers.find(
-      (c: any) => c.name === containerName
+      (c: any) => c.name === containerName,
     );
     return container?.uptime;
   };
@@ -250,16 +248,15 @@ const SystemMonitor: NextPage = () => {
         console.error("Health check error:", err);
       },
       {
-        interval: 5000, // 5 seconds
+        interval: 5000,
         retries: 3,
         timeout: 5000,
-      }
+      },
     );
 
     // Load resource data on mount
     loadResourceData();
 
-    // Cleanup on unmount
     return () => {
       stopPolling();
     };
@@ -274,7 +271,7 @@ const SystemMonitor: NextPage = () => {
       setSystemHealth(health);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to refresh health status"
+        err instanceof Error ? err.message : "Failed to refresh health status",
       );
     } finally {
       setIsRefreshing(false);
@@ -290,31 +287,61 @@ const SystemMonitor: NextPage = () => {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-extralight text-white">
+      <div className="relative z-20 -mt-14 space-y-4">
+        {/* ── Sticky Header ─────────────────────────────────────────────── */}
+        <div className="sticky top-2 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
+          <div className="flex items-center gap-3">
+            {/* Icon container */}
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 ring-2 ring-violet-500/20">
+              <Activity className="h-6 w-6 text-violet-400" />
+            </div>
+
+            {/* Title */}
+            <h1 className="text-2xl font-bold tracking-tight text-white">
               System Monitor
             </h1>
-            <p className="mt-1 text-gray-400">
-              Monitor system health and view real-time logs
-            </p>
+
+            {/* Inline tabs */}
+            <nav className="ml-1 flex shrink-0 items-center gap-1">
+              {monitorTabs.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
+                    activeTab === id
+                      ? "bg-violet-500/20 text-white ring-1 ring-violet-500/30"
+                      : "text-gray-400 hover:bg-gray-800/60 hover:text-gray-200",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </nav>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Refresh button */}
+            <div className="flex shrink-0 items-center pr-14">
+              <Button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                size="sm"
+              >
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                />
+                {isRefreshing ? "Refreshing..." : "Refresh"}
+              </Button>
+            </div>
           </div>
-          <Button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="border border-violet-500/30 bg-violet-600/20 text-white hover:bg-violet-600/30"
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-            {isRefreshing ? "Refreshing..." : "Refresh"}
-          </Button>
         </div>
 
-        {/* Error Display */}
+        {/* ── Error Display ─────────────────────────────────────────────── */}
         {error && (
-          <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/20 p-4">
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
             <div className="flex items-center space-x-2">
               <AlertCircle className="h-5 w-5 text-red-400" />
               <span className="font-medium text-red-400">
@@ -325,36 +352,13 @@ const SystemMonitor: NextPage = () => {
           </div>
         )}
 
-        {/* Tabs for different monitoring views */}
-        <Tabs defaultValue="services" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="services" className="flex items-center gap-2">
-              <Server className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="resources" className="flex items-center gap-2">
-              <HardDrive className="h-4 w-4" />
-              Resources
-            </TabsTrigger>
-            <TabsTrigger value="logs" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              System Logs
-            </TabsTrigger>
-            {/* Temporarily hidden - will be implemented in future */}
-            {/* <TabsTrigger
-              value="docker-logs"
-              className="flex items-center gap-2"
-            >
-              <Terminal className="h-4 w-4" />
-              Docker Logs
-            </TabsTrigger> */}
-          </TabsList>
-
-          <TabsContent value="services" className="mt-6 space-y-6">
+        {/* ── Dashboard tab ─────────────────────────────────────────────── */}
+        {activeTab === "services" && (
+          <div className="space-y-6">
             {/* System Overview */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
-                <CardContent className="p-6">
+              <div className="rounded-xl border border-gray-700/50 bg-gray-800/40">
+                <div className="p-6">
                   <div className="flex items-center space-x-3">
                     <div className="rounded-lg bg-green-500/20 p-2">
                       <Server className="h-6 w-6 text-green-400" />
@@ -366,11 +370,11 @@ const SystemMonitor: NextPage = () => {
                       <p className="text-sm text-gray-400">Services Online</p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
-              <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
-                <CardContent className="p-6">
+              <div className="rounded-xl border border-gray-700/50 bg-gray-800/40">
+                <div className="p-6">
                   <div className="flex items-center space-x-3">
                     <div className="rounded-lg bg-blue-500/20 p-2">
                       <AlertCircle className="h-6 w-6 text-blue-400" />
@@ -382,11 +386,11 @@ const SystemMonitor: NextPage = () => {
                       <p className="text-sm text-gray-400">Overall Status</p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
-              <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
-                <CardContent className="p-6">
+              <div className="rounded-xl border border-gray-700/50 bg-gray-800/40">
+                <div className="p-6">
                   <div className="flex items-center space-x-3">
                     <div className="rounded-lg bg-yellow-500/20 p-2">
                       <AlertCircle className="h-6 w-6 text-yellow-400" />
@@ -398,8 +402,8 @@ const SystemMonitor: NextPage = () => {
                       <p className="text-sm text-gray-400">Services Down</p>
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
 
             {/* Resource Overview */}
@@ -417,8 +421,8 @@ const SystemMonitor: NextPage = () => {
               ) : resourceData?.summary ? (
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                   {/* Peak CPU Usage */}
-                  <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
-                    <CardContent className="p-6">
+                  <div className="rounded-xl border border-gray-700/50 bg-gray-800/40">
+                    <div className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="rounded-lg bg-blue-500/20 p-2">
                           <Activity className="h-6 w-6 text-blue-400" />
@@ -429,8 +433,8 @@ const SystemMonitor: NextPage = () => {
                             resourceData.containers.length > 0
                               ? Math.max(
                                   ...resourceData.containers.map(
-                                    (c: any) => c.cpu_percent || 0
-                                  )
+                                    (c: any) => c.cpu_percent || 0,
+                                  ),
                                 ).toFixed(1)
                               : "0.0"}
                             %
@@ -440,12 +444,12 @@ const SystemMonitor: NextPage = () => {
                           </p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
                   {/* Total Memory Usage */}
-                  <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
-                    <CardContent className="p-6">
+                  <div className="rounded-xl border border-gray-700/50 bg-gray-800/40">
+                    <div className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="rounded-lg bg-purple-500/20 p-2">
                           <HardDrive className="h-6 w-6 text-purple-400" />
@@ -453,19 +457,19 @@ const SystemMonitor: NextPage = () => {
                         <div>
                           <p className="text-2xl font-bold text-white">
                             {resourceData.summary.total_memory_percent?.toFixed(
-                              1
+                              1,
                             ) || "0.0"}
                             %
                           </p>
                           <p className="text-sm text-gray-400">Memory Usage</p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
                   {/* Total Disk Usage */}
-                  <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
-                    <CardContent className="p-6">
+                  <div className="rounded-xl border border-gray-700/50 bg-gray-800/40">
+                    <div className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="rounded-lg bg-green-500/20 p-2">
                           <HardDrive className="h-6 w-6 text-green-400" />
@@ -478,7 +482,7 @@ const SystemMonitor: NextPage = () => {
                                   .reduce(
                                     (sum: number, container: any) =>
                                       sum + (container.disk_percent || 0),
-                                    0
+                                    0,
                                   )
                                   .toFixed(1)
                               : "0.0"}
@@ -489,12 +493,12 @@ const SystemMonitor: NextPage = () => {
                           </p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
 
                   {/* Memory Usage (MB) */}
-                  <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
-                    <CardContent className="p-6">
+                  <div className="rounded-xl border border-gray-700/50 bg-gray-800/40">
+                    <div className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="rounded-lg bg-orange-500/20 p-2">
                           <Database className="h-6 w-6 text-orange-400" />
@@ -506,8 +510,8 @@ const SystemMonitor: NextPage = () => {
                           <p className="text-sm text-gray-400">Memory Used</p>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="flex h-32 items-center justify-center">
@@ -538,7 +542,7 @@ const SystemMonitor: NextPage = () => {
                     serviceConfig={service}
                     serviceHealth={healthCheckService.getServiceStatus(
                       service.id,
-                      systemHealth
+                      systemHealth,
                     )}
                     uptime={getServiceUptime(service.id)}
                   />
@@ -561,11 +565,11 @@ const SystemMonitor: NextPage = () => {
               ) : recentErrorEvents.length > 0 ? (
                 <div className="space-y-3">
                   {recentErrorEvents.map((event, index) => (
-                    <Card
+                    <div
                       key={event.event_id || index}
-                      className="bg-paper border-red-500/20 shadow-md bg-red-300/5"
+                      className="rounded-xl border border-red-500/20 bg-red-500/5"
                     >
-                      <CardContent className="p-4">
+                      <div className="p-4">
                         <div className="flex items-start space-x-3">
                           <div className="rounded-lg bg-red-500/20 p-2">
                             <AlertCircle className="h-5 w-5 text-red-400" />
@@ -575,10 +579,10 @@ const SystemMonitor: NextPage = () => {
                               <span className="rounded bg-red-500/20 px-2 py-1 text-xs font-medium text-red-300">
                                 {event.severity?.toUpperCase() || "ERROR"}
                               </span>
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-gray-500">
                                 {event.service || "Unknown"}
                               </span>
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-gray-500">
                                 {new Date(event.timestamp).toLocaleString()}
                               </span>
                             </div>
@@ -592,13 +596,13 @@ const SystemMonitor: NextPage = () => {
                             )}
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : (
-                <Card className="bg-paper border-green-500/20 shadow-md bg-green-300/5">
-                  <CardContent className="p-6">
+                <div className="rounded-xl border border-green-500/20 bg-green-500/5">
+                  <div className="p-6">
                     <div className="flex items-center space-x-3">
                       <div className="rounded-lg bg-green-500/20 p-2">
                         <CheckCircle className="h-6 w-6 text-green-400" />
@@ -613,25 +617,26 @@ const SystemMonitor: NextPage = () => {
                         </p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               )}
             </div>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="resources" className="mt-6 space-y-6">
+        {/* ── Resources tab ─────────────────────────────────────────────── */}
+        {activeTab === "resources" && (
+          <div className="space-y-6">
             <SystemResourcesDashboard />
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="logs" className="space-y-6">
+        {/* ── System Logs tab ───────────────────────────────────────────── */}
+        {activeTab === "logs" && (
+          <div className="space-y-6">
             <LogDashboard />
-          </TabsContent>
-
-          {/* Temporarily hidden - will be implemented in future */}
-          {/* <TabsContent value="docker-logs" className="space-y-6">
-            <DockerLogsViewer />
-          </TabsContent> */}
-        </Tabs>
+          </div>
+        )}
       </div>
     </Layout>
   );

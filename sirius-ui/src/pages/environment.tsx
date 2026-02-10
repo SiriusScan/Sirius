@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/router";
 import Layout from "~/components/Layout";
 import { EnvironmentDataTable } from "~/components/EnvironmentDataTable";
 import { columns } from "~/components/EnvironmentDataTableColumns";
@@ -23,7 +22,6 @@ import { useEnvironmentData, type EnvironmentViewTab } from "~/hooks/useEnvironm
 import { cn } from "~/components/lib/utils";
 import {
   Server,
-  ShieldAlert,
   Target,
   AlertTriangle,
   Activity,
@@ -46,7 +44,6 @@ const tabs: Array<{ id: EnvironmentViewTab; label: string }> = [
 
 // ── Page Component ───────────────────────────────────────────────────────────
 const Environment = () => {
-  const router = useRouter();
   const [viewMode, setViewMode] = useState<"list" | "create">("list");
   const [activeTab, setActiveTab] = useState<EnvironmentViewTab>("table");
   const { data, rawSoftwareStats, isLoading, isError, error, refetch } =
@@ -173,10 +170,7 @@ const Environment = () => {
         {/* ── Loading / Error states ────────────────────────────────────── */}
         {isLoading && (
           <div className="flex h-64 items-center justify-center">
-            <ActiveConstellationV2Loader
-              size="xl"
-              label="Loading hosts and vulnerability data..."
-            />
+            <ActiveConstellationV2Loader size="xl" />
           </div>
         )}
 
@@ -221,9 +215,9 @@ const Environment = () => {
         {!isLoading && !isError && data && data.totalHosts > 0 && (
           <>
             {/* ── Context Bar: MVH + Environment Snapshot ───────────────── */}
-            <div className="grid gap-4 lg:grid-cols-3">
-              {/* Left 2/3: Compact horizontal Most Vulnerable Hosts */}
-              <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-4 backdrop-blur-sm lg:col-span-2">
+            <div className="grid gap-4 lg:grid-cols-4">
+              {/* Left 3/4: Compact horizontal Most Vulnerable Hosts */}
+              <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-4 backdrop-blur-sm lg:col-span-3">
                 <div className="mb-2 flex items-center gap-2">
                   <Server className="h-4 w-4 text-violet-400" />
                   <span className="text-sm font-medium text-white">Most Vulnerable Hosts</span>
@@ -231,57 +225,38 @@ const Environment = () => {
                 <MostVulnerableHostsCompact limit={3} />
               </div>
 
-              {/* Right 1/3: Environment Snapshot */}
+              {/* Right 1/4: Environment Snapshot */}
               <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-4 backdrop-blur-sm">
-                <div className="mb-3 flex items-center gap-2">
+                <div className="mb-2 flex items-center gap-2">
                   <Activity className="h-4 w-4 text-violet-400" />
-                  <span className="text-sm font-medium text-white">Environment Snapshot</span>
+                  <span className="text-sm font-medium text-white">Snapshot</span>
                 </div>
-                <div className="space-y-3">
+                <div className="space-y-1">
                   {/* OS Distribution */}
-                  <div>
-                    <h4 className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
-                      OS Distribution
-                    </h4>
-                    <div className="space-y-1">
-                      {Object.entries(data.osDistribution)
-                        .sort(([, a], [, b]) => b - a)
-                        .slice(0, 5)
-                        .map(([os, count]) => (
-                          <div
-                            key={os}
-                            className="flex items-center justify-between text-sm"
-                          >
-                            <span className="truncate text-gray-300">
-                              {os}
-                            </span>
-                            <span className="ml-2 whitespace-nowrap text-xs text-gray-500">
-                              {count} {count === 1 ? "host" : "hosts"}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="space-y-1.5 border-t border-violet-500/10 pt-2">
-                    {data.lastScanDate && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Last Scan</span>
-                        <span className="text-gray-300">
-                          {data.lastScanDate}
+                  {Object.entries(data.osDistribution)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 5)
+                    .map(([os, count]) => (
+                      <div
+                        key={os}
+                        className="flex items-center justify-between text-xs"
+                      >
+                        <span className="truncate text-gray-300">{os}</span>
+                        <span className="ml-2 whitespace-nowrap text-gray-500">
+                          {count}
                         </span>
                       </div>
-                    )}
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500">
-                        Software Packages
-                      </span>
+                    ))}
+
+                  {/* Stats — merged inline */}
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">Packages</span>
                       <span className="text-gray-300">
                         {data.softwareStats?.totalPackages ?? 0}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-500">Risky Hosts</span>
                       <span
                         className={cn(
@@ -294,24 +269,6 @@ const Environment = () => {
                         {data.riskyHosts}
                       </span>
                     </div>
-                  </div>
-
-                  {/* Quick Actions */}
-                  <div className="space-y-1.5 border-t border-violet-500/10 pt-2">
-                    <button
-                      onClick={() => void router.push("/scanner")}
-                      className="flex w-full items-center gap-2 rounded-md border border-violet-500/20 bg-gray-800/50 px-3 py-1.5 text-left text-sm text-gray-300 transition-colors hover:border-violet-500/40 hover:bg-violet-500/10"
-                    >
-                      <Target className="h-3.5 w-3.5 text-violet-400" />
-                      Run Scan
-                    </button>
-                    <button
-                      onClick={() => void router.push("/vulnerabilities")}
-                      className="flex w-full items-center gap-2 rounded-md border border-violet-500/20 bg-gray-800/50 px-3 py-1.5 text-left text-sm text-gray-300 transition-colors hover:border-violet-500/40 hover:bg-violet-500/10"
-                    >
-                      <ShieldAlert className="h-3.5 w-3.5 text-violet-400" />
-                      View Vulnerabilities
-                    </button>
                   </div>
                 </div>
               </div>

@@ -3,9 +3,52 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import Layout from "~/components/Layout";
 import { useUserSettings } from "~/hooks/useUserSettings";
+import { Input } from "~/components/lib/ui/input";
+import { Button } from "~/components/lib/ui/button";
+import { Label } from "~/components/lib/ui/label";
+import { Switch } from "~/components/lib/ui/switch";
+import { cn } from "~/components/lib/utils";
+import {
+  Settings as SettingsIcon,
+  UserCircle,
+  Lock,
+  Bell,
+  type LucideIcon,
+} from "lucide-react";
 
+// ── Tab definitions ───────────────────────────────────────────────────────────
 type SettingsTab = "general" | "security" | "notifications";
 
+const settingsTabs: Array<{
+  id: SettingsTab;
+  label: string;
+  icon: LucideIcon;
+}> = [
+  { id: "general", label: "General", icon: UserCircle },
+  { id: "security", label: "Security", icon: Lock },
+  { id: "notifications", label: "Notifications", icon: Bell },
+];
+
+// ── Notification option definitions ───────────────────────────────────────────
+const notificationOptions = [
+  {
+    id: "emailNotifications",
+    label: "Email Notifications",
+    description: "Receive email alerts for important account activity",
+  },
+  {
+    id: "scanComplete",
+    label: "Scan Complete",
+    description: "Get notified when a scan finishes running",
+  },
+  {
+    id: "vulnerabilityFound",
+    label: "New Vulnerabilities",
+    description: "Alert when new vulnerabilities are discovered",
+  },
+];
+
+// ── Page Component ────────────────────────────────────────────────────────────
 const Settings: NextPage = () => {
   const { data: sessionData } = useSession();
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
@@ -35,7 +78,6 @@ const Settings: NextPage = () => {
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await handleChangePassword(currentPassword, newPassword, confirmPassword);
-    // Clear form
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
@@ -43,206 +85,161 @@ const Settings: NextPage = () => {
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="mb-8 text-2xl font-extralight text-white">Settings</h1>
-        <div className="flex space-x-8">
-          {/* Sidebar */}
-          <div className="w-64 flex-shrink-0">
-            <div className="flex flex-col space-y-1">
-              <button
-                className={`rounded-lg px-4 py-2.5 text-left transition-colors ${
-                  activeTab === "general"
-                    ? "bg-violet-600/20 text-white"
-                    : "text-gray-400 hover:bg-violet-600/10"
-                }`}
-                onClick={() => setActiveTab("general")}
-              >
-                General
-              </button>
-              <button
-                className={`rounded-lg px-4 py-2.5 text-left transition-colors ${
-                  activeTab === "security"
-                    ? "bg-violet-600/20 text-white"
-                    : "text-gray-400 hover:bg-violet-600/10"
-                }`}
-                onClick={() => setActiveTab("security")}
-              >
-                Security
-              </button>
-              <button
-                className={`rounded-lg px-4 py-2.5 text-left transition-colors ${
-                  activeTab === "notifications"
-                    ? "bg-violet-600/20 text-white"
-                    : "text-gray-400 hover:bg-violet-600/10"
-                }`}
-                onClick={() => setActiveTab("notifications")}
-              >
-                Notifications
-              </button>
+      <div className="relative z-20 -mt-14 space-y-4">
+        {/* ── Sticky Header ─────────────────────────────────────────────── */}
+        <div className="sticky top-2 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
+          <div className="flex items-center gap-3">
+            {/* Icon container */}
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 ring-2 ring-violet-500/20">
+              <SettingsIcon className="h-6 w-6 text-violet-400" />
             </div>
+
+            {/* Title */}
+            <h1 className="text-2xl font-bold tracking-tight text-white">
+              Settings
+            </h1>
+
+            {/* Inline tabs */}
+            <nav className="ml-1 flex shrink-0 items-center gap-1">
+              {settingsTabs.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setActiveTab(id)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
+                    activeTab === id
+                      ? "bg-violet-500/20 text-white ring-1 ring-violet-500/30"
+                      : "text-gray-400 hover:bg-gray-800/60 hover:text-gray-200",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </nav>
           </div>
+        </div>
 
-          {/* Content */}
-          <div className="bg-paper flex-1 rounded-md border-violet-700/10 p-6 shadow-md bg-violet-300/5">
-            {activeTab === "general" && (
-              <form onSubmit={handleUserNameSubmit} className="space-y-6">
-                <h2 className="mb-4 text-xl font-extralight text-white">
-                  General Settings
-                </h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-400">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      className="w-full rounded-md border border-gray-600 bg-gray-800/20 px-4 py-2 text-gray-400"
-                      value={sessionData?.user?.email ?? ""}
-                      disabled
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-400">
-                      User Name
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full rounded-md border border-gray-600 bg-gray-800/20 px-4 py-2 text-white placeholder-gray-500"
-                      placeholder="Enter your user name"
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                    />
-                    {profile?.name === userName && (
-                      <span className="mt-1 text-xs text-gray-500">
-                        Current user name
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="mt-4 rounded-md bg-violet-600/20 px-4 py-2 text-white transition-colors hover:bg-violet-600/30 disabled:opacity-50"
-                  >
-                    {isLoading ? "Updating..." : "Update Profile"}
-                  </button>
+        {/* ── Content panel ────────────────────────────────────────────── */}
+        <div className="rounded-xl border border-gray-700/50 bg-gray-800/40 p-6">
+          {/* ── General tab ──────────────────────────────────────────── */}
+          {activeTab === "general" && (
+            <form onSubmit={handleUserNameSubmit}>
+              <h2 className="mb-6 text-lg font-medium text-white">
+                General Settings
+              </h2>
+              <div className="max-w-lg space-y-5">
+                <div className="space-y-2">
+                  <Label className="text-gray-400">Email</Label>
+                  <Input
+                    type="email"
+                    value={sessionData?.user?.email ?? ""}
+                    disabled
+                    className="border-gray-700 bg-gray-800/50 text-gray-500 opacity-60"
+                  />
                 </div>
-              </form>
-            )}
 
-            {activeTab === "security" && (
-              <form onSubmit={handlePasswordSubmit} className="space-y-6">
-                <h2 className="mb-4 text-xl font-extralight text-white">
-                  Security Settings
-                </h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-400">
-                      Current Password
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full rounded-md border border-gray-600 bg-gray-800/20 px-4 py-2 text-white placeholder-gray-500"
-                      placeholder="Enter current password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-400">
-                      New Password
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full rounded-md border border-gray-600 bg-gray-800/20 px-4 py-2 text-white placeholder-gray-500"
-                      placeholder="Enter new password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-400">
-                      Confirm New Password
-                    </label>
-                    <input
-                      type="password"
-                      className="w-full rounded-md border border-gray-600 bg-gray-800/20 px-4 py-2 text-white placeholder-gray-500"
-                      placeholder="Confirm new password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="mt-4 rounded-md bg-violet-600/20 px-4 py-2 text-white transition-colors hover:bg-violet-600/30 disabled:opacity-50"
-                  >
-                    {isLoading ? "Updating..." : "Update Password"}
-                  </button>
+                <div className="space-y-2">
+                  <Label className="text-gray-400">User Name</Label>
+                  <Input
+                    type="text"
+                    placeholder="Enter your user name"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-500"
+                  />
+                  {profile?.name === userName && (
+                    <p className="text-xs text-gray-500">Current user name</p>
+                  )}
                 </div>
-              </form>
-            )}
 
-            {activeTab === "notifications" && (
-              <div className="space-y-6">
-                <h2 className="mb-4 text-xl font-extralight text-white">
-                  Notification Preferences
-                </h2>
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-3 opacity-50">
-                    <input
-                      type="checkbox"
-                      id="emailNotifications"
-                      className="h-4 w-4 cursor-not-allowed rounded border-gray-600 bg-gray-800/20 text-violet-500"
-                      disabled
-                    />
-                    <label
-                      htmlFor="emailNotifications"
-                      className="cursor-not-allowed text-sm font-semibold text-gray-400"
-                    >
-                      Email Notifications
-                      <span className="ml-2 text-xs text-gray-500">
-                        (Coming soon)
-                      </span>
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-3 opacity-50">
-                    <input
-                      type="checkbox"
-                      id="scanComplete"
-                      className="h-4 w-4 cursor-not-allowed rounded border-gray-600 bg-gray-800/20 text-violet-500"
-                      disabled
-                    />
-                    <label
-                      htmlFor="scanComplete"
-                      className="cursor-not-allowed text-sm font-semibold text-gray-400"
-                    >
-                      Notify when scan completes
-                      <span className="ml-2 text-xs text-gray-500">
-                        (Coming soon)
-                      </span>
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-3 opacity-50">
-                    <input
-                      type="checkbox"
-                      id="vulnerabilityFound"
-                      className="h-4 w-4 cursor-not-allowed rounded border-gray-600 bg-gray-800/20 text-violet-500"
-                      disabled
-                    />
-                    <label
-                      htmlFor="vulnerabilityFound"
-                      className="cursor-not-allowed text-sm font-semibold text-gray-400"
-                    >
-                      Notify on new vulnerabilities
-                      <span className="ml-2 text-xs text-gray-500">
-                        (Coming soon)
-                      </span>
-                    </label>
-                  </div>
-                </div>
+                <Button type="submit" disabled={isLoading} className="mt-2">
+                  {isLoading ? "Updating..." : "Update Profile"}
+                </Button>
               </div>
-            )}
-          </div>
+            </form>
+          )}
+
+          {/* ── Security tab ─────────────────────────────────────────── */}
+          {activeTab === "security" && (
+            <form onSubmit={handlePasswordSubmit}>
+              <h2 className="mb-6 text-lg font-medium text-white">
+                Security Settings
+              </h2>
+              <div className="max-w-lg space-y-5">
+                <div className="space-y-2">
+                  <Label className="text-gray-400">Current Password</Label>
+                  <Input
+                    type="password"
+                    placeholder="Enter current password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-400">New Password</Label>
+                  <Input
+                    type="password"
+                    placeholder="Enter new password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-500"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-400">
+                    Confirm New Password
+                  </Label>
+                  <Input
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-500"
+                  />
+                </div>
+
+                <Button type="submit" disabled={isLoading} className="mt-2">
+                  {isLoading ? "Updating..." : "Update Password"}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* ── Notifications tab ────────────────────────────────────── */}
+          {activeTab === "notifications" && (
+            <div>
+              <h2 className="mb-6 text-lg font-medium text-white">
+                Notification Preferences
+              </h2>
+              <div className="max-w-lg space-y-5">
+                {notificationOptions.map((opt) => (
+                  <div
+                    key={opt.id}
+                    className="flex items-center justify-between rounded-lg border border-gray-700/40 bg-gray-800/30 px-4 py-4"
+                  >
+                    <div className="mr-4 space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-300">
+                          {opt.label}
+                        </span>
+                        <span className="rounded bg-gray-700/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                          Soon
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {opt.description}
+                      </p>
+                    </div>
+                    <Switch disabled />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Layout>

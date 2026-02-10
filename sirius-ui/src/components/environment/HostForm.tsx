@@ -17,6 +17,7 @@ import {
   Trash2,
   Network,
   FileText,
+  Shield,
 } from "lucide-react";
 import {
   Select,
@@ -25,6 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/lib/ui/select";
+
+import {
+  VulnerabilityEntryRow,
+  generateEntryId,
+  type VulnEntryData,
+} from "~/components/shared/VulnerabilityEntryRow";
 
 // Common operating systems for dropdown
 const COMMON_OS_OPTIONS = [
@@ -82,6 +89,7 @@ interface FormData {
   osversion: string;
   ports: PortEntry[];
   notes: string;
+  vulnerabilities: VulnEntryData[];
 }
 
 // Simple IP address validation regex
@@ -111,7 +119,9 @@ export const HostForm: React.FC<HostFormProps> = ({
     hostname: initialData?.hostname || "",
     os: getInitialOs(),
     customOs:
-      getInitialOs() === "Other" || !getInitialOs() ? initialData?.os || "" : "",
+      getInitialOs() === "Other" || !getInitialOs()
+        ? initialData?.os || ""
+        : "",
     osversion: initialData?.osversion || "",
     ports:
       initialData?.ports?.map((p) => ({
@@ -121,15 +131,18 @@ export const HostForm: React.FC<HostFormProps> = ({
         state: p.state,
       })) || [],
     notes: initialData?.notes?.join("\n") || "",
+    vulnerabilities: [],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [expandedSections, setExpandedSections] = useState<{
     ports: boolean;
     notes: boolean;
+    vulnerabilities: boolean;
   }>({
     ports: mode === "edit" && (initialData?.ports?.length ?? 0) > 0,
     notes: mode === "edit" && (initialData?.notes?.length ?? 0) > 0,
+    vulnerabilities: false,
   });
 
   const utils = api.useContext();
@@ -162,7 +175,7 @@ export const HostForm: React.FC<HostFormProps> = ({
   const isPending =
     createHostMutation.isPending || updateHostMutation.isPending;
 
-  const toggleSection = (section: "ports" | "notes") => {
+  const toggleSection = (section: "ports" | "notes" | "vulnerabilities") => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
@@ -187,7 +200,44 @@ export const HostForm: React.FC<HostFormProps> = ({
   const updatePort = (id: string, field: keyof PortEntry, value: string) => {
     setFormData((prev) => ({
       ...prev,
-      ports: prev.ports.map((p) => (p.id === id ? { ...p, [field]: value } : p)),
+      ports: prev.ports.map((p) =>
+        p.id === id ? { ...p, [field]: value } : p
+      ),
+    }));
+  };
+
+  const addVulnerability = () => {
+    setFormData((prev) => ({
+      ...prev,
+      vulnerabilities: [
+        ...prev.vulnerabilities,
+        {
+          id: generateEntryId(),
+          vid: "",
+          title: "",
+          description: "",
+          severity: "medium",
+          riskScore: 0,
+          autoFilled: false,
+        },
+      ],
+    }));
+    setExpandedSections((prev) => ({ ...prev, vulnerabilities: true }));
+  };
+
+  const removeVulnerability = (id: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      vulnerabilities: prev.vulnerabilities.filter((v) => v.id !== id),
+    }));
+  };
+
+  const updateVulnerability = (updated: VulnEntryData) => {
+    setFormData((prev) => ({
+      ...prev,
+      vulnerabilities: prev.vulnerabilities.map((v) =>
+        v.id === updated.id ? updated : v,
+      ),
     }));
   };
 
@@ -237,12 +287,23 @@ export const HostForm: React.FC<HostFormProps> = ({
       .map((n) => n.trim())
       .filter((n) => n !== "");
 
+    // Build vulnerabilities array (filter out entries with no VID)
+    const validVulns = formData.vulnerabilities
+      .filter((v) => v.vid.trim() !== "")
+      .map((v) => ({
+        vid: v.vid.trim(),
+        title: v.title || undefined,
+        description: v.description,
+        riskScore: v.riskScore,
+      }));
+
     if (mode === "create") {
       createHostMutation.mutate({
         ip: formData.ip.trim(),
         hostname: formData.hostname.trim() || undefined,
         os: osValue.trim() || undefined,
         osversion: formData.osversion.trim() || undefined,
+        vulnerabilities: validVulns.length > 0 ? validVulns : undefined,
       });
     } else {
       updateHostMutation.mutate({
@@ -257,7 +318,11 @@ export const HostForm: React.FC<HostFormProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !isPending && e.target instanceof HTMLInputElement) {
+    if (
+      e.key === "Enter" &&
+      !isPending &&
+      e.target instanceof HTMLInputElement
+    ) {
       handleSubmit();
     }
   };
@@ -289,7 +354,7 @@ export const HostForm: React.FC<HostFormProps> = ({
         <div className="space-y-5">
           {/* === BASIC INFORMATION SECTION === */}
           <div className="space-y-4">
-            <h3 className="text-sm font-medium uppercase tracking-wider text-gray-400">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
               Basic Information
             </h3>
 
@@ -530,6 +595,58 @@ export const HostForm: React.FC<HostFormProps> = ({
             )}
           </div>
 
+          {/* === VULNERABILITIES SECTION (Collapsible) === */}
+          <div className="border-t border-gray-700 pt-4">
+            <button
+              type="button"
+              onClick={() => toggleSection("vulnerabilities")}
+              className="flex w-full items-center justify-between py-2 text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-violet-400" />
+                <span className="text-sm font-medium text-gray-200">
+                  Vulnerabilities ({formData.vulnerabilities.length})
+                </span>
+              </div>
+              {expandedSections.vulnerabilities ? (
+                <ChevronDown className="h-4 w-4 text-gray-400" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-gray-400" />
+              )}
+            </button>
+
+            {expandedSections.vulnerabilities && (
+              <div className="mt-3 space-y-3">
+                {formData.vulnerabilities.length === 0 && (
+                  <p className="text-xs text-gray-500">
+                    No vulnerabilities added. Add CVE IDs to associate
+                    vulnerabilities with this host.
+                  </p>
+                )}
+                {formData.vulnerabilities.map((vuln, i) => (
+                  <VulnerabilityEntryRow
+                    key={vuln.id}
+                    entry={vuln}
+                    onChange={updateVulnerability}
+                    onRemove={() => removeVulnerability(vuln.id)}
+                    compact
+                    index={i}
+                  />
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addVulnerability}
+                  className="border-dashed border-gray-600 text-gray-400 hover:border-violet-500 hover:text-violet-400"
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  Add Vulnerability
+                </Button>
+              </div>
+            )}
+          </div>
+
           {/* === NOTES SECTION (Collapsible) === */}
           <div className="border-t border-gray-700 pt-4">
             <button
@@ -572,14 +689,13 @@ export const HostForm: React.FC<HostFormProps> = ({
           <Button
             variant="outline"
             onClick={onCancel}
-            className="border-gray-600 text-gray-300 hover:bg-gray-700 hover:text-white"
             disabled={isPending}
           >
             Cancel
           </Button>
           <Button
+            variant="primary"
             onClick={handleSubmit}
-            className="bg-violet-600 text-white hover:bg-violet-500"
             disabled={isPending}
           >
             {isPending

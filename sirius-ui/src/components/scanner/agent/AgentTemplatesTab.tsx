@@ -1,7 +1,4 @@
 import React, { useState } from "react";
-import { Label } from "~/components/lib/ui/label";
-import { Switch } from "~/components/lib/ui/switch";
-import { Card, CardContent } from "~/components/lib/ui/card";
 import { api } from "~/utils/api";
 import { TemplateLibrary } from "../templates/TemplateLibrary";
 import { TemplateBuilder } from "../templates/TemplateBuilder";
@@ -16,15 +13,7 @@ import {
   generateTemplateFilename,
 } from "~/utils/templateYaml";
 
-interface AgentTemplatesTabProps {
-  enableTemplates: boolean;
-  setEnableTemplates: (value: boolean) => void;
-}
-
-const AgentTemplatesTab: React.FC<AgentTemplatesTabProps> = ({
-  enableTemplates,
-  setEnableTemplates,
-}) => {
+const AgentTemplatesTab: React.FC = () => {
   const [currentView, setCurrentView] =
     useState<TemplateBuilderView>("library");
   const [viewingTemplate, setViewingTemplate] = useState<AgentTemplate | null>(
@@ -167,27 +156,6 @@ const AgentTemplatesTab: React.FC<AgentTemplatesTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Enable Templates Setting */}
-      <Card className="border-gray-700 bg-gray-800/50">
-        <CardContent className="space-y-4 pt-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="enable-templates" className="text-white">
-                Enable Agent Templates
-              </Label>
-              <p className="text-sm text-gray-400">
-                Use vulnerability detection templates during agent scans
-              </p>
-            </div>
-            <Switch
-              id="enable-templates"
-              checked={enableTemplates}
-              onCheckedChange={setEnableTemplates}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Template Library */}
       <TemplateLibrary
         templates={templates || []}

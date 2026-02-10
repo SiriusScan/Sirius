@@ -148,10 +148,42 @@ function validateCIDR(cidr: string): ValidationResult {
 }
 
 /**
+ * Normalize an IP range to full START_IP-END_IP format.
+ * Supports short notation like "192.168.1.1-10" → "192.168.1.1-192.168.1.10"
+ * Also supports "192.168.1.1-192.168.2.10" (already full) unchanged.
+ */
+export function normalizeRange(range: string): string {
+  const dashIndex = range.indexOf("-");
+  if (dashIndex === -1) return range;
+
+  const startPart = range.substring(0, dashIndex).trim();
+  const endPart = range.substring(dashIndex + 1).trim();
+
+  // If end part is already a full IP (contains dots), return as-is
+  if (endPart.includes(".")) {
+    return `${startPart}-${endPart}`;
+  }
+
+  // Short notation: end part is just the last octet(s)
+  // e.g. "192.168.1.1-10" → startPart="192.168.1.1", endPart="10"
+  const startOctets = startPart.split(".");
+  if (startOctets.length !== 4) return range; // Can't normalize if start isn't valid
+
+  const endOctetCount = endPart.split(".").length;
+  // Replace the last N octets of the start IP with the end part
+  const prefix = startOctets.slice(0, 4 - endOctetCount).join(".");
+  const fullEnd = `${prefix}.${endPart}`;
+
+  return `${startPart}-${fullEnd}`;
+}
+
+/**
  * Validate IP range
  */
 function validateRange(range: string): ValidationResult {
-  const [startIp, endIp] = range.split("-");
+  // Normalize short notation (e.g. 192.168.1.1-10 → 192.168.1.1-192.168.1.10)
+  const normalized = normalizeRange(range);
+  const [startIp, endIp] = normalized.split("-");
 
   if (!startIp || !endIp) {
     return { isValid: false, error: "Invalid range format" };
@@ -250,11 +282,18 @@ export function parseTargets(input: string): ParsedTarget[] {
     const parts = trimmed.split(",").filter((p) => p.trim());
 
     parts.forEach((part) => {
-      const validation = validateTarget(part);
+      const trimmed = part.trim();
+      const validation = validateTarget(trimmed);
+
+      // For ranges, normalize short notation so the stored value is always
+      // in full START_IP-END_IP format (required by the backend scanner)
+      const normalizedValue =
+        validation.type === "range" ? normalizeRange(trimmed) : trimmed;
+
       const target: ParsedTarget = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        raw: part.trim(),
-        value: part.trim(),
+        raw: trimmed,
+        value: normalizedValue,
         type: validation.type || "ip",
         isValid: validation.isValid,
         error: validation.error,
@@ -292,9 +331,11 @@ export function expandCIDR(cidr: string): string[] {
 
 /**
  * Expand IP range to individual IPs
+ * Supports short notation (e.g. "192.168.1.1-10")
  */
 export function expandRange(range: string): string[] {
-  const [startIp, endIp] = range.split("-");
+  const normalized = normalizeRange(range);
+  const [startIp, endIp] = normalized.split("-");
   if (!startIp || !endIp) return [];
 
   const startNum = ipToNumber(startIp.trim());

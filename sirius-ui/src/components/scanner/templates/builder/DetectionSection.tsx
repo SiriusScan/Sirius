@@ -219,7 +219,7 @@ export const DetectionSection = React.memo<DetectionSectionProps>(
 
             {formData.detectionSteps.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-800/50 py-12">
-                <Shield className="h-12 w-12 text-gray-600" />
+                <Shield className="h-12 w-12 text-gray-400" />
                 <p className="mt-3 text-sm font-medium text-gray-400">
                   No detection steps yet
                 </p>

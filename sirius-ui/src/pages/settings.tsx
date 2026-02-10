@@ -83,7 +83,7 @@ const Settings: NextPage = () => {
           </div>
 
           {/* Content */}
-          <div className="bg-paper flex-1 rounded-md border-violet-700/10 p-6 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+          <div className="bg-paper flex-1 rounded-md border-violet-700/10 p-6 shadow-md bg-violet-300/5">
             {activeTab === "general" && (
               <form onSubmit={handleUserNameSubmit} className="space-y-6">
                 <h2 className="mb-4 text-xl font-extralight text-white">
@@ -192,7 +192,7 @@ const Settings: NextPage = () => {
                     <input
                       type="checkbox"
                       id="emailNotifications"
-                      className="h-4 w-4 cursor-not-allowed rounded border-gray-600 bg-gray-800/20 text-violet-600"
+                      className="h-4 w-4 cursor-not-allowed rounded border-gray-600 bg-gray-800/20 text-violet-500"
                       disabled
                     />
                     <label
@@ -209,7 +209,7 @@ const Settings: NextPage = () => {
                     <input
                       type="checkbox"
                       id="scanComplete"
-                      className="h-4 w-4 cursor-not-allowed rounded border-gray-600 bg-gray-800/20 text-violet-600"
+                      className="h-4 w-4 cursor-not-allowed rounded border-gray-600 bg-gray-800/20 text-violet-500"
                       disabled
                     />
                     <label
@@ -226,7 +226,7 @@ const Settings: NextPage = () => {
                     <input
                       type="checkbox"
                       id="vulnerabilityFound"
-                      className="h-4 w-4 cursor-not-allowed rounded border-gray-600 bg-gray-800/20 text-violet-600"
+                      className="h-4 w-4 cursor-not-allowed rounded border-gray-600 bg-gray-800/20 text-violet-500"
                       disabled
                     />
                     <label

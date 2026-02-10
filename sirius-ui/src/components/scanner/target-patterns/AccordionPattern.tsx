@@ -153,7 +153,7 @@ const AccordionPattern: React.FC<PatternProps> = ({
                       <span className="font-mono">{target.value}</span>
                       <button
                         onClick={() => handleRemove(target.id)}
-                        className="rounded hover:bg-white/10"
+                        className="rounded hover:bg-gray-800/10"
                       >
                         <X className="h-3 w-3" />
                       </button>

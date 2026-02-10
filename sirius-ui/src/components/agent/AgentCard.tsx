@@ -48,8 +48,8 @@ export const AgentCard: React.FC<AgentCardProps> = ({
       className={cn(
         "w-full rounded-md border p-3 text-left transition-all duration-150 hover:shadow-sm",
         isSelected
-          ? "border-violet-500 bg-violet-50 shadow-sm dark:border-violet-400 dark:bg-violet-900/20"
-          : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
+          ? "border-violet-500 bg-violet-900/20"
+          : "border-gray-700 bg-gray-800 hover:border-gray-600"
       )}
     >
       <div className="flex items-center gap-3">
@@ -64,10 +64,10 @@ export const AgentCard: React.FC<AgentCardProps> = ({
 
         {/* Agent information */}
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <div className="truncate text-sm font-semibold text-gray-100">
             {agent.host?.hostname || agent.name || agent.id}
           </div>
-          <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+          <div className="truncate text-xs text-gray-400">
             {displayInfo.ip} • {displayInfo.os}
           </div>
         </div>
@@ -79,8 +79,8 @@ export const AgentCard: React.FC<AgentCardProps> = ({
           className={cn(
             "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded transition-colors",
             agent.host?.ip
-              ? "text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-              : "cursor-not-allowed text-gray-300 dark:text-gray-600"
+              ? "text-gray-400 hover:bg-gray-700 hover:text-gray-300"
+              : "cursor-not-allowed text-gray-400"
           )}
           title={
             agent.host?.ip

@@ -1,15 +1,20 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { api } from "~/utils/api";
 import { fallbackScripts, type NmapScript } from "./mockScriptsData";
-import ScriptTable from "../shared/ScriptTable";
+import { ScriptLibrary } from "./ScriptLibrary";
 
 interface NmapScriptsTabProps {
   onSelectScript: (script: NmapScript) => void;
+  onCreateNew: () => void;
+  onDeleteScript: (script: NmapScript) => void;
 }
 
-const NmapScriptsTab: React.FC<NmapScriptsTabProps> = ({ onSelectScript }) => {
+const NmapScriptsTab: React.FC<NmapScriptsTabProps> = ({
+  onSelectScript,
+  onCreateNew,
+  onDeleteScript,
+}) => {
   const utils = api.useContext();
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Fetch scripts from Redis via TRPC
   const {
@@ -26,7 +31,6 @@ const NmapScriptsTab: React.FC<NmapScriptsTabProps> = ({ onSelectScript }) => {
   const { mutate: initializeScripts } =
     api.store.initializeNseScripts.useMutation({
       onSuccess: () => {
-        // Refresh the scripts list after initialization
         utils.store.getNseScripts.invalidate();
       },
     });
@@ -43,20 +47,6 @@ const NmapScriptsTab: React.FC<NmapScriptsTabProps> = ({ onSelectScript }) => {
     return scripts || fallbackScripts;
   }, [scripts]);
 
-  if (!scripts || scripts.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center space-y-4 p-4">
-        <p className="text-gray-400">No scripts found</p>
-        <button
-          onClick={() => initializeScripts()}
-          className="rounded bg-violet-600 px-4 py-2 text-white hover:bg-violet-700"
-        >
-          Initialize with Default Scripts
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       {error && (
@@ -68,11 +58,11 @@ const NmapScriptsTab: React.FC<NmapScriptsTabProps> = ({ onSelectScript }) => {
         </div>
       )}
 
-      <ScriptTable
+      <ScriptLibrary
         scripts={availableScripts}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onSelectScript={onSelectScript}
+        onCreateNew={onCreateNew}
+        onView={onSelectScript}
+        onDelete={onDeleteScript}
         isLoading={isLoading}
       />
     </div>

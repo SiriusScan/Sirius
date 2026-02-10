@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Button } from "~/components/lib/ui/button";
 import { Badge } from "~/components/lib/ui/badge";
-import { Card, CardContent } from "~/components/lib/ui/card";
 import { TemplateFilters } from "./TemplateFilters";
 import {
   Plus,
@@ -16,6 +15,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import { SeverityBadge } from "~/components/shared/SeverityBadge";
 import type { AgentTemplate } from "~/types/agentTemplateTypes";
 import type {
   TemplateLibraryFilters,
@@ -38,16 +38,8 @@ const severityColors: Record<string, string> = {
   critical: "border-red-500/50 bg-red-500/10",
   high: "border-orange-500/50 bg-orange-500/10",
   medium: "border-yellow-500/50 bg-yellow-500/10",
-  low: "border-blue-500/50 bg-blue-500/10",
-  info: "border-gray-500/50 bg-gray-500/10",
-};
-
-const severityBadgeColors: Record<string, string> = {
-  critical: "bg-red-500/20 text-red-400",
-  high: "bg-orange-500/20 text-orange-400",
-  medium: "bg-yellow-500/20 text-yellow-400",
-  low: "bg-blue-500/20 text-blue-400",
-  info: "bg-gray-500/20 text-gray-400",
+  low: "border-green-500/50 bg-green-500/10",
+  info: "border-blue-500/50 bg-blue-500/10",
 };
 
 const platformIcons: Record<string, React.ReactNode> = {
@@ -190,9 +182,9 @@ export const TemplateLibrary: React.FC<TemplateLibraryProps> = ({
 
       {/* Empty State */}
       {filteredTemplates.length === 0 && (
-        <Card className="border-gray-700 bg-gray-800/50">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FileText className="h-12 w-12 text-gray-600" />
+        <div className="scanner-section border-gray-700 bg-gray-800/50">
+          <div className="scanner-section-padding flex flex-col items-center justify-center py-12">
+            <FileText className="h-12 w-12 text-gray-400" />
             <h3 className="mt-4 text-lg font-medium text-white">
               No templates found
             </h3>
@@ -213,8 +205,8 @@ export const TemplateLibrary: React.FC<TemplateLibraryProps> = ({
                 Create Template
               </Button>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Standard Templates */}
@@ -335,131 +327,122 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
 
   if (viewMode === "list") {
     return (
-      <Card
+      <div
         className={cn(
-          "border-2 transition-all hover:shadow-lg hover:shadow-violet-500/20",
+          "scanner-section border-2 transition-all hover:shadow-lg hover:shadow-violet-500/20",
           severityColors[template.severity] || "border-gray-700 bg-gray-800/50"
         )}
       >
-        <CardContent className="flex items-center justify-between overflow-hidden p-4">
-          <div className="flex flex-1 items-center gap-4 overflow-hidden">
-            <div className="min-w-0 flex-1 overflow-hidden">
-              <div className="flex items-center gap-2">
-                <h4 className="truncate text-base font-semibold text-white">
-                  {template.name}
-                </h4>
-                <Badge
-                  className={cn(
-                    "text-xs",
-                    severityBadgeColors[template.severity]
-                  )}
-                >
-                  {template.severity}
-                </Badge>
-                <Badge className="bg-gray-700 text-xs text-gray-300">
-                  {template.type}
-                </Badge>
-              </div>
-              <p className="mt-1 line-clamp-1 text-sm text-gray-400">
-                {template.description}
-              </p>
+        <div className="scanner-section-padding flex items-center gap-4 overflow-hidden p-4">
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <div className="flex items-center gap-2">
+              <h4 className="truncate text-base font-semibold text-white">
+                {template.name}
+              </h4>
+              <SeverityBadge
+                severity={template.severity}
+                className="flex-shrink-0"
+              />
+              <Badge className="flex-shrink-0 bg-gray-700 text-xs text-gray-300">
+                {template.type}
+              </Badge>
             </div>
-
-            <div className="flex items-center gap-3">
-              {/* Platforms */}
-              <div className="flex items-center gap-1 text-gray-400">
-                {template.platforms?.map((platform) => (
-                  <div key={platform}>{platformIcons[platform]}</div>
-                ))}
-              </div>
-
-              {/* Tags */}
-              {displayTags.length > 0 && (
-                <div className="flex items-center gap-1">
-                  {displayTags.map((tag: string) => (
-                    <Badge
-                      key={tag}
-                      className="bg-gray-700 text-xs text-gray-300"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                  {remainingTags > 0 && (
-                    <Badge className="bg-gray-700 text-xs text-gray-300">
-                      +{remainingTags}
-                    </Badge>
-                  )}
-                </div>
-              )}
-            </div>
+            <p className="mt-1 line-clamp-1 text-sm text-gray-400">
+              {template.description}
+            </p>
           </div>
 
-          <div className="flex flex-shrink-0 items-center gap-2">
+          {/* Platforms */}
+          {template.platforms && template.platforms.length > 0 && (
+            <div className="flex flex-shrink-0 items-center gap-2 text-gray-400">
+              {template.platforms.map((platform) => (
+                <div key={platform}>{platformIcons[platform]}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Tags */}
+          {displayTags.length > 0 && (
+            <div className="hidden flex-shrink-0 items-center gap-1.5 md:flex">
+              {displayTags.map((tag: string) => (
+                <Badge
+                  key={tag}
+                  className="bg-gray-700 text-xs text-gray-300"
+                >
+                  {tag}
+                </Badge>
+              ))}
+              {remainingTags > 0 && (
+                <Badge className="bg-gray-700 text-xs text-gray-300">
+                  +{remainingTags}
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex flex-shrink-0 items-center gap-1.5">
             <Button
-              size="sm"
+              size="icon"
               variant="outline"
               onClick={() => onView(template)}
-              className="border-gray-700 text-gray-300 hover:bg-gray-700/50 hover:text-white"
+              className="h-8 w-8 border-gray-700 text-gray-300 hover:bg-gray-700/50 hover:text-white"
             >
               <Eye className="h-4 w-4" />
             </Button>
             <Button
-              size="sm"
+              size="icon"
               variant="outline"
               onClick={() => onRun(template)}
-              className="border-violet-500/30 text-violet-400 hover:border-violet-500/50 hover:bg-violet-500/10"
+              className="h-8 w-8 border-violet-500/30 text-violet-400 hover:border-violet-500/50 hover:bg-violet-500/10"
             >
               <Play className="h-4 w-4" />
             </Button>
             {isCustom && (
               <>
                 <Button
-                  size="sm"
+                  size="icon"
                   variant="outline"
                   onClick={() => onEdit(template)}
-                  className="border-gray-700 text-gray-300 hover:bg-gray-700/50 hover:text-white"
+                  className="h-8 w-8 border-gray-700 text-gray-300 hover:bg-gray-700/50 hover:text-white"
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
                 <Button
-                  size="sm"
+                  size="icon"
                   variant="outline"
                   onClick={() => onDelete(template)}
-                  className="border-red-500/30 text-red-400 hover:border-red-500/50 hover:bg-red-500/10"
+                  className="h-8 w-8 border-red-500/30 text-red-400 hover:border-red-500/50 hover:bg-red-500/10"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   // Grid view
   return (
-    <Card
+    <div
       className={cn(
-        "group border-2 transition-all hover:border-violet-500/50 hover:shadow-lg hover:shadow-violet-500/20",
+        "scanner-section group border-2 transition-all hover:border-violet-500/50 hover:shadow-lg hover:shadow-violet-500/20",
         severityColors[template.severity] || "border-gray-700 bg-gray-800/50"
       )}
     >
-      <CardContent className="space-y-3 p-4">
+      <div className="scanner-section-padding space-y-3 p-4">
         {/* Header */}
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-2">
             <h4 className="line-clamp-2 flex-1 text-base font-semibold text-white">
               {template.name}
             </h4>
-            <Badge
-              className={cn(
-                "flex-shrink-0 text-xs",
-                severityBadgeColors[template.severity]
-              )}
-            >
-              {template.severity}
-            </Badge>
+            <SeverityBadge
+              severity={template.severity}
+              className="flex-shrink-0"
+            />
           </div>
           <Badge className="bg-gray-700 text-xs text-gray-300">
             {template.type}
@@ -472,13 +455,13 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
         </p>
 
         {/* Platforms */}
-        <div className="flex items-center gap-2 text-gray-400">
-          {template.platforms?.map((platform) => (
-            <div key={platform} className="flex items-center gap-1">
-              {platformIcons[platform]}
-            </div>
-          ))}
-        </div>
+        {template.platforms && template.platforms.length > 0 && (
+          <div className="flex items-center gap-2 text-gray-400">
+            {template.platforms.map((platform) => (
+              <span key={platform}>{platformIcons[platform]}</span>
+            ))}
+          </div>
+        )}
 
         {/* Tags */}
         {displayTags.length > 0 && (
@@ -540,7 +523,7 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
             </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };

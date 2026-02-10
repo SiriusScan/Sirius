@@ -1,65 +1,78 @@
+/**
+ * HostTabs — Tab navigation for the host detail page.
+ *
+ * Sits in the space-y-6 flow below the sticky header.
+ * Uses the same border/violet accent styling as the rest of v4.
+ */
+
 import React from "react";
 import { cn } from "~/components/lib/utils";
-
-type TabType =
-  | "overview"
-  | "vulnerabilities"
-  | "system"
-  | "network"
-  | "history";
+import type { TabType } from "./types";
 
 interface HostTabsProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
-  vulnerabilityCount: number;
+  vulnerabilityCount?: number;
+  portCount?: number;
 }
+
+const tabs: Array<{
+  id: TabType;
+  label: string;
+  countKey?: "vulnerabilityCount" | "portCount";
+}> = [
+  { id: "overview", label: "Overview" },
+  { id: "vulnerabilities", label: "Vulnerabilities", countKey: "vulnerabilityCount" },
+  { id: "system", label: "System" },
+  { id: "network", label: "Network", countKey: "portCount" },
+  { id: "history", label: "History" },
+];
 
 export const HostTabs: React.FC<HostTabsProps> = ({
   activeTab,
   onTabChange,
   vulnerabilityCount,
+  portCount,
 }) => {
-  const tabs = [
-    { id: "overview", label: "Overview" },
-    {
-      id: "vulnerabilities",
-      label: "Vulnerabilities",
-      count: vulnerabilityCount,
-    },
-    { id: "system", label: "System Information" },
-    { id: "network", label: "Network" },
-    { id: "history", label: "History" },
-  ];
+  const counts: Record<string, number | undefined> = {
+    vulnerabilityCount,
+    portCount,
+  };
 
   return (
-    <div className="border-b border-gray-200 dark:border-gray-700">
-      <nav className="-mb-px flex space-x-8 overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => onTabChange(tab.id as TabType)}
-            className={cn(
-              "whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium",
-              activeTab === tab.id
-                ? "border-violet-500 text-violet-600 dark:border-violet-400 dark:text-violet-300"
-                : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200"
-            )}
-          >
-            {tab.label}
-            {tab.count !== undefined && tab.count > 0 && (
-              <span
-                className={cn(
-                  "ml-2 rounded-full px-2.5 py-0.5 text-xs font-medium",
-                  activeTab === tab.id
-                    ? "bg-violet-100 text-violet-800 dark:bg-violet-900/20 dark:text-violet-300"
-                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                )}
-              >
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
+    <div className="border-b border-violet-500/10">
+      <nav className="-mb-px flex gap-1 overflow-x-auto px-1">
+        {tabs.map((tab) => {
+          const count = tab.countKey ? counts[tab.countKey] : undefined;
+          const isActive = activeTab === tab.id;
+
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onTabChange(tab.id)}
+              className={cn(
+                "relative whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+                isActive
+                  ? "border-violet-500 text-violet-300"
+                  : "border-transparent text-gray-500 hover:border-violet-500/20 hover:text-gray-300",
+              )}
+            >
+              {tab.label}
+              {count !== undefined && count > 0 && (
+                <span
+                  className={cn(
+                    "ml-1.5 inline-flex min-w-[18px] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+                    isActive
+                      ? "bg-violet-500/20 text-violet-300"
+                      : "bg-gray-800 text-gray-500",
+                  )}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
     </div>
   );

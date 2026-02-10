@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { env } from "~/env.mjs";
+import type { AgentScanConfig } from "~/types/scanTypes";
+import { API_BASE_URL } from "~/server/api/shared/apiClient";
 
-const API_BASE_URL = env.SIRIUS_API_URL || "http://localhost:9001";
+// Agent scan config interface - duplicates AgentScanConfig from scanTypes.ts
+// Kept for Zod schema compatibility, but uses canonical type for actual data
+export type AgentScanConfigData = AgentScanConfig;
 
 // Template interfaces
 export interface Template {
@@ -18,12 +21,22 @@ export interface Template {
     max_retries: number;
     parallel: boolean;
     exclude_ports?: string[];
+    agent_scan?: AgentScanConfigData;
   };
   created_at: string;
   updated_at: string;
 }
 
 // Zod schemas for validation
+const agentScanConfigSchema = z.object({
+  enabled: z.boolean(),
+  mode: z.enum(["comprehensive", "templates-only", "scripts-only"]),
+  agent_ids: z.array(z.string()),
+  timeout: z.number(),
+  concurrency: z.number(),
+  template_filter: z.array(z.string()).optional(),
+});
+
 const templateOptionsSchema = z.object({
   scan_types: z.array(z.string()),
   port_range: z.string(),
@@ -31,6 +44,7 @@ const templateOptionsSchema = z.object({
   max_retries: z.number(),
   parallel: z.boolean(),
   exclude_ports: z.array(z.string()).optional(),
+  agent_scan: agentScanConfigSchema.optional(),
 });
 
 const templateSchema = z.object({

@@ -13,6 +13,7 @@ import { agentTemplatesRouter } from "~/server/api/routers/agent-templates";
 import { repositoriesRouter } from "~/server/api/routers/repositories";
 import { statisticsRouter } from "~/server/api/routers/statistics";
 import { eventsRouter } from "~/server/api/routers/events";
+import { agentScanRouter } from "~/server/api/routers/agentScan";
 import { createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -36,6 +37,7 @@ export const appRouter = createTRPCRouter({
   repositories: repositoriesRouter,
   statistics: statisticsRouter,
   events: eventsRouter,
+  agentScan: agentScanRouter,
 });
 
 // export type definition of API

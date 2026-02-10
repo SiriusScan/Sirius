@@ -30,21 +30,21 @@ export const AgentSummary: React.FC<AgentSummaryProps> = ({
 
   // Simplified display, similar to environment.tsx cards but more compact for a sidebar
   return (
-    <div className="border-b border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
+    <div className="border-b border-gray-700 bg-gray-800 bg-gray-800/50">
       <div className="flex items-center justify-between gap-4">
         <div className="text-center">
-          <div className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
             Total
           </div>
-          <div className="text-lg font-semibold text-gray-900 dark:text-white">
+          <div className="text-lg font-semibold text-white">
             {isLoading ? "-" : summary.totalAgents}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+          <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">
             Online
           </div>
-          <div className="text-lg font-semibold text-green-600 dark:text-green-400">
+          <div className="text-lg font-semibold text-green-400">
             {isLoading ? "-" : summary.onlineAgents}
           </div>
         </div>

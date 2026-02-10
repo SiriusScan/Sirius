@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { Button } from "./lib/ui/button";
+import { SEVERITY_COLORS } from "~/utils/severityTheme";
 
 const ResponsiveLine = dynamic(
   () => import("@nivo/line").then((m) => m.ResponsiveLine),
@@ -178,7 +179,7 @@ const VulnerabilitiesOverTimeChart = (props: Props) => {
       <div className="ml-6 flex flex-row gap-4">
         <Button
           onClick={handleVulnerabilitiesOverTimeClick}
-          className="mb-2 border border-violet-200 bg-transparent p-1 pl-2 pr-2 text-xs text-white hover:bg-violet-300 hover:text-black focus:bg-violet-300 focus:text-black"
+          className="mb-2 border border-violet-500/30 bg-transparent p-1 pl-2 pr-2 text-xs text-white hover:bg-violet-300 hover:text-black focus:bg-violet-300 focus:text-black"
           size="none"
           autoFocus
         >
@@ -186,7 +187,7 @@ const VulnerabilitiesOverTimeChart = (props: Props) => {
         </Button>
         <Button
           onClick={handleVulnerabilitiesBySeverityClick}
-          className="mb-2 border border-violet-200 bg-transparent p-1 pl-2 pr-2 text-xs text-white hover:bg-violet-300 hover:text-black focus:bg-violet-300 focus:text-black"
+          className="mb-2 border border-violet-500/30 bg-transparent p-1 pl-2 pr-2 text-xs text-white hover:bg-violet-300 hover:text-black focus:bg-violet-300 focus:text-black"
           size="none"
         >
           Vulnerabilities By Severity
@@ -428,7 +429,13 @@ const VulnerabilityChart: React.FC<VulnerabilityChartProps> = ({
       areaBlendMode="hard-light"
       areaOpacity={0.7}
       curve="natural"
-      colors={["#38bdf8", "#6ee7b7", "#ea580c", "#b91c1c", "#3b0764"]}
+      colors={[
+        SEVERITY_COLORS.info.hex,
+        SEVERITY_COLORS.low.hex,
+        SEVERITY_COLORS.medium.hex,
+        SEVERITY_COLORS.high.hex,
+        SEVERITY_COLORS.critical.hex,
+      ]}
       margin={{ top: 10, right: 110, bottom: 20, left: 60 }}
       xScale={{ type: "point" }}
       yScale={{

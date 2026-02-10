@@ -2,6 +2,8 @@ import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { api } from "~/utils/api";
 import { Skeleton } from "~/components/lib/ui/skeleton";
+import { SeverityBadge } from "~/components/shared/SeverityBadge";
+import { getSeverityColors } from "~/utils/severityTheme";
 import { Server, ChevronRight, RefreshCw } from "lucide-react";
 
 interface TopVulnerableHostsWidgetProps {
@@ -29,35 +31,6 @@ interface HostCardProps {
   onClick: () => void;
   animationDelay: number;
 }
-
-// Severity color mapping
-const SEVERITY_COLORS = {
-  critical: {
-    bg: "bg-red-600",
-    text: "text-red-600",
-    badge: "bg-red-600/20 text-red-400 border-red-600/30",
-  },
-  high: {
-    bg: "bg-orange-500",
-    text: "text-orange-500",
-    badge: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  },
-  medium: {
-    bg: "bg-yellow-500",
-    text: "text-yellow-500",
-    badge: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-  },
-  low: {
-    bg: "bg-green-500",
-    text: "text-green-500",
-    badge: "bg-green-500/20 text-green-400 border-green-500/30",
-  },
-  informational: {
-    bg: "bg-blue-500",
-    text: "text-blue-500",
-    badge: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  },
-};
 
 // Rank badge styling - top 3 get special treatment
 const getRankBadgeClass = (rank: number): string => {
@@ -87,7 +60,7 @@ const SeverityLegend: React.FC = () => {
         <span className="text-muted-foreground">High</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <div className="h-2.5 w-2.5 rounded-full bg-yellow-500" />
+        <div className="h-2.5 w-2.5 rounded-full bg-amber-500" />
         <span className="text-muted-foreground">Medium</span>
       </div>
       <div className="flex items-center gap-1.5">
@@ -180,35 +153,35 @@ const HostCard: React.FC<HostCardProps> = ({
             <div className="flex h-full">
               {host.critical > 0 && (
                 <div
-                  className={`${SEVERITY_COLORS.critical.bg} transition-all duration-500`}
+                  className={`${getSeverityColors("critical").base} transition-all duration-500`}
                   style={{ width: `${criticalPercent}%` }}
                   title={`${host.critical} Critical`}
                 />
               )}
               {host.high > 0 && (
                 <div
-                  className={`${SEVERITY_COLORS.high.bg} transition-all duration-500`}
+                  className={`${getSeverityColors("high").base} transition-all duration-500`}
                   style={{ width: `${highPercent}%` }}
                   title={`${host.high} High`}
                 />
               )}
               {host.medium > 0 && (
                 <div
-                  className={`${SEVERITY_COLORS.medium.bg} transition-all duration-500`}
+                  className={`${getSeverityColors("medium").base} transition-all duration-500`}
                   style={{ width: `${mediumPercent}%` }}
                   title={`${host.medium} Medium`}
                 />
               )}
               {host.low > 0 && (
                 <div
-                  className={`${SEVERITY_COLORS.low.bg} transition-all duration-500`}
+                  className={`${getSeverityColors("low").base} transition-all duration-500`}
                   style={{ width: `${lowPercent}%` }}
                   title={`${host.low} Low`}
                 />
               )}
               {host.informational > 0 && (
                 <div
-                  className={`${SEVERITY_COLORS.informational.bg} transition-all duration-500`}
+                  className={`${getSeverityColors("informational").base} transition-all duration-500`}
                   style={{ width: `${infoPercent}%` }}
                   title={`${host.informational} Informational`}
                 />
@@ -217,40 +190,45 @@ const HostCard: React.FC<HostCardProps> = ({
           </div>
 
           {/* Severity Count Badges */}
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {host.critical > 0 && (
-              <span
-                className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SEVERITY_COLORS.critical.badge}`}
-              >
-                {host.critical} Crit
+              <span className="inline-flex items-center gap-1">
+                <SeverityBadge severity="critical" />
+                <span className="text-xs text-muted-foreground">
+                  {host.critical}
+                </span>
               </span>
             )}
             {host.high > 0 && (
-              <span
-                className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SEVERITY_COLORS.high.badge}`}
-              >
-                {host.high} High
+              <span className="inline-flex items-center gap-1">
+                <SeverityBadge severity="high" />
+                <span className="text-xs text-muted-foreground">
+                  {host.high}
+                </span>
               </span>
             )}
             {host.medium > 0 && (
-              <span
-                className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SEVERITY_COLORS.medium.badge}`}
-              >
-                {host.medium} Med
+              <span className="inline-flex items-center gap-1">
+                <SeverityBadge severity="medium" />
+                <span className="text-xs text-muted-foreground">
+                  {host.medium}
+                </span>
               </span>
             )}
             {host.low > 0 && (
-              <span
-                className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SEVERITY_COLORS.low.badge}`}
-              >
-                {host.low} Low
+              <span className="inline-flex items-center gap-1">
+                <SeverityBadge severity="low" />
+                <span className="text-xs text-muted-foreground">
+                  {host.low}
+                </span>
               </span>
             )}
             {host.informational > 0 && (
-              <span
-                className={`rounded border px-1.5 py-0.5 text-xs font-medium ${SEVERITY_COLORS.informational.badge}`}
-              >
-                {host.informational} Info
+              <span className="inline-flex items-center gap-1">
+                <SeverityBadge severity="informational" />
+                <span className="text-xs text-muted-foreground">
+                  {host.informational}
+                </span>
               </span>
             )}
           </div>
@@ -366,7 +344,7 @@ const TopVulnerableHostsWidgetComponent: React.FC<
           <button
             onClick={handleRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+            className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 hover:underline disabled:opacity-50"
           >
             <RefreshCw
               className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`}
@@ -423,7 +401,7 @@ const TopVulnerableHostsWidgetComponent: React.FC<
         <button
           onClick={handleRefresh}
           disabled={isRefreshing}
-          className="flex items-center gap-1 text-xs text-primary transition-colors hover:underline disabled:opacity-50"
+          className="flex items-center gap-1 text-xs text-violet-400 transition-colors hover:text-violet-300 hover:underline disabled:opacity-50"
           title="Refresh vulnerability data"
         >
           <RefreshCw

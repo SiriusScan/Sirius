@@ -59,22 +59,22 @@ export const HostRowActions: React.FC<HostRowActionsProps> = ({
     <div className="relative" ref={menuRef}>
       <button
         onClick={handleToggle}
-        className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+        className="rounded-full p-1.5 text-gray-400 hover:bg-gray-700 hover:text-gray-400 focus:outline-none focus:ring-2 hover:hover:text-gray-300"
         aria-label="Host actions"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full z-10 mt-1 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-          <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-700">
+        <div className="absolute right-0 top-full z-10 mt-1 w-48 rounded-md border border-gray-700 bg-gray-800 py-1 bg-gray-800">
+          <div className="border-b px-3 border-gray-700">
             <div className="font-medium">{host.hostname || "Unknown host"}</div>
             <div className="text-xs text-gray-500">{host.ip}</div>
           </div>
 
           {onScan && (
             <button
-              className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-700"
               onClick={(e) => handleAction(e, onScan)}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
@@ -83,7 +83,7 @@ export const HostRowActions: React.FC<HostRowActionsProps> = ({
           )}
 
           <button
-            className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+            className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-700"
             onClick={(e) => {
               e.stopPropagation();
               window.open(`/host/${host.ip}`, "_blank");
@@ -94,7 +94,7 @@ export const HostRowActions: React.FC<HostRowActionsProps> = ({
           </button>
 
           <button
-            className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+            className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-700"
             onClick={(e) => {
               e.stopPropagation();
               window.open(`/vulnerability/host/${host.ip}`, "_blank");
@@ -106,7 +106,7 @@ export const HostRowActions: React.FC<HostRowActionsProps> = ({
 
           {onTag && (
             <button
-              className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="flex w-full items-center px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-700"
               onClick={(e) => handleAction(e, onTag)}
             >
               <Tag className="mr-2 h-4 w-4" />
@@ -116,7 +116,7 @@ export const HostRowActions: React.FC<HostRowActionsProps> = ({
 
           {onDelete && (
             <button
-              className="flex w-full items-center px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+              className="flex w-full items-center px-4 py-2 text-left text-sm text-red-400 hover:bg-red-900/20"
               onClick={(e) => handleAction(e, onDelete)}
             >
               <Trash2 className="mr-2 h-4 w-4" />

@@ -53,7 +53,7 @@ const Finding = () => {
   return (
     <Layout>
       <div className="relative z-20 mb-5 h-56">
-        <div className="mb-2 mt-2 max-w-min rounded-md border-violet-700/10 p-2 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+        <div className="mb-2 mt-2 max-w-min rounded-md border-violet-700/10 p-2 shadow-md bg-violet-300/5">
           {siriusVuln?.cve ? (
             <ReportBody siriusVuln={siriusVuln} isMobile={isMobile} />
           ) : null}

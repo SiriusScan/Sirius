@@ -4,13 +4,10 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { api } from "~/utils/api";
 import { AgentList } from "~/components/agent/AgentList";
-import { AgentSummary } from "~/components/agent/AgentSummary";
 import { AgentDetails } from "~/components/agent/AgentDetails";
 import { StatusDashboard } from "~/components/terminal/StatusDashboard";
 
-import { cn } from "~/components/lib/utils";
 import "@xterm/xterm/css/xterm.css";
-import { toast } from "sonner";
 
 // Module-level singleton to prevent multiple terminal instances
 // This addresses React Strict Mode double mounting in development
@@ -282,17 +279,6 @@ export default function DynamicTerminal() {
     term.write(fullPrompt);
   }, []);
 
-  // Mutation to initialize terminal session
-  const initializeSession = api.terminal.initializeSession.useMutation({
-    onSuccess: (result) => {
-      console.log("[Terminal] Session initialized:", result);
-    },
-    onError: (error) => {
-      console.error("[Terminal] Session initialization failed:", error);
-      toast.error("Failed to initialize terminal session");
-    },
-  });
-
   // Mutation to execute commands (handlers moved to separate useEffect)
   const executeCommand = api.terminal.executeCommand.useMutation();
 
@@ -513,15 +499,6 @@ export default function DynamicTerminal() {
 
         stableWritePrompt(term);
         console.log("[Terminal init] Prompt written.");
-
-        try {
-          await initializeSession.mutateAsync({
-            target: currentTargetRef.current,
-          });
-          console.log("[Terminal init] Initial session successful.");
-        } catch (error) {
-          console.error("[Terminal init] Initial session failed:", error);
-        }
 
         // Clear global initialization flag after successful init
         globalInitializationInProgress = false;
@@ -1079,14 +1056,6 @@ export default function DynamicTerminal() {
             "\x1b[38;2;166;227;161mSwitched to engine target\x1b[0m"
           );
 
-          // Initialize session for engine
-          try {
-            await initializeSession.mutateAsync({
-              target: { type: "engine" },
-            });
-          } catch (error) {
-            console.error("Failed to initialize engine session:", error);
-          }
         } else if (cmdParts[1]?.toLowerCase() === "agent") {
           if (cmdParts.length < 3) {
             // Show usage with available agents
@@ -1163,17 +1132,6 @@ export default function DynamicTerminal() {
                   `\x1b[38;2;166;227;161mSwitched to agent '${agentId}'\x1b[0m`
                 );
 
-                // Initialize session for agent
-                try {
-                  await initializeSession.mutateAsync({
-                    target: { type: "agent", id: agentId },
-                  });
-                } catch (error) {
-                  console.error("Failed to initialize agent session:", error);
-                  term.writeln(
-                    `\x1b[38;2;243;139;168mWarning: Failed to initialize session for agent '${agentId}'\x1b[0m`
-                  );
-                }
               }
             } catch (error) {
               console.error(
@@ -1610,11 +1568,11 @@ export default function DynamicTerminal() {
   return (
     <div className="flex h-full w-full">
       {/* Enhanced Sidebar */}
-      <div className="w-80 border-r border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900">
+      <div className="w-80 border-r border-gray-700 bg-gray-900">
         <div className="flex h-full flex-col">
           {/* Header */}
-          <div className="border-b border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <div className="border-b border-gray-700 bg-gray-800 bg-gray-800">
+            <h2 className="text-lg font-semibold text-gray-100">
               Agent Control
             </h2>
           </div>
@@ -1633,7 +1591,7 @@ export default function DynamicTerminal() {
 
             {/* Agent List */}
             <div>
-              <h3 className="mb-5 text-base font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">
+              <h3 className="mb-5 text-base font-bold uppercase tracking-wide text-gray-100">
                 Available Agents
               </h3>
               <AgentList
@@ -1644,8 +1602,8 @@ export default function DynamicTerminal() {
 
             {/* Agent Details (when selected) */}
             {selectedAgentId && (
-              <div className="border-t border-gray-200 pt-6 dark:border-gray-700">
-                <h3 className="mb-5 text-base font-bold uppercase tracking-wide text-gray-900 dark:text-gray-100">
+              <div className="border-t border-gray-700 border-gray-700">
+                <h3 className="mb-5 text-base font-bold uppercase tracking-wide text-gray-100">
                   Agent Details
                 </h3>
                 <AgentDetails

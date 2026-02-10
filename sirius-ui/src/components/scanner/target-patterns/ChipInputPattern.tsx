@@ -107,7 +107,7 @@ const ChipInputPattern: React.FC<PatternProps> = ({
                   e.stopPropagation();
                   handleRemoveTarget(target.id);
                 }}
-                className="ml-1 rounded hover:bg-white/10"
+                className="ml-1 rounded hover:bg-gray-800/10"
               >
                 <X className="h-3 w-3" />
               </button>

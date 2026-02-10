@@ -325,6 +325,118 @@ export const storeRouter = createTRPCRouter({
       }
     }),
 
+  // Create a new NSE script (adds to manifest + stores content)
+  createNseScript: publicProcedure
+    .input(
+      z.object({
+        id: z.string().min(1, "Script ID is required"),
+        name: z.string().min(1, "Script name is required"),
+        code: z.string(),
+        protocol: z.string().optional().default("*"),
+        metadata: z
+          .object({
+            author: z.string().optional(),
+            tags: z.array(z.string()).optional(),
+            description: z.string().optional(),
+          })
+          .optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const { id, name, code, protocol, metadata } = input;
+
+        // Get or create the manifest
+        let manifest: { scripts: Record<string, any> } = { scripts: {} };
+        const manifestData = await valkey.get(NSE_MANIFEST_KEY);
+        if (manifestData) {
+          manifest = JSON.parse(manifestData);
+          if (!manifest.scripts) {
+            manifest.scripts = {};
+          }
+        }
+
+        // Check if script ID already exists
+        if (manifest.scripts[id]) {
+          return {
+            success: false,
+            error: `Script with ID '${id}' already exists`,
+          };
+        }
+
+        // Add to manifest
+        manifest.scripts[id] = {
+          name,
+          path: `scripts/custom/${id}.nse`,
+          protocol: protocol || "*",
+        };
+
+        // Store script content
+        const scriptContent = {
+          content: code,
+          metadata: {
+            author: metadata?.author || "User",
+            tags: metadata?.tags || [],
+            description: metadata?.description || "",
+          },
+          updatedAt: Date.now(),
+          createdAt: Date.now(),
+          custom: true, // Flag to distinguish user-created scripts
+        };
+
+        // Write both in parallel
+        await Promise.all([
+          valkey.set(NSE_MANIFEST_KEY, JSON.stringify(manifest)),
+          valkey.set(
+            `${NSE_SCRIPT_PREFIX}${id}`,
+            JSON.stringify(scriptContent)
+          ),
+        ]);
+
+        return { success: true, id };
+      } catch (error) {
+        console.error("Failed to create NSE script:", error);
+        return { success: false, error: String(error) };
+      }
+    }),
+
+  // Delete an NSE script (removes from manifest + deletes content)
+  deleteNseScript: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      try {
+        const { id } = input;
+
+        // Get the manifest
+        const manifestData = await valkey.get(NSE_MANIFEST_KEY);
+        if (!manifestData) {
+          return { success: false, error: "No NSE manifest found" };
+        }
+
+        const manifest = JSON.parse(manifestData);
+        if (!manifest.scripts || !manifest.scripts[id]) {
+          return {
+            success: false,
+            error: `Script '${id}' not found in manifest`,
+          };
+        }
+
+        // Remove from manifest
+        delete manifest.scripts[id];
+
+        // Delete content and update manifest in parallel
+        await Promise.all([
+          valkey.set(NSE_MANIFEST_KEY, JSON.stringify(manifest)),
+          valkey.del(`${NSE_SCRIPT_PREFIX}${id}`),
+        ]);
+
+        return { success: true };
+      } catch (error) {
+        console.error(`Failed to delete NSE script ${input.id}:`, error);
+        return { success: false, error: String(error) };
+      }
+    }),
+
   // Repository management procedures
   getNseRepositories: publicProcedure.query(async () => {
     try {

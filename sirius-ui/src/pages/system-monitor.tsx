@@ -126,7 +126,7 @@ const ServiceStatusCard: React.FC<{
   const port = serviceHealth?.port;
 
   return (
-    <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+    <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -353,7 +353,7 @@ const SystemMonitor: NextPage = () => {
           <TabsContent value="services" className="mt-6 space-y-6">
             {/* System Overview */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+              <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-3">
                     <div className="rounded-lg bg-green-500/20 p-2">
@@ -369,7 +369,7 @@ const SystemMonitor: NextPage = () => {
                 </CardContent>
               </Card>
 
-              <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+              <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-3">
                     <div className="rounded-lg bg-blue-500/20 p-2">
@@ -385,7 +385,7 @@ const SystemMonitor: NextPage = () => {
                 </CardContent>
               </Card>
 
-              <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+              <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
                 <CardContent className="p-6">
                   <div className="flex items-center space-x-3">
                     <div className="rounded-lg bg-yellow-500/20 p-2">
@@ -417,7 +417,7 @@ const SystemMonitor: NextPage = () => {
               ) : resourceData?.summary ? (
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                   {/* Peak CPU Usage */}
-                  <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+                  <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="rounded-lg bg-blue-500/20 p-2">
@@ -444,7 +444,7 @@ const SystemMonitor: NextPage = () => {
                   </Card>
 
                   {/* Total Memory Usage */}
-                  <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+                  <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="rounded-lg bg-purple-500/20 p-2">
@@ -464,7 +464,7 @@ const SystemMonitor: NextPage = () => {
                   </Card>
 
                   {/* Total Disk Usage */}
-                  <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+                  <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="rounded-lg bg-green-500/20 p-2">
@@ -493,7 +493,7 @@ const SystemMonitor: NextPage = () => {
                   </Card>
 
                   {/* Memory Usage (MB) */}
-                  <Card className="bg-paper border-violet-700/10 shadow-md shadow-violet-300/10 dark:bg-violet-300/5">
+                  <Card className="bg-paper border-violet-700/10 shadow-md bg-violet-300/5">
                     <CardContent className="p-6">
                       <div className="flex items-center space-x-3">
                         <div className="rounded-lg bg-orange-500/20 p-2">
@@ -563,7 +563,7 @@ const SystemMonitor: NextPage = () => {
                   {recentErrorEvents.map((event, index) => (
                     <Card
                       key={event.event_id || index}
-                      className="bg-paper border-red-500/20 shadow-md shadow-red-300/10 dark:bg-red-300/5"
+                      className="bg-paper border-red-500/20 shadow-md bg-red-300/5"
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start space-x-3">
@@ -572,7 +572,7 @@ const SystemMonitor: NextPage = () => {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="mb-1 flex items-center space-x-2">
-                              <span className="rounded bg-red-100 px-2 py-1 text-xs font-medium text-red-800">
+                              <span className="rounded bg-red-500/20 px-2 py-1 text-xs font-medium text-red-300">
                                 {event.severity?.toUpperCase() || "ERROR"}
                               </span>
                               <span className="text-sm text-muted-foreground">
@@ -597,7 +597,7 @@ const SystemMonitor: NextPage = () => {
                   ))}
                 </div>
               ) : (
-                <Card className="bg-paper border-green-500/20 shadow-md shadow-green-300/10 dark:bg-green-300/5">
+                <Card className="bg-paper border-green-500/20 shadow-md bg-green-300/5">
                   <CardContent className="p-6">
                     <div className="flex items-center space-x-3">
                       <div className="rounded-lg bg-green-500/20 p-2">

@@ -6,8 +6,7 @@ import type {
   TemplateTestResult,
   TemplateAnalytics,
 } from "~/types/agentTemplateTypes";
-
-const API_BASE_URL = process.env.SIRIUS_API_URL || "http://localhost:9001";
+import { API_BASE_URL } from "~/server/api/shared/apiClient";
 
 // Zod schemas for validation
 const templateIdSchema = z.object({

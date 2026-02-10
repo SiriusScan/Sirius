@@ -8,7 +8,6 @@ import {
 import AgentTemplatesTab from "./AgentTemplatesTab";
 import AgentSettingsTab from "./AgentSettingsTab";
 import { RepositoriesTab } from "../repositories/RepositoriesTab";
-import { api } from "~/utils/api";
 
 interface AgentScannerSettingsProps {
   // Agent settings
@@ -20,14 +19,9 @@ interface AgentScannerSettingsProps {
   setAgentTimeout: (value: number) => void;
   agentConcurrency: number;
   setAgentConcurrency: (value: number) => void;
-
-  // Template settings
-  enableTemplates: boolean;
-  setEnableTemplates: (value: boolean) => void;
 }
 
 const AgentScannerSettings: React.FC<AgentScannerSettingsProps> = ({
-  // Agent settings
   agentSyncEnabled,
   setAgentSyncEnabled,
   agentScanMode,
@@ -36,10 +30,6 @@ const AgentScannerSettings: React.FC<AgentScannerSettingsProps> = ({
   setAgentTimeout,
   agentConcurrency,
   setAgentConcurrency,
-
-  // Template settings
-  enableTemplates,
-  setEnableTemplates,
 }) => {
   return (
     <div className="flex h-full w-full flex-col">
@@ -60,10 +50,7 @@ const AgentScannerSettings: React.FC<AgentScannerSettingsProps> = ({
         </TabsList>
 
         <TabsContent value="templates" className="h-full w-full">
-          <AgentTemplatesTab
-            enableTemplates={enableTemplates}
-            setEnableTemplates={setEnableTemplates}
-          />
+          <AgentTemplatesTab />
         </TabsContent>
 
         <TabsContent value="repositories" className="h-full w-full">

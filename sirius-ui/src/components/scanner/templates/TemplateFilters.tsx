@@ -39,7 +39,7 @@ const severityOptions: { value: Severity; label: string; color: string }[] = [
   {
     value: "medium",
     label: "Medium",
-    color: "bg-yellow-500/20 text-yellow-400",
+    color: "bg-amber-500/20 text-amber-400",
   },
   { value: "low", label: "Low", color: "bg-blue-500/20 text-blue-400" },
   { value: "info", label: "Info", color: "bg-gray-500/20 text-gray-400" },

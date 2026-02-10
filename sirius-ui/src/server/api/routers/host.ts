@@ -350,10 +350,43 @@ export const hostRouter = createTRPCRouter({
         hostname: z.string().optional(),
         os: z.string().optional(),
         osversion: z.string().optional(),
+        vulnerabilities: z.array(
+          z.object({
+            vid: z.string().min(1),
+            title: z.string().optional(),
+            description: z.string().default(""),
+            riskScore: z.number().min(0).max(10).default(0),
+          }),
+        ).optional(),
       })
     )
     .mutation(async ({ input }) => {
       try {
+        // If vulnerabilities are provided, use POST /host/with-source for source attribution
+        if (input.vulnerabilities && input.vulnerabilities.length > 0) {
+          const response = await httpClient.post("/host/with-source", {
+            host: {
+              ip: input.ip,
+              hostname: input.hostname || "",
+              os: input.os || "",
+              osversion: input.osversion || "",
+              vulnerabilities: input.vulnerabilities.map((v) => ({
+                vid: v.vid,
+                title: v.title || "",
+                description: v.description,
+                riskScore: v.riskScore,
+              })),
+            },
+            source: {
+              name: "manual",
+              version: "1.0",
+              config: "ui-host-form",
+            },
+          });
+          return response.data as { message: string; host_ip?: string };
+        }
+
+        // Otherwise use the simple POST /host
         const response = await httpClient.post("/host", {
           ip: input.ip,
           hostname: input.hostname || "",
@@ -369,6 +402,24 @@ export const hostRouter = createTRPCRouter({
         throw new Error("Failed to create host");
       }
     }),
+
+  // Get a simple list of hosts (IP + hostname) for selectors
+  getHostList: publicProcedure.query(async () => {
+    try {
+      const response = await httpClient.get<SiriusHost[]>("host/");
+      const hostList = response.data;
+      if (!hostList || !Array.isArray(hostList)) return [];
+      return hostList.map((h) => ({
+        ip: h.ip,
+        hostname: h.hostname || "",
+        os: h.os || "",
+        vulnCount: h.vulnerabilities?.length ?? 0,
+      }));
+    } catch (error) {
+      console.error("Error fetching host list:", error);
+      return [];
+    }
+  }),
 
   // Update an existing host
   updateHost: publicProcedure
@@ -1073,6 +1124,69 @@ export const hostRouter = createTRPCRouter({
           total_packages: 0,
           total_hosts: 0,
           filtered_count: 0,
+        };
+      }
+    }),
+
+  // ── Host History ──────────────────────────────────────────────────────────
+
+  /** Fetch the scan-activity timeline for a single host. */
+  getHostHistory: publicProcedure
+    .input(z.object({ ip: z.string().min(1) }))
+    .query(async ({ input }) => {
+      try {
+        const response = await httpClient.get(`/host/${input.ip}/history`);
+        return response.data as {
+          host_ip: string;
+          timeline: Array<{
+            event_type: string;
+            timestamp: string;
+            source: string;
+            details: string;
+          }>;
+          sources: string[];
+        };
+      } catch (error) {
+        console.error("Error fetching host history:", error);
+        return {
+          host_ip: input.ip,
+          timeline: [],
+          sources: [],
+        };
+      }
+    }),
+
+  /** Fetch the source history for a specific vulnerability on a host. */
+  getVulnerabilityHistory: publicProcedure
+    .input(
+      z.object({
+        ip: z.string().min(1),
+        vulnId: z.string().min(1),
+      }),
+    )
+    .query(async ({ input }) => {
+      try {
+        const response = await httpClient.get(
+          `/host/${input.ip}/vulnerability/${input.vulnId}/history`,
+        );
+        return response.data as {
+          host_ip: string;
+          vulnerability_id: string;
+          history: Array<{
+            source: string;
+            source_version: string;
+            first_seen: string;
+            last_seen: string;
+            status: string;
+            confidence: number;
+          }>;
+        };
+      } catch (error) {
+        console.error("Error fetching vulnerability history:", error);
+        return {
+          host_ip: input.ip,
+          vulnerability_id: input.vulnId,
+          history: [],
         };
       }
     }),

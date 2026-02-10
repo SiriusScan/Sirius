@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Skeleton } from "~/components/lib/ui/skeleton";
 import { AlertTriangle, Server, Shield, Activity } from "lucide-react";
 import { api } from "~/utils/api";
+import { getSeverityColors } from "~/utils/severityTheme";
 
 interface ActivityEvent {
   id: string;
@@ -70,18 +71,8 @@ const getEventIcon = (type: string) => {
 };
 
 const getSeverityColor = (severity?: string) => {
-  switch (severity) {
-    case "critical":
-      return "text-red-500 bg-red-500/10 border-red-500/20";
-    case "high":
-      return "text-orange-500 bg-orange-500/10 border-orange-500/20";
-    case "medium":
-      return "text-yellow-500 bg-yellow-500/10 border-yellow-500/20";
-    case "low":
-      return "text-green-500 bg-green-500/10 border-green-500/20";
-    default:
-      return "text-blue-500 bg-blue-500/10 border-blue-500/20";
-  }
+  const c = getSeverityColors(severity ?? "info");
+  return [c.text, c.bg, c.border].join(" ");
 };
 
 const formatTimestamp = (timestamp: Date): string => {

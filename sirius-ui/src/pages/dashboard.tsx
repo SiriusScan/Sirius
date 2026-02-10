@@ -65,7 +65,7 @@ const Dashboard: NextPage = () => {
 
   return (
     <Layout title="Security Dashboard">
-      <div className="relative z-20 -mt-20 space-y-8">
+      <div className="relative z-20 -mt-14 space-y-8">
         {/* Compact Single-Line Header */}
         <div className="sticky top-2 z-30 -mx-4 flex border-b border-violet-500/20 bg-gray-900/95 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
           <div className="flex items-center gap-3">

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { cn } from "~/components/lib/utils";
 import { Filter, X, Calendar, Shield, Search, RotateCcw } from "lucide-react";
 import { Button } from "~/components/lib/ui/button";
+import { getSourceColor } from "~/components/shared/SourceBadge";
 import {
   sourceFilterOptions,
   confidenceFilterOptions,
@@ -94,40 +95,25 @@ export const SourceFilterInterface: React.FC<SourceFilterInterfaceProps> = ({
     filters.dateRange.end ||
     filters.searchTerm.length > 0;
 
-  const getSourceBadgeColor = (source: string) => {
-    const option = sourceFilterOptions.find((opt) => opt.value === source);
-    switch (option?.color) {
-      case "blue":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300";
-      case "green":
-        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300";
-      case "orange":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300";
-      case "purple":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300";
-      case "cyan":
-        return "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-300";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300";
-    }
-  };
+  const getSourceBadgeColor = (source: string) =>
+    getSourceColor(source, "badge");
 
   return (
     <div
       className={cn(
-        "rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800",
+        "rounded-lg border border-gray-700 bg-gray-800",
         className
       )}
     >
       {/* Filter Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 p-4 dark:border-gray-700">
+      <div className="flex items-center justify-between border-b border-gray-700 border-gray-700">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-gray-500" />
-          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+          <span className="text-sm font-medium text-gray-100">
             Vulnerability Filters
           </span>
           {hasActiveFilters && (
-            <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/20 dark:text-violet-300">
+            <span className="inline-flex items-center rounded-full bg-violet-500/20 px-2.5 py-0.5 text-xs font-medium text-violet-300">
               {filters.sources.length +
                 filters.confidence.length +
                 (filters.dateRange.start ? 1 : 0) +
@@ -162,7 +148,7 @@ export const SourceFilterInterface: React.FC<SourceFilterInterfaceProps> = ({
       </div>
 
       {/* Search Bar */}
-      <div className="border-b border-gray-200 p-4 dark:border-gray-700">
+      <div className="border-b border-gray-700 border-gray-700">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
           <input
@@ -170,15 +156,15 @@ export const SourceFilterInterface: React.FC<SourceFilterInterfaceProps> = ({
             placeholder="Search vulnerabilities..."
             value={filters.searchTerm}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full rounded-md border border-gray-300 bg-white py-2 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-500 focus:border-transparent focus:ring-2 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+            className="w-full rounded-md border border-gray-600 bg-gray-800 py-2 pl-10 pr-4 text-sm text-gray-100 placeholder-gray-500 focus:border-transparent focus:ring-2 text-gray-100 placeholder-gray-400"
           />
         </div>
       </div>
 
       {/* Source Filters */}
-      <div className="border-b border-gray-200 p-4 dark:border-gray-700">
+      <div className="border-b border-gray-700 border-gray-700">
         <div className="mb-3 flex items-center gap-2">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-sm font-medium text-gray-300">
             Sources:
           </span>
         </div>
@@ -191,7 +177,7 @@ export const SourceFilterInterface: React.FC<SourceFilterInterfaceProps> = ({
                 "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-colors",
                 filters.sources.includes(option.value)
                   ? getSourceBadgeColor(option.value)
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
+                  : "bg-gray-700 text-gray-400 hover:bg-gray-600"
               )}
             >
               {option.label}
@@ -204,10 +190,10 @@ export const SourceFilterInterface: React.FC<SourceFilterInterfaceProps> = ({
       </div>
 
       {/* Confidence Filters */}
-      <div className="border-b border-gray-200 p-4 dark:border-gray-700">
+      <div className="border-b border-gray-700 border-gray-700">
         <div className="mb-3 flex items-center gap-2">
           <Shield className="h-4 w-4 text-gray-500" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <span className="text-sm font-medium text-gray-300">
             Confidence Level:
           </span>
         </div>
@@ -219,8 +205,8 @@ export const SourceFilterInterface: React.FC<SourceFilterInterfaceProps> = ({
               className={cn(
                 "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-colors",
                 filters.confidence.includes(option.value)
-                  ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
+                  ? "bg-green-500/20 text-green-300"
+                  : "bg-gray-700 text-gray-400 hover:bg-gray-600"
               )}
             >
               {option.label}
@@ -237,31 +223,31 @@ export const SourceFilterInterface: React.FC<SourceFilterInterfaceProps> = ({
         <div className="p-4">
           <div className="mb-3 flex items-center gap-2">
             <Calendar className="h-4 w-4 text-gray-500" />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <span className="text-sm font-medium text-gray-300">
               Date Range:
             </span>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+              <label className="mb-1 block text-xs font-medium text-gray-400">
                 From:
               </label>
               <input
                 type="date"
                 value={filters.dateRange.start || ""}
                 onChange={(e) => handleDateRangeChange("start", e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                className="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-transparent focus:ring-2 text-gray-100"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+              <label className="mb-1 block text-xs font-medium text-gray-400">
                 To:
               </label>
               <input
                 type="date"
                 value={filters.dateRange.end || ""}
                 onChange={(e) => handleDateRangeChange("end", e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-transparent focus:ring-2 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                className="w-full rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-transparent focus:ring-2 text-gray-100"
               />
             </div>
           </div>
@@ -270,8 +256,8 @@ export const SourceFilterInterface: React.FC<SourceFilterInterfaceProps> = ({
 
       {/* Active Filters Summary */}
       {hasActiveFilters && (
-        <div className="bg-gray-50 p-4 dark:bg-gray-900/50">
-          <div className="text-xs text-gray-600 dark:text-gray-400">
+        <div className="bg-gray-800 bg-gray-900/50">
+          <div className="text-xs text-gray-400">
             <span className="font-medium">Active filters:</span>
             {filters.sources.length > 0 && (
               <span className="ml-2">

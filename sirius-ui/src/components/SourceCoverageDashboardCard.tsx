@@ -4,6 +4,7 @@ import { api } from "~/utils/api";
 import { cn } from "~/components/lib/utils";
 import { Button } from "~/components/lib/ui/button";
 import { Shield, AlertTriangle, Activity, Database } from "lucide-react";
+import { SEVERITY_COLORS } from "~/utils/severityTheme";
 
 const ResponsiveBar = dynamic(
   () => import("@nivo/bar").then((m) => m.ResponsiveBar),
@@ -95,15 +96,15 @@ const VulnerabilityDashboard: React.FC<Props> = ({ className }) => {
       {
         severity: "Critical",
         count: severityCounts.critical,
-        color: "#dc2626",
+        color: SEVERITY_COLORS.critical.hex,
       },
-      { severity: "High", count: severityCounts.high, color: "#ea580c" },
-      { severity: "Medium", count: severityCounts.medium, color: "#ca8a04" },
-      { severity: "Low", count: severityCounts.low, color: "#16a34a" },
+      { severity: "High", count: severityCounts.high, color: SEVERITY_COLORS.high.hex },
+      { severity: "Medium", count: severityCounts.medium, color: SEVERITY_COLORS.medium.hex },
+      { severity: "Low", count: severityCounts.low, color: SEVERITY_COLORS.low.hex },
       {
         severity: "Info",
         count: severityCounts.informational,
-        color: "#2563eb",
+        color: SEVERITY_COLORS.info.hex,
       },
     ].filter((item) => item.count > 0); // Only show severities that have vulnerabilities
 
@@ -137,19 +138,19 @@ const VulnerabilityDashboard: React.FC<Props> = ({ className }) => {
     return (
       <div
         className={cn(
-          "rounded-lg border bg-white p-6 shadow-sm dark:bg-gray-900",
+          "rounded-lg border bg-gray-800 p-6 bg-gray-900",
           className
         )}
       >
         <div className="mb-4">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+          <h3 className="text-lg font-medium text-white">
             Vulnerability Dashboard
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-400">
             Loading vulnerability data...
           </p>
         </div>
-        <div className="h-96 animate-pulse rounded-lg bg-gray-200 dark:bg-gray-700" />
+        <div className="h-96 animate-pulse rounded-lg bg-gray-700" />
       </div>
     );
   }
@@ -159,16 +160,16 @@ const VulnerabilityDashboard: React.FC<Props> = ({ className }) => {
   return (
     <div
       className={cn(
-        "rounded-lg border bg-white p-6 shadow-sm dark:bg-gray-900",
+        "rounded-lg border bg-gray-800 p-6 bg-gray-900",
         className
       )}
     >
       {/* Header */}
       <div className="mb-6">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+        <h3 className="text-lg font-medium text-white">
           Vulnerability Dashboard
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm text-gray-400">
           Current vulnerability analysis across your infrastructure
         </p>
       </div>

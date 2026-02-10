@@ -45,11 +45,25 @@ services:
       - SIRIUS_API_URL=http://sirius-api:9001
       - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
       - CONTAINER_NAME=sirius-ui
+      # Performance: increase Node.js heap for faster webpack compilation
+      - NODE_OPTIONS=--max-old-space-size=4096
+      # Performance: enable filesystem polling for reliable hot reload on Docker bind mounts
+      - WATCHPACK_POLLING=true
     ports:
       - "3000:3000"
       - "3001:3001" # Development port
     # Remove PostgreSQL dependency - using SQLite for authentication
     depends_on: []
+    # Override base resource limits for development performance
+    # Webpack compilation needs significantly more CPU than serving a production build
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "4"
+        reservations:
+          memory: 1G
+          cpus: "1"
 
   sirius-api:
     build:
@@ -78,7 +92,7 @@ services:
       - VALKEY_HOST=sirius-valkey
       - VALKEY_PORT=6379
       - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
       - CONTAINER_NAME=sirius-api
 
   sirius-engine:
@@ -124,7 +138,7 @@ services:
       - VALKEY_HOST=sirius-valkey
       - VALKEY_PORT=6379
       - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
       # Scanner configuration for API communication
       - SIRIUS_API_URL=http://sirius-api:9001
       # Agent configuration for API communication

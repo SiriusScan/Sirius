@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -82,7 +82,7 @@ func GetTemplates(c *fiber.Ctx) error {
 	for _, id := range templateList.Templates {
 		template, err := getTemplateByID(ctx, kvStore, id)
 		if err != nil {
-			log.Printf("Warning: failed to get template %s: %v", id, err)
+			slog.Warn("Failed to get template", "template_id", id, "error", err)
 			continue
 		}
 		templates = append(templates, *template)
@@ -172,10 +172,10 @@ func CreateTemplate(c *fiber.Ctx) error {
 
 	// Add to template list
 	if err := addToTemplateList(ctx, kvStore, template.ID); err != nil {
-		log.Printf("Warning: failed to add template to list: %v", err)
+		slog.Warn("Failed to add template to list", "error", err)
 	}
 
-	log.Printf("Created template: %s (%s)", template.Name, template.ID)
+	slog.Info("Created template", "name", template.Name, "template_id", template.ID)
 
 	return c.Status(fiber.StatusCreated).JSON(template)
 }
@@ -238,7 +238,7 @@ func UpdateTemplate(c *fiber.Ctx) error {
 		})
 	}
 
-	log.Printf("Updated template: %s (%s)", template.Name, template.ID)
+	slog.Info("Updated template", "name", template.Name, "template_id", template.ID)
 
 	return c.JSON(template)
 }
@@ -282,10 +282,10 @@ func DeleteTemplate(c *fiber.Ctx) error {
 
 	// Remove from template list
 	if err := removeFromTemplateList(ctx, kvStore, templateID); err != nil {
-		log.Printf("Warning: failed to remove template from list: %v", err)
+		slog.Warn("Failed to remove template from list", "error", err)
 	}
 
-	log.Printf("Deleted template: %s (%s)", template.Name, templateID)
+	slog.Info("Deleted template", "name", template.Name, "template_id", templateID)
 
 	return c.SendStatus(fiber.StatusNoContent)
 }

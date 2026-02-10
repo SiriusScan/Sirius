@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -11,7 +11,6 @@ import (
 	"github.com/SiriusScan/go-api/sirius/host"
 	"github.com/SiriusScan/go-api/sirius/postgres/models"
 	"github.com/SiriusScan/go-api/sirius/vulnerability"
-	"github.com/fatih/color"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -113,10 +112,10 @@ func GetAllHosts(c *fiber.Ctx) error {
 // GetHostStatistics handles the GET /host/statistics route
 func GetHostStatistics(c *fiber.Ctx) error {
 	hostID := c.Params("id")
-	log.Println("Host_Handler: GetHostStatistics")
+	slog.Debug("GetHostStatistics", "host_id", hostID)
 	stats, err := host.GetHostRiskStatistics(hostID)
 	if err != nil {
-		log.Panicln("Error: Host_Handler => An error occured when executing the GetHostStatistics procedure (/host/vulnerabities route)")
+		slog.Error("GetHostStatistics failed", "host_id", hostID, "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Error getting vulnerabilities: " + err.Error(),
 		})
@@ -124,13 +123,13 @@ func GetHostStatistics(c *fiber.Ctx) error {
 	return c.JSON(stats)
 }
 
-// GetHostStatistics handles the GET /host/statistics route
+// GetHostVulnerabilitySeverityCounts handles the GET /host/severity-counts route
 func GetHostVulnerabilitySeverityCounts(c *fiber.Ctx) error {
 	hostID := c.Params("id")
-	log.Println("Host_Handler: GetHostVulnerabilitySeverityCounts")
+	slog.Debug("GetHostVulnerabilitySeverityCounts", "host_id", hostID)
 	stats, err := host.GetHostVulnerabilitySeverityCounts(hostID)
 	if err != nil {
-		log.Panicln("Error: Host_Handler => An error occured when executing the GetHostStatistics procedure (/host/vulnerabities route)")
+		slog.Error("GetHostVulnerabilitySeverityCounts failed", "host_id", hostID, "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Error getting vulnerabilities: " + err.Error(),
 		})
@@ -140,10 +139,9 @@ func GetHostVulnerabilitySeverityCounts(c *fiber.Ctx) error {
 
 // GetAllVulnerabilities handles the GET /host/vulnerabilities route
 func GetAllVulnerabilities(c *fiber.Ctx) error {
-	// log.Println("Host_Handler: GetAllVulnerabilities")
 	vulnerabilities, err := host.GetAllVulnerabilities()
 	if err != nil {
-		log.Panicln("Error: Host_Handler => An error occured when executing the GetAllVulnerabilities procedure (/host/vulnerabities route)")
+		slog.Error("GetAllVulnerabilities failed", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Error getting vulnerabilities: " + err.Error(),
 		})
@@ -164,26 +162,25 @@ func AddHost(c *fiber.Ctx) error {
 	// Manually unmarshal JSON into the struct
 	err := json.Unmarshal([]byte(requestBody), &newHost)
 	if err != nil {
-		log.Println("Error parsing request body:", err.Error())
+		slog.Error("Error parsing request body", "error", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Error parsing request body: " + err.Error(),
 		})
 	}
-	color.Green("Adding Host: %s", newHost.IP)
+	slog.Info("Adding host", "ip", newHost.IP)
 
 	// Detect source information from request metadata
 	source := detectSourceFromRequest(c)
-	log.Printf("Detected source: %s v%s", source.Name, source.Version)
+	slog.Info("Detected source", "name", source.Name, "version", source.Version)
 
 	// Check all host vulns to confirm that they all exist in the database. If they do not, add them.
-	// log.Println(newHost.Vulnerabilities)
 	for _, vuln := range newHost.Vulnerabilities {
 		if !vulnerability.CheckVulnerabilityExists(vuln.VID) {
-			log.Println("Vulnerability does not exist in database. Adding", vuln.VID)
+			slog.Info("Vulnerability not in database, adding", "vid", vuln.VID)
 
 			cve, err := nvd.GetCVE(vuln.VID)
 			if err != nil {
-				log.Println("Failed to get CVE data for", vuln.VID)
+				slog.Warn("Failed to get CVE data", "vid", vuln.VID, "error", err)
 				// Use provided vulnerability data as fallback
 				vuln = sirius.Vulnerability{
 					VID:         vuln.VID,
@@ -314,7 +311,7 @@ func detectSourceFromRequest(c *fiber.Ctx) models.ScanSource {
 	}
 
 	// Log source detection for debugging
-	log.Printf("Source detection - User-Agent: %s, Detected: %s v%s", userAgent, source.Name, source.Version)
+	slog.Debug("Source detection", "user_agent", userAgent, "name", source.Name, "version", source.Version)
 
 	return source
 }
@@ -441,11 +438,11 @@ func detectSourceFromIP(clientIP string) string {
 
 // UpdateHostRequest represents the request body for updating a host
 type UpdateHostRequest struct {
-	Hostname  *string      `json:"hostname,omitempty"`
-	OS        *string      `json:"os,omitempty"`
-	OSVersion *string      `json:"osversion,omitempty"`
+	Hostname  *string       `json:"hostname,omitempty"`
+	OS        *string       `json:"os,omitempty"`
+	OSVersion *string       `json:"osversion,omitempty"`
 	Ports     []sirius.Port `json:"ports,omitempty"`
-	Notes     []string     `json:"notes,omitempty"`
+	Notes     []string      `json:"notes,omitempty"`
 }
 
 // UpdateHost handles the PUT /host/:id route for updating host information
@@ -457,7 +454,7 @@ func UpdateHost(c *fiber.Ctx) error {
 		})
 	}
 
-	log.Printf("Host_Handler: UpdateHost for IP %s", hostIP)
+	slog.Info("UpdateHost", "ip", hostIP)
 
 	// Parse update request
 	var updateReq UpdateHostRequest
@@ -512,7 +509,7 @@ func UpdateHost(c *fiber.Ctx) error {
 func DeleteHost(c *fiber.Ctx) error {
 	// Read the raw request body
 	requestBody := string(c.Body())
-	log.Println("Request body:", requestBody)
+	slog.Debug("DeleteHost request body", "body", requestBody)
 
 	// Define a local struct that matches the expected JSON structure
 	var newHost sirius.Host
@@ -520,13 +517,13 @@ func DeleteHost(c *fiber.Ctx) error {
 	// Manually unmarshal JSON into the struct
 	err := json.Unmarshal([]byte(requestBody), &newHost)
 	if err != nil {
-		log.Println("Error parsing request body:", err.Error())
+		slog.Error("Error parsing request body", "error", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Error parsing request body: " + err.Error(),
 		})
 	}
 
-	log.Println("Deleting host", newHost.IP)
+	slog.Info("Deleting host", "ip", newHost.IP)
 
 	err = host.DeleteHost(newHost.IP)
 	if err != nil {
@@ -573,28 +570,28 @@ func AddHostWithSource(c *fiber.Ctx) error {
 		hasEnhancedData = true
 		request.Host = enhancedRequest.Host
 		request.Source = enhancedRequest.Source
-		log.Printf("Received enhanced host data with JSONB fields for %s", request.Host.IP)
+		slog.Info("Received enhanced host data with JSONB fields", "ip", request.Host.IP)
 	} else {
 		// Fall back to basic request parsing
 		if err := c.BodyParser(&request); err != nil {
-			log.Printf("Error parsing request body: %v", err)
+			slog.Error("Error parsing request body", "error", err)
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "Error parsing request body: " + err.Error(),
 			})
 		}
-		log.Printf("Received basic host data for %s", request.Host.IP)
+		slog.Debug("Received basic host data", "ip", request.Host.IP)
 	}
 
-	color.Green("Adding Host with Source: %s (source: %s)", request.Host.IP, request.Source.Name)
+	slog.Info("Adding host with source", "ip", request.Host.IP, "source", request.Source.Name)
 
 	// Ensure vulnerabilities exist in database (same logic as original AddHost)
 	for _, vuln := range request.Host.Vulnerabilities {
 		if !vulnerability.CheckVulnerabilityExists(vuln.VID) {
-			log.Printf("Vulnerability %s does not exist in database. Adding...", vuln.VID)
+			slog.Info("Vulnerability not in database, adding", "vid", vuln.VID)
 
 			cve, err := nvd.GetCVE(vuln.VID)
 			if err != nil {
-				log.Printf("Failed to get CVE data for %s: %v", vuln.VID, err)
+				slog.Warn("Failed to get CVE data", "vid", vuln.VID, "error", err)
 				// Use provided vulnerability data as fallback
 				vuln = sirius.Vulnerability{
 					VID:         vuln.VID,

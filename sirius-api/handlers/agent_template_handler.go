@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -128,13 +128,13 @@ func GetAgentTemplates(c *fiber.Ctx) error {
 	// Query both standard and custom template keys separately to avoid metadata/version keys
 	standardKeys, err := kvStore.ListKeys(ctx, agentTemplateKeyPrefix+"standard:*")
 	if err != nil {
-		log.Printf("Warning: failed to retrieve standard templates: %v", err)
+		slog.Warn("Failed to retrieve standard templates", "error", err)
 		standardKeys = []string{}
 	}
 
 	customKeys, err := kvStore.ListKeys(ctx, agentTemplateKeyPrefix+"custom:*")
 	if err != nil {
-		log.Printf("Warning: failed to retrieve custom templates: %v", err)
+		slog.Warn("Failed to retrieve custom templates", "error", err)
 		customKeys = []string{}
 	}
 
@@ -145,7 +145,7 @@ func GetAgentTemplates(c *fiber.Ctx) error {
 	for _, key := range keys {
 		templateResp, err := kvStore.GetValue(ctx, key)
 		if err != nil {
-			log.Printf("Warning: failed to get template %s: %v", key, err)
+			slog.Warn("Failed to get template", "key", key, "error", err)
 			continue
 		}
 		templateData := templateResp.Message.Value
@@ -160,7 +160,7 @@ func GetAgentTemplates(c *fiber.Ctx) error {
 			// Decode base64 content
 			decoded, decErr := base64.StdEncoding.DecodeString(jsonData.Content)
 			if decErr != nil {
-				log.Printf("Warning: failed to decode base64 content for %s: %v", key, decErr)
+				slog.Warn("Failed to decode base64 content", "key", key, "error", decErr)
 				continue
 			}
 			yamlContent = string(decoded)
@@ -171,7 +171,7 @@ func GetAgentTemplates(c *fiber.Ctx) error {
 
 		// Parse YAML
 		if err := yaml.Unmarshal([]byte(yamlContent), &yamlTemplate); err != nil {
-			log.Printf("Warning: failed to parse YAML template %s: %v", key, err)
+			slog.Warn("Failed to parse YAML template", "key", key, "error", err)
 			continue
 		}
 

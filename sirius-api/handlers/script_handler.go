@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -111,7 +111,7 @@ func GetScript(c *fiber.Ctx) error {
 	content, err := getScriptContent(ctx, kvStore, scriptID)
 	if err != nil {
 		// Return script without content if not available
-		log.Printf("Warning: failed to get script content for %s: %v", scriptID, err)
+		slog.Warn("Failed to get script content", "script_id", scriptID, "error", err)
 	} else {
 		script.Content = content
 	}
@@ -171,7 +171,7 @@ func UpdateScript(c *fiber.Ctx) error {
 		})
 	}
 
-	log.Printf("Updated script: %s", scriptID)
+	slog.Info("Updated script", "script_id", scriptID)
 
 	return c.JSON(fiber.Map{
 		"message":   "Script updated successfully",
@@ -264,7 +264,7 @@ func CreateScript(c *fiber.Ctx) error {
 		})
 	}
 
-	log.Printf("Created custom script: %s", script.ID)
+	slog.Info("Created custom script", "script_id", script.ID)
 
 	return c.Status(fiber.StatusCreated).JSON(script)
 }
@@ -319,10 +319,10 @@ func DeleteScript(c *fiber.Ctx) error {
 	// Delete script content
 	key := nseScriptPrefix + scriptID
 	if err := kvStore.DeleteValue(ctx, key); err != nil {
-		log.Printf("Warning: failed to delete script content: %v", err)
+		slog.Warn("Failed to delete script content", "error", err)
 	}
 
-	log.Printf("Deleted custom script: %s", scriptID)
+	slog.Info("Deleted custom script", "script_id", scriptID)
 
 	return c.SendStatus(fiber.StatusNoContent)
 }

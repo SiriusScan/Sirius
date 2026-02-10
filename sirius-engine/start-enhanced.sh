@@ -179,30 +179,41 @@ if [ -d "$AGENT_PATH" ] && [ -f "$AGENT_PATH/go.mod" ]; then
     echo "Starting agent server from $AGENT_PATH..."
     if [ "$GO_ENV" = "development" ]; then
         echo "Starting agent server (development mode)..."
-        go run cmd/server/main.go &
+        go run cmd/server/main.go < /dev/null &
         AGENT_SERVER_PID=$!
     else
         # Production mode - start server binary
         if has_binary "$AGENT_PATH" "server"; then
             echo "Running production agent server binary"
-            ./server &
+            ./server < /dev/null &
             AGENT_SERVER_PID=$!
         else
             echo "Running agent server with go run (fallback)"
-            go run cmd/server/main.go &
+            go run cmd/server/main.go < /dev/null &
             AGENT_SERVER_PID=$!
         fi
     fi
     sleep 2
-    check_service "Agent Server" $AGENT_SERVER_PID
+    # Check if agent server started, but don't fail if it didn't
+    if ! kill -0 $AGENT_SERVER_PID 2>/dev/null; then
+        echo "Warning: Agent Server failed to start, but continuing with other services"
+        AGENT_SERVER_PID=""
+    else
+        echo "Agent server started with PID: $AGENT_SERVER_PID"
+    fi
 elif [ -d "$AGENT_PATH" ] && has_binary "$AGENT_PATH" "server"; then
     cd "$AGENT_PATH"
     echo "Starting agent server from $AGENT_PATH (binary only)..."
     echo "Running production agent server binary"
-    ./server &
+    ./server < /dev/null &
     AGENT_SERVER_PID=$!
     sleep 2
-    check_service "Agent Server" $AGENT_SERVER_PID
+    if ! kill -0 $AGENT_SERVER_PID 2>/dev/null; then
+        echo "Warning: Agent Server failed to start, but continuing with other services"
+        AGENT_SERVER_PID=""
+    else
+        echo "Agent server started with PID: $AGENT_SERVER_PID"
+    fi
 else
     echo "Warning: Agent server path not found or invalid"
 fi

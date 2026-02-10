@@ -2,7 +2,7 @@ package services
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/SiriusScan/go-api/sirius/queue"
 )
@@ -24,7 +24,7 @@ func (r *RabbitMQService) PublishMessage(queueName string, message []byte) error
 		return fmt.Errorf("failed to send message to queue %s: %w", queueName, err)
 	}
 
-	log.Printf("Message published to queue: %s", queueName)
+	slog.Debug("Message published to queue", "queue", queueName)
 	return nil
 }
 

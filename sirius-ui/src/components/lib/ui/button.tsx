@@ -21,7 +21,7 @@ const buttonVariants = cva(
           "text-gray-400 hover:bg-gray-800/60 hover:text-gray-200",
         link: "text-violet-400 underline-offset-4 hover:text-violet-300 hover:underline",
         primary:
-          "bg-violet-600 text-white hover:bg-violet-500",
+          "border border-violet-500/30 bg-violet-500/20 text-violet-200 hover:border-violet-500/40 hover:bg-violet-500/30",
       },
       size: {
         none: "",
@@ -47,9 +47,12 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
+    // className goes FIRST so variant styles win in tailwind-merge.
+    // This means className can add layout utilities (mt-4, w-full, flex-1)
+    // but cannot override the variant's color/border/bg treatment.
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(className, buttonVariants({ variant, size }))}
         ref={ref}
         {...props}
       />

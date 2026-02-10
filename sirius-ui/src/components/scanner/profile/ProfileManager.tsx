@@ -10,7 +10,6 @@ import { RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
 import { api } from "~/utils/api";
 import TemplateListTab from "../templates/TemplateListTab";
 import TemplateEditorTab from "../templates/TemplateEditorTab";
-import TemplateSettingsTab from "../templates/TemplateSettingsTab";
 
 const ProfileManager: React.FC = () => {
   const [activeTab, setActiveTab] = useState("list");
@@ -143,7 +142,6 @@ const ProfileManager: React.FC = () => {
         <TabsList className="bg-gray-800/50">
           <TabsTrigger value="list">Profiles</TabsTrigger>
           <TabsTrigger value="editor">Editor</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
@@ -158,10 +156,6 @@ const ProfileManager: React.FC = () => {
             templateId={editingProfileId}
             onClose={handleEditorClose}
           />
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4">
-          <TemplateSettingsTab />
         </TabsContent>
       </Tabs>
     </div>

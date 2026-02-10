@@ -279,7 +279,7 @@ export const MetadataSection = React.memo<MetadataSectionProps>(
                 {formData.tags.map((tag, index) => (
                   <Badge
                     key={index}
-                    className="flex items-center gap-1 bg-violet-600 text-white"
+                    className="flex items-center gap-1 border border-violet-500/30 bg-violet-500/20 text-violet-200"
                   >
                     {tag}
                     <button

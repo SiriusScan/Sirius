@@ -115,7 +115,7 @@ export const ScriptLibrary: React.FC<ScriptLibraryProps> = ({
         </div>
         <Button
           onClick={onCreateNew}
-          className="bg-violet-600 text-white hover:bg-violet-500"
+          
         >
           <Plus className="mr-2 h-4 w-4" />
           Create Script
@@ -151,7 +151,7 @@ export const ScriptLibrary: React.FC<ScriptLibraryProps> = ({
             {scripts.length === 0 && (
               <Button
                 onClick={onCreateNew}
-                className="mt-4 bg-violet-600 text-white hover:bg-violet-500"
+                className="mt-4"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Create Script

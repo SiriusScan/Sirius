@@ -7,7 +7,6 @@ import {
 } from "~/components/lib/ui/tabs";
 import TemplateListTab from "./TemplateListTab";
 import TemplateEditorTab from "./TemplateEditorTab";
-import TemplateSettingsTab from "./TemplateSettingsTab";
 
 const TemplatesScannerSettings: React.FC = () => {
   const [activeTab, setActiveTab] = useState("list");
@@ -36,9 +35,8 @@ const TemplatesScannerSettings: React.FC = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-gray-800/50">
-          <TabsTrigger value="list">Templates</TabsTrigger>
+          <TabsTrigger value="list">Profiles</TabsTrigger>
           <TabsTrigger value="editor">Editor</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
@@ -53,10 +51,6 @@ const TemplatesScannerSettings: React.FC = () => {
             templateId={editingTemplateId}
             onClose={handleEditorClose}
           />
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-4">
-          <TemplateSettingsTab />
         </TabsContent>
       </Tabs>
     </div>

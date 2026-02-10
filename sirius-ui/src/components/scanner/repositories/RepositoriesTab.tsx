@@ -235,7 +235,6 @@ export const RepositoriesTab: React.FC = () => {
         </div>
         <Button
           onClick={() => setIsAddDialogOpen(true)}
-          className="bg-violet-600 text-white hover:bg-violet-500"
         >
           <Plus className="mr-2 h-4 w-4" />
           Add Repository
@@ -362,7 +361,7 @@ export const RepositoriesTab: React.FC = () => {
             </p>
             <Button
               onClick={() => setIsAddDialogOpen(true)}
-              className="mt-4 bg-violet-600 text-white hover:bg-violet-500"
+              className="mt-4"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Repository
@@ -474,7 +473,6 @@ export const RepositoriesTab: React.FC = () => {
               disabled={
                 addMutation.isLoading || !formData.name || !formData.url
               }
-              className="bg-violet-600 text-white hover:bg-violet-500"
             >
               {addMutation.isLoading ? (
                 <>
@@ -587,7 +585,6 @@ export const RepositoriesTab: React.FC = () => {
             <Button
               onClick={handleUpdate}
               disabled={updateMutation.isLoading}
-              className="bg-violet-600 text-white hover:bg-violet-500"
             >
               {updateMutation.isLoading ? (
                 <>

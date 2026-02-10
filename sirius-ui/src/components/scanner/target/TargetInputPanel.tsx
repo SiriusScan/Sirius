@@ -182,7 +182,7 @@ One target per line, or comma-separated. Press Ctrl+Enter to add."
               size="sm"
               onClick={handleParse}
               disabled={!inputValue.trim()}
-              className="h-8 bg-violet-600 px-4 text-xs font-medium hover:bg-violet-500 disabled:opacity-50"
+              className="h-8 px-4 text-xs font-medium disabled:opacity-50"
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" />
               Add Targets

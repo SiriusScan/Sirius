@@ -141,7 +141,7 @@ export function ScanControls({
           />
         </div>
 
-        {/* Right: Profile + Start/Stop Button */}
+        {/* Right: Profile + Start/Stop Button + Agent Banner */}
         <div className="flex flex-col gap-4">
           <div>
             <label className="mb-2 block text-sm font-medium text-violet-200">
@@ -165,6 +165,36 @@ export function ScanControls({
               {isLoading ? "Scanning..." : "Start Scan"}
             </Button>
           )}
+
+          {/* Agent Download Banner */}
+          <div className="flex items-center gap-3 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-violet-500/10 ring-1 ring-violet-500/20">
+              <Download className="h-4 w-4 text-violet-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-xs font-semibold text-violet-200">
+                Need the Sirius Agent?
+              </h3>
+              <p className="text-[11px] text-gray-400">
+                Download from GitHub to enable remote scanning
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                window.open(
+                  "https://github.com/SiriusScan/app-agent/releases",
+                  "_blank",
+                  "noopener,noreferrer"
+                )
+              }
+              className="shrink-0 text-xs"
+            >
+              <ExternalLink className="mr-1.5 h-3 w-3" />
+              Get Agent
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -190,40 +220,6 @@ export function ScanControls({
           </div>
         </div>
       )}
-
-      {/* Agent Download Banner */}
-      <div className="mt-6 rounded-lg border border-violet-500/20 bg-violet-500/5 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/10 ring-1 ring-violet-500/20">
-              <Download className="h-5 w-5 text-violet-400" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-violet-200">
-                Need the Sirius Agent?
-              </h3>
-              <p className="text-xs text-gray-400">
-                Download from GitHub to enable remote scanning capabilities
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              window.open(
-                "https://github.com/SiriusScan/app-agent/releases",
-                "_blank",
-                "noopener,noreferrer"
-              )
-            }
-            className="border-violet-500/30 bg-violet-500/5 text-violet-300 hover:bg-violet-500/10 hover:text-violet-200"
-          >
-            <ExternalLink className="mr-2 h-3.5 w-3.5" />
-            Get Agent
-          </Button>
-        </div>
-      </div>
     </>
   );
 }

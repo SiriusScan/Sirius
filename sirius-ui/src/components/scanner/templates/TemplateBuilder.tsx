@@ -365,7 +365,7 @@ export const TemplateBuilder: React.FC<TemplateBuilderProps> = ({
               <Button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="bg-violet-600 text-white hover:bg-violet-500"
+                
               >
                 <Save className="mr-2 h-4 w-4" />
                 {isSaving

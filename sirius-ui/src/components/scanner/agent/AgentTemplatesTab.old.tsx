@@ -902,7 +902,7 @@ const AgentTemplatesTab: React.FC<AgentTemplatesTabProps> = ({
                 </Button>
                 <Button
                   onClick={handleCreateTemplate}
-                  className="bg-violet-600 text-white hover:bg-violet-500"
+                  
                 >
                   {editingTemplate ? "Update Template" : "Create Template"}
                 </Button>

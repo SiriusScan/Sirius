@@ -139,10 +139,10 @@ export const TemplateViewer: React.FC<TemplateViewerProps> = ({
 
   // Determine button styling based on state
   const getSaveButtonClass = () => {
-    if (!isEditing) return "bg-violet-600/20 hover:bg-violet-600/30";
+    if (!isEditing) return "border-violet-500/20 bg-violet-500/10 hover:bg-violet-500/20";
     if (isSaving) return "bg-gray-700 hover:bg-gray-600";
-    if (hasChanges) return "bg-violet-600 hover:bg-violet-700 text-white";
-    return "bg-violet-600/20 hover:bg-violet-600/30";
+    if (hasChanges) return "border-violet-500/30 bg-violet-500/20 text-violet-200 hover:bg-violet-500/30";
+    return "border-violet-500/20 bg-violet-500/10 hover:bg-violet-500/20";
   };
 
   return (
@@ -387,7 +387,7 @@ export const TemplateViewer: React.FC<TemplateViewerProps> = ({
                 </p>
                 <Button
                   onClick={() => onEdit(template)}
-                  className="mt-4 bg-violet-600 text-white hover:bg-violet-500"
+                  className="mt-4"
                 >
                   Edit in Builder
                 </Button>

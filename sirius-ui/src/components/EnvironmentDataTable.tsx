@@ -457,7 +457,7 @@ export function EnvironmentDataTable({
             Clear &amp; Close
           </button>
           <button
-            className="rounded-md bg-violet-500 px-3 py-1 text-sm text-white hover:bg-violet-600"
+            className="rounded-md border border-violet-500/30 bg-violet-500/20 px-3 py-1 text-sm text-violet-200 transition-colors hover:border-violet-500/40 hover:bg-violet-500/30"
             onClick={() => setShowAdvancedFilters(false)}
           >
             Apply Filters

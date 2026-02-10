@@ -163,7 +163,6 @@ export const TemplateLibrary: React.FC<TemplateLibraryProps> = ({
         </div>
         <Button
           onClick={onCreateNew}
-          className="bg-violet-600 text-white hover:bg-violet-500"
         >
           <Plus className="mr-2 h-4 w-4" />
           Create Template
@@ -199,7 +198,7 @@ export const TemplateLibrary: React.FC<TemplateLibraryProps> = ({
             {templates.length === 0 && (
               <Button
                 onClick={onCreateNew}
-                className="mt-4 bg-violet-600 text-white hover:bg-violet-500"
+                className="mt-4"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Create Template

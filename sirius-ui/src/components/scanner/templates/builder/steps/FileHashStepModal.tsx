@@ -240,7 +240,7 @@ export const FileHashStepModal: React.FC<FileHashStepModalProps> = React.memo(
             </Button>
             <Button
               onClick={handleSave}
-              className="bg-violet-600 hover:bg-violet-500"
+              
             >
               {editingStep ? "Update Step" : "Add Step"}
             </Button>

@@ -173,7 +173,7 @@ export const ScriptFilters: React.FC<ScriptFiltersProps> = ({
             className={cn(
               "px-3",
               viewMode === "grid"
-                ? "border-violet-500/50 bg-violet-600 text-white hover:bg-violet-500"
+                ? "border-violet-500/30 bg-violet-500/20 text-violet-200 hover:bg-violet-500/30"
                 : "border-gray-700 bg-gray-800 hover:bg-gray-700"
             )}
           >
@@ -187,7 +187,7 @@ export const ScriptFilters: React.FC<ScriptFiltersProps> = ({
             className={cn(
               "px-3",
               viewMode === "list"
-                ? "border-violet-500/50 bg-violet-600 text-white hover:bg-violet-500"
+                ? "border-violet-500/30 bg-violet-500/20 text-violet-200 hover:bg-violet-500/30"
                 : "border-gray-700 bg-gray-800 hover:bg-gray-700"
             )}
           >
@@ -211,7 +211,7 @@ export const ScriptFilters: React.FC<ScriptFiltersProps> = ({
                 <Filter className="mr-2 h-4 w-4" />
                 Protocol
                 {filters.protocols.length > 0 && (
-                  <Badge className="ml-2 bg-violet-600 text-white">
+                  <Badge className="ml-2 border border-violet-500/30 bg-violet-500/20 text-violet-200">
                     {filters.protocols.length}
                   </Badge>
                 )}
@@ -257,7 +257,7 @@ export const ScriptFilters: React.FC<ScriptFiltersProps> = ({
               >
                 Tags
                 {filters.tags.length > 0 && (
-                  <Badge className="ml-2 bg-violet-600 text-white">
+                  <Badge className="ml-2 border border-violet-500/30 bg-violet-500/20 text-violet-200">
                     {filters.tags.length}
                   </Badge>
                 )}
@@ -322,7 +322,7 @@ export const ScriptFilters: React.FC<ScriptFiltersProps> = ({
                   className={cn(
                     "w-full rounded px-2 py-1 text-left text-sm transition-colors",
                     filters.sortBy === option.value
-                      ? "bg-violet-600 text-white"
+                      ? "bg-violet-500/20 text-violet-200"
                       : "text-gray-300 hover:bg-gray-700"
                   )}
                 >

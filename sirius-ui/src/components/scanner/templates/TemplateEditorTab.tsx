@@ -866,11 +866,6 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
                 variant={filterMode === "all" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setFilterMode("all")}
-                className={
-                  filterMode === "all"
-                    ? "bg-violet-600 hover:bg-violet-700"
-                    : "border-gray-600 hover:bg-gray-700"
-                }
               >
                 All
               </Button>
@@ -878,11 +873,6 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
                 variant={filterMode === "selected" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setFilterMode("selected")}
-                className={
-                  filterMode === "selected"
-                    ? "bg-violet-600 hover:bg-violet-700"
-                    : "border-gray-600 hover:bg-gray-700"
-                }
               >
                 <Filter className="mr-1 h-3 w-3" />
                 Selected ({validSelectedScripts.length})
@@ -896,11 +886,6 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
                 variant={filterMode === "unselected" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setFilterMode("unselected")}
-                className={
-                  filterMode === "unselected"
-                    ? "bg-violet-600 hover:bg-violet-700"
-                    : "border-gray-600 hover:bg-gray-700"
-                }
               >
                 Unselected
               </Button>
@@ -1080,7 +1065,6 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
           {isSystemProfile ? (
             <Button
               onClick={handleSaveAsCopy}
-              className="bg-violet-600 text-white hover:bg-violet-700"
               disabled={isLoading || scriptsLoading}
             >
               <Save className="mr-2 h-4 w-4" />
@@ -1089,7 +1073,6 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
           ) : (
             <Button
               onClick={handleSave}
-              className="bg-violet-600 text-white hover:bg-violet-700"
               disabled={
                 !name.trim() ||
                 scanTypes.length === 0 ||

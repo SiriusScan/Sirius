@@ -202,7 +202,7 @@ const CardGridPattern: React.FC<PatternProps> = ({
                 onClick={handleAddFromText}
                 disabled={!inputValue.trim()}
                 size="sm"
-                className="flex-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-50"
+                className="flex-1 disabled:opacity-50"
               >
                 Add Targets
               </Button>

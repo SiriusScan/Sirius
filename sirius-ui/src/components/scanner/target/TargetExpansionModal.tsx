@@ -173,7 +173,7 @@ const TargetExpansionModal: React.FC<TargetExpansionModalProps> = ({
           <Button
             onClick={handleAddSelected}
             disabled={selectedHosts.size === 0}
-            className="bg-violet-600 hover:bg-violet-500"
+            
           >
             Add {selectedHosts.size > 0 ? selectedHosts.size : ""} Host
             {selectedHosts.size !== 1 ? "s" : ""}

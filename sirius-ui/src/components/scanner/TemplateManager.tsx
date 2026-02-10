@@ -114,7 +114,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({ onClose }) => {
                       className={
                         template.type === "system"
                           ? "bg-violet-700 text-violet-100"
-                          : "bg-violet-600 text-violet-100"
+                          : "bg-violet-500/20 text-violet-200"
                       }
                     >
                       {template.type}

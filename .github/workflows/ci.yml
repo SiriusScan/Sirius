@@ -234,7 +234,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'main' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.15' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-api:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
@@ -314,11 +314,11 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'main' }}
-            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'main' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.14' }}
+            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'f98dd58' }}
             APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || 'main' }}
             SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'main' }}
-            APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || 'main' }}
+            APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '50b405a' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-engine:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}

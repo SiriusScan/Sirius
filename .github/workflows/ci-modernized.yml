@@ -328,9 +328,9 @@ jobs:
           # Start infrastructure services
           docker compose -f docker-compose.ci.yml up -d sirius-postgres sirius-rabbitmq sirius-valkey
           
-          # Wait for infrastructure to be healthy
+          # Wait for infrastructure services to all be healthy
           echo "⏳ Waiting for infrastructure services to be healthy..."
-          timeout 60 bash -c 'until docker compose -f docker-compose.ci.yml ps | grep -q "healthy"; do sleep 2; done'
+          timeout 90 bash -c 'until docker compose -f docker-compose.ci.yml ps | grep -q "sirius-postgres.*healthy" && docker compose -f docker-compose.ci.yml ps | grep -q "sirius-rabbitmq.*healthy" && docker compose -f docker-compose.ci.yml ps | grep -q "sirius-valkey.*healthy"; do sleep 2; done'
           
           # Start application services based on what was built
           SERVICES_TO_TEST=""
@@ -351,9 +351,14 @@ jobs:
             echo "🚀 Starting application services: $SERVICES_TO_TEST"
             docker compose -f docker-compose.ci.yml up -d $SERVICES_TO_TEST
             
-            # Wait for services to be healthy
+            # Wait only for the services started in this run
             echo "⏳ Waiting for application services to be healthy..."
-            timeout 120 bash -c 'until docker compose -f docker-compose.ci.yml ps | grep -q "healthy"; do sleep 5; done'
+            timeout 150 bash -c '
+              until \
+                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-api" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-api.*healthy"; } && \
+                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-engine" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-engine.*healthy"; } && \
+                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-ui" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-ui.*healthy"; }; \
+              do sleep 5; done'
             
             # Check service status
             echo "📊 Service status:"

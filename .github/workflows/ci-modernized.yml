@@ -330,7 +330,7 @@ jobs:
           
           # Wait for infrastructure services to all be healthy
           echo "⏳ Waiting for infrastructure services to be healthy..."
-          timeout 90 bash -c 'until docker compose -f docker-compose.ci.yml ps | grep -q "sirius-postgres.*healthy" && docker compose -f docker-compose.ci.yml ps | grep -q "sirius-rabbitmq.*healthy" && docker compose -f docker-compose.ci.yml ps | grep -q "sirius-valkey.*healthy"; do sleep 2; done'
+          timeout 90 bash -c 'until docker compose -f docker-compose.ci.yml ps | grep -q "sirius-postgres.*(healthy)" && docker compose -f docker-compose.ci.yml ps | grep -q "sirius-rabbitmq.*(healthy)" && docker compose -f docker-compose.ci.yml ps | grep -q "sirius-valkey.*(healthy)"; do sleep 2; done'
           
           # Start application services based on what was built
           SERVICES_TO_TEST=""
@@ -355,9 +355,9 @@ jobs:
             echo "⏳ Waiting for application services to be healthy..."
             timeout 150 bash -c '
               until \
-                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-api" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-api.*healthy"; } && \
-                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-engine" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-engine.*healthy"; } && \
-                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-ui" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-ui.*healthy"; }; \
+                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-api" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-api.*(healthy)"; } && \
+                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-engine" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-engine.*(healthy)"; } && \
+                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-ui" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-ui.*(healthy)"; }; \
               do sleep 5; done'
             
             # Check service status

@@ -1,8 +1,8 @@
-# Sirius Scan v0.4.0
+# Sirius Scan v1.0.0
 
 ![Sirius Scan Dashboard](/documentation/dash-dark.gif)
 
-Sirius is an open-source comprehensive vulnerability scanner that leverages community-driven security intelligence and automated penetration testing capabilities. **v0.4.0** introduces comprehensive system monitoring and observability features. Get started in minutes with our Docker-based setup.
+Sirius is an open-source comprehensive vulnerability scanner that leverages community-driven security intelligence and automated penetration testing capabilities. **v1.0.0** is the first production release, bringing the complete scanning platform, hardened CI/CD workflows, and release-grade deployment readiness. Get started in minutes with our Docker-based setup.
 
 ## 🚀 Quick Start Guide
 
@@ -34,7 +34,7 @@ open http://localhost:3000
 
 **⚠️ Security Notice**: Change these default credentials immediately in production environments.
 
-## 🆕 What's New in v0.4.0
+## 🆕 What's New in v1.0.0
 
 ### System Monitoring & Observability
 

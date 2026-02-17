@@ -5,6 +5,25 @@ All notable changes to SiriusScan will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-02-17
+
+### Added
+- Production API key support across services, including new API key management endpoints and shared SDK updates.
+- Expanded scanner, host, and vulnerability capabilities in both API and UI, including new workflows and richer data presentation.
+- Security testing suite under `testing/security` to validate API surface, headers, auth pathways, and service protections.
+
+### Changed
+- CI/CD workflows were stabilized for release reliability, including improved build and integration behavior for pull requests.
+- Docker deployment configuration was updated with production overrides and safer validation defaults for CI checks.
+- Documentation coverage expanded significantly across architecture, operations, and scanner internals.
+
+### Removed
+- Legacy development artifacts and deprecated UI/router files used only for earlier prototyping phases.
+
+### Fixed
+- Multiple release-blocking issues in image publishing, dependency pinning, and integration test orchestration.
+- Documentation linting script behavior in CI environments.
+
 ## [0.4.0] - 2025-10-11
 
 ### Added

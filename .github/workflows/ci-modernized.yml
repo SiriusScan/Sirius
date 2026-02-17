@@ -225,7 +225,7 @@ jobs:
                 retries: 5
           
             sirius-rabbitmq:
-              image: rabbitmq:3.7.3-management
+              image: rabbitmq:3-management
               environment:
                 RABBITMQ_DEFAULT_USER: guest
                 RABBITMQ_DEFAULT_PASS: guest

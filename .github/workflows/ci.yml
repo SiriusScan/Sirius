@@ -160,7 +160,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-ui:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-api:
     name: Build & Push API
@@ -239,7 +238,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-api:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-engine:
     name: Build & Push Engine
@@ -323,7 +321,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-engine:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   test:
     name: Integration Test
@@ -376,7 +373,7 @@ jobs:
                 - /var/lib/postgresql/data # Use RAM for CI testing
           
             sirius-rabbitmq:
-              image: rabbitmq:3.7.3-management
+              image: rabbitmq:3-management
           
             sirius-valkey:
               image: valkey/valkey:latest

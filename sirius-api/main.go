@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/SiriusScan/go-api/sirius/logging"
 	"github.com/SiriusScan/go-api/sirius/slogger"
+	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/SiriusScan/sirius-api/middleware"
 	"github.com/SiriusScan/sirius-api/routes"
 	"github.com/gofiber/fiber/v2"
@@ -105,9 +107,40 @@ func runMigrations() error {
 	return nil
 }
 
+// bootstrapAPIKeys reconciles the configured service API key with Valkey state.
+// It repairs partial states by ensuring both key metadata and bootstrap flag
+// exist on every startup.
+func bootstrapAPIKeys(kvStore store.KVStore, rawKey string) error {
+	ctx := context.Background()
+	wasBootstrapped := store.IsBootstrapped(ctx, kvStore)
+
+	meta, err := store.EnsureAPIKey(ctx, kvStore, rawKey, "root", "system-bootstrap")
+	if err != nil {
+		return fmt.Errorf("failed to ensure root API key metadata: %w", err)
+	}
+
+	if err := store.MarkBootstrapped(ctx, kvStore); err != nil {
+		return fmt.Errorf("failed to mark bootstrap complete: %w", err)
+	}
+
+	if wasBootstrapped {
+		slog.Info("API key bootstrap reconciled", "key_prefix", meta.Prefix)
+	} else {
+		slog.Info("API key bootstrap completed", "key_prefix", meta.Prefix)
+	}
+
+	return nil
+}
+
 func main() {
 	// Initialize structured logging (reads LOG_LEVEL env var)
 	slogger.Init()
+
+	serviceAPIKey := strings.TrimSpace(os.Getenv("SIRIUS_API_KEY"))
+	if serviceAPIKey == "" {
+		slog.Error("SIRIUS_API_KEY is required for sirius-api startup")
+		os.Exit(1)
+	}
 
 	// Initialize the logging SDK
 	logging.Init()
@@ -116,6 +149,20 @@ func main() {
 	// Run database migrations before starting the API
 	if err := runMigrations(); err != nil {
 		slog.Error("Failed to run migrations", "error", err)
+		os.Exit(1)
+	}
+
+	// Initialize Valkey store for API key management.
+	kvStore, err := store.NewValkeyStore()
+	if err != nil {
+		slog.Error("Failed to connect to Valkey", "error", err)
+		os.Exit(1)
+	}
+	defer kvStore.Close()
+
+	// Reconcile service API key metadata and bootstrap flag state.
+	if err := bootstrapAPIKeys(kvStore, serviceAPIKey); err != nil {
+		slog.Error("Failed to reconcile API key bootstrap state", "error", err)
 		os.Exit(1)
 	}
 
@@ -137,6 +184,9 @@ func main() {
 	// Add level-aware request logging middleware
 	app.Use(requestLoggerMiddleware())
 
+	// Add API key authentication middleware
+	app.Use(middleware.APIKeyMiddleware(kvStore))
+
 	// Add SDK-based logging middlewares
 	app.Use(middleware.SDKLoggingMiddleware())
 	app.Use(middleware.SDKErrorLoggingMiddleware())
@@ -151,6 +201,7 @@ func main() {
 	snapshotRouteSetter := &routes.SnapshotRouteSetter{}
 	statisticsRouteSetter := &routes.StatisticsRoutes{}
 	scanRouteSetter := &routes.ScanRouteSetter{}
+	apiKeyRouteSetter := &routes.APIKeyRouteSetter{Store: kvStore}
 	routes.SetupRoutes(
 		app,
 		&routes.HostRouteSetter{},
@@ -164,9 +215,10 @@ func main() {
 		snapshotRouteSetter,   // Snapshot and vulnerability trend routes
 		statisticsRouteSetter, // Statistics routes
 		scanRouteSetter,       // Scan control routes (cancel, status)
+		apiKeyRouteSetter,     // API key management routes
 	)
 
-	slog.Info("Sirius API starting", "port", 9001, "log_level", os.Getenv("LOG_LEVEL"))
+	slog.Info("Sirius API starting", "port", 9001, "log_level", os.Getenv("LOG_LEVEL"), "auth_required", true)
 	app.Listen(":9001")
 }
 

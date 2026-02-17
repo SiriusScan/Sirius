@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { AgentScanConfig } from "~/types/scanTypes";
-import { API_BASE_URL } from "~/server/api/shared/apiClient";
+import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
 // Agent scan config interface - duplicates AgentScanConfig from scanTypes.ts
 // Kept for Zod schema compatibility, but uses canonical type for actual data
@@ -60,9 +60,9 @@ const templateSchema = z.object({
 
 export const templatesRouter = createTRPCRouter({
   // Get all templates
-  getTemplates: publicProcedure.query(async () => {
+  getTemplates: protectedProcedure.query(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/templates`);
+      const response = await apiFetch(`${API_BASE_URL}/templates`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch templates: ${response.statusText}`);
@@ -77,11 +77,11 @@ export const templatesRouter = createTRPCRouter({
   }),
 
   // Get a single template by ID
-  getTemplate: publicProcedure
+  getTemplate: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/templates/${input.id}`);
+        const response = await apiFetch(`${API_BASE_URL}/templates/${input.id}`);
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -99,15 +99,12 @@ export const templatesRouter = createTRPCRouter({
     }),
 
   // Create a new template
-  createTemplate: publicProcedure
+  createTemplate: protectedProcedure
     .input(templateSchema.omit({ created_at: true, updated_at: true }))
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/templates`, {
+        const response = await apiFetch(`${API_BASE_URL}/templates`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(input),
         });
 
@@ -125,15 +122,12 @@ export const templatesRouter = createTRPCRouter({
     }),
 
   // Update an existing template
-  updateTemplate: publicProcedure
+  updateTemplate: protectedProcedure
     .input(templateSchema.partial().extend({ id: z.string() }))
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/templates/${input.id}`, {
+        const response = await apiFetch(`${API_BASE_URL}/templates/${input.id}`, {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(input),
         });
 
@@ -151,11 +145,11 @@ export const templatesRouter = createTRPCRouter({
     }),
 
   // Delete a template
-  deleteTemplate: publicProcedure
+  deleteTemplate: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/templates/${input.id}`, {
+        const response = await apiFetch(`${API_BASE_URL}/templates/${input.id}`, {
           method: "DELETE",
         });
 

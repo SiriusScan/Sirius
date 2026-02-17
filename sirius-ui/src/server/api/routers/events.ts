@@ -1,18 +1,12 @@
 import { z } from "zod";
 import axios from "axios";
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { env } from "~/env.mjs";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { apiClient } from "~/server/api/shared/apiClient";
 
 /**
  * Events router - handles security and system events
  * This router proxies requests to the Go API backend
  */
-
-// Create axios instance for Go API
-const apiClient = axios.create({
-  baseURL: env.SIRIUS_API_URL || "http://localhost:9001",
-  timeout: 10000,
-});
 
 // Types matching Go API Event model
 export type Event = {
@@ -43,7 +37,7 @@ export const eventsRouter = createTRPCRouter({
   /**
    * Get events with optional filters
    */
-  getEvents: publicProcedure
+  getEvents: protectedProcedure
     .input(
       z
         .object({
@@ -103,7 +97,7 @@ export const eventsRouter = createTRPCRouter({
   /**
    * Get event statistics
    */
-  getEventStats: publicProcedure.query(async () => {
+  getEventStats: protectedProcedure.query(async () => {
     try {
       const response = await apiClient.get<EventStats>(
         "/api/v1/events/stats"
@@ -124,7 +118,7 @@ export const eventsRouter = createTRPCRouter({
   /**
    * Get recent events (convenience method)
    */
-  getRecentEvents: publicProcedure
+  getRecentEvents: protectedProcedure
     .input(
       z
         .object({
@@ -166,7 +160,7 @@ export const eventsRouter = createTRPCRouter({
   /**
    * Get events by severity
    */
-  getEventsBySeverity: publicProcedure
+  getEventsBySeverity: protectedProcedure
     .input(
       z.object({
         severity: z.enum(["info", "warning", "error", "critical"]),

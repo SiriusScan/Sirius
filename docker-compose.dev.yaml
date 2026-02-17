@@ -45,6 +45,8 @@ services:
       - SIRIUS_API_URL=http://sirius-api:9001
       - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
       - CONTAINER_NAME=sirius-ui
+      # Coordinated dev API key shared across UI/API/Engine.
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-sirius-dev-api-key-do-not-use-in-production}
       # Performance: increase Node.js heap for faster webpack compilation
       - NODE_OPTIONS=--max-old-space-size=4096
       # Performance: enable filesystem polling for reliable hot reload on Docker bind mounts
@@ -94,6 +96,8 @@ services:
       - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
       - LOG_LEVEL=info
       - CONTAINER_NAME=sirius-api
+      # Coordinated dev API key shared across UI/API/Engine.
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-sirius-dev-api-key-do-not-use-in-production}
 
   sirius-engine:
     build:
@@ -147,6 +151,8 @@ services:
       - HOST_ID=sirius-engine
       - ENABLE_SCRIPTING=true
       - CONTAINER_NAME=sirius-engine
+      # Coordinated dev API key shared across UI/API/Engine.
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-sirius-dev-api-key-do-not-use-in-production}
 
 networks:
   default:

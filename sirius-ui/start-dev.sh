@@ -33,9 +33,7 @@ echo "📁 Applying database migrations..."
 (cd /app && npx prisma migrate deploy)
 
 echo "🌱 Running database seed..."
-# Temporarily disabled - causing startup delays
-# (cd /app && npx prisma db seed) || echo "⚠️  Seed failed or already applied."
-echo "⚠️  Seed skipped (admin/password credentials already set)"
+(cd /app && npx prisma db seed) || echo "⚠️  Seed failed or already applied."
 
 echo "🎯 Starting Next.js development server..."
 exec npm run dev 

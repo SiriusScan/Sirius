@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type {
   ScanResult,
   VulnerabilitySummary,
 } from "~/types/scanTypes";
-import { API_BASE_URL } from "~/server/api/shared/apiClient";
+import { apiClient, API_BASE_URL } from "~/server/api/shared/apiClient";
 
 export interface CancelScanResponse {
   success: boolean;
@@ -28,7 +28,7 @@ export interface ResetScanResponse {
 }
 
 export const scannerRouter = createTRPCRouter({
-  getLatestScan: publicProcedure.query(async () => {
+  getLatestScan: protectedProcedure.query(async () => {
     try {
       // For now, return a base64 encoded mock scan result
       // This will be replaced with actual scan data later
@@ -63,7 +63,7 @@ export const scannerRouter = createTRPCRouter({
     }
   }),
 
-  startScan: publicProcedure
+  startScan: protectedProcedure
     .input(
       z.object({
         targets: z.array(z.string()),
@@ -92,7 +92,7 @@ export const scannerRouter = createTRPCRouter({
       }
     }),
 
-  getScanStatus: publicProcedure
+  getScanStatus: protectedProcedure
     .input(z.object({ scanId: z.string() }))
     .query(async ({ input }) => {
       try {
@@ -111,7 +111,7 @@ export const scannerRouter = createTRPCRouter({
     }),
 
   // Cancel the current running scan
-  cancelScan: publicProcedure
+  cancelScan: protectedProcedure
     .input(
       z
         .object({
@@ -123,30 +123,15 @@ export const scannerRouter = createTRPCRouter({
       try {
         console.log("Cancelling scan:", input?.scanId || "current");
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/scans/cancel`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            scan_id: input?.scanId,
-          }),
-        });
-
-        const data = (await response.json()) as CancelScanResponse;
-
-        if (!response.ok) {
-          return {
-            success: false,
-            message: data.error || "Failed to cancel scan",
-            error: data.error,
-          };
-        }
+        const response = await apiClient.post<CancelScanResponse>(
+          "/api/v1/scans/cancel",
+          { scan_id: input?.scanId }
+        );
 
         return {
           success: true,
-          message: data.message || "Scan cancellation requested",
-          status: data.status,
+          message: response.data.message || "Scan cancellation requested",
+          status: response.data.status,
         };
       } catch (error) {
         console.error("Error cancelling scan:", error);
@@ -159,7 +144,7 @@ export const scannerRouter = createTRPCRouter({
     }),
 
   // Force stop the scan - Tier 2 escalation when graceful stop fails
-  forceStopScan: publicProcedure
+  forceStopScan: protectedProcedure
     .input(
       z
         .object({
@@ -171,33 +156,15 @@ export const scannerRouter = createTRPCRouter({
       try {
         console.log("Force stopping scan:", input?.scanId || "current");
 
-        const response = await fetch(
-          `${API_BASE_URL}/api/v1/scans/force-stop`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              scan_id: input?.scanId,
-            }),
-          }
+        const response = await apiClient.post<ForceStopResponse>(
+          "/api/v1/scans/force-stop",
+          { scan_id: input?.scanId }
         );
-
-        const data = (await response.json()) as ForceStopResponse;
-
-        if (!response.ok) {
-          return {
-            success: false,
-            message: data.error || "Failed to force stop scan",
-            error: data.error,
-          };
-        }
 
         return {
           success: true,
-          message: data.message || "Scan force stopped",
-          status: data.status,
+          message: response.data.message || "Scan force stopped",
+          status: response.data.status,
         };
       } catch (error) {
         console.error("Error force stopping scan:", error);
@@ -210,32 +177,19 @@ export const scannerRouter = createTRPCRouter({
     }),
 
   // Reset scan dashboard state - Tier 3 last resort
-  resetScanState: publicProcedure.mutation(
+  resetScanState: protectedProcedure.mutation(
     async (): Promise<ResetScanResponse> => {
       try {
         console.log("Resetting scan state");
 
-        const response = await fetch(`${API_BASE_URL}/api/v1/scans/reset`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        const data = (await response.json()) as ResetScanResponse;
-
-        if (!response.ok) {
-          return {
-            success: false,
-            message: data.error || "Failed to reset scan state",
-            error: data.error,
-          };
-        }
+        const response = await apiClient.post<ResetScanResponse>(
+          "/api/v1/scans/reset"
+        );
 
         return {
           success: true,
-          message: data.message || "Scan state reset",
-          status: data.status,
+          message: response.data.message || "Scan state reset",
+          status: response.data.status,
         };
       } catch (error) {
         console.error("Error resetting scan state:", error);

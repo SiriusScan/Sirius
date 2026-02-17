@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { Repository, SyncStatus } from "~/types/repositoryTypes";
-
-const API_BASE_URL = process.env.SIRIUS_API_URL || "http://localhost:9001";
+import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
 // Zod schemas for validation
 const addRepositorySchema = z.object({
@@ -28,9 +27,9 @@ const repositoryIdSchema = z.object({
 
 export const repositoriesRouter = createTRPCRouter({
   // Get all repositories
-  list: publicProcedure.query(async (): Promise<Repository[]> => {
+  list: protectedProcedure.query(async (): Promise<Repository[]> => {
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/agent-templates/repositories`
       );
 
@@ -47,11 +46,11 @@ export const repositoriesRouter = createTRPCRouter({
   }),
 
   // Add new repository
-  add: publicProcedure
+  add: protectedProcedure
     .input(addRepositorySchema)
     .mutation(async ({ input }): Promise<Repository> => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/repositories`,
           {
             method: "POST",
@@ -75,12 +74,12 @@ export const repositoriesRouter = createTRPCRouter({
     }),
 
   // Update repository
-  update: publicProcedure
+  update: protectedProcedure
     .input(updateRepositorySchema)
     .mutation(async ({ input }): Promise<Repository> => {
       try {
         const { id, ...updates } = input;
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/repositories/${id}`,
           {
             method: "PUT",
@@ -104,11 +103,11 @@ export const repositoriesRouter = createTRPCRouter({
     }),
 
   // Delete repository
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(repositoryIdSchema)
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/repositories/${input.id}`,
           {
             method: "DELETE",
@@ -128,11 +127,11 @@ export const repositoriesRouter = createTRPCRouter({
     }),
 
   // Trigger repository sync
-  sync: publicProcedure
+  sync: protectedProcedure
     .input(repositoryIdSchema)
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/repositories/${input.id}/sync`,
           {
             method: "POST",
@@ -152,11 +151,11 @@ export const repositoriesRouter = createTRPCRouter({
     }),
 
   // Get sync status
-  getSyncStatus: publicProcedure
+  getSyncStatus: protectedProcedure
     .input(repositoryIdSchema)
     .query(async ({ input }): Promise<SyncStatus | null> => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/repositories/${input.id}/sync-status`
         );
 

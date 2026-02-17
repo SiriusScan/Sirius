@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/gofiber/fiber/v2"
 )
+
+var templateIDPattern = regexp.MustCompile("^[A-Za-z0-9._:-]{1,128}$")
 
 // Template represents a scan configuration template
 type Template struct {
@@ -95,6 +98,11 @@ func GetTemplates(c *fiber.Ctx) error {
 func GetTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 	templateID := c.Params("id")
+	if !templateIDPattern.MatchString(templateID) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid template id format",
+		})
+	}
 
 	// Get ValKey store
 	kvStore, err := store.NewValkeyStore()
@@ -184,6 +192,11 @@ func CreateTemplate(c *fiber.Ctx) error {
 func UpdateTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 	templateID := c.Params("id")
+	if !templateIDPattern.MatchString(templateID) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid template id format",
+		})
+	}
 
 	var template Template
 	if err := c.BodyParser(&template); err != nil {
@@ -247,6 +260,11 @@ func UpdateTemplate(c *fiber.Ctx) error {
 func DeleteTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 	templateID := c.Params("id")
+	if !templateIDPattern.MatchString(templateID) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid template id format",
+		})
+	}
 
 	// Get ValKey store
 	kvStore, err := store.NewValkeyStore()
@@ -324,6 +342,9 @@ func storeTemplate(ctx context.Context, kvStore store.KVStore, template *Templat
 func validateTemplate(template *Template) error {
 	if template.ID == "" {
 		return fmt.Errorf("template ID is required")
+	}
+	if !templateIDPattern.MatchString(template.ID) {
+		return fmt.Errorf("template ID format is invalid")
 	}
 	if template.Name == "" {
 		return fmt.Errorf("template name is required")

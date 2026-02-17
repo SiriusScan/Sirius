@@ -1,19 +1,11 @@
-import axios from "axios";
 import { z } from "zod";
 import {
   createTRPCRouter,
   protectedProcedure,
-  publicProcedure,
 } from "~/server/api/trpc";
-import { env } from "~/env.mjs";
 import { TRPCError } from "@trpc/server";
 import { handleSendMsg, waitForResponse } from "./queue";
-
-// Create an axios instance for Go API
-const httpClient = axios.create({
-  baseURL: env.SIRIUS_API_URL,
-  timeout: 5000,
-});
+import { apiClient as httpClient } from "~/server/api/shared/apiClient";
 
 // Agent with host information
 export type AgentWithHost = {
@@ -124,7 +116,7 @@ export const agentRouter = createTRPCRouter({
   }),
 
   // Get detailed information for a specific agent
-  getAgentDetails: publicProcedure
+  getAgentDetails: protectedProcedure
     .input(z.object({ agentId: z.string() }))
     .query(async ({ input }) => {
       try {

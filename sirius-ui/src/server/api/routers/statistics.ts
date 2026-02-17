@@ -1,18 +1,12 @@
 import { z } from "zod";
 import axios from "axios";
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { env } from "~/env.mjs";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { apiClient } from "~/server/api/shared/apiClient";
 
 /**
  * Statistics router - handles vulnerability statistics, trends, and snapshots
  * This router proxies requests to the Go API backend
  */
-
-// Create axios instance for Go API
-const apiClient = axios.create({
-  baseURL: env.SIRIUS_API_URL || "http://localhost:9001",
-  timeout: 10000,
-});
 
 // Types matching Go API responses
 export type VulnerabilityCounts = {
@@ -59,7 +53,7 @@ export const statisticsRouter = createTRPCRouter({
   /**
    * Create a snapshot of current vulnerability counts
    */
-  createSnapshot: publicProcedure.mutation(async () => {
+  createSnapshot: protectedProcedure.mutation(async () => {
     try {
       const response = await apiClient.post<{
         message: string;
@@ -85,7 +79,7 @@ export const statisticsRouter = createTRPCRouter({
   /**
    * Get vulnerability trends over time (from snapshots)
    */
-  getVulnerabilityTrends: publicProcedure
+  getVulnerabilityTrends: protectedProcedure
     .input(
       z
         .object({
@@ -128,7 +122,7 @@ export const statisticsRouter = createTRPCRouter({
   /**
    * List all snapshots
    */
-  listSnapshots: publicProcedure
+  listSnapshots: protectedProcedure
     .input(
       z
         .object({
@@ -161,7 +155,7 @@ export const statisticsRouter = createTRPCRouter({
   /**
    * Get most vulnerable hosts
    */
-  getMostVulnerableHosts: publicProcedure
+  getMostVulnerableHosts: protectedProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(20).optional().default(5),

@@ -478,6 +478,53 @@ func TestAgentTemplate(c *fiber.Ctx) error {
 			"error": "Invalid request body",
 		})
 	}
+	request.AgentID = strings.TrimSpace(request.AgentID)
+	if request.AgentID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "agentId is required",
+		})
+	}
+	if len(request.AgentID) > 128 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "agentId is too long",
+		})
+	}
+
+	// Validate the requested agent is currently known/connected.
+	kvStore, err := store.NewValkeyStore()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to connect to store",
+		})
+	}
+	defer kvStore.Close()
+
+	connectedAgentsResp, err := kvStore.GetValue(c.Context(), "connected_agents")
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+			"error": "No connected agents available",
+		})
+	}
+
+	var connectedAgents []string
+	if err := json.Unmarshal([]byte(connectedAgentsResp.Message.Value), &connectedAgents); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to read connected agent list",
+		})
+	}
+
+	agentFound := false
+	for _, agentID := range connectedAgents {
+		if agentID == request.AgentID {
+			agentFound = true
+			break
+		}
+	}
+	if !agentFound {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Requested agent is not connected",
+		})
+	}
 
 	// Send command to agent
 	message := map[string]interface{}{

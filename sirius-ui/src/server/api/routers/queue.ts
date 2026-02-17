@@ -1,12 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { z } from "zod";
 import amqp, { type Connection, type Channel } from "amqplib";
 
+const ALLOWED_QUEUES = [
+  "agent_commands",
+  "agent_response",
+  "terminal",
+  "terminal_response",
+  "engine.commands",
+  "admin_commands",
+] as const;
+
+const QueueNameSchema = z.enum(ALLOWED_QUEUES);
+
 export const queueRouter = createTRPCRouter({
   // Sends a message to the queue
-  sendMsg: publicProcedure
-    .input(z.object({ queue: z.string(), message: z.string() }))
+  sendMsg: protectedProcedure
+    .input(z.object({ queue: QueueNameSchema, message: z.string().min(1) }))
     .mutation(async ({ input }) => {
       const { queue, message } = input;
       try {

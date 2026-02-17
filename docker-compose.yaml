@@ -112,11 +112,13 @@ services:
       - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-http://localhost:9001}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-dummy_client_id}
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-dummy_client_secret}
+      # API key for authenticated requests to sirius-api (set via root key bootstrap or .env)
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for sirius-ui}
     depends_on:
       sirius-postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -150,6 +152,7 @@ services:
       - VALKEY_PORT=${VALKEY_PORT:-6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
       - LOG_LEVEL=${LOG_LEVEL:-error}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for sirius-api}
     deploy:
       resources:
         limits:
@@ -198,6 +201,8 @@ services:
       - HOST_ID=${HOST_ID:-sirius-engine}
       - ENABLE_SCRIPTING=${ENABLE_SCRIPTING:-true}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      # API key for authenticated requests to sirius-api
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for sirius-engine}
     depends_on:
       sirius-rabbitmq:
         condition: service_healthy
@@ -206,7 +211,7 @@ services:
       sirius-valkey:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5174/health"]
+      test: ["CMD", "bash", "-lc", "echo > /dev/tcp/127.0.0.1/50051"]
       interval: 30s
       timeout: 10s
       retries: 3

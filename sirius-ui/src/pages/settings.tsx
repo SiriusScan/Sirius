@@ -13,11 +13,18 @@ import {
   UserCircle,
   Lock,
   Bell,
+  KeyRound,
+  Copy,
+  Trash2,
+  Plus,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from "lucide-react";
+import { api } from "~/utils/api";
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
-type SettingsTab = "general" | "security" | "notifications";
+type SettingsTab = "general" | "security" | "apikeys" | "notifications";
 
 const settingsTabs: Array<{
   id: SettingsTab;
@@ -26,6 +33,7 @@ const settingsTabs: Array<{
 }> = [
   { id: "general", label: "General", icon: UserCircle },
   { id: "security", label: "Security", icon: Lock },
+  { id: "apikeys", label: "API Keys", icon: KeyRound },
   { id: "notifications", label: "Notifications", icon: Bell },
 ];
 
@@ -209,6 +217,9 @@ const Settings: NextPage = () => {
             </form>
           )}
 
+          {/* ── API Keys tab ────────────────────────────────────────── */}
+          {activeTab === "apikeys" && <APIKeysPanel />}
+
           {/* ── Notifications tab ────────────────────────────────────── */}
           {activeTab === "notifications" && (
             <div>
@@ -245,5 +256,189 @@ const Settings: NextPage = () => {
     </Layout>
   );
 };
+
+// ── API Keys Panel ─────────────────────────────────────────────────────────
+function APIKeysPanel() {
+  const utils = api.useContext();
+  const { data: keys, isLoading } = api.apikeys.listKeys.useQuery();
+
+  const createMutation = api.apikeys.createKey.useMutation({
+    onSuccess: () => void utils.apikeys.listKeys.invalidate(),
+  });
+  const revokeMutation = api.apikeys.revokeKey.useMutation({
+    onSuccess: () => void utils.apikeys.listKeys.invalidate(),
+  });
+
+  const [label, setLabel] = useState("");
+  const [newRawKey, setNewRawKey] = useState<string | null>(null);
+  const [showKey, setShowKey] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!label.trim()) return;
+    const result = await createMutation.mutateAsync({ label: label.trim() });
+    setNewRawKey(result.key);
+    setLabel("");
+    setShowKey(true);
+  };
+
+  const handleCopy = async () => {
+    if (!newRawKey) return;
+    await navigator.clipboard.writeText(newRawKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleRevoke = async (id: string) => {
+    await revokeMutation.mutateAsync({ id });
+    setConfirmRevoke(null);
+  };
+
+  return (
+    <div>
+      <h2 className="mb-6 text-lg font-medium text-white">API Key Management</h2>
+
+      {/* ── Generate new key form ────────────────────────────────── */}
+      <form onSubmit={handleCreate} className="mb-8 max-w-lg">
+        <p className="mb-3 text-sm text-gray-400">
+          API keys allow external tools to authenticate with the Sirius API. All
+          keys have full access.
+        </p>
+        <div className="flex gap-2">
+          <Input
+            type="text"
+            placeholder="Key label (e.g. CI Pipeline)"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-500"
+          />
+          <Button
+            type="submit"
+            disabled={createMutation.isLoading || !label.trim()}
+            className="shrink-0"
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            {createMutation.isLoading ? "Creating…" : "Generate"}
+          </Button>
+        </div>
+      </form>
+
+      {/* ── Newly created key reveal ──────────────────────────────── */}
+      {newRawKey && (
+        <div className="mb-8 rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
+          <p className="mb-2 text-sm font-medium text-amber-400">
+            Your new API key — copy it now. It will not be shown again.
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded bg-gray-900 px-3 py-2 font-mono text-sm text-green-400">
+              {showKey ? newRawKey : "•".repeat(40)}
+            </code>
+            <button
+              type="button"
+              onClick={() => setShowKey((s) => !s)}
+              className="rounded p-2 text-gray-400 hover:text-white"
+              title={showKey ? "Hide" : "Reveal"}
+            >
+              {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="rounded p-2 text-gray-400 hover:text-white"
+              title="Copy to clipboard"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+            {copied && (
+              <span className="text-xs text-green-400">Copied!</span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => { setNewRawKey(null); setShowKey(false); }}
+            className="mt-2 text-xs text-gray-500 underline hover:text-gray-300"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* ── Existing keys table ───────────────────────────────────── */}
+      {isLoading ? (
+        <p className="text-sm text-gray-500">Loading keys…</p>
+      ) : !keys || keys.length === 0 ? (
+        <p className="text-sm text-gray-500">
+          No API keys yet. Generate one above.
+        </p>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-gray-700/40">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-gray-700/40 bg-gray-800/50 text-xs uppercase tracking-wider text-gray-500">
+              <tr>
+                <th className="px-4 py-3">Prefix</th>
+                <th className="px-4 py-3">Label</th>
+                <th className="px-4 py-3">Created</th>
+                <th className="px-4 py-3">Last Used</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-700/30">
+              {keys.map((k) => (
+                <tr key={k.id} className="hover:bg-gray-800/30">
+                  <td className="px-4 py-3 font-mono text-gray-300">{k.prefix}</td>
+                  <td className="px-4 py-3 text-gray-300">{k.label}</td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {k.created_at
+                      ? new Date(k.created_at).toLocaleDateString()
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {k.last_used_at
+                      ? new Date(k.last_used_at).toLocaleDateString()
+                      : "Never"}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {confirmRevoke === k.id ? (
+                      <span className="flex items-center justify-end gap-2">
+                        <span className="text-xs text-red-400">Revoke?</span>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleRevoke(k.id)}
+                          disabled={revokeMutation.isLoading}
+                          className="h-7 px-2 text-xs"
+                        >
+                          Confirm
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRevoke(null)}
+                          className="text-xs text-gray-500 hover:text-gray-300"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmRevoke(k.id)}
+                        className="rounded p-1.5 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                        title="Revoke key"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default Settings;

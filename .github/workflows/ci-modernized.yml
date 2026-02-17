@@ -160,7 +160,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-ui:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push sirius-api
         if: needs.detect-changes.outputs.sirius_api_changes == 'true'
@@ -173,7 +172,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-api:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push sirius-engine
         if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
@@ -186,7 +184,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-engine:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   integration-test:
     name: Integration Testing

@@ -391,6 +391,7 @@ jobs:
                 - NEXTAUTH_URL=http://localhost:3000
                 - SIRIUS_API_URL=http://sirius-api:9001
                 - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
+                - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
                 - sirius-postgres
           
@@ -408,6 +409,7 @@ jobs:
                 - VALKEY_PORT=6379
                 - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
                 - LOG_LEVEL=debug
+                - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
                 - sirius-postgres
                 - sirius-rabbitmq
@@ -428,6 +430,7 @@ jobs:
                 - VALKEY_PORT=6379
                 - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
                 - LOG_LEVEL=debug
+                - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
                 - sirius-rabbitmq
           EOF

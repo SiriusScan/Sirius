@@ -351,14 +351,18 @@ jobs:
             echo "🚀 Starting application services: $SERVICES_TO_TEST"
             docker compose -f docker-compose.ci.yml up -d $SERVICES_TO_TEST
             
-            # Wait only for the services started in this run
-            echo "⏳ Waiting for application services to be healthy..."
-            timeout 150 bash -c '
-              until \
-                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-api" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-api.*(healthy)"; } && \
-                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-engine" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-engine.*(healthy)"; } && \
-                { ! echo "'"$SERVICES_TO_TEST"'" | grep -q "sirius-ui" || docker compose -f docker-compose.ci.yml ps | grep -q "sirius-ui.*(healthy)"; }; \
-              do sleep 5; done'
+            # Wait only for the services started in this run by checking their
+            # health endpoints directly instead of container health state labels.
+            echo "⏳ Waiting for application services to become reachable..."
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-api"; then
+              timeout 180 bash -c 'until docker compose -f docker-compose.ci.yml exec -T sirius-api wget --no-verbose --tries=1 --spider http://localhost:9001/api/v1/health; do sleep 5; done'
+            fi
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-engine"; then
+              timeout 180 bash -c 'until docker compose -f docker-compose.ci.yml exec -T sirius-engine wget --no-verbose --tries=1 --spider http://localhost:5174/health; do sleep 5; done'
+            fi
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-ui"; then
+              timeout 180 bash -c 'until docker compose -f docker-compose.ci.yml exec -T sirius-ui wget --no-verbose --tries=1 --spider http://localhost:3000/api/health; do sleep 5; done'
+            fi
             
             # Check service status
             echo "📊 Service status:"

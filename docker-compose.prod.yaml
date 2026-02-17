@@ -6,40 +6,40 @@ services:
     environment:
       - NODE_ENV=production
       - SKIP_ENV_VALIDATION=0
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required in production}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:?NEXTAUTH_URL is required in production}
-      - SIRIUS_API_URL=${SIRIUS_API_URL:?SIRIUS_API_URL is required in production}
-      - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:?NEXT_PUBLIC_SIRIUS_API_URL is required in production}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required in production}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-set-in-production}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://sirius.local}
+      - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
+      - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-https://sirius.local}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-set-in-production}
     restart: unless-stopped
 
   sirius-api:
     environment:
       - GO_ENV=production
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required in production}
-      - POSTGRES_HOST=${POSTGRES_HOST:?POSTGRES_HOST is required in production}
-      - POSTGRES_USER=${POSTGRES_USER:?POSTGRES_USER is required in production}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}
-      - POSTGRES_DB=${POSTGRES_DB:?POSTGRES_DB is required in production}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://sirius.local}
+      - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-set-in-production}
+      - POSTGRES_DB=${POSTGRES_DB:-sirius}
       - POSTGRES_PORT=${POSTGRES_PORT:-5432}
       - VALKEY_HOST=${VALKEY_HOST:-sirius-valkey}
       - VALKEY_PORT=${VALKEY_PORT:-6379}
-      - RABBITMQ_URL=${RABBITMQ_URL:?RABBITMQ_URL is required in production}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required in production}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-set-in-production}
     restart: unless-stopped
 
   sirius-engine:
     environment:
       - GO_ENV=production
-      - POSTGRES_HOST=${POSTGRES_HOST:?POSTGRES_HOST is required in production}
-      - POSTGRES_USER=${POSTGRES_USER:?POSTGRES_USER is required in production}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in production}
-      - POSTGRES_DB=${POSTGRES_DB:?POSTGRES_DB is required in production}
+      - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-set-in-production}
+      - POSTGRES_DB=${POSTGRES_DB:-sirius}
       - POSTGRES_PORT=${POSTGRES_PORT:-5432}
       - VALKEY_HOST=${VALKEY_HOST:-sirius-valkey}
       - VALKEY_PORT=${VALKEY_PORT:-6379}
-      - RABBITMQ_URL=${RABBITMQ_URL:?RABBITMQ_URL is required in production}
-      - API_BASE_URL=${API_BASE_URL:?API_BASE_URL is required in production}
-      - SIRIUS_API_URL=${SIRIUS_API_URL:?SIRIUS_API_URL is required in production}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required in production}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
+      - API_BASE_URL=${API_BASE_URL:-http://sirius-api:9001}
+      - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-set-in-production}
     restart: unless-stopped

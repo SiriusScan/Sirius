@@ -116,7 +116,7 @@ jobs:
     name: Build & Push Images
     needs: [detect-changes, quick-checks]
     runs-on: ubuntu-latest
-    if: needs.detect-changes.outputs.sirius_ui_changes == 'true' || needs.detect-changes.outputs.sirius_api_changes == 'true' || needs.detect-changes.outputs.sirius_engine_changes == 'true'
+    if: github.event_name == 'push' && (needs.detect-changes.outputs.sirius_ui_changes == 'true' || needs.detect-changes.outputs.sirius_api_changes == 'true' || needs.detect-changes.outputs.sirius_engine_changes == 'true')
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
     steps:

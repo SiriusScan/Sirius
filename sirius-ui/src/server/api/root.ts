@@ -1,4 +1,3 @@
-import { exampleRouter } from "~/server/api/routers/example";
 import { hostRouter } from "~/server/api/routers/host";
 import { vulnerabilityRouter } from "~/server/api/routers/vulnerability";
 import { storeRouter } from "~/server/api/routers/store";
@@ -14,6 +13,7 @@ import { repositoriesRouter } from "~/server/api/routers/repositories";
 import { statisticsRouter } from "~/server/api/routers/statistics";
 import { eventsRouter } from "~/server/api/routers/events";
 import { agentScanRouter } from "~/server/api/routers/agentScan";
+import { apikeysRouter } from "~/server/api/routers/apikeys";
 import { createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -22,7 +22,6 @@ import { createTRPCRouter } from "~/server/api/trpc";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-  example: exampleRouter,
   host: hostRouter,
   vulnerability: vulnerabilityRouter,
   store: storeRouter,
@@ -38,6 +37,7 @@ export const appRouter = createTRPCRouter({
   statistics: statisticsRouter,
   events: eventsRouter,
   agentScan: agentScanRouter,
+  apikeys: apikeysRouter,
 });
 
 // export type definition of API

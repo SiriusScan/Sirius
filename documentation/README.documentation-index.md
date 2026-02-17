@@ -47,7 +47,9 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.administrator.md](dev/architecture/README.administrator.md) - Administrator service architecture and design
 - [README.cicd.md](dev/architecture/README.cicd.md) - CI/CD pipeline architecture and workflows
 - [README.go-api-sdk.md](dev/architecture/README.go-api-sdk.md) - Go API SDK architecture, design patterns, and integration guide
+- [README.auth-surface-matrix.md](dev/architecture/README.auth-surface-matrix.md) - Authentication and authorization policy matrix across API surfaces
 - [ARCHITECTURE.nse-repository-management.md](dev/architecture/ARCHITECTURE.nse-repository-management.md) - NSE repository management architecture
+- [README.docker-architecture.md](dev/architecture/README.docker-architecture.md) - Comprehensive Docker setup and container architecture
 
 ## Application Documentation
 
@@ -69,6 +71,7 @@ This document provides a complete index of all documentation files in the Sirius
 ### Git Operations
 
 - [README.git-operations.md](dev/operations/README.git-operations.md) - Git workflows and version control
+- [README.api-key-operations.md](dev/operations/README.api-key-operations.md) - API key lifecycle and incident recovery runbook
 
 ### Project Management
 
@@ -145,5 +148,3 @@ This index should be updated whenever:
 ---
 
 _This document follows the Sirius Documentation Standard. For questions about documentation structure, see [ABOUT.documentation.md](dev/ABOUT.documentation.md)._
-
-- [README.docker-architecture.md](dev/architecture/README.docker-architecture.md) - Comprehensive Docker setup and container architecture

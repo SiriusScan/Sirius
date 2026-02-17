@@ -236,7 +236,7 @@ const TemplateSettingsTab: React.FC = () => {
       <div className="flex justify-end border-t border-gray-700 pt-4">
         <Button
           onClick={handleSave}
-          className="bg-violet-600 text-white hover:bg-violet-700"
+          
         >
           <Save className="mr-2 h-4 w-4" />
           Save Settings

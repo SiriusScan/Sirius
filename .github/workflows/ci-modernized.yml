@@ -95,6 +95,8 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Validate Docker Compose Configurations
+        env:
+          SIRIUS_API_KEY: ci-placeholder-api-key
         run: |
           echo "🔍 Validating Docker Compose configurations..."
           docker compose config --quiet
@@ -114,7 +116,7 @@ jobs:
     name: Build & Push Images
     needs: [detect-changes, quick-checks]
     runs-on: ubuntu-latest
-    if: needs.detect-changes.outputs.sirius_ui_changes == 'true' || needs.detect-changes.outputs.sirius_api_changes == 'true' || needs.detect-changes.outputs.sirius_engine_changes == 'true'
+    if: github.event_name == 'push' && (needs.detect-changes.outputs.sirius_ui_changes == 'true' || needs.detect-changes.outputs.sirius_api_changes == 'true' || needs.detect-changes.outputs.sirius_engine_changes == 'true')
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
     steps:
@@ -128,8 +130,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
       - name: Generate metadata
         id: meta
@@ -152,39 +154,36 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./sirius-ui
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-ui:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push sirius-api
         if: needs.detect-changes.outputs.sirius_api_changes == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./sirius-api
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-api:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push sirius-engine
         if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./sirius-engine
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-engine:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   integration-test:
     name: Integration Testing
@@ -202,8 +201,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
       - name: Create CI test environment
         run: |
@@ -226,7 +225,7 @@ jobs:
                 retries: 5
           
             sirius-rabbitmq:
-              image: rabbitmq:3.7.3-management
+              image: rabbitmq:3-management
               environment:
                 RABBITMQ_DEFAULT_USER: guest
                 RABBITMQ_DEFAULT_PASS: guest
@@ -254,6 +253,7 @@ jobs:
                 - NEXTAUTH_URL=http://localhost:3000
                 - SIRIUS_API_URL=http://sirius-api:9001
                 - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
+                - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
                 sirius-postgres:
                   condition: service_healthy
@@ -277,6 +277,7 @@ jobs:
                 - VALKEY_PORT=6379
                 - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
                 - LOG_LEVEL=info
+                - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
                 sirius-postgres:
                   condition: service_healthy
@@ -305,6 +306,7 @@ jobs:
                 - VALKEY_PORT=6379
                 - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
                 - LOG_LEVEL=info
+                - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
                 sirius-postgres:
                   condition: service_healthy
@@ -326,9 +328,9 @@ jobs:
           # Start infrastructure services
           docker compose -f docker-compose.ci.yml up -d sirius-postgres sirius-rabbitmq sirius-valkey
           
-          # Wait for infrastructure to be healthy
+          # Wait for infrastructure services to all be healthy
           echo "⏳ Waiting for infrastructure services to be healthy..."
-          timeout 60 bash -c 'until docker compose -f docker-compose.ci.yml ps | grep -q "healthy"; do sleep 2; done'
+          timeout 90 bash -c 'until docker compose -f docker-compose.ci.yml ps | grep -q "sirius-postgres.*(healthy)" && docker compose -f docker-compose.ci.yml ps | grep -q "sirius-rabbitmq.*(healthy)" && docker compose -f docker-compose.ci.yml ps | grep -q "sirius-valkey.*(healthy)"; do sleep 2; done'
           
           # Start application services based on what was built
           SERVICES_TO_TEST=""
@@ -349,9 +351,18 @@ jobs:
             echo "🚀 Starting application services: $SERVICES_TO_TEST"
             docker compose -f docker-compose.ci.yml up -d $SERVICES_TO_TEST
             
-            # Wait for services to be healthy
-            echo "⏳ Waiting for application services to be healthy..."
-            timeout 120 bash -c 'until docker compose -f docker-compose.ci.yml ps | grep -q "healthy"; do sleep 5; done'
+            # Wait only for the services started in this run by checking their
+            # health endpoints directly instead of container health state labels.
+            echo "⏳ Waiting for application services to become reachable..."
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-api"; then
+              timeout 180 bash -c 'until docker compose -f docker-compose.ci.yml exec -T sirius-api wget --no-verbose --tries=1 --spider http://localhost:9001/api/v1/health; do sleep 5; done'
+            fi
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-engine"; then
+              timeout 180 bash -c 'until docker compose -f docker-compose.ci.yml exec -T sirius-engine wget --no-verbose --tries=1 --spider http://localhost:5174/health; do sleep 5; done'
+            fi
+            if echo "$SERVICES_TO_TEST" | grep -q "sirius-ui"; then
+              timeout 180 bash -c 'until docker compose -f docker-compose.ci.yml exec -T sirius-ui wget --no-verbose --tries=1 --spider http://localhost:3000/api/health; do sleep 5; done'
+            fi
             
             # Check service status
             echo "📊 Service status:"

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { cn } from "~/components/lib/utils";
+import { getSourceColor } from "~/components/shared/SourceBadge";
 import {
   Activity,
   Shield,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "~/components/lib/ui/button";
 import { type SourceCoverageStats } from "~/types/scanTypes";
+import { timeAgo, getConfidenceColor } from "~/utils/formatters";
 
 interface SourceCoverageDashboardProps {
   className?: string;
@@ -140,48 +142,16 @@ export const SourceCoverageDashboard: React.FC<
     };
   }, [coverageStats]);
 
-  const getSourceColor = (source: string) => {
-    switch (source.toLowerCase()) {
-      case "nmap":
-        return "bg-blue-500 border-blue-600 text-white";
-      case "agent":
-        return "bg-green-500 border-green-600 text-white";
-      case "rustscan":
-        return "bg-orange-500 border-orange-600 text-white";
-      case "manual":
-        return "bg-purple-500 border-purple-600 text-white";
-      case "naabu":
-        return "bg-cyan-500 border-cyan-600 text-white";
-      default:
-        return "bg-gray-500 border-gray-600 text-white";
-    }
-  };
-
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.9) return "text-green-600 dark:text-green-400";
-    if (confidence >= 0.7) return "text-yellow-600 dark:text-yellow-400";
-    return "text-red-600 dark:text-red-400";
-  };
-
-  const formatTimeAgo = (date: Date) => {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  };
+  // Use shared getSourceColor("solid") + " text-white" for dashboard elements
+  const getDashboardSourceColor = (source: string) =>
+    getSourceColor(source, "solid") + " text-white";
 
   if (loading && !coverageStats.length) {
     return (
       <div className={cn("flex items-center justify-center p-8", className)}>
         <div className="text-center">
           <RefreshCw className="mx-auto mb-2 h-8 w-8 animate-spin text-gray-400" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-400">
             Loading coverage statistics...
           </p>
         </div>
@@ -194,7 +164,7 @@ export const SourceCoverageDashboard: React.FC<
       <div className={cn("flex items-center justify-center p-8", className)}>
         <div className="text-center">
           <AlertTriangle className="mx-auto mb-2 h-8 w-8 text-red-500" />
-          <p className="mb-2 text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p className="mb-2 text-sm text-red-400">{error}</p>
           <Button onClick={fetchCoverageStats} variant="outline" size="sm">
             <RefreshCw className="mr-2 h-4 w-4" />
             Retry
@@ -210,13 +180,13 @@ export const SourceCoverageDashboard: React.FC<
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Radar className="h-5 w-5 text-gray-500" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h3 className="text-lg font-semibold text-gray-100">
             Source Coverage Dashboard
           </h3>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            Last updated: {formatTimeAgo(lastRefresh)}
+          <div className="text-sm text-gray-400">
+            Last updated: {timeAgo(lastRefresh)}
           </div>
           <Button
             onClick={fetchCoverageStats}
@@ -234,13 +204,13 @@ export const SourceCoverageDashboard: React.FC<
 
       {/* Overview Metrics */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-lg border border-gray-700 bg-gray-800 bg-gray-800">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <p className="text-sm font-medium text-gray-400">
                 Total Sources
               </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              <p className="text-2xl font-bold text-gray-100">
                 {metrics.sourceCount}
               </p>
             </div>
@@ -248,13 +218,13 @@ export const SourceCoverageDashboard: React.FC<
           </div>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-lg border border-gray-700 bg-gray-800 bg-gray-800">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <p className="text-sm font-medium text-gray-400">
                 Hosts Covered
               </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              <p className="text-2xl font-bold text-gray-100">
                 {metrics.totalHosts}
               </p>
             </div>
@@ -262,10 +232,10 @@ export const SourceCoverageDashboard: React.FC<
           </div>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-lg border border-gray-700 bg-gray-800 bg-gray-800">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <p className="text-sm font-medium text-gray-400">
                 Avg Confidence
               </p>
               <p
@@ -281,10 +251,10 @@ export const SourceCoverageDashboard: React.FC<
           </div>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        <div className="rounded-lg border border-gray-700 bg-gray-800 bg-gray-800">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+              <p className="text-sm font-medium text-gray-400">
                 Reliability Score
               </p>
               <p
@@ -303,14 +273,14 @@ export const SourceCoverageDashboard: React.FC<
 
       {/* Coverage Gaps Alert */}
       {metrics.coverageGaps.length > 0 && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20">
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 bg-yellow-900/20">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-600 dark:text-yellow-400" />
+            <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-400" />
             <div>
-              <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+              <h4 className="text-sm font-medium text-yellow-200">
                 Coverage Gaps Detected
               </h4>
-              <p className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
+              <p className="mt-1 text-sm text-yellow-300">
                 The following sources have incomplete host coverage:{" "}
                 {metrics.coverageGaps.join(", ")}
               </p>
@@ -320,9 +290,9 @@ export const SourceCoverageDashboard: React.FC<
       )}
 
       {/* Source Details */}
-      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-        <div className="border-b border-gray-200 p-4 dark:border-gray-700">
-          <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+      <div className="rounded-lg border border-gray-700 bg-gray-800">
+        <div className="border-b border-gray-700 border-gray-700">
+          <h4 className="text-lg font-medium text-gray-100">
             Source Performance
           </h4>
         </div>
@@ -331,39 +301,39 @@ export const SourceCoverageDashboard: React.FC<
             {coverageStats.map((source) => (
               <div
                 key={source.source}
-                className="flex items-center justify-between rounded-lg bg-gray-50 p-4 dark:bg-gray-700"
+                className="flex items-center justify-between rounded-lg bg-gray-800 bg-gray-700"
               >
                 <div className="flex items-center gap-4">
                   <div
                     className={cn(
                       "rounded-full px-3 py-1 text-sm font-medium",
-                      getSourceColor(source.source)
+                      getDashboardSourceColor(source.source)
                     )}
                   >
                     {source.source}
                   </div>
                   <div className="grid grid-cols-3 gap-6 text-sm">
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">
+                      <span className="text-gray-400">
                         Hosts:
                       </span>
-                      <span className="ml-1 font-medium text-gray-900 dark:text-gray-100">
+                      <span className="ml-1 font-medium text-gray-100">
                         {source.hosts_scanned}
                       </span>
                     </div>
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">
+                      <span className="text-gray-400">
                         Vulns:
                       </span>
-                      <span className="ml-1 font-medium text-gray-900 dark:text-gray-100">
+                      <span className="ml-1 font-medium text-gray-100">
                         {source.vulnerabilities_found}
                       </span>
                     </div>
                     <div>
-                      <span className="text-gray-500 dark:text-gray-400">
+                      <span className="text-gray-400">
                         Ports:
                       </span>
-                      <span className="ml-1 font-medium text-gray-900 dark:text-gray-100">
+                      <span className="ml-1 font-medium text-gray-100">
                         {source.ports_discovered}
                       </span>
                     </div>
@@ -379,12 +349,12 @@ export const SourceCoverageDashboard: React.FC<
                     >
                       {(source.average_confidence * 100).toFixed(0)}% confidence
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-xs text-gray-400">
                       Last scan:{" "}
-                      {formatTimeAgo(new Date(source.last_scan_time))}
+                      {timeAgo(new Date(source.last_scan_time))}
                     </div>
                   </div>
-                  <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-600">
+                  <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-600">
                     <div
                       className={cn(
                         "h-full rounded-full transition-all",
@@ -407,8 +377,8 @@ export const SourceCoverageDashboard: React.FC<
       {/* Coverage Visualization */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Host Coverage Chart */}
-        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">
+        <div className="rounded-lg border border-gray-700 bg-gray-800 bg-gray-800">
+          <h4 className="mb-4 text-lg font-medium text-gray-100">
             Host Coverage
           </h4>
           <div className="space-y-3">
@@ -418,19 +388,19 @@ export const SourceCoverageDashboard: React.FC<
               return (
                 <div key={source.source} className="space-y-1">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">
+                    <span className="text-gray-400">
                       {source.source}
                     </span>
-                    <span className="text-gray-900 dark:text-gray-100">
+                    <span className="text-gray-100">
                       {source.hosts_scanned}/{metrics.totalHosts} (
                       {coveragePercentage.toFixed(0)}%)
                     </span>
                   </div>
-                  <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                  <div className="h-2 w-full rounded-full bg-gray-700">
                     <div
                       className={cn(
                         "h-2 rounded-full transition-all",
-                        getSourceColor(source.source).replace("text-white", "")
+                        getDashboardSourceColor(source.source).replace("text-white", "")
                       )}
                       style={{ width: `${Math.min(coveragePercentage, 100)}%` }}
                     />
@@ -442,8 +412,8 @@ export const SourceCoverageDashboard: React.FC<
         </div>
 
         {/* Vulnerability Discovery */}
-        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-          <h4 className="mb-4 text-lg font-medium text-gray-900 dark:text-gray-100">
+        <div className="rounded-lg border border-gray-700 bg-gray-800 bg-gray-800">
+          <h4 className="mb-4 text-lg font-medium text-gray-100">
             Vulnerability Discovery
           </h4>
           <div className="space-y-3">
@@ -458,19 +428,19 @@ export const SourceCoverageDashboard: React.FC<
                 return (
                   <div key={source.source} className="space-y-1">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
+                      <span className="text-gray-400">
                         {source.source}
                       </span>
-                      <span className="text-gray-900 dark:text-gray-100">
+                      <span className="text-gray-100">
                         {source.vulnerabilities_found} (
                         {discoveryPercentage.toFixed(0)}%)
                       </span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                    <div className="h-2 w-full rounded-full bg-gray-700">
                       <div
                         className={cn(
                           "h-2 rounded-full transition-all",
-                          getSourceColor(source.source).replace(
+                          getDashboardSourceColor(source.source).replace(
                             "text-white",
                             ""
                           )
@@ -488,31 +458,31 @@ export const SourceCoverageDashboard: React.FC<
       </div>
 
       {/* Summary Stats */}
-      <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-900/50">
+      <div className="rounded-lg bg-gray-800 bg-gray-900/50">
         <div className="grid grid-cols-1 gap-4 text-center md:grid-cols-3">
           <div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <div className="text-2xl font-bold text-gray-100">
               {metrics.totalVulnerabilities}
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-400">
               Total Vulnerabilities
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <div className="text-2xl font-bold text-gray-100">
               {metrics.totalPorts}
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-400">
               Ports Discovered
             </div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <div className="text-2xl font-bold text-gray-100">
               {metrics.lastScanTime
-                ? formatTimeAgo(metrics.lastScanTime)
+                ? timeAgo(metrics.lastScanTime)
                 : "Never"}
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-400">
               Last Scan Activity
             </div>
           </div>

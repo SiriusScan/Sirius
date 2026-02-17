@@ -8,7 +8,7 @@ const Scanner = (props: Props) => {
     <Layout>
       <div className="relative z-20 mb-5 h-56">
         <div className="z-10 flex flex-row items-center">
-          <div className="ml-4 mt-7 flex dark:fill-white">
+          <div className="ml-4 mt-7 fill-white">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="30"

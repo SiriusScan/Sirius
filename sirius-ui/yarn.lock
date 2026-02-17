@@ -3158,10 +3158,22 @@
   dependencies:
     "@tanstack/table-core" "8.9.3"
 
+"@tanstack/react-virtual@^3.13.18":
+  version "3.13.18"
+  resolved "https://registry.npmjs.org/@tanstack/react-virtual/-/react-virtual-3.13.18.tgz"
+  integrity sha512-dZkhyfahpvlaV0rIKnvQiVoWPyURppl6w4m9IwMDpuIjcJ1sD9YGWrt0wISvgU7ewACXx2Ct46WPgI6qAD4v6A==
+  dependencies:
+    "@tanstack/virtual-core" "3.13.18"
+
 "@tanstack/table-core@8.9.3":
   version "8.9.3"
   resolved "https://registry.npmjs.org/@tanstack/table-core/-/table-core-8.9.3.tgz"
   integrity sha512-NpHZBoHTfqyJk0m/s/+CSuAiwtebhYK90mDuf5eylTvgViNOujiaOaxNDxJkQQAsVvHWZftUGAx1EfO1rkKtLg==
+
+"@tanstack/virtual-core@3.13.18":
+  version "3.13.18"
+  resolved "https://registry.npmjs.org/@tanstack/virtual-core/-/virtual-core-3.13.18.tgz"
+  integrity sha512-Mx86Hqu1k39icq2Zusq+Ey2J6dDWTjDvEv43PJtRCoEYTLyfaPnxIQ6iy7YAOK0NV/qOEmZQ/uCufrppZxTgcg==
 
 "@trpc/client@^10.34.0", "@trpc/client@10.37.1":
   version "10.37.1"
@@ -3632,6 +3644,11 @@
   version "0.10.0"
   resolved "https://registry.npmjs.org/@xterm/addon-fit/-/addon-fit-0.10.0.tgz"
   integrity sha512-UFYkDm4HUahf2lnEyHvio51TNGiLK66mqP2JoATy7hRZeXaGMRDr00JiSF7m63vR5WKATF605yEggJKsw0JpMQ==
+
+"@xterm/addon-search@^0.16.0":
+  version "0.16.0"
+  resolved "https://registry.npmjs.org/@xterm/addon-search/-/addon-search-0.16.0.tgz"
+  integrity sha512-9OeuBFu0/uZJPu+9AHKY6g/w0Czyb/Ut0A5t79I4ULoU4IfU5BEpPFVGQxP4zTTMdfZEYkVIRYbHBX1xWwjeSA==
 
 "@xterm/addon-web-links@^0.11.0":
   version "0.11.0"
@@ -5624,6 +5641,11 @@ functions-have-names@^1.2.2, functions-have-names@^1.2.3:
   version "1.2.3"
   resolved "https://registry.npmjs.org/functions-have-names/-/functions-have-names-1.2.3.tgz"
   integrity sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ==
+
+fuse.js@^7.1.0:
+  version "7.1.0"
+  resolved "https://registry.npmjs.org/fuse.js/-/fuse.js-7.1.0.tgz"
+  integrity sha512-trLf4SzuuUxfusZADLINj+dE8clK1frKdmqiJNb1Es75fmI5oY6X2mxLVUciLLjxqw/xr72Dhy+lER6dGd02FQ==
 
 gauge@^3.0.0:
   version "3.0.2"

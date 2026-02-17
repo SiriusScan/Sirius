@@ -61,7 +61,6 @@ const TemplateListTab: React.FC<TemplateListTabProps> = ({
         </div>
         <Button
           onClick={onCreateNew}
-          className="bg-violet-600 text-white hover:bg-violet-700"
         >
           <Plus className="mr-2 h-4 w-4" />
           Create New Profile

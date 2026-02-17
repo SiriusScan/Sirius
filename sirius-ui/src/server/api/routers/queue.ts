@@ -1,12 +1,23 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { z } from "zod";
 import amqp, { type Connection, type Channel } from "amqplib";
 
+const ALLOWED_QUEUES = [
+  "agent_commands",
+  "agent_response",
+  "terminal",
+  "terminal_response",
+  "engine.commands",
+  "admin_commands",
+] as const;
+
+const QueueNameSchema = z.enum(ALLOWED_QUEUES);
+
 export const queueRouter = createTRPCRouter({
   // Sends a message to the queue
-  sendMsg: publicProcedure
-    .input(z.object({ queue: z.string(), message: z.string() }))
+  sendMsg: protectedProcedure
+    .input(z.object({ queue: QueueNameSchema, message: z.string().min(1) }))
     .mutation(async ({ input }) => {
       const { queue, message } = input;
       try {
@@ -30,9 +41,14 @@ export async function handleSendMsg(
   queue: string,
   message: string
 ): Promise<void> {
-  const connection: Connection = await amqp.connect(
-    "amqp://guest:guest@sirius-rabbitmq:5672/"
-  );
+  let connection: Connection;
+  try {
+    connection = await amqp.connect(
+      "amqp://guest:guest@sirius-rabbitmq:5672/"
+    );
+  } catch (connErr) {
+    throw connErr;
+  }
   const channel: Channel = await connection.createChannel();
 
   try {
@@ -68,11 +84,19 @@ export async function waitForResponse(queue: string): Promise<string> {
     // Capture channel in closure to ensure type safety
     const currentChannel = channel;
 
-    // Set up consumer first to avoid missing messages
+    // Only consume one message at a time to avoid race conditions
+    await currentChannel.prefetch(1);
+
+    // Set up consumer to wait for the next response (FIFO ordering)
+    // NOTE: We intentionally do NOT purge the queue here.
+    // Purging before consume can delete the actual response (too slow).
+    // Purging after consume can pick up stale messages (original bug).
+    // Instead we rely on FIFO ordering: each handleSendMsg+waitForResponse
+    // pair is called sequentially, so responses arrive in order.
     const responsePromise = new Promise<string>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error("Command timed out"));
-      }, 30000); // Increased timeout to 30 seconds for debugging
+      }, 30000);
 
       if (!currentChannel) {
         clearTimeout(timeout);
@@ -83,17 +107,12 @@ export async function waitForResponse(queue: string): Promise<string> {
       currentChannel.consume(queue, (msg) => {
         if (msg) {
           clearTimeout(timeout);
+          const content = msg.content.toString();
           currentChannel.ack(msg);
-          resolve(msg.content.toString());
+          resolve(content);
         }
       });
     });
-
-    // Small delay to ensure consumer is set up before purging
-    await new Promise(resolve => setTimeout(resolve, 10));
-    
-    // Purge existing messages to avoid stale responses
-    await currentChannel.purgeQueue(queue);
 
     return await responsePromise;
   } finally {

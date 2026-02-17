@@ -22,25 +22,25 @@ quick_check() {
     # Check if file has YAML front matter
     if ! head -n 1 "$file" | grep -q "^---$"; then
         echo -e "${RED}❌ $file: Missing YAML front matter${NC}"
-        ((issues++))
+        issues=$((issues + 1))
     fi
     
     # Check if file has title field
     if ! grep -q "^title:" "$file"; then
         echo -e "${RED}❌ $file: Missing title field${NC}"
-        ((issues++))
+        issues=$((issues + 1))
     fi
     
     # Check if file has description field
     if ! grep -q "^description:" "$file"; then
         echo -e "${RED}❌ $file: Missing description field${NC}"
-        ((issues++))
+        issues=$((issues + 1))
     fi
     
     # Check if file has template field
     if ! grep -q "^template:" "$file"; then
         echo -e "${RED}❌ $file: Missing template field${NC}"
-        ((issues++))
+        issues=$((issues + 1))
     fi
     
     if [ $issues -eq 0 ]; then
@@ -59,9 +59,9 @@ main() {
     
     # Find all markdown files in dev directory
     while IFS= read -r -d '' file; do
-        ((total_files++))
+        total_files=$((total_files + 1))
         if ! quick_check "$file"; then
-            ((total_issues++))
+            total_issues=$((total_issues + 1))
         fi
     done < <(find "$DOCS_DIR" -name "*.md" -type f -print0)
     

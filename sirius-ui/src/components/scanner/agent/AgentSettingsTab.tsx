@@ -1,7 +1,6 @@
 import React from "react";
 import { Label } from "~/components/lib/ui/label";
 import { Switch } from "~/components/lib/ui/switch";
-import { Input } from "~/components/lib/ui/input";
 import {
   Select,
   SelectContent,
@@ -136,77 +135,6 @@ const AgentSettingsTab: React.FC<AgentSettingsTabProps> = ({
             />
             <span className="text-xs text-gray-500">
               Maximum concurrent agent operations
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Connection Status */}
-      <Card className="border-gray-600 bg-gray-800/20">
-        <CardHeader>
-          <CardTitle className="text-white">Connection Status</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">Agent Server</span>
-            <Badge variant="outline" className="text-xs text-green-400">
-              Connected
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">RabbitMQ Queue</span>
-            <Badge variant="outline" className="text-xs text-green-400">
-              Active
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">Content Sync</span>
-            <Badge variant="outline" className="text-xs text-green-400">
-              {agentSyncEnabled ? "Enabled" : "Disabled"}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Advanced Settings */}
-      <Card className="border-gray-600 bg-gray-800/20">
-        <CardHeader>
-          <CardTitle className="text-white">Advanced Settings</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label
-              htmlFor="rabbitmqUrl"
-              className="mb-2 block text-sm font-semibold text-gray-400"
-            >
-              RabbitMQ URL
-            </Label>
-            <Input
-              id="rabbitmqUrl"
-              value="amqp://guest:guest@sirius-rabbitmq:5672/"
-              readOnly
-              className="w-full rounded-md border border-gray-600 bg-gray-800/20 px-4 py-2 text-white"
-            />
-            <span className="text-xs text-gray-500">
-              RabbitMQ connection URL for content sync
-            </span>
-          </div>
-
-          <div>
-            <Label
-              htmlFor="syncQueue"
-              className="mb-2 block text-sm font-semibold text-gray-400"
-            >
-              Sync Queue Name
-            </Label>
-            <Input
-              id="syncQueue"
-              value="agent_content_sync"
-              readOnly
-              className="w-full rounded-md border border-gray-600 bg-gray-800/20 px-4 py-2 text-white"
-            />
-            <span className="text-xs text-gray-500">
-              Queue name for agent content synchronization
             </span>
           </div>
         </CardContent>

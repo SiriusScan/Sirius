@@ -115,7 +115,7 @@ const ParsedTargetList: React.FC<ParsedTargetListProps> = ({
           onClick={() => setFilter("all")}
           className={`h-8 px-3 text-xs ${
             filter === "all"
-              ? "bg-violet-600 text-white hover:bg-violet-500"
+              ? ""
               : "text-gray-400 hover:bg-violet-500/10 hover:text-violet-200"
           }`}
         >

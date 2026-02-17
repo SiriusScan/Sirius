@@ -29,6 +29,7 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.developer-guide.md](dev/README.developer-guide.md) - Comprehensive developer guide for Sirius project
 - [QUICK-REFERENCE.md](dev/QUICK-REFERENCE.md) - Quick reference guide for common operations
 - [QUICKREF.template-types.md](dev/QUICKREF.template-types.md) - Quick reference for documentation template types
+- [README.logging-conventions.md](dev/development/README.logging-conventions.md) - Structured logging conventions and standards
 - [README.sirius-event-log.md](dev/development/README.sirius-event-log.md) - Sirius event logging system and event management
 - [README.ui-style-guide.md](dev/development/README.ui-style-guide.md) - UI style guide and design system documentation
 
@@ -46,7 +47,9 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.administrator.md](dev/architecture/README.administrator.md) - Administrator service architecture and design
 - [README.cicd.md](dev/architecture/README.cicd.md) - CI/CD pipeline architecture and workflows
 - [README.go-api-sdk.md](dev/architecture/README.go-api-sdk.md) - Go API SDK architecture, design patterns, and integration guide
+- [README.auth-surface-matrix.md](dev/architecture/README.auth-surface-matrix.md) - Authentication and authorization policy matrix across API surfaces
 - [ARCHITECTURE.nse-repository-management.md](dev/architecture/ARCHITECTURE.nse-repository-management.md) - NSE repository management architecture
+- [README.docker-architecture.md](dev/architecture/README.docker-architecture.md) - Comprehensive Docker setup and container architecture
 
 ## Application Documentation
 
@@ -59,12 +62,16 @@ This document provides a complete index of all documentation files in the Sirius
 ### Scanner
 
 - [README.scanner.md](dev/apps/scanner/README.scanner.md) - Scanner application documentation
+- [ARCHITECTURE.scanner-data-flow.md](dev/apps/scanner/ARCHITECTURE.scanner-data-flow.md) - End-to-end scanner data flow (UI → ValKey → persistence)
+- [ARCHITECTURE.sub-scans.md](dev/apps/scanner/ARCHITECTURE.sub-scans.md) - Sub-scan architecture (network/agent, progress, cancellation)
+- [ARCHITECTURE.host-deduplication.md](dev/apps/scanner/ARCHITECTURE.host-deduplication.md) - Host deduplication and multi-source attribution
 
 ## Operations Documentation
 
 ### Git Operations
 
 - [README.git-operations.md](dev/operations/README.git-operations.md) - Git workflows and version control
+- [README.api-key-operations.md](dev/operations/README.api-key-operations.md) - API key lifecycle and incident recovery runbook
 
 ### Project Management
 
@@ -141,5 +148,3 @@ This index should be updated whenever:
 ---
 
 _This document follows the Sirius Documentation Standard. For questions about documentation structure, see [ABOUT.documentation.md](dev/ABOUT.documentation.md)._
-
-- [README.docker-architecture.md](dev/architecture/README.docker-architecture.md) - Comprehensive Docker setup and container architecture

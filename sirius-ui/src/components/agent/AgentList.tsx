@@ -69,7 +69,7 @@ export const AgentList: React.FC<AgentListProps> = ({
 
   if (isLoading && !agents) {
     return (
-      <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
+      <div className="p-4 text-sm text-gray-400">
         Loading agents...
       </div>
     );
@@ -77,7 +77,7 @@ export const AgentList: React.FC<AgentListProps> = ({
 
   if (error) {
     return (
-      <div className="p-4 text-sm text-red-600 dark:text-red-400">
+      <div className="p-4 text-sm text-red-400">
         Error loading agents: {error.message}
       </div>
     );
@@ -85,7 +85,7 @@ export const AgentList: React.FC<AgentListProps> = ({
 
   if (!agents || agents.length === 0) {
     return (
-      <div className="p-4 text-sm text-gray-500 dark:text-gray-400">
+      <div className="p-4 text-sm text-gray-400">
         No agents found.
       </div>
     );
@@ -95,7 +95,7 @@ export const AgentList: React.FC<AgentListProps> = ({
     <div className="flex h-full flex-col">
       {/* Search Input - Only show for 5+ agents */}
       {agents && agents.length >= 5 && (
-        <div className="border-b border-gray-200 p-2 dark:border-gray-700">
+        <div className="border-b border-gray-700 border-gray-700">
           <Input
             type="text"
             placeholder="Filter agents..."
@@ -114,7 +114,7 @@ export const AgentList: React.FC<AgentListProps> = ({
         )}
         {/* Display message if no agents match filter */}
         {!isLoading && filteredAgents.length === 0 && (
-          <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+          <div className="p-4 text-center text-sm text-gray-400">
             {searchTerm ? "No matching agents" : "No agents available"}
           </div>
         )}
@@ -133,8 +133,8 @@ export const AgentList: React.FC<AgentListProps> = ({
         })}
       </div>
       {/* Optional Footer/Actions */}
-      {/* <div className="border-t border-gray-200 p-2 dark:border-gray-700">
-        <button className="w-full text-center text-sm text-violet-600 hover:underline dark:text-violet-400">
+      {/* <div className="border-t border-gray-700 border-gray-700">
+        <button className="w-full text-center text-sm text-violet-400 hover:text-violet-300">
           Refresh List
         </button>
       </div> */}

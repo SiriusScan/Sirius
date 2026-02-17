@@ -63,6 +63,9 @@ Sirius Scanner is a sophisticated, modular vulnerability scanning engine that or
 10. [Configuration Files](#configuration-files)
 11. [Development Workflow](#development-workflow)
 12. [Key Files Reference](#key-files-reference)
+13. [ValKey Schema Reference](#valkey-schema-reference)
+14. [Profile vs Template System](#profile-vs-template-system)
+15. [RabbitMQ Message Schema](#rabbitmq-message-schema)
 
 ---
 
@@ -2057,6 +2060,34 @@ The scanner implements implicit rate limiting through:
 6. **API Gateway Integration:** Direct scan triggering via REST API
 7. **WebSocket Updates:** Real-time scan progress in UI
 8. **Scan Comparison:** Diff scans to identify new vulnerabilities
+
+---
+
+## ValKey Schema Reference
+
+ValKey (Redis-compatible) is used for live scan state. Key structure:
+
+- **`currentScan`** – Main key storing the live scan result as JSON. Contains the full `ScanResult` object with hosts, vulnerabilities, sub-scans, and progress.
+- **Encoding:** JSON may be stored as a base64-encoded string in some contexts; decode with `b64Decode` from `~/utils/std.ts` when reading from the frontend.
+- **Polling:** The frontend polls this key at regular intervals (5-second refetch) to display live progress.
+- **TTL:** No TTL is set; the key persists until overwritten by the next scan.
+
+---
+
+## Profile vs Template System
+
+- **Scan Profiles:** High-level presets that control overall scan behavior (e.g., "quick-scan", "full-scan", "agent-only"). Stored as `ScanProfile` type. They determine which scan methods are enabled and how they are configured.
+- **Agent Templates:** Specific detection templates used by the agent scanner (e.g., checks for a specific CVE). Stored in the template system. They define detection steps such as `file_content`, `file_hash`, and `version_cmd`.
+- Profiles may reference templates but are not the same thing: profiles define *what* to run and *how*; templates define the concrete detection logic.
+
+---
+
+## RabbitMQ Message Schema
+
+- **Queue:** Scan queue (consumed by app-scanner).
+- **Message format:** JSON with target list and scan options.
+- **Scan request contents:** Includes `targets`, `scan_types` configuration, and `agent_scan` configuration.
+- **Results:** app-scanner writes results back to the ValKey `currentScan` key.
 
 ---
 

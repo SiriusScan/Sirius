@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for sirius-engine
 # Stage 1: Build stage with all dependencies
-FROM golang:1.23-bullseye AS builder
+FROM golang:1.24-bullseye AS builder
 
 # Set working directory
 WORKDIR /build
@@ -16,11 +16,11 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Build arguments for submodule commit SHAs
-ARG GO_API_COMMIT_SHA=main
-ARG APP_SCANNER_COMMIT_SHA=main
+ARG GO_API_COMMIT_SHA=v0.0.14
+ARG APP_SCANNER_COMMIT_SHA=f98dd58
 ARG APP_TERMINAL_COMMIT_SHA=main
 ARG SIRIUS_NSE_COMMIT_SHA=main
-ARG APP_AGENT_COMMIT_SHA=main
+ARG APP_AGENT_COMMIT_SHA=50b405a
 
 # Clone and build repositories
 WORKDIR /repos
@@ -35,12 +35,17 @@ RUN git clone https://github.com/SiriusScan/go-api.git && \
 RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     cd app-scanner && \
     git checkout ${APP_SCANNER_COMMIT_SHA} && \
-    # Fix Port struct compilation errors: Port struct uses Number, not ID
-    # Replace ID: in Port struct literals and port.ID field accesses
+    # Fix Port struct compilation errors against newer go-api model
     sed -i '/sirius\.Port{/,/}/s/ID:\s*\([^,}]*\)/Number: \1/g' modules/rustscan/rustscan.go && \
     sed -i '/sirius\.Port{/,/}/s/ID:\s*\([^,}]*\)/Number: \1/g' modules/nmap/nmap.go && \
     sed -i '/sirius\.Port{/,/}/s/ID:\s*\([^,}]*\)/Number: \1/g' modules/naabu/naabu.go && \
     sed -i 's/port\.ID/port.Number/g' internal/scan/manager.go && \
+    # Fix HostEntry migration compatibility for older scanner commit
+    sed -i 's/contains(scan.Hosts, enumResults.IP)/containsHostEntry(scan.Hosts, enumResults.IP)/g' internal/scan/manager.go && \
+    sed -i 's/contains(scan.Hosts, discoveryResults.IP)/containsHostEntry(scan.Hosts, discoveryResults.IP)/g' internal/scan/manager.go && \
+    sed -i 's/scan.Hosts = append(scan.Hosts, enumResults.IP)/scan.Hosts = append(scan.Hosts, store.HostEntry{IP: enumResults.IP})/g' internal/scan/manager.go && \
+    sed -i 's/scan.Hosts = append(scan.Hosts, discoveryResults.IP)/scan.Hosts = append(scan.Hosts, store.HostEntry{IP: discoveryResults.IP})/g' internal/scan/manager.go && \
+    printf '\n// containsHostEntry checks whether a host IP already exists in HostEntry slices.\nfunc containsHostEntry(slice []store.HostEntry, ip string) bool {\n\tfor _, host := range slice {\n\t\tif host.IP == ip {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}\n' >> internal/scan/manager.go && \
     go mod download && \
     CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o scanner main.go
 
@@ -76,7 +81,7 @@ RUN git clone https://github.com/SiriusScan/app-administrator.git && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o administrator main.go
 
 # Stage 2: Development stage with Go compiler and tools
-FROM golang:1.23-bullseye AS development
+FROM golang:1.24-bullseye AS development
 
 # Set working directory
 WORKDIR /engine

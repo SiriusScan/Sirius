@@ -74,6 +74,7 @@ FROM base AS builder
 
 # Accept build args
 ARG NEXT_PUBLIC_CLIENTVAR
+ARG SIRIUS_API_KEY=build-time-placeholder
 
 # Copy source code for building
 COPY . .
@@ -90,10 +91,12 @@ RUN npx prisma generate
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_CLIENTVAR=${NEXT_PUBLIC_CLIENTVAR}
+ENV SIRIUS_API_KEY=${SIRIUS_API_KEY}
 
-# Create a temporary next.config.mjs with errors ignored for Docker building
+# Create a temporary next.config.mjs with errors ignored for Docker building.
+# Use a Node-based replacement for portability across sed variants.
 RUN cp next.config.mjs next.config.mjs.bak && \
-    sed -i 's/swcMinify: true,/swcMinify: true,\n  typescript: { ignoreBuildErrors: true },\n  eslint: { ignoreDuringBuilds: true },/' next.config.mjs && \
+    node -e "const fs=require('fs');const p='next.config.mjs';let c=fs.readFileSync(p,'utf8');c=c.replace('  swcMinify: true,','  swcMinify: true,\\n  typescript: { ignoreBuildErrors: true },\\n  eslint: { ignoreDuringBuilds: true },');fs.writeFileSync(p,c);" && \
     npx next build
 
 # Production runtime stage

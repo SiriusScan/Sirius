@@ -1,45 +1,48 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/SiriusScan/go-api/sirius/logging"
+	"github.com/SiriusScan/go-api/sirius/slogger"
+	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/SiriusScan/sirius-api/middleware"
 	"github.com/SiriusScan/sirius-api/routes"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
 // waitForDatabase waits for PostgreSQL to be available before running migrations
 func waitForDatabase() error {
-	host := os.Getenv("POSTGRES_HOST")
-	port := os.Getenv("POSTGRES_PORT")
-	if host == "" {
-		host = "sirius-postgres"
+	dbHost := os.Getenv("POSTGRES_HOST")
+	dbPort := os.Getenv("POSTGRES_PORT")
+	if dbHost == "" {
+		dbHost = "sirius-postgres"
 	}
-	if port == "" {
-		port = "5432"
+	if dbPort == "" {
+		dbPort = "5432"
 	}
 
-	address := net.JoinHostPort(host, port)
-	log.Printf("🔍 Waiting for database at %s...", address)
+	address := net.JoinHostPort(dbHost, dbPort)
+	slog.Info("Waiting for database", "address", address)
 
 	for attempts := 0; attempts < 30; attempts++ {
 		conn, err := net.DialTimeout("tcp", address, 3*time.Second)
 		if err == nil {
 			conn.Close()
-			log.Printf("✅ Database is available at %s", address)
+			slog.Info("Database is available", "address", address)
 			return nil
 		}
-		log.Printf("⏳ Database not ready (attempt %d/30), retrying in 2s...", attempts+1)
+		slog.Debug("Database not ready, retrying", "attempt", attempts+1, "max", 30)
 		time.Sleep(2 * time.Second)
 	}
 
@@ -48,7 +51,7 @@ func waitForDatabase() error {
 
 // runMigrations executes database migrations before starting the API
 func runMigrations() error {
-	log.Println("🔄 Running database migrations...")
+	slog.Info("Running database migrations")
 
 	// Wait for database to be available
 	if err := waitForDatabase(); err != nil {
@@ -62,7 +65,7 @@ func runMigrations() error {
 	} else if _, err := os.Stat("../go-api"); err == nil {
 		goApiPath = "../go-api"
 	} else {
-		log.Println("⚠️  go-api not found, skipping migrations")
+		slog.Warn("go-api not found, skipping migrations")
 		return nil
 	}
 
@@ -71,47 +74,96 @@ func runMigrations() error {
 	// Run migration 002_source_attribution (creates scan_history_entries table)
 	migration002Path := filepath.Join(migrationsPath, "002_source_attribution", "main.go")
 	if _, err := os.Stat(migration002Path); err == nil {
-		log.Println("📋 Running 002_source_attribution migration...")
+		slog.Info("Running migration", "name", "002_source_attribution")
 		cmd := exec.Command("go", "run", migration002Path)
 		cmd.Dir = goApiPath
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
 		if err := cmd.Run(); err != nil {
-			log.Printf("⚠️  Migration 002_source_attribution failed (may already be applied): %v", err)
+			slog.Warn("Migration failed (may already be applied)", "name", "002_source_attribution", "error", err)
 		} else {
-			log.Println("✅ Migration 002_source_attribution completed")
+			slog.Info("Migration completed", "name", "002_source_attribution")
 		}
 	}
 
 	// Run migration 004_add_sbom_schema if it exists
 	migration004Path := filepath.Join(migrationsPath, "004_add_sbom_schema", "main.go")
 	if _, err := os.Stat(migration004Path); err == nil {
-		log.Println("📋 Running 004_add_sbom_schema migration...")
+		slog.Info("Running migration", "name", "004_add_sbom_schema")
 		cmd := exec.Command("go", "run", migration004Path)
 		cmd.Dir = goApiPath
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
 		if err := cmd.Run(); err != nil {
-			log.Printf("⚠️  Migration 004_add_sbom_schema failed (may already be applied): %v", err)
+			slog.Warn("Migration failed (may already be applied)", "name", "004_add_sbom_schema", "error", err)
 		} else {
-			log.Println("✅ Migration 004_add_sbom_schema completed")
+			slog.Info("Migration completed", "name", "004_add_sbom_schema")
 		}
 	}
 
-	log.Println("✅ Database migrations completed")
+	slog.Info("Database migrations completed")
+	return nil
+}
+
+// bootstrapAPIKeys reconciles the configured service API key with Valkey state.
+// It repairs partial states by ensuring both key metadata and bootstrap flag
+// exist on every startup.
+func bootstrapAPIKeys(kvStore store.KVStore, rawKey string) error {
+	ctx := context.Background()
+	wasBootstrapped := store.IsBootstrapped(ctx, kvStore)
+
+	meta, err := store.EnsureAPIKey(ctx, kvStore, rawKey, "root", "system-bootstrap")
+	if err != nil {
+		return fmt.Errorf("failed to ensure root API key metadata: %w", err)
+	}
+
+	if err := store.MarkBootstrapped(ctx, kvStore); err != nil {
+		return fmt.Errorf("failed to mark bootstrap complete: %w", err)
+	}
+
+	if wasBootstrapped {
+		slog.Info("API key bootstrap reconciled", "key_prefix", meta.Prefix)
+	} else {
+		slog.Info("API key bootstrap completed", "key_prefix", meta.Prefix)
+	}
+
 	return nil
 }
 
 func main() {
+	// Initialize structured logging (reads LOG_LEVEL env var)
+	slogger.Init()
+
+	serviceAPIKey := strings.TrimSpace(os.Getenv("SIRIUS_API_KEY"))
+	if serviceAPIKey == "" {
+		slog.Error("SIRIUS_API_KEY is required for sirius-api startup")
+		os.Exit(1)
+	}
+
 	// Initialize the logging SDK
 	logging.Init()
 	defer logging.Close()
 
 	// Run database migrations before starting the API
 	if err := runMigrations(); err != nil {
-		log.Fatalf("❌ Failed to run migrations: %v", err)
+		slog.Error("Failed to run migrations", "error", err)
+		os.Exit(1)
+	}
+
+	// Initialize Valkey store for API key management.
+	kvStore, err := store.NewValkeyStore()
+	if err != nil {
+		slog.Error("Failed to connect to Valkey", "error", err)
+		os.Exit(1)
+	}
+	defer kvStore.Close()
+
+	// Reconcile service API key metadata and bootstrap flag state.
+	if err := bootstrapAPIKeys(kvStore, serviceAPIKey); err != nil {
+		slog.Error("Failed to reconcile API key bootstrap state", "error", err)
+		os.Exit(1)
 	}
 
 	app := fiber.New()
@@ -129,13 +181,11 @@ func main() {
 	// Add request ID middleware
 	app.Use(requestid.New())
 
-	// Add Fiber logger middleware for standard endpoint logging
-	app.Use(logger.New(logger.Config{
-		Format:     "${time} ${status} - ${method} ${path} (${latency})\n",
-		TimeFormat: "15:04:05",
-		TimeZone:   "Local",
-		Output:     os.Stdout,
-	}))
+	// Add level-aware request logging middleware
+	app.Use(requestLoggerMiddleware())
+
+	// Add API key authentication middleware
+	app.Use(middleware.APIKeyMiddleware(kvStore))
 
 	// Add SDK-based logging middlewares
 	app.Use(middleware.SDKLoggingMiddleware())
@@ -150,6 +200,8 @@ func main() {
 	eventRouteSetter := &routes.EventRouteSetter{}
 	snapshotRouteSetter := &routes.SnapshotRouteSetter{}
 	statisticsRouteSetter := &routes.StatisticsRoutes{}
+	scanRouteSetter := &routes.ScanRouteSetter{}
+	apiKeyRouteSetter := &routes.APIKeyRouteSetter{Store: kvStore}
 	routes.SetupRoutes(
 		app,
 		&routes.HostRouteSetter{},
@@ -159,11 +211,84 @@ func main() {
 		scriptRouteSetter,
 		agentTemplateRepositoryRouteSetter, // Must be before agentTemplateRouteSetter to avoid :id matching
 		agentTemplateRouteSetter,
-		eventRouteSetter,        // Event routes for scan events
-		snapshotRouteSetter,     // Snapshot and vulnerability trend routes
-		statisticsRouteSetter,   // Statistics routes
+		eventRouteSetter,      // Event routes for scan events
+		snapshotRouteSetter,   // Snapshot and vulnerability trend routes
+		statisticsRouteSetter, // Statistics routes
+		scanRouteSetter,       // Scan control routes (cancel, status)
+		apiKeyRouteSetter,     // API key management routes
 	)
 
-	log.Println("🚀 Sirius API starting on port 9001...")
+	slog.Info("Sirius API starting", "port", 9001, "log_level", os.Getenv("LOG_LEVEL"), "auth_required", true)
 	app.Listen(":9001")
+}
+
+// requestLoggerMiddleware returns a Fiber middleware that logs HTTP requests
+// at a level appropriate to the configured LOG_LEVEL:
+//
+//   - debug: logs every request
+//   - info:  skips /health and routine polling endpoints (GET /host/, GET /host/statistics/*)
+//   - warn:  only logs slow requests (>1s) or 4xx+ status codes
+//   - error: only logs 5xx status codes
+func requestLoggerMiddleware() fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		start := time.Now()
+
+		err := c.Next()
+
+		latency := time.Since(start)
+		status := c.Response().StatusCode()
+		method := c.Method()
+		path := c.Path()
+
+		attrs := []any{
+			"method", method,
+			"path", path,
+			"status", status,
+			"latency", latency.String(),
+		}
+
+		// error level: only 5xx
+		if status >= 500 {
+			slog.Error("request", attrs...)
+			return err
+		}
+
+		// warn level: 4xx or slow requests (>1s)
+		if status >= 400 {
+			slog.Warn("request", attrs...)
+			return err
+		}
+		if latency > 1*time.Second {
+			slog.Warn("slow request", attrs...)
+			return err
+		}
+
+		// info level: skip health checks and high-frequency polling endpoints
+		if isNoisyEndpoint(method, path) {
+			slog.Debug("request", attrs...)
+			return err
+		}
+
+		// Everything else at info
+		slog.Info("request", attrs...)
+		return err
+	}
+}
+
+// isNoisyEndpoint returns true for endpoints that fire on a recurring polling
+// interval and would flood the logs at info level.
+func isNoisyEndpoint(method, path string) bool {
+	if method != "GET" {
+		return false
+	}
+	switch {
+	case path == "/health":
+		return true
+	case path == "/host/" || path == "/host":
+		return true
+	case strings.HasPrefix(path, "/host/statistics/"):
+		return true
+	default:
+		return false
+	}
 }

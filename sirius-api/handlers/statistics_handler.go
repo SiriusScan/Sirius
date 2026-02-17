@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"log"
+	"log/slog"
 
 	"github.com/SiriusScan/go-api/sirius/host"
 	"github.com/gofiber/fiber/v2"
@@ -44,10 +44,10 @@ func GetMostVulnerableHosts(c *fiber.Ctx) error {
 
 	// Debug: Log response details
 	if len(response.Hosts) == 0 {
-		log.Printf("GetMostVulnerableHosts: Warning - returned 0 hosts (limit=%d, cached=%v)", limit, response.Cached)
+		slog.Warn("GetMostVulnerableHosts returned 0 hosts", "limit", limit, "cached", response.Cached)
 		// If we got cached empty results, invalidate and try again
 		if response.Cached {
-			log.Printf("GetMostVulnerableHosts: Invalidating cache and retrying")
+			slog.Debug("GetMostVulnerableHosts: invalidating cache and retrying")
 			_ = host.InvalidateMostVulnerableHostsCache()
 			response, err = host.GetMostVulnerableHostsCached(limit)
 			if err != nil {
@@ -58,7 +58,7 @@ func GetMostVulnerableHosts(c *fiber.Ctx) error {
 			}
 		}
 	} else {
-		log.Printf("GetMostVulnerableHosts: Returning %d hosts (cached=%v)", len(response.Hosts), response.Cached)
+		slog.Debug("GetMostVulnerableHosts returning", "host_count", len(response.Hosts), "cached", response.Cached)
 	}
 
 	return c.JSON(response)

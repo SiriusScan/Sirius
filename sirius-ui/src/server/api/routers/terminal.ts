@@ -14,6 +14,41 @@ const ENGINE_RESPONSE_QUEUE = "terminal_response";
 const AGENT_COMMAND_QUEUE = "agent_commands";
 const AGENT_RESPONSE_QUEUE = "agent_response";
 
+// ── Command History persistence (Valkey) ──────────────────────────────────────
+const HISTORY_KEY_PREFIX = "terminal:history:";
+const HISTORY_MAX_ENTRIES = 500;
+
+/** Zod schema matching CommandHistoryEntry for validation */
+const CommandHistoryEntrySchema = z.object({
+  id: z.string(),
+  timestamp: z.string(), // ISO string, converted to Date on the client
+  command: z.string(),
+  target: z.object({
+    type: TargetType,
+    id: z.string().optional(),
+    name: z.string().optional(),
+  }),
+  output: z.string(),
+  success: z.boolean(),
+  durationMs: z.number().optional(),
+  multiExec: z
+    .object({
+      agentCount: z.number(),
+      succeeded: z.number(),
+      failed: z.number(),
+      cancelled: z.number(),
+      results: z.array(
+        z.object({
+          agentId: z.string(),
+          agentName: z.string().optional(),
+          output: z.string(),
+          success: z.boolean(),
+        })
+      ),
+    })
+    .optional(),
+});
+
 interface CommandMessage {
   command: string;
   userId: string;
@@ -208,183 +243,87 @@ export const terminalRouter = createTRPCRouter({
       }
     }),
 
-  listAgents: protectedProcedure.query(async ({ ctx }) => {
+  // ── Command History CRUD (Valkey-backed) ──────────────────────────────────
+
+  /** Fetch all history entries for the current user */
+  getHistory: protectedProcedure.query(async ({ ctx }) => {
+    const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
     try {
-      const message = JSON.stringify({
-        action: "list_agents",
-        userId: ctx.session.user.id,
-        timestamp: new Date().toISOString(),
+      const raw = await valkey.lrange(key, 0, HISTORY_MAX_ENTRIES - 1);
+      return raw.map((json) => {
+        const parsed = JSON.parse(json) as z.infer<typeof CommandHistoryEntrySchema>;
+        return parsed;
       });
-
-      await handleSendMsg(AGENT_COMMAND_QUEUE, message);
-      // Wait on the dedicated agent response queue
-      const response = await waitForResponse(AGENT_RESPONSE_QUEUE);
-
-      try {
-        const agents = JSON.parse(response);
-        if (!Array.isArray(agents)) {
-          console.error(
-            "[Terminal] Invalid agent list response format:",
-            response
-          );
-          return [];
-        }
-        return agents.map((id) => ({
-          id,
-          name: id, // Use ID as name for now
-          status: "online",
-          lastSeen: new Date().toISOString(),
-        }));
-      } catch (error) {
-        console.error("[Terminal] Failed to parse agent list response:", error);
-        return [];
-      }
     } catch (error) {
-      console.error("[Terminal] Failed to list agents:", error);
-      const message =
-        error instanceof Error ? error.message : "Failed to list agents";
-      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+      console.error("[Terminal:getHistory] Failed to load history:", error);
+      return [];
     }
   }),
 
-  initializeSession: protectedProcedure
-    .input(
-      z.object({
-        target: z.object({
-          type: TargetType,
-          id: z.string().optional(),
-        }),
-      })
-    )
+  /** Persist a new history entry (prepend to list, trim to max) */
+  addHistoryEntry: protectedProcedure
+    .input(CommandHistoryEntrySchema)
     .mutation(async ({ input, ctx }) => {
+      const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
       try {
-        const sessionId = crypto.randomUUID();
-
-        // Only initialize session for agent targets
-        if (input.target.type === "agent") {
-          if (!input.target.id) {
-            throw new Error("Agent ID is required for agent session");
-          }
-
-          const agentId = input.target.id;
-          console.log(
-            `[Terminal:initializeSession] Attempting to initialize session for agent: ${agentId}`
-          );
-
-          const message = JSON.stringify({
-            action: "initialize_session",
-            agentId: agentId,
-            userId: ctx.session.user.id,
-            sessionId,
-            timestamp: new Date().toISOString(),
-          });
-
-          try {
-            await handleSendMsg(AGENT_COMMAND_QUEUE, message);
-            console.log(
-              `[Terminal:initializeSession] Message sent to ${AGENT_COMMAND_QUEUE}, waiting on ${AGENT_RESPONSE_QUEUE}`
-            );
-
-            // Wait on the dedicated agent response queue
-            const response = await waitForResponse(AGENT_RESPONSE_QUEUE);
-            console.log(
-              `[Terminal:initializeSession] Received response on ${AGENT_RESPONSE_QUEUE}:`,
-              response
-            );
-
-            if (!response) {
-              // This case might be less likely if waitForResponse throws on timeout
-              console.error(
-                "[Terminal:initializeSession] Received null/empty response"
-              );
-              throw new Error(
-                "Received empty response during session initialization"
-              );
-            }
-
-            // Try parsing the response
-            let responseObj: {
-              success?: boolean;
-              error?: string;
-              message?: string;
-            } = {};
-            try {
-              responseObj = JSON.parse(response);
-              console.log(
-                "[Terminal:initializeSession] Parsed response object:",
-                responseObj
-              );
-            } catch (parseError) {
-              console.error(
-                "[Terminal:initializeSession] Failed to parse response JSON:",
-                parseError,
-                "Raw response:",
-                response
-              );
-              throw new Error(
-                "Failed to parse session initialization response from backend"
-              );
-            }
-
-            // Check for backend-reported errors
-            if (responseObj.error) {
-              console.warn(
-                `[Terminal:initializeSession] Backend reported error: ${responseObj.error}`
-              );
-              // Check specifically for agent not found error
-              if (responseObj.error.includes("not found")) {
-                throw new Error(`Agent ${agentId} not found`);
-              }
-              throw new Error(`Initialization failed: ${responseObj.error}`);
-            }
-
-            // If no error field and parsing succeeded, assume success
-            console.log(
-              `[Terminal:initializeSession] Initialization successful for agent: ${agentId}`
-            );
-          } catch (waitError) {
-            // Catch errors from handleSendMsg or waitForResponse (like timeout)
-            console.error(
-              `[Terminal:initializeSession] Error during wait/send for agent ${agentId}:`,
-              waitError
-            );
-            if (
-              waitError instanceof Error &&
-              waitError.message.includes("timed out")
-            ) {
-              throw new Error(
-                "Session initialization timed out waiting for backend response"
-              );
-            }
-            if (
-              waitError instanceof Error &&
-              waitError.message.includes("not found")
-            ) {
-              throw waitError; // Re-throw specific agent not found error if it bubbles up here
-            }
-            throw new Error(
-              "Failed during session initialization communication"
-            ); // General comms error
-          }
-        }
-
-        // Return success for both engine (no-op) and successful agent init
-        return {
-          sessionId,
-          startTime: new Date().toISOString(),
-          target: input.target,
-        };
+        await valkey.lpush(key, JSON.stringify(input));
+        await valkey.ltrim(key, 0, HISTORY_MAX_ENTRIES - 1);
+        return { success: true };
       } catch (error) {
-        console.error("[Terminal] Failed to initialize session:", error);
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to initialize terminal session";
-        // Propagate specific 'Agent not found' error
-        if (message.includes("not found")) {
-          throw new TRPCError({ code: "NOT_FOUND", message });
-        }
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+        console.error("[Terminal:addHistoryEntry] Failed to save:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to save history entry",
+        });
       }
     }),
+
+  /** Delete a single history entry by id */
+  deleteHistoryEntry: protectedProcedure
+    .input(z.object({ entryId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
+      try {
+        // Read all, filter out the target, rewrite.
+        // This is acceptable for a capped list of <=500 entries.
+        const raw = await valkey.lrange(key, 0, -1);
+        const remaining = raw.filter((json) => {
+          try {
+            const entry = JSON.parse(json) as { id?: string };
+            return entry.id !== input.entryId;
+          } catch {
+            return true;
+          }
+        });
+        // Atomic replace
+        const pipeline = valkey.pipeline();
+        pipeline.del(key);
+        if (remaining.length > 0) {
+          pipeline.rpush(key, ...remaining);
+        }
+        await pipeline.exec();
+        return { success: true };
+      } catch (error) {
+        console.error("[Terminal:deleteHistoryEntry] Failed:", error);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to delete history entry",
+        });
+      }
+    }),
+
+  /** Purge all history for the current user */
+  clearHistory: protectedProcedure.mutation(async ({ ctx }) => {
+    const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
+    try {
+      await valkey.del(key);
+      return { success: true };
+    } catch (error) {
+      console.error("[Terminal:clearHistory] Failed:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to clear history",
+      });
+    }
+  }),
 });

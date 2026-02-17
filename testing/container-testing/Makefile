@@ -1,7 +1,7 @@
 # SiriusScan Docker Testing Makefile
 # Provides easy commands for testing and development
 
-.PHONY: help build test test-build test-health test-integration test-all clean logs lint-docs lint-docs-quick lint-agents lint-agents-quick lint-agent-index regenerate-agents regenerate-agent check-agent-sync
+.PHONY: help build test test-build test-health test-integration test-all test-security clean logs lint-docs lint-docs-quick lint-agents lint-agents-quick lint-agent-index regenerate-agents regenerate-agent check-agent-sync
 
 # Default target
 help:
@@ -18,6 +18,7 @@ help:
 	@echo "  test-build     Test individual container builds"
 	@echo "  test-health    Test service health checks"
 	@echo "  test-integration Test service integration"
+	@echo "  test-security  Run security/auth penetration tests"
 	@echo "  test-all       Run all tests"
 	@echo ""
 	@echo "Development Commands:"
@@ -75,6 +76,11 @@ test-health:
 test-integration:
 	@echo "🔗 Running integration tests..."
 	./test-integration.sh
+
+test-security:
+	@echo "🔒 Running security penetration tests..."
+	cd ../security && go run .
+	@echo "✅ Security tests completed!"
 
 test-all: test-build test-health test-integration
 	@echo "🎉 All tests completed!"

@@ -124,7 +124,6 @@ const SavedTargetListsDialog: React.FC<SavedTargetListsDialogProps> = ({
               <Button
                 onClick={handleSaveCurrentList}
                 disabled={!newListName.trim() || currentTargets.length === 0}
-                className="bg-violet-600 hover:bg-violet-500"
               >
                 Save ({currentTargets.length})
               </Button>
@@ -171,7 +170,7 @@ const SavedTargetListsDialog: React.FC<SavedTargetListsDialogProps> = ({
                       <Button
                         size="sm"
                         onClick={() => handleLoadList(list)}
-                        className="bg-violet-600 hover:bg-violet-500"
+                        
                       >
                         Load
                       </Button>

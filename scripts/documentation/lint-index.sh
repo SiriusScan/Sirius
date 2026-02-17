@@ -97,10 +97,10 @@ lint_index() {
     
     while IFS= read -r file; do
         if [ -n "$file" ]; then
-            ((TOTAL_FILES++))
+            TOTAL_FILES=$((TOTAL_FILES + 1))
             if ! check_file_in_index "$file" "$indexed_files"; then
                 error "File missing from index: $file"
-                ((MISSING_FILES++))
+                MISSING_FILES=$((MISSING_FILES + 1))
             else
                 success "File properly indexed: $file"
             fi
@@ -115,7 +115,7 @@ lint_index() {
         if [ -n "$indexed_file" ]; then
             if ! check_indexed_file_exists "$indexed_file" "$dev_files"; then
                 warning "File in index but not found in dev: $indexed_file"
-                ((EXTRA_FILES++))
+                EXTRA_FILES=$((EXTRA_FILES + 1))
             fi
         fi
     done <<< "$indexed_files"

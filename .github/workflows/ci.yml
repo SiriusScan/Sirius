@@ -154,13 +154,12 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./sirius-ui
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-ui:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-api:
     name: Build & Push API
@@ -231,15 +230,14 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./sirius-api
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: true
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'main' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.15' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-api:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-engine:
     name: Build & Push Engine
@@ -311,19 +309,18 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./sirius-engine
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: true
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'main' }}
-            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'main' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.14' }}
+            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'f98dd58' }}
             APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || 'main' }}
             SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'main' }}
-            APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || 'main' }}
+            APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '50b405a' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}
             ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-engine:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   test:
     name: Integration Test
@@ -376,7 +373,7 @@ jobs:
                 - /var/lib/postgresql/data # Use RAM for CI testing
           
             sirius-rabbitmq:
-              image: rabbitmq:3.7.3-management
+              image: rabbitmq:3-management
           
             sirius-valkey:
               image: valkey/valkey:latest
@@ -391,6 +388,7 @@ jobs:
                 - NEXTAUTH_URL=http://localhost:3000
                 - SIRIUS_API_URL=http://sirius-api:9001
                 - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
+                - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
                 - sirius-postgres
           
@@ -408,6 +406,7 @@ jobs:
                 - VALKEY_PORT=6379
                 - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
                 - LOG_LEVEL=debug
+                - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
                 - sirius-postgres
                 - sirius-rabbitmq
@@ -428,6 +427,7 @@ jobs:
                 - VALKEY_PORT=6379
                 - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
                 - LOG_LEVEL=debug
+                - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
                 - sirius-rabbitmq
           EOF

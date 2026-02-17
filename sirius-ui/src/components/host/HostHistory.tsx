@@ -1,289 +1,156 @@
 import React from "react";
-import { Clock, AlertTriangle, CheckCircle, RefreshCw } from "lucide-react";
+import { api } from "~/utils/api";
+import { useRouter } from "next/router";
+import { Clock, RefreshCw, Activity } from "lucide-react";
+import { SourceBadge } from "~/components/shared/SourceBadge";
+import { SECTION_HEADER } from "~/utils/themeConstants";
 
 interface HostHistoryProps {
   hostIp: string;
 }
 
 export const HostHistory: React.FC<HostHistoryProps> = ({ hostIp }) => {
-  // This would normally be fetched from an API
-  // For now, we'll use mock data
-  const scanHistory = [
-    {
-      id: "scan-1",
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-      status: "completed",
-      vulnerabilitiesFound: 12,
-      duration: "3m 45s",
-    },
-    {
-      id: "scan-2",
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-      status: "completed",
-      vulnerabilitiesFound: 15,
-      duration: "4m 12s",
-    },
-    {
-      id: "scan-3",
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 10), // 10 days ago
-      status: "failed",
-      error: "Connection timeout",
-      duration: "1m 30s",
-    },
-    {
-      id: "scan-4",
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15), // 15 days ago
-      status: "completed",
-      vulnerabilitiesFound: 18,
-      duration: "3m 55s",
-    },
-  ];
+  const router = useRouter();
 
-  const vulnerabilityHistory = [
-    {
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2), // 2 days ago
-      added: 2,
-      removed: 5,
-      critical: 1,
-      high: 3,
-      medium: 5,
-      low: 3,
-    },
-    {
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-      added: 5,
-      removed: 0,
-      critical: 2,
-      high: 5,
-      medium: 6,
-      low: 2,
-    },
-    {
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 15), // 15 days ago
-      added: 18,
-      removed: 0,
-      critical: 3,
-      high: 7,
-      medium: 5,
-      low: 3,
-    },
-  ];
+  const { data: historyData, isLoading } = api.host.getHostHistory.useQuery(
+    { ip: hostIp },
+    { enabled: !!hostIp, staleTime: 30000 },
+  );
 
-  const configChanges = [
-    {
-      id: "change-1",
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
-      type: "software_installed",
-      details: "Installed Apache 2.4.52",
-    },
-    {
-      id: "change-2",
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7), // 7 days ago
-      type: "port_opened",
-      details: "Port 443 opened (HTTPS)",
-    },
-    {
-      id: "change-3",
-      date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 12), // 12 days ago
-      type: "user_added",
-      details: "User 'admin' added to system",
-    },
-  ];
+  const handleScanNow = () => {
+    void router.push(`/scanner?target=${encodeURIComponent(hostIp)}`);
+  };
+
+  const timeline = historyData?.timeline ?? [];
+  const sources = historyData?.sources ?? [];
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <div className="scanner-section scanner-section-padding">
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex gap-3">
+              <div className="h-3 w-3 animate-pulse rounded-full bg-gray-700" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-32 animate-pulse rounded bg-gray-700" />
+                <div className="h-3 w-48 animate-pulse rounded bg-gray-700" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Scan History */}
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <div className="mb-4 flex items-center">
-          <RefreshCw className="mr-2 h-5 w-5 text-violet-500" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-            Scan History
-          </h3>
-        </div>
-        <div className="max-h-96 overflow-y-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-              <tr>
-                <th scope="col" className="px-4 py-2 text-left">
-                  Date
-                </th>
-                <th scope="col" className="px-4 py-2 text-left">
-                  Status
-                </th>
-                <th scope="col" className="px-4 py-2 text-left">
-                  Vulnerabilities
-                </th>
-                <th scope="col" className="px-4 py-2 text-left">
-                  Duration
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {scanHistory.map((scan) => (
-                <tr
-                  key={scan.id}
-                  className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700"
-                >
-                  <td className="px-4 py-2 text-gray-900 dark:text-white">
-                    {scan.date.toLocaleDateString()}{" "}
-                    {scan.date.toLocaleTimeString()}
-                  </td>
-                  <td className="px-4 py-2">
-                    {scan.status === "completed" ? (
-                      <span className="flex items-center text-green-600 dark:text-green-400">
-                        <CheckCircle className="mr-1 h-4 w-4" />
-                        Completed
-                      </span>
-                    ) : (
-                      <span className="flex items-center text-red-600 dark:text-red-400">
-                        <AlertTriangle className="mr-1 h-4 w-4" />
-                        Failed: {scan.error}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-gray-900 dark:text-white">
-                    {scan.status === "completed"
-                      ? scan.vulnerabilitiesFound
-                      : "N/A"}
-                  </td>
-                  <td className="px-4 py-2 text-gray-900 dark:text-white">
-                    {scan.duration}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div className="space-y-4">
+      {/* ── Timeline ────────────────────────────────────────────────────── */}
+      <div className="scanner-section scanner-section-padding">
+        <h3 className={`${SECTION_HEADER} mb-4`}>Activity Timeline</h3>
 
-      {/* Vulnerability Trends */}
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <div className="mb-4 flex items-center">
-          <AlertTriangle className="mr-2 h-5 w-5 text-violet-500" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-            Vulnerability Trends
-          </h3>
-        </div>
-        <div className="max-h-96 overflow-y-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-300">
-              <tr>
-                <th scope="col" className="px-4 py-2 text-left">
-                  Date
-                </th>
-                <th scope="col" className="px-4 py-2 text-left">
-                  Added
-                </th>
-                <th scope="col" className="px-4 py-2 text-left">
-                  Removed
-                </th>
-                <th scope="col" className="px-4 py-2 text-left">
-                  Critical
-                </th>
-                <th scope="col" className="px-4 py-2 text-left">
-                  High
-                </th>
-                <th scope="col" className="px-4 py-2 text-left">
-                  Medium
-                </th>
-                <th scope="col" className="px-4 py-2 text-left">
-                  Low
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {vulnerabilityHistory.map((history, index) => (
-                <tr
-                  key={index}
-                  className="bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700"
-                >
-                  <td className="px-4 py-2 text-gray-900 dark:text-white">
-                    {history.date.toLocaleDateString()}
-                  </td>
-                  <td className="px-4 py-2 text-gray-900 dark:text-white">
-                    <span className="text-red-600 dark:text-red-400">
-                      +{history.added}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-900 dark:text-white">
-                    <span className="text-green-600 dark:text-green-400">
-                      -{history.removed}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-900 dark:text-white">
-                    <span className="text-red-600 dark:text-red-400">
-                      {history.critical}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-900 dark:text-white">
-                    <span className="text-orange-600 dark:text-orange-400">
-                      {history.high}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-900 dark:text-white">
-                    <span className="text-yellow-600 dark:text-yellow-400">
-                      {history.medium}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-gray-900 dark:text-white">
-                    <span className="text-green-600 dark:text-green-400">
-                      {history.low}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Configuration Changes */}
-      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <div className="mb-4 flex items-center">
-          <Clock className="mr-2 h-5 w-5 text-violet-500" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-            Configuration Changes
-          </h3>
-        </div>
-        <div className="max-h-96 overflow-y-auto">
+        {timeline.length > 0 ? (
           <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-4 top-0 h-full w-0.5 bg-gray-200 dark:bg-gray-700"></div>
+            {/* Vertical line */}
+            <div className="absolute left-[5px] top-2 bottom-2 w-px bg-violet-500/20" />
 
-            {/* Timeline items */}
-            <div className="space-y-6 pl-10">
-              {configChanges.map((change) => (
-                <div key={change.id} className="relative">
-                  {/* Timeline dot */}
-                  <div className="absolute -left-6 mt-1.5 h-3 w-3 rounded-full border-2 border-violet-500 bg-white dark:bg-gray-800"></div>
+            <div className="space-y-4">
+              {timeline.map((event, idx) => (
+                <div key={idx} className="relative flex gap-3 pl-5">
+                  {/* Dot */}
+                  <div className="absolute left-0 top-1.5 h-[11px] w-[11px] rounded-full border-2 border-violet-500/40 bg-gray-900" />
 
                   {/* Content */}
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      {change.date.toLocaleDateString()}{" "}
-                      {change.date.toLocaleTimeString()}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-gray-300">
+                        {formatEventType(event.event_type)}
+                      </span>
+                      {event.source && (
+                        <SourceBadge source={event.source} />
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {event.details}
                     </p>
-                    <h4 className="mt-1 font-medium text-gray-900 dark:text-white">
-                      {change.type === "software_installed"
-                        ? "Software Installed"
-                        : change.type === "port_opened"
-                        ? "Port Opened"
-                        : change.type === "user_added"
-                        ? "User Added"
-                        : "Configuration Change"}
-                    </h4>
-                    <p className="mt-1 text-gray-600 dark:text-gray-300">
-                      {change.details}
-                    </p>
+                    <time className="mt-0.5 block text-[10px] text-gray-600">
+                      {formatTimestamp(event.timestamp)}
+                    </time>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
+        ) : (
+          <EmptyTimeline onScan={handleScanNow} />
+        )}
       </div>
+
+      {/* ── Source Coverage ──────────────────────────────────────────────── */}
+      {sources.length > 0 && (
+        <div className="scanner-section scanner-section-padding">
+          <h3 className={`${SECTION_HEADER} mb-3`}>Discovery Sources</h3>
+          <div className="flex flex-wrap gap-2">
+            {sources.map((source) => (
+              <SourceBadge key={source} source={source} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+// ─── Sub-components ─────────────────────────────────────────────────────────
+
+function EmptyTimeline({ onScan }: { onScan: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-3 py-8 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-violet-500/10 bg-gray-900/50">
+        <Activity className="h-5 w-5 text-gray-600" />
+      </div>
+      <div>
+        <p className="text-sm text-gray-400">No scan history available</p>
+        <p className="mt-1 text-xs text-gray-600">
+          Run a scan to begin tracking this host&apos;s history
+        </p>
+      </div>
+      <button
+        onClick={onScan}
+        className="flex items-center gap-1.5 rounded-md border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 transition-colors hover:bg-violet-500/20"
+      >
+        <RefreshCw className="h-3.5 w-3.5" />
+        Scan Now
+      </button>
+    </div>
+  );
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function formatEventType(type: string): string {
+  const map: Record<string, string> = {
+    host_discovery: "Host Discovered",
+    scan_completed: "Scan Completed",
+    vulnerability_found: "Vulnerability Found",
+    port_discovered: "Port Discovered",
+    software_installed: "Software Installed",
+    configuration_change: "Configuration Change",
+  };
+  return (
+    map[type] ??
+    type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
+function formatTimestamp(ts: string): string {
+  if (!ts) return "Unknown";
+  try {
+    const date = new Date(ts);
+    return date.toLocaleString();
+  } catch {
+    return ts;
+  }
+}
 
 export default HostHistory;

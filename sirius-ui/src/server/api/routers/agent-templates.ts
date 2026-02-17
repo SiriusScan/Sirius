@@ -1,13 +1,12 @@
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type {
   AgentTemplate,
   ValidationResult,
   TemplateTestResult,
   TemplateAnalytics,
 } from "~/types/agentTemplateTypes";
-
-const API_BASE_URL = process.env.SIRIUS_API_URL || "http://localhost:9001";
+import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
 // Zod schemas for validation
 const templateIdSchema = z.object({
@@ -41,9 +40,9 @@ const deployTemplateSchema = z.object({
 
 export const agentTemplatesRouter = createTRPCRouter({
   // Get all agent templates
-  getTemplates: publicProcedure.query(async (): Promise<AgentTemplate[]> => {
+  getTemplates: protectedProcedure.query(async (): Promise<AgentTemplate[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/agent-templates`);
+      const response = await apiFetch(`${API_BASE_URL}/api/agent-templates`);
       if (!response.ok) {
         throw new Error(`Failed to fetch templates: ${response.statusText}`);
       }
@@ -55,11 +54,11 @@ export const agentTemplatesRouter = createTRPCRouter({
   }),
 
   // Get single template by ID
-  getTemplate: publicProcedure
+  getTemplate: protectedProcedure
     .input(templateIdSchema)
     .query(async ({ input }): Promise<AgentTemplate | null> => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/${input.id}`
         );
         if (!response.ok) {
@@ -76,7 +75,7 @@ export const agentTemplatesRouter = createTRPCRouter({
     }),
 
   // Upload custom template
-  uploadTemplate: publicProcedure
+  uploadTemplate: protectedProcedure
     .input(
       z.object({
         content: z.string(),
@@ -87,11 +86,8 @@ export const agentTemplatesRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       try {
         // Send as JSON (backend expects JSON, not FormData)
-        const response = await fetch(`${API_BASE_URL}/api/agent-templates`, {
+        const response = await apiFetch(`${API_BASE_URL}/api/agent-templates`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify({
             content: input.content,
             filename: input.filename,
@@ -112,11 +108,11 @@ export const agentTemplatesRouter = createTRPCRouter({
     }),
 
   // Validate template without saving
-  validateTemplate: publicProcedure
+  validateTemplate: protectedProcedure
     .input(validateTemplateSchema)
     .mutation(async ({ input }): Promise<ValidationResult> => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/validate`,
           {
             method: "POST",
@@ -143,11 +139,11 @@ export const agentTemplatesRouter = createTRPCRouter({
     }),
 
   // Update custom template
-  updateTemplate: publicProcedure
+  updateTemplate: protectedProcedure
     .input(updateTemplateSchema)
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/${input.id}`,
           {
             method: "PUT",
@@ -171,11 +167,11 @@ export const agentTemplatesRouter = createTRPCRouter({
     }),
 
   // Delete custom template
-  deleteTemplate: publicProcedure
+  deleteTemplate: protectedProcedure
     .input(templateIdSchema)
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/${input.id}`,
           {
             method: "DELETE",
@@ -195,11 +191,11 @@ export const agentTemplatesRouter = createTRPCRouter({
     }),
 
   // Test template on agent
-  testTemplate: publicProcedure
+  testTemplate: protectedProcedure
     .input(testTemplateSchema)
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/${input.templateId}/test`,
           {
             method: "POST",
@@ -223,11 +219,11 @@ export const agentTemplatesRouter = createTRPCRouter({
     }),
 
   // Deploy template to specific agents
-  deployTemplate: publicProcedure
+  deployTemplate: protectedProcedure
     .input(deployTemplateSchema)
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/${input.templateId}/deploy`,
           {
             method: "POST",
@@ -251,9 +247,9 @@ export const agentTemplatesRouter = createTRPCRouter({
     }),
 
   // Get template analytics
-  getAnalytics: publicProcedure.query(async (): Promise<TemplateAnalytics> => {
+  getAnalytics: protectedProcedure.query(async (): Promise<TemplateAnalytics> => {
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         `${API_BASE_URL}/api/agent-templates/analytics`
       );
 
@@ -277,11 +273,11 @@ export const agentTemplatesRouter = createTRPCRouter({
   }),
 
   // Get historical results for a template
-  getTemplateResults: publicProcedure
+  getTemplateResults: protectedProcedure
     .input(templateIdSchema)
     .query(async ({ input }) => {
       try {
-        const response = await fetch(
+        const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/${input.id}/results`
         );
 

@@ -85,7 +85,7 @@ export const DetectionSection = React.memo<DetectionSectionProps>(
         icon={<Shield className="h-5 w-5" />}
         badge={
           formData.detectionSteps.length > 0 && (
-            <Badge className="bg-violet-600 text-white">
+            <Badge className="border border-violet-500/30 bg-violet-500/20 text-violet-200">
               {formData.detectionSteps.length} step
               {formData.detectionSteps.length !== 1 ? "s" : ""}
             </Badge>
@@ -219,7 +219,7 @@ export const DetectionSection = React.memo<DetectionSectionProps>(
 
             {formData.detectionSteps.length === 0 ? (
               <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-gray-800/50 py-12">
-                <Shield className="h-12 w-12 text-gray-600" />
+                <Shield className="h-12 w-12 text-gray-400" />
                 <p className="mt-3 text-sm font-medium text-gray-400">
                   No detection steps yet
                 </p>
@@ -228,7 +228,7 @@ export const DetectionSection = React.memo<DetectionSectionProps>(
                 </p>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button className="mt-4 bg-violet-600 text-white hover:bg-violet-500">
+                    <Button className="mt-4">
                       <Plus className="mr-2 h-4 w-4" />
                       Add Detection Step
                     </Button>

@@ -144,7 +144,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
     };
 
     return (
-      <div className="flex items-center">
+      <div className="pointer-events-auto flex items-center">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="focus:outline-none">
@@ -237,7 +237,7 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
   };
 
   return (
-    <nav className="z-50 pb-2 pl-3 pr-3 pt-4 dark:shadow-violet-300/10">
+    <nav className="pointer-events-none z-50 pr-6 pt-4 dark:shadow-violet-300/10">
       <div className="flex items-center justify-end">
         <UserMenu />
       </div>

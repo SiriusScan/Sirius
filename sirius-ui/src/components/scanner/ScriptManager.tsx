@@ -160,7 +160,7 @@ const ScriptManager: React.FC<ScriptManagerProps> = ({ onClose }) => {
                     </Button>
                     <Button
                       onClick={handleSave}
-                      className="bg-violet-600 text-white hover:bg-violet-700"
+                      
                       disabled={updateScriptMutation.isLoading}
                     >
                       {updateScriptMutation.isLoading ? "Saving..." : "Save"}

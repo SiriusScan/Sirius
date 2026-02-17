@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/lib/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/lib/ui/card';
 import { RefreshCw, Search, Filter, AlertTriangle, Info, Bug, AlertCircle } from 'lucide-react';
 import { logService, LogEntry, LogRetrievalRequest, LogStatsResponse } from '~/services/logService';
 
@@ -192,57 +191,57 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Logs</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="scanner-section">
+            <div className="p-4 md:p-6 pb-0">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Logs</h3>
+            </div>
+            <div className="p-4 md:p-6">
               <div className="text-2xl font-bold">{stats.total_logs}</div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
           
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Services</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="scanner-section">
+            <div className="p-4 md:p-6 pb-0">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Services</h3>
+            </div>
+            <div className="p-4 md:p-6">
               <div className="text-2xl font-bold">{Object.keys(stats.service_stats).length}</div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Errors</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="scanner-section">
+            <div className="p-4 md:p-6 pb-0">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Errors</h3>
+            </div>
+            <div className="p-4 md:p-6">
               <div className="text-2xl font-bold text-red-500">
                 {stats.level_stats.error || 0}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Warnings</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="scanner-section">
+            <div className="p-4 md:p-6 pb-0">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Warnings</h3>
+            </div>
+            <div className="p-4 md:p-6">
               <div className="text-2xl font-bold text-yellow-500">
                 {stats.level_stats.warn || 0}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
+      <div className="scanner-section">
+        <div className="p-4 md:p-6 pb-0">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex items-center">
             <Filter className="h-4 w-4 mr-2" />
             Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+          </h3>
+        </div>
+        <div className="p-4 md:p-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Service</label>
@@ -298,8 +297,8 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Error Alert */}
       {error && (
@@ -313,15 +312,15 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
       )}
 
       {/* Logs Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Log Entries</CardTitle>
-          <CardDescription>
+      <div className="scanner-section">
+        <div className="p-4 md:p-6 pb-0">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Log Entries</h3>
+          <p className="text-muted-foreground text-sm mt-1">
             Showing {logs.length} of {total} logs
             {loading && ' (Loading...)'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </p>
+        </div>
+        <div className="p-4 md:p-6">
           <div className="rounded-md border">
             <Table>
               <TableHeader>
@@ -402,8 +401,8 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

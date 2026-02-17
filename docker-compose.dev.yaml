@@ -45,11 +45,27 @@ services:
       - SIRIUS_API_URL=http://sirius-api:9001
       - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
       - CONTAINER_NAME=sirius-ui
+      # Coordinated dev API key shared across UI/API/Engine.
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-sirius-dev-api-key-do-not-use-in-production}
+      # Performance: increase Node.js heap for faster webpack compilation
+      - NODE_OPTIONS=--max-old-space-size=4096
+      # Performance: enable filesystem polling for reliable hot reload on Docker bind mounts
+      - WATCHPACK_POLLING=true
     ports:
       - "3000:3000"
       - "3001:3001" # Development port
     # Remove PostgreSQL dependency - using SQLite for authentication
     depends_on: []
+    # Override base resource limits for development performance
+    # Webpack compilation needs significantly more CPU than serving a production build
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: "4"
+        reservations:
+          memory: 1G
+          cpus: "1"
 
   sirius-api:
     build:
@@ -78,8 +94,10 @@ services:
       - VALKEY_HOST=sirius-valkey
       - VALKEY_PORT=6379
       - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
       - CONTAINER_NAME=sirius-api
+      # Coordinated dev API key shared across UI/API/Engine.
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-sirius-dev-api-key-do-not-use-in-production}
 
   sirius-engine:
     build:
@@ -87,14 +105,25 @@ services:
       target: development # Use development stage
     # Override image for dev builds
     image: sirius-sirius-engine:dev
+    # Uses bridge networking (from base compose) with explicit port mapping:
+    #   5174:5174  - Engine main port
+    #   50051:50051 - Agent gRPC port
+    # This allows native agents on the host to connect via localhost:50051
+    # Required for ICMP probes in ping++ fingerprinting
+    cap_add:
+      - NET_RAW
     volumes:
       - ./sirius-engine:/engine
+      # Mount start scripts for hot reload of startup changes
+      - ./sirius-engine/start-enhanced.sh:/start-enhanced.sh
+      - ./sirius-engine/start.sh:/start.sh
       # Development volume mounts (require ../minor-projects/ structure):
       # Enabled for local development with source-aware functionality
       - ../minor-projects/app-agent:/app-agent
       - ../minor-projects/app-scanner:/app-scanner
       - ../minor-projects/app-terminal:/app-terminal
       - ../minor-projects/go-api:/go-api
+      - ../minor-projects/ping++:/ping++
       - ../minor-projects/sirius-nse:/sirius-nse
       - ../minor-projects/sirius-agent-modules:/app-agent/sirius-agent-modules
       # Add system monitor from separate repository
@@ -113,7 +142,7 @@ services:
       - VALKEY_HOST=sirius-valkey
       - VALKEY_PORT=6379
       - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
       # Scanner configuration for API communication
       - SIRIUS_API_URL=http://sirius-api:9001
       # Agent configuration for API communication
@@ -122,11 +151,13 @@ services:
       - HOST_ID=sirius-engine
       - ENABLE_SCRIPTING=true
       - CONTAINER_NAME=sirius-engine
+      # Coordinated dev API key shared across UI/API/Engine.
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-sirius-dev-api-key-do-not-use-in-production}
 
 networks:
   default:
-    external: true
     name: sirius
+    driver: bridge
 
 volumes:
   node_modules:

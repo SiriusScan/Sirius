@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "~/components/lib/ui/button";
 import { Badge } from "~/components/lib/ui/badge";
-import { Card, CardContent } from "~/components/lib/ui/card";
 import {
   Table,
   TableBody,
@@ -236,7 +235,6 @@ export const RepositoriesTab: React.FC = () => {
         </div>
         <Button
           onClick={() => setIsAddDialogOpen(true)}
-          className="bg-violet-600 text-white hover:bg-violet-500"
         >
           <Plus className="mr-2 h-4 w-4" />
           Add Repository
@@ -245,13 +243,13 @@ export const RepositoriesTab: React.FC = () => {
 
       {/* Repositories Table */}
       {isLoading ? (
-        <Card className="border-gray-700 bg-gray-800/50">
-          <CardContent className="flex items-center justify-center py-12">
+        <div className="scanner-section border-gray-700 bg-gray-800/50">
+          <div className="scanner-section-padding flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       ) : repositories && repositories.length > 0 ? (
-        <Card className="border-gray-700 bg-gray-800/50">
+        <div className="scanner-section border-gray-700 bg-gray-800/50">
           <Table>
             <TableHeader>
               <TableRow className="border-gray-700 hover:bg-gray-700/50">
@@ -350,11 +348,11 @@ export const RepositoriesTab: React.FC = () => {
               ))}
             </TableBody>
           </Table>
-        </Card>
+        </div>
       ) : (
-        <Card className="border-gray-700 bg-gray-800/50">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <AlertCircle className="h-12 w-12 text-gray-600" />
+        <div className="scanner-section border-gray-700 bg-gray-800/50">
+          <div className="scanner-section-padding flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-12 w-12 text-gray-400" />
             <h3 className="mt-4 text-lg font-medium text-white">
               No repositories configured
             </h3>
@@ -363,13 +361,13 @@ export const RepositoriesTab: React.FC = () => {
             </p>
             <Button
               onClick={() => setIsAddDialogOpen(true)}
-              className="mt-4 bg-violet-600 text-white hover:bg-violet-500"
+              className="mt-4"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Repository
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Add Repository Dialog */}
@@ -475,7 +473,6 @@ export const RepositoriesTab: React.FC = () => {
               disabled={
                 addMutation.isLoading || !formData.name || !formData.url
               }
-              className="bg-violet-600 text-white hover:bg-violet-500"
             >
               {addMutation.isLoading ? (
                 <>
@@ -588,7 +585,6 @@ export const RepositoriesTab: React.FC = () => {
             <Button
               onClick={handleUpdate}
               disabled={updateMutation.isLoading}
-              className="bg-violet-600 text-white hover:bg-violet-500"
             >
               {updateMutation.isLoading ? (
                 <>

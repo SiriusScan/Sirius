@@ -1,4 +1,4 @@
-import { type ScanResult } from "~/components/scanner/ScanStatus";
+import { type ScanResult } from "~/types/scanTypes";
 
 export function b64Decode(base64String: string) {
   if (!base64String) {

@@ -68,7 +68,7 @@ const TargetExclusions: React.FC<TargetExclusionsProps> = ({
           onClick={handleAddExclusion}
           disabled={!inputValue.trim()}
           size="sm"
-          className="bg-violet-600 hover:bg-violet-500"
+          
         >
           Add
         </Button>

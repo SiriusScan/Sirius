@@ -11,7 +11,7 @@ import {
 import { Skeleton } from "~/components/lib/ui/skeleton"; // Reverting path
 import { Button } from "~/components/lib/ui/button"; // Reverting path for Button
 import { RefreshCwIcon } from "lucide-react"; // Added icon
-import type { DisplayedAgentDetails } from "~/components/DynamicTerminal"; // Import the new type
+import type { DisplayedAgentDetails } from "~/components/console/types";
 import { toast } from "sonner"; // Re-import toast
 import { CopyIcon, ScanLineIcon } from "lucide-react"; // Icon for copy button & scan button
 
@@ -37,12 +37,12 @@ const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({
     return null; // Don't render row if value is empty
   }
   return (
-    <div className="flex items-center justify-between border-b border-gray-100 py-2 last:border-b-0 dark:border-gray-800">
-      <span className="min-w-0 flex-1 text-sm font-medium text-gray-600 dark:text-gray-400">
+    <div className="flex items-center justify-between border-b border-gray-800 py-2 last:border-gray-800">
+      <span className="min-w-0 flex-1 text-sm font-medium text-gray-400">
         {label}
       </span>
       <span
-        className="ml-4 text-right font-mono text-sm text-gray-900 dark:text-gray-100"
+        className="ml-4 text-right font-mono text-sm text-gray-100"
         title={typeof value === "string" ? value : undefined}
       >
         {value}
@@ -117,7 +117,7 @@ const AgentDetailsComponent: React.FC<AgentDetailsProps> = ({
   if (!agentId) {
     // Handle case where no agent is selected *at all*
     return (
-      <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+      <div className="p-4 text-center text-sm text-gray-400">
         Select an agent to view details.
       </div>
     );
@@ -154,7 +154,7 @@ const AgentDetailsComponent: React.FC<AgentDetailsProps> = ({
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+        <CardContent className="p-4 text-center text-sm text-gray-400">
           No details available. Click refresh.
         </CardContent>
       </Card>
@@ -197,7 +197,7 @@ const AgentDetailsComponent: React.FC<AgentDetailsProps> = ({
               isOnline ? "bg-green-500" : "bg-red-500"
             )}
           />
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+          <span className="text-xs text-gray-400">
             {isOnline
               ? "Online"
               : `Offline (${formatLastSeen(details.lastSeen)})`}

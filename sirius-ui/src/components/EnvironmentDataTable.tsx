@@ -10,11 +10,41 @@ import {
   useReactTable,
   type ColumnDef,
   type ColumnFiltersState,
+  type FilterFn,
+  type Row,
 } from "@tanstack/react-table";
 import { type EnvironmentTableData } from "~/server/api/routers/host";
 import { useRouter } from "next/router";
 import { cn } from "~/components/lib/utils";
 import { Download, Filter, MoreHorizontal, RefreshCw } from "lucide-react";
+import { getRiskLevel as getRiskLevelUtil } from "~/utils/riskScoreCalculator";
+import { matchesSourceFilter } from "~/utils/tableFilters";
+
+/**
+ * Custom global filter that searches across all relevant string fields
+ * in the row data (hostname, ip, os, tags) regardless of how column
+ * accessors are defined.  Works for both environment-page and scanner-page
+ * data shapes because both share these fields.
+ */
+const rowGlobalFilter: FilterFn<EnvironmentTableData> = (
+  row: Row<EnvironmentTableData>,
+  _columnId: string,
+  filterValue: string
+): boolean => {
+  const search = filterValue.toLowerCase().trim();
+  if (!search) return true;
+
+  const d = row.original;
+  if (d.hostname?.toLowerCase().includes(search)) return true;
+  if (d.ip?.toLowerCase().includes(search)) return true;
+  if (d.os?.toLowerCase().includes(search)) return true;
+  if (d.tags?.some((tag) => tag.toLowerCase().includes(search))) return true;
+
+  // Also search vulnerability count as a string (e.g. "14")
+  if (String(d.vulnerabilityCount ?? "").includes(search)) return true;
+
+  return false;
+};
 
 interface EnvironmentDataTableProps {
   columns: ColumnDef<EnvironmentTableData, any>[];
@@ -33,8 +63,94 @@ export function EnvironmentDataTable({
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Dropdown filter state
+  const [osFilter, setOsFilter] = useState("");
+  const [riskFilter, setRiskFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
+
+  // Advanced filter state
+  const [advIpRange, setAdvIpRange] = useState("");
+  const [advDateRange, setAdvDateRange] = useState("");
+  const [advTags, setAdvTags] = useState("");
+
   const exportRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // getRiskLevel — uses centralized util (count-only fallback)
+  const getRiskLevel = (count: number): string =>
+    getRiskLevelUtil(undefined, count);
+
+  // ── Pre-filter data based on quick-filters, dropdowns, and advanced ──
+  const filteredData = useMemo(() => {
+    let rows = data;
+
+    // Quick-filter presets
+    if (activeFilters.includes("highRisk")) {
+      rows = rows.filter(
+        (h) =>
+          getRiskLevel(h.vulnerabilityCount ?? 0) === "critical" ||
+          getRiskLevel(h.vulnerabilityCount ?? 0) === "high"
+      );
+    }
+    if (activeFilters.includes("windows")) {
+      rows = rows.filter((h) =>
+        h.os?.toLowerCase().includes("windows")
+      );
+    }
+    if (activeFilters.includes("linux")) {
+      rows = rows.filter(
+        (h) =>
+          h.os?.toLowerCase().includes("linux") ||
+          h.os?.toLowerCase().includes("ubuntu") ||
+          h.os?.toLowerCase().includes("debian") ||
+          h.os?.toLowerCase().includes("centos") ||
+          h.os?.toLowerCase().includes("fedora") ||
+          h.os?.toLowerCase().includes("rhel")
+      );
+    }
+    // "Recently Scanned" – no scan-date field available on the data type,
+    // so we treat it as a no-op for now (all visible hosts are recent).
+
+    // Dropdown filters
+    if (osFilter) {
+      rows = rows.filter((h) =>
+        h.os?.toLowerCase().includes(osFilter.toLowerCase())
+      );
+    }
+    if (riskFilter) {
+      rows = rows.filter(
+        (h) => getRiskLevel(h.vulnerabilityCount ?? 0) === riskFilter
+      );
+    }
+    if (sourceFilter) {
+      rows = rows.filter((h) => matchesSourceFilter(h, sourceFilter));
+    }
+
+    // Advanced filters
+    if (advIpRange.trim()) {
+      const term = advIpRange.trim().toLowerCase();
+      // Simple prefix / substring match (e.g. "192.168.1")
+      // For CIDR we'd need a library – substring covers 90 % of use-cases
+      rows = rows.filter((h) => h.ip?.toLowerCase().includes(term));
+    }
+    if (advTags.trim()) {
+      const wanted = advTags
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean);
+      if (wanted.length > 0) {
+        rows = rows.filter((h) =>
+          wanted.some((w) =>
+            h.tags?.some((tag) => tag.toLowerCase().includes(w))
+          )
+        );
+      }
+    }
+    // advDateRange is a no-op since the table data doesn't carry scan timestamps.
+
+    return rows;
+  }, [data, activeFilters, osFilter, riskFilter, sourceFilter, advIpRange, advTags, advDateRange]);
 
   // Track clicks outside of export dropdown
   useEffect(() => {
@@ -74,7 +190,7 @@ export function EnvironmentDataTable({
       <div className="px-1">
         <input
           type="checkbox"
-          className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+          className="h-4 w-4 rounded border-gray-600 text-violet-500 focus:ring-violet-500"
           checked={table.getIsAllPageRowsSelected()}
           ref={(input) => {
             if (input) {
@@ -91,7 +207,7 @@ export function EnvironmentDataTable({
       <div className="px-1" onClick={(e) => e.stopPropagation()}>
         <input
           type="checkbox"
-          className="h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+          className="h-4 w-4 rounded border-gray-600 text-violet-500 focus:ring-violet-500"
           checked={row.getIsSelected()}
           onChange={row.getToggleSelectedHandler()}
         />
@@ -107,12 +223,13 @@ export function EnvironmentDataTable({
   }, [filteredColumns]);
 
   const table = useReactTable({
-    data,
+    data: filteredData,
     columns: columnsWithSelection,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: rowGlobalFilter,
     state: {
       globalFilter,
       columnFilters,
@@ -162,55 +279,26 @@ export function EnvironmentDataTable({
     { name: "Recently Scanned", filter: "recentlyScan" },
   ];
 
-  // Apply filter preset
+  // Toggle a quick-filter preset on/off
   const applyFilterPreset = (filter: string) => {
-    if (activeFilters.includes(filter)) {
-      setActiveFilters(activeFilters.filter((f) => f !== filter));
-      // Remove the filter logic here
-      switch (filter) {
-        case "highRisk":
-          table.getColumn("riskScore")?.setFilterValue(undefined);
-          break;
-        case "windows":
-          table.getColumn("os")?.setFilterValue(undefined);
-          break;
-        case "linux":
-          table.getColumn("os")?.setFilterValue(undefined);
-          break;
-        default:
-          break;
-      }
-    } else {
-      setActiveFilters([...activeFilters, filter]);
-      // Apply the filter logic here
-      switch (filter) {
-        case "highRisk":
-          // Example: Filter for high risk hosts
-          table.getColumn("riskScore")?.setFilterValue("high");
-          break;
-        case "windows":
-          // Example: Filter for Windows hosts
-          table.getColumn("os")?.setFilterValue("Windows");
-          break;
-        case "linux":
-          // Example: Filter for Linux hosts
-          table.getColumn("os")?.setFilterValue("Linux");
-          break;
-        default:
-          break;
-      }
-    }
+    setActiveFilters((prev) =>
+      prev.includes(filter)
+        ? prev.filter((f) => f !== filter)
+        : [...prev, filter]
+    );
   };
 
   // Handle export
   const handleExport = (format: "csv" | "json") => {
     const selectedRows = table.getSelectedRowModel().rows;
     const dataToExport =
-      selectedRows.length > 0 ? selectedRows.map((row) => row.original) : data;
+      selectedRows.length > 0
+        ? selectedRows.map((row) => row.original)
+        : filteredData;
 
     if (format === "csv") {
       // CSV export logic
-      const headers = Object.keys(data[0] || {}).join(",");
+      const headers = Object.keys(dataToExport[0] || {}).join(",");
       const csvRows = dataToExport.map((row) => Object.values(row).join(","));
       const csvContent = [headers, ...csvRows].join("\n");
 
@@ -253,30 +341,38 @@ export function EnvironmentDataTable({
     return (
       <div className="mb-4 flex flex-wrap gap-2">
         <select
-          className="rounded-md border border-gray-200 bg-white px-3 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-          onChange={(e) =>
-            table.getColumn("os")?.setFilterValue(e.target.value || undefined)
-          }
+          className="rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1 text-gray-200 outline-none focus:border-violet-500/40"
+          value={osFilter}
+          onChange={(e) => setOsFilter(e.target.value)}
         >
           <option value="">OS Type</option>
-          <option value="Windows">Windows</option>
-          <option value="Linux">Linux</option>
-          <option value="macOS">macOS</option>
+          <option value="windows">Windows</option>
+          <option value="linux">Linux</option>
+          <option value="macos">macOS</option>
+          <option value="unknown">Unknown</option>
         </select>
 
         <select
-          className="rounded-md border border-gray-200 bg-white px-3 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-          onChange={(e) =>
-            table
-              .getColumn("riskScore")
-              ?.setFilterValue(e.target.value || undefined)
-          }
+          className="rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1 text-gray-200 outline-none focus:border-violet-500/40"
+          value={riskFilter}
+          onChange={(e) => setRiskFilter(e.target.value)}
         >
           <option value="">Risk Level</option>
           <option value="critical">Critical</option>
           <option value="high">High</option>
           <option value="medium">Medium</option>
           <option value="low">Low</option>
+          <option value="info">Info</option>
+        </select>
+
+        <select
+          className="rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1 text-gray-200 outline-none focus:border-violet-500/40"
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value)}
+        >
+          <option value="">Source</option>
+          <option value="network">Network</option>
+          <option value="agent">Agent</option>
         </select>
       </div>
     );
@@ -287,26 +383,32 @@ export function EnvironmentDataTable({
     if (!showAdvancedFilters) return null;
 
     return (
-      <div className="mb-4 rounded-md border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <h3 className="mb-3 text-sm font-medium text-gray-900 dark:text-gray-100">
+      <div className="mb-4 rounded-md border border-violet-500/20 bg-gray-900/50 p-4 backdrop-blur-sm">
+        <h3 className="mb-3 text-sm font-medium text-gray-100">
           Advanced Filters
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
-              IP Address Range
+            <label className="mb-1 block text-xs font-medium text-gray-300">
+              IP Address / Subnet
             </label>
             <input
               type="text"
-              placeholder="e.g. 192.168.1.0/24"
-              className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              placeholder="e.g. 192.168.1"
+              value={advIpRange}
+              onChange={(e) => setAdvIpRange(e.target.value)}
+              className="w-full rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-200 focus:border-violet-500/40 focus:outline-none"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-1 block text-xs font-medium text-gray-300">
               Last Scan Date
             </label>
-            <select className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+            <select
+              value={advDateRange}
+              onChange={(e) => setAdvDateRange(e.target.value)}
+              className="w-full rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-200 outline-none focus:border-violet-500/40"
+            >
               <option value="">Any time</option>
               <option value="today">Today</option>
               <option value="week">Last 7 days</option>
@@ -314,25 +416,50 @@ export function EnvironmentDataTable({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">
+            <label className="mb-1 block text-xs font-medium text-gray-300">
               Tags
             </label>
             <input
               type="text"
               placeholder="Comma separated tags"
-              className="w-full rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+              value={advTags}
+              onChange={(e) => setAdvTags(e.target.value)}
+              className="w-full rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-200 focus:border-violet-500/40 focus:outline-none"
             />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-300">
+              Discovery Source
+            </label>
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="w-full rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-200 outline-none focus:border-violet-500/40"
+            >
+              <option value="">All Sources</option>
+              <option value="network">Network</option>
+              <option value="agent">Agent</option>
+            </select>
           </div>
         </div>
 
         <div className="mt-4 flex justify-end gap-2">
           <button
-            className="rounded-md border border-gray-200 px-3 py-1 text-sm dark:border-gray-700"
+            className="rounded-md border border-violet-500/20 px-3 py-1 text-gray-300 transition-colors hover:border-violet-500/30"
+            onClick={() => {
+              setAdvIpRange("");
+              setAdvDateRange("");
+              setAdvTags("");
+              setSourceFilter("");
+              setShowAdvancedFilters(false);
+            }}
+          >
+            Clear &amp; Close
+          </button>
+          <button
+            className="rounded-md border border-violet-500/30 bg-violet-500/20 px-3 py-1 text-sm text-violet-200 transition-colors hover:border-violet-500/40 hover:bg-violet-500/30"
             onClick={() => setShowAdvancedFilters(false)}
           >
-            Cancel
-          </button>
-          <button className="rounded-md bg-violet-500 px-3 py-1 text-sm text-white">
             Apply Filters
           </button>
         </div>
@@ -366,7 +493,7 @@ export function EnvironmentDataTable({
                 placeholder="Search hosts..."
                 value={globalFilter}
                 onChange={handleSearch}
-                className="h-10 w-64 rounded-md border border-gray-200 bg-white px-10 text-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                className="h-10 w-64 rounded-md border border-violet-500/20 bg-gray-900/50 px-10 text-sm text-gray-100 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
               />
               {globalFilter && (
                 <button
@@ -396,7 +523,7 @@ export function EnvironmentDataTable({
 
           <div className="flex gap-2">
             <button
-              className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700"
+              className="flex items-center rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-300 transition-colors hover:border-violet-500/30 hover:bg-gray-900/70"
               onClick={handleRefresh}
             >
               <RefreshCw className="mr-1.5 h-4 w-4" />
@@ -404,22 +531,22 @@ export function EnvironmentDataTable({
             </button>
             <div className="relative" ref={exportRef}>
               <button
-                className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700"
+                className="flex items-center rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-300 transition-colors hover:border-violet-500/30 hover:bg-gray-900/70"
                 onClick={() => setShowExportDropdown(!showExportDropdown)}
               >
                 <Download className="mr-1.5 h-4 w-4" />
                 Export
               </button>
               {showExportDropdown && (
-                <div className="absolute right-0 top-full z-10 mt-1 w-36 rounded-md border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <div className="absolute right-0 top-full z-10 mt-1 w-36 rounded-md border border-violet-500/20 bg-gray-900 py-1 shadow-lg">
                   <button
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                    className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-violet-500/[0.06]"
                     onClick={() => handleExport("csv")}
                   >
                     Export as CSV
                   </button>
                   <button
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                    className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-violet-500/[0.06]"
                     onClick={() => handleExport("json")}
                   >
                     Export as JSON
@@ -428,7 +555,7 @@ export function EnvironmentDataTable({
               )}
             </div>
             <button
-              className="flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm dark:border-gray-700"
+              className="flex items-center rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-300 transition-colors hover:border-violet-500/30 hover:bg-gray-900/70"
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
             >
               <Filter className="mr-1.5 h-4 w-4" />
@@ -447,10 +574,10 @@ export function EnvironmentDataTable({
               key={preset.filter}
               onClick={() => applyFilterPreset(preset.filter)}
               className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium",
+                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
                 activeFilters.includes(preset.filter)
-                  ? "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300"
-                  : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                  ? "border border-violet-500/30 bg-violet-500/20 text-violet-300"
+                  : "border border-violet-500/10 bg-gray-900/50 text-gray-400 hover:border-violet-500/20 hover:text-gray-300"
               )}
             >
               {preset.name}
@@ -463,7 +590,7 @@ export function EnvironmentDataTable({
 
         {/* Selected hosts summary */}
         {selectedHostsSummary && (
-          <div className="rounded-md bg-violet-50 p-3 dark:bg-violet-900/10">
+          <div className="rounded-md bg-violet-900/20 px-4 py-2">
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-medium">
@@ -475,10 +602,10 @@ export function EnvironmentDataTable({
                 </span>
               </div>
               <div className="flex gap-2">
-                <button className="rounded-md border border-violet-200 bg-violet-50 px-3 py-1 text-sm text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-300">
+                <button className="rounded-md border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-sm text-violet-300 hover:bg-violet-500/20 transition-colors">
                   Scan Selected
                 </button>
-                <button className="rounded-md border border-violet-200 bg-violet-50 px-3 py-1 text-sm text-violet-700 hover:bg-violet-100 dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-300">
+                <button className="rounded-md border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-sm text-violet-300 hover:bg-violet-500/20 transition-colors">
                   Tag Selected
                 </button>
               </div>
@@ -488,9 +615,9 @@ export function EnvironmentDataTable({
       </div>
 
       {/* Table */}
-      <div className="rounded-md border border-gray-200 dark:border-gray-700">
-        <table className="w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="bg-gray-50 dark:bg-gray-800">
+      <div className="rounded-lg border border-violet-500/20 bg-gray-900/30 overflow-hidden">
+        <table className="w-full divide-y divide-violet-500/10">
+          <thead className="bg-gray-900/80">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
@@ -498,7 +625,7 @@ export function EnvironmentDataTable({
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
                     className={cn(
-                      "px-4 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100",
+                      "px-4 py-3.5 text-left text-sm font-semibold text-violet-200/80",
                       header.id !== "select" && "cursor-pointer"
                     )}
                   >
@@ -555,18 +682,18 @@ export function EnvironmentDataTable({
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="divide-y divide-violet-500/5">
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
                   onClick={() => handleRowClick(row.original)}
-                  className="cursor-pointer bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800"
+                  className="cursor-pointer odd:bg-gray-800/40 even:bg-gray-900/40 hover:bg-violet-500/[0.06] transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td
                       key={cell.id}
-                      className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100"
+                      className="px-4 py-3 text-sm text-gray-200"
                       onClick={
                         cell.column.id === "select"
                           ? (e) => e.stopPropagation()
@@ -580,7 +707,7 @@ export function EnvironmentDataTable({
                               e.stopPropagation();
                               console.log("Quick action for", row.original.ip);
                             }}
-                            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500 dark:hover:bg-gray-800"
+                            className="rounded p-1 text-gray-400 hover:bg-gray-600 hover:text-gray-200 transition-colors"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
@@ -617,7 +744,7 @@ export function EnvironmentDataTable({
             onChange={(e) => {
               table.setPageSize(Number(e.target.value));
             }}
-            className="rounded-md border border-gray-200 bg-white px-2 py-1 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+            className="rounded-lg border border-violet-500/20 bg-gray-900/50 px-2 py-1 text-sm text-gray-300 outline-none focus:border-violet-500/40"
           >
             {[10, 20, 30, 40, 50].map((pageSize) => (
               <option key={pageSize} value={pageSize}>
@@ -642,8 +769,8 @@ export function EnvironmentDataTable({
         <div className="flex gap-2">
           <button
             className={cn(
-              "rounded-md border border-gray-200 px-3 py-1 text-sm dark:border-gray-700",
-              !table.getCanPreviousPage() && "cursor-not-allowed opacity-50"
+              "rounded-md border border-violet-500/20 px-3 py-1 text-sm text-gray-400 transition-colors hover:border-violet-500/30 hover:text-gray-300",
+              !table.getCanPreviousPage() && "cursor-not-allowed opacity-40"
             )}
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
@@ -656,10 +783,10 @@ export function EnvironmentDataTable({
               <button
                 key={i}
                 className={cn(
-                  "rounded-md border px-3 py-1 text-sm",
+                  "rounded-md border px-3 py-1 text-sm transition-colors",
                   table.getState().pagination.pageIndex === pageIndex
-                    ? "border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-900/20 dark:text-violet-300"
-                    : "border-gray-200 dark:border-gray-700"
+                    ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
+                    : "border-violet-500/20 text-gray-400 hover:border-violet-500/30 hover:text-gray-300"
                 )}
                 onClick={() => table.setPageIndex(pageIndex)}
               >
@@ -669,8 +796,8 @@ export function EnvironmentDataTable({
           })}
           <button
             className={cn(
-              "rounded-md border border-gray-200 px-3 py-1 text-sm dark:border-gray-700",
-              !table.getCanNextPage() && "cursor-not-allowed opacity-50"
+              "rounded-md border border-violet-500/20 px-3 py-1 text-sm text-gray-400 transition-colors hover:border-violet-500/30 hover:text-gray-300",
+              !table.getCanNextPage() && "cursor-not-allowed opacity-40"
             )}
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}

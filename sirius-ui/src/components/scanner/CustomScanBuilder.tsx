@@ -297,7 +297,7 @@ const CustomScanBuilder: React.FC<CustomScanBuilderProps> = ({
         </Button>
         <Button
           onClick={handleSave}
-          className="bg-violet-600 text-white hover:bg-violet-700"
+          
           disabled={selectedScripts.length === 0}
         >
           {saveAsTemplate ? "Save Template" : "Use for Scan"}

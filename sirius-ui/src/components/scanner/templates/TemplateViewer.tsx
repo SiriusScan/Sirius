@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "~/components/lib/ui/button";
 import { Badge } from "~/components/lib/ui/badge";
-import { Card } from "~/components/lib/ui/card";
 import { toast } from "sonner";
 import {
   Tabs,
@@ -35,8 +34,8 @@ const severityColors: Record<string, string> = {
   critical: "bg-red-500/20 text-red-400 border-red-500/50",
   high: "bg-orange-500/20 text-orange-400 border-orange-500/50",
   medium: "bg-yellow-500/20 text-yellow-400 border-yellow-500/50",
-  low: "bg-blue-500/20 text-blue-400 border-blue-500/50",
-  info: "bg-gray-500/20 text-gray-400 border-gray-500/50",
+  low: "bg-green-500/20 text-green-400 border-green-500/50",
+  info: "bg-blue-500/20 text-blue-400 border-blue-500/50",
 };
 
 export const TemplateViewer: React.FC<TemplateViewerProps> = ({
@@ -140,10 +139,10 @@ export const TemplateViewer: React.FC<TemplateViewerProps> = ({
 
   // Determine button styling based on state
   const getSaveButtonClass = () => {
-    if (!isEditing) return "bg-violet-600/20 hover:bg-violet-600/30";
+    if (!isEditing) return "border-violet-500/20 bg-violet-500/10 hover:bg-violet-500/20";
     if (isSaving) return "bg-gray-700 hover:bg-gray-600";
-    if (hasChanges) return "bg-violet-600 hover:bg-violet-700 text-white";
-    return "bg-violet-600/20 hover:bg-violet-600/30";
+    if (hasChanges) return "border-violet-500/30 bg-violet-500/20 text-violet-200 hover:bg-violet-500/30";
+    return "border-violet-500/20 bg-violet-500/10 hover:bg-violet-500/20";
   };
 
   return (
@@ -377,9 +376,9 @@ export const TemplateViewer: React.FC<TemplateViewerProps> = ({
               )}
             </div>
           ) : (
-            <Card className="border-gray-700 bg-gray-800/50 p-8">
+            <div className="scanner-section border-gray-700 bg-gray-800/50 p-8">
               <div className="flex flex-col items-center justify-center text-center">
-                <AlertCircle className="mb-4 h-12 w-12 text-gray-600" />
+                <AlertCircle className="mb-4 h-12 w-12 text-gray-400" />
                 <h3 className="text-lg font-semibold text-white">
                   No Content Available
                 </h3>
@@ -388,12 +387,12 @@ export const TemplateViewer: React.FC<TemplateViewerProps> = ({
                 </p>
                 <Button
                   onClick={() => onEdit(template)}
-                  className="mt-4 bg-violet-600 text-white hover:bg-violet-500"
+                  className="mt-4"
                 >
                   Edit in Builder
                 </Button>
               </div>
-            </Card>
+            </div>
           )}
         </TabsContent>
       </Tabs>

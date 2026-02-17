@@ -4,13 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/gofiber/fiber/v2"
 )
+
+var templateIDPattern = regexp.MustCompile("^[A-Za-z0-9._:-]{1,128}$")
 
 // Template represents a scan configuration template
 type Template struct {
@@ -82,7 +85,7 @@ func GetTemplates(c *fiber.Ctx) error {
 	for _, id := range templateList.Templates {
 		template, err := getTemplateByID(ctx, kvStore, id)
 		if err != nil {
-			log.Printf("Warning: failed to get template %s: %v", id, err)
+			slog.Warn("Failed to get template", "template_id", id, "error", err)
 			continue
 		}
 		templates = append(templates, *template)
@@ -95,6 +98,11 @@ func GetTemplates(c *fiber.Ctx) error {
 func GetTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 	templateID := c.Params("id")
+	if !templateIDPattern.MatchString(templateID) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid template id format",
+		})
+	}
 
 	// Get ValKey store
 	kvStore, err := store.NewValkeyStore()
@@ -172,10 +180,10 @@ func CreateTemplate(c *fiber.Ctx) error {
 
 	// Add to template list
 	if err := addToTemplateList(ctx, kvStore, template.ID); err != nil {
-		log.Printf("Warning: failed to add template to list: %v", err)
+		slog.Warn("Failed to add template to list", "error", err)
 	}
 
-	log.Printf("Created template: %s (%s)", template.Name, template.ID)
+	slog.Info("Created template", "name", template.Name, "template_id", template.ID)
 
 	return c.Status(fiber.StatusCreated).JSON(template)
 }
@@ -184,6 +192,11 @@ func CreateTemplate(c *fiber.Ctx) error {
 func UpdateTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 	templateID := c.Params("id")
+	if !templateIDPattern.MatchString(templateID) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid template id format",
+		})
+	}
 
 	var template Template
 	if err := c.BodyParser(&template); err != nil {
@@ -238,7 +251,7 @@ func UpdateTemplate(c *fiber.Ctx) error {
 		})
 	}
 
-	log.Printf("Updated template: %s (%s)", template.Name, template.ID)
+	slog.Info("Updated template", "name", template.Name, "template_id", template.ID)
 
 	return c.JSON(template)
 }
@@ -247,6 +260,11 @@ func UpdateTemplate(c *fiber.Ctx) error {
 func DeleteTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 	templateID := c.Params("id")
+	if !templateIDPattern.MatchString(templateID) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "invalid template id format",
+		})
+	}
 
 	// Get ValKey store
 	kvStore, err := store.NewValkeyStore()
@@ -282,10 +300,10 @@ func DeleteTemplate(c *fiber.Ctx) error {
 
 	// Remove from template list
 	if err := removeFromTemplateList(ctx, kvStore, templateID); err != nil {
-		log.Printf("Warning: failed to remove template from list: %v", err)
+		slog.Warn("Failed to remove template from list", "error", err)
 	}
 
-	log.Printf("Deleted template: %s (%s)", template.Name, templateID)
+	slog.Info("Deleted template", "name", template.Name, "template_id", templateID)
 
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -324,6 +342,9 @@ func storeTemplate(ctx context.Context, kvStore store.KVStore, template *Templat
 func validateTemplate(template *Template) error {
 	if template.ID == "" {
 		return fmt.Errorf("template ID is required")
+	}
+	if !templateIDPattern.MatchString(template.ID) {
+		return fmt.Errorf("template ID format is invalid")
 	}
 	if template.Name == "" {
 		return fmt.Errorf("template name is required")

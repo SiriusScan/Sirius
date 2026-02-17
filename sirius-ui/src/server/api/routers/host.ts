@@ -1,9 +1,8 @@
-import axios from "axios";
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { env } from "~/env.mjs";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { storeMockHosts } from "./shared-mock-data";
 import { type VulnerabilitySeverityCounts } from "~/components/VulnerabilityBarGraph";
+import { apiClient as httpClient } from "~/server/api/shared/apiClient";
 
 import {
   mockHostData,
@@ -11,12 +10,6 @@ import {
   mockEnvironmentSummaryData,
 } from "~/utils/mock/mockHostData";
 import { type SourceCoverageStats } from "~/types/scanTypes";
-
-// Create an axios instance
-const httpClient = axios.create({
-  baseURL: env.SIRIUS_API_URL,
-  timeout: 5000,
-});
 
 export type SiriusHost = {
   hid: string;
@@ -33,7 +26,7 @@ export type SiriusHost = {
 };
 
 type Port = {
-  id: number;
+  number: number;
   protocol: string;
   state: string;
 };
@@ -327,6 +320,7 @@ export type VulnerabilityWithSource = {
 
 export type PortWithSource = {
   ID: number;
+  Number: number; // The actual port number (22, 80, 443, etc.)
   CreatedAt: string;
   UpdatedAt: string;
   DeletedAt: string | null;
@@ -341,7 +335,125 @@ export type PortWithSource = {
 };
 
 export const hostRouter = createTRPCRouter({
-  getHost: publicProcedure
+  // Create a new host in the environment
+  createHost: protectedProcedure
+    .input(
+      z.object({
+        ip: z.string().min(1, "IP address is required"),
+        hostname: z.string().optional(),
+        os: z.string().optional(),
+        osversion: z.string().optional(),
+        vulnerabilities: z.array(
+          z.object({
+            vid: z.string().min(1),
+            title: z.string().optional(),
+            description: z.string().default(""),
+            riskScore: z.number().min(0).max(10).default(0),
+          }),
+        ).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        // If vulnerabilities are provided, use POST /host/with-source for source attribution
+        if (input.vulnerabilities && input.vulnerabilities.length > 0) {
+          const response = await httpClient.post("/host/with-source", {
+            host: {
+              ip: input.ip,
+              hostname: input.hostname || "",
+              os: input.os || "",
+              osversion: input.osversion || "",
+              vulnerabilities: input.vulnerabilities.map((v) => ({
+                vid: v.vid,
+                title: v.title || "",
+                description: v.description,
+                riskScore: v.riskScore,
+              })),
+            },
+            source: {
+              name: "manual",
+              version: "1.0",
+              config: "ui-host-form",
+            },
+          });
+          return response.data as { message: string; host_ip?: string };
+        }
+
+        // Otherwise use the simple POST /host
+        const response = await httpClient.post("/host", {
+          ip: input.ip,
+          hostname: input.hostname || "",
+          os: input.os || "",
+          osversion: input.osversion || "",
+        });
+        return response.data as { message: string; host_ip?: string };
+      } catch (error) {
+        console.error("Error creating host:", error);
+        if (error instanceof Error) {
+          throw new Error(`Failed to create host: ${error.message}`);
+        }
+        throw new Error("Failed to create host");
+      }
+    }),
+
+  // Get a simple list of hosts (IP + hostname) for selectors
+  getHostList: protectedProcedure.query(async () => {
+    try {
+      const response = await httpClient.get<SiriusHost[]>("host/");
+      const hostList = response.data;
+      if (!hostList || !Array.isArray(hostList)) return [];
+      return hostList.map((h) => ({
+        ip: h.ip,
+        hostname: h.hostname || "",
+        os: h.os || "",
+        vulnCount: h.vulnerabilities?.length ?? 0,
+      }));
+    } catch (error) {
+      console.error("Error fetching host list:", error);
+      return [];
+    }
+  }),
+
+  // Update an existing host
+  updateHost: protectedProcedure
+    .input(
+      z.object({
+        ip: z.string().min(1, "IP address is required"),
+        hostname: z.string().optional(),
+        os: z.string().optional(),
+        osversion: z.string().optional(),
+        ports: z
+          .array(
+            z.object({
+              number: z.number(),
+              protocol: z.string(),
+              state: z.string(),
+            })
+          )
+          .optional(),
+        notes: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const response = await httpClient.put(`/host/${input.ip}`, {
+          hostname: input.hostname,
+          os: input.os,
+          osversion: input.osversion,
+          ports: input.ports,
+          notes: input.notes,
+        });
+        return response.data as { message: string; host_ip?: string };
+      } catch (error) {
+        console.error("Error updating host:", error);
+        if (error instanceof Error) {
+          throw new Error(`Failed to update host: ${error.message}`);
+        }
+        throw new Error("Failed to update host");
+      }
+    }),
+
+  getHost: protectedProcedure
     .input(z.object({ hid: z.string() }))
     .query(async ({ input }) => {
       const { hid } = input;
@@ -361,7 +473,7 @@ export const hostRouter = createTRPCRouter({
       }
     }),
 
-  getHostStatistics: publicProcedure
+  getHostStatistics: protectedProcedure
     .input(z.object({ hid: z.string() }))
     .query(async ({ input }) => {
       const { hid } = input;
@@ -369,7 +481,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Retrieve a EnvironmentTableData[] with the statistics for each host
-  getEnvironmentSummary: publicProcedure.query(async () => {
+  getEnvironmentSummary: protectedProcedure.query(async () => {
     try {
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostList = response.data;
@@ -478,7 +590,7 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Retrieve all host/environment data
-  getAllHosts: publicProcedure.query(async () => {
+  getAllHosts: protectedProcedure.query(async () => {
     try {
       // Call to Go API
       const response = await httpClient.get<SiriusHost[]>("host/");
@@ -530,7 +642,7 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Get source coverage statistics
-  getSourceCoverage: publicProcedure.query(async () => {
+  getSourceCoverage: protectedProcedure.query(async () => {
     try {
       const response = await httpClient.get("host/source-coverage");
       // The API returns { source_coverage_stats: [...], total_sources: n }
@@ -547,7 +659,7 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Get host with source attribution (deduplicated data)
-  getHostWithSources: publicProcedure
+  getHostWithSources: protectedProcedure
     .input(z.object({ ip: z.string() }))
     .query(async ({ input }) => {
       const { ip } = input;
@@ -570,7 +682,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host software inventory (packages)
-  getHostSoftwareInventory: publicProcedure
+  getHostSoftwareInventory: protectedProcedure
     .input(
       z.object({
         ip: z.string(),
@@ -606,7 +718,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host software statistics
-  getHostSoftwareStats: publicProcedure
+  getHostSoftwareStats: protectedProcedure
     .input(z.object({ ip: z.string() }))
     .query(async ({ input }) => {
       const { ip } = input;
@@ -624,7 +736,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host system fingerprint
-  getHostSystemFingerprint: publicProcedure
+  getHostSystemFingerprint: protectedProcedure
     .input(z.object({ ip: z.string() }))
     .query(async ({ input }) => {
       const { ip } = input;
@@ -642,7 +754,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get enhanced host data with SBOM and fingerprint information
-  getEnhancedHostData: publicProcedure
+  getEnhancedHostData: protectedProcedure
     .input(
       z.object({
         ip: z.string(),
@@ -678,7 +790,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host system fingerprint data
-  getHostSystemFingerprint: publicProcedure
+  getHostSystemFingerprint: protectedProcedure
     .input(z.object({ ip: z.string() }))
     .query(async ({ input }) => {
       const { ip } = input;
@@ -696,7 +808,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get enhanced software statistics for environment overview
-  getEnvironmentSoftwareStats: publicProcedure.query(async () => {
+  getEnvironmentSoftwareStats: protectedProcedure.query(async () => {
     try {
       // Get all hosts first
       const hostsResponse = await httpClient.get<SiriusHost[]>("host/");
@@ -780,7 +892,7 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Get template detection results for a host
-  getHostTemplateResults: publicProcedure
+  getHostTemplateResults: protectedProcedure
     .input(z.object({ ip: z.string() }))
     .query(async ({ input }) => {
       const { ip } = input;
@@ -818,7 +930,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get environment-wide software inventory with aggregation and filtering
-  getEnvironmentSoftwareInventory: publicProcedure
+  getEnvironmentSoftwareInventory: protectedProcedure
     .input(
       z.object({
         search: z.string().optional(),
@@ -1005,6 +1117,69 @@ export const hostRouter = createTRPCRouter({
           total_packages: 0,
           total_hosts: 0,
           filtered_count: 0,
+        };
+      }
+    }),
+
+  // ── Host History ──────────────────────────────────────────────────────────
+
+  /** Fetch the scan-activity timeline for a single host. */
+  getHostHistory: protectedProcedure
+    .input(z.object({ ip: z.string().min(1) }))
+    .query(async ({ input }) => {
+      try {
+        const response = await httpClient.get(`/host/${input.ip}/history`);
+        return response.data as {
+          host_ip: string;
+          timeline: Array<{
+            event_type: string;
+            timestamp: string;
+            source: string;
+            details: string;
+          }>;
+          sources: string[];
+        };
+      } catch (error) {
+        console.error("Error fetching host history:", error);
+        return {
+          host_ip: input.ip,
+          timeline: [],
+          sources: [],
+        };
+      }
+    }),
+
+  /** Fetch the source history for a specific vulnerability on a host. */
+  getVulnerabilityHistory: protectedProcedure
+    .input(
+      z.object({
+        ip: z.string().min(1),
+        vulnId: z.string().min(1),
+      }),
+    )
+    .query(async ({ input }) => {
+      try {
+        const response = await httpClient.get(
+          `/host/${input.ip}/vulnerability/${input.vulnId}/history`,
+        );
+        return response.data as {
+          host_ip: string;
+          vulnerability_id: string;
+          history: Array<{
+            source: string;
+            source_version: string;
+            first_seen: string;
+            last_seen: string;
+            status: string;
+            confidence: number;
+          }>;
+        };
+      } catch (error) {
+        console.error("Error fetching vulnerability history:", error);
+        return {
+          host_ip: input.ip,
+          vulnerability_id: input.vulnId,
+          history: [],
         };
       }
     }),

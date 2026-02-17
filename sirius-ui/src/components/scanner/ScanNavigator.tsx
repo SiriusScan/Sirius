@@ -1,35 +1,50 @@
-// src/components/scanner/ScanNavigator.tsx
 import React from "react";
-import { Button } from "~/components/lib/ui/button";
+import { cn } from "~/components/lib/utils";
 
-interface ScanNavigatorProps {
+export interface ScanNavigatorProps {
   handleViewNavigator: (view: string) => void;
   view: string;
 }
 
-const ScanNavigator: React.FC<ScanNavigatorProps> = ({ handleViewNavigator, view }) => {
+export const ScanNavigator: React.FC<ScanNavigatorProps> = ({
+  handleViewNavigator,
+  view,
+}) => {
   return (
-    <div className="flex gap-2">
-      <Button
-        variant={view === "scan" ? "secondary" : "default"}
+    <nav className="flex gap-2 overflow-x-auto py-2">
+      <button
         onClick={() => handleViewNavigator("scan")}
+        className={cn(
+          "whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
+          view === "scan"
+            ? "bg-violet-500/20 text-violet-300 shadow-sm ring-1 ring-violet-500/30"
+            : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+        )}
       >
         Scan Monitor
-      </Button>
-      <Button
-        variant={view === "config" ? "secondary" : "default"}
-        onClick={() => handleViewNavigator("config")}
+      </button>
+      <button
+        onClick={() => handleViewNavigator("profiles")}
+        className={cn(
+          "whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
+          view === "profiles"
+            ? "bg-violet-500/20 text-violet-300 shadow-sm ring-1 ring-violet-500/30"
+            : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+        )}
       >
-        Configuration
-      </Button>
-      <Button
-        variant={view === "advanced" ? "secondary" : "default"}
+        Profiles
+      </button>
+      <button
         onClick={() => handleViewNavigator("advanced")}
+        className={cn(
+          "whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
+          view === "advanced"
+            ? "bg-violet-500/20 text-violet-300 shadow-sm ring-1 ring-violet-500/30"
+            : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+        )}
       >
         Advanced
-      </Button>
-    </div>
+      </button>
+    </nav>
   );
 };
-
-export default React.memo(ScanNavigator);

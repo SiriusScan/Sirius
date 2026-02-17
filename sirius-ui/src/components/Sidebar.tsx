@@ -7,61 +7,45 @@ import EnvironmentIcon from "./icons/EnvironmentIcon";
 import ScanIcon from "./icons/ScanIcon";
 import AgentIcon from "./icons/AgentIcon";
 import SiriusIcon from "./icons/SiriusIcon";
-import { initializeTheme } from "~/utils/theme";
 
 const navigationItems = [
   {
     name: "Scanner",
     href: "/scanner",
+    matchPaths: ["/scanner"],
     icon: ScanIcon,
   },
   {
     name: "Vulnerabilities",
     href: "/vulnerabilities",
+    matchPaths: ["/vulnerabilities", "/vulnerability"],
     icon: VulnerabilityIcon,
   },
   {
     name: "Environment",
     href: "/environment",
+    matchPaths: ["/environment", "/host"],
     icon: EnvironmentIcon,
   },
   {
     name: "Terminal",
     href: "/terminal",
+    matchPaths: ["/terminal"],
     icon: AgentIcon,
   },
 ];
 
 const Sidebar = () => {
   const router = useRouter();
-  const [isDarkMode, setIsDarkMode] = useState(true);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const isDark = initializeTheme();
-    setIsDarkMode(isDark);
     setMounted(true);
-
-    // Watch for theme changes
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.attributeName === "class") {
-          setIsDarkMode(document.documentElement.classList.contains("dark"));
-        }
-      });
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => observer.disconnect();
   }, []);
 
   return (
     <Tooltip.Provider delayDuration={100}>
-      <nav className="fixed h-full min-h-screen w-20 bg-secondary px-2 py-3 shadow-lg shadow-black/30 dark:shadow-violet-300/20">
+      <nav className="fixed h-full min-h-screen w-20 bg-secondary px-2 py-3 shadow-lg shadow-violet-300/20">
         {/* Sirius Logo */}
         <Tooltip.Root>
           <Tooltip.Trigger asChild>
@@ -81,7 +65,7 @@ const Sidebar = () => {
                 }}
               >
                 {/* Clean background for logo - only when selected */}
-                {router.pathname === "/dashboard" && (
+                {router.pathname.startsWith("/dashboard") && (
                   <>
                     {/* Main background with softer glassmorphism */}
                     <div className="from-violet-500/15 to-purple-600/15 absolute inset-0 rounded-xl bg-gradient-to-br via-violet-600/10 backdrop-blur-sm" />
@@ -96,16 +80,16 @@ const Sidebar = () => {
                   className={`
                     relative z-10 transition-all duration-300
                     ${
-                      router.pathname === "/dashboard"
-                        ? "scale-105 drop-shadow-[0_0_10px_rgba(167,139,250,0.9)]"
-                        : "group-hover:rotate-12 group-hover:scale-105 group-hover:drop-shadow-[0_0_12px_rgba(167,139,250,0.6)]"
+                      router.pathname.startsWith("/dashboard")
+                        ? "scale-105 text-white"
+                        : "text-white/80 group-hover:text-white group-hover:rotate-12 group-hover:scale-105"
                     }
                   `}
                 >
                   <SiriusIcon
                     width="45px"
                     height="45px"
-                    fill={isDarkMode ? "white" : "white"}
+                    fill="currentColor"
                   />
                 </div>
               </div>
@@ -130,7 +114,9 @@ const Sidebar = () => {
         <div className="ml-1 space-y-2">
           {navigationItems.map((item, index) => {
             const Icon = item.icon;
-            const isActive = router.pathname.startsWith(item.href);
+            const isActive = item.matchPaths.some((p) =>
+              router.pathname.startsWith(p),
+            );
 
             return (
               <Tooltip.Root key={item.href}>
@@ -153,7 +139,7 @@ const Sidebar = () => {
                           ${
                             isActive
                               ? "scale-105"
-                              : "scale-100 group-hover:scale-105"
+                              : "scale-100 group-hover:scale-105 group-hover:bg-white/5"
                           }
                         `}
                         onClick={(e) => {
@@ -183,8 +169,8 @@ const Sidebar = () => {
                             relative z-10 transition-all duration-200
                             ${
                               isActive
-                                ? "scale-105 drop-shadow-[0_0_8px_rgba(167,139,250,0.8)]"
-                                : "group-hover:scale-105 group-hover:drop-shadow-[0_0_12px_rgba(167,139,250,0.6)]"
+                                ? "scale-105 text-white"
+                                : "text-white/80 group-hover:text-white group-hover:scale-105"
                             }
                           `}
                         >
@@ -193,7 +179,7 @@ const Sidebar = () => {
                             width="35px"
                             height="35px"
                             stroke="currentColor"
-                            fill={isDarkMode ? "white" : "white"}
+                            fill="currentColor"
                           />
                         </div>
                       </div>

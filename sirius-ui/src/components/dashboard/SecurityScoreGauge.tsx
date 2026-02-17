@@ -204,7 +204,7 @@ export const SecurityScoreGauge: React.FC<SecurityScoreGaugeProps> = (
                   </>
                 ) : (
                   <>
-                    <stop offset="0%" stopColor="#dc2626" />
+                    <stop offset="0%" stopColor="#ef4444" />
                     <stop offset="100%" stopColor="#be123c" />
                   </>
                 )}

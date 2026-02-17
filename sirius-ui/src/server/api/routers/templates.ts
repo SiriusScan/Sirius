@@ -1,8 +1,11 @@
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { env } from "~/env.mjs";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import type { AgentScanConfig } from "~/types/scanTypes";
+import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
-const API_BASE_URL = env.SIRIUS_API_URL || "http://localhost:9001";
+// Agent scan config interface - duplicates AgentScanConfig from scanTypes.ts
+// Kept for Zod schema compatibility, but uses canonical type for actual data
+export type AgentScanConfigData = AgentScanConfig;
 
 // Template interfaces
 export interface Template {
@@ -18,12 +21,22 @@ export interface Template {
     max_retries: number;
     parallel: boolean;
     exclude_ports?: string[];
+    agent_scan?: AgentScanConfigData;
   };
   created_at: string;
   updated_at: string;
 }
 
 // Zod schemas for validation
+const agentScanConfigSchema = z.object({
+  enabled: z.boolean(),
+  mode: z.enum(["comprehensive", "templates-only", "scripts-only"]),
+  agent_ids: z.array(z.string()),
+  timeout: z.number(),
+  concurrency: z.number(),
+  template_filter: z.array(z.string()).optional(),
+});
+
 const templateOptionsSchema = z.object({
   scan_types: z.array(z.string()),
   port_range: z.string(),
@@ -31,6 +44,7 @@ const templateOptionsSchema = z.object({
   max_retries: z.number(),
   parallel: z.boolean(),
   exclude_ports: z.array(z.string()).optional(),
+  agent_scan: agentScanConfigSchema.optional(),
 });
 
 const templateSchema = z.object({
@@ -46,9 +60,9 @@ const templateSchema = z.object({
 
 export const templatesRouter = createTRPCRouter({
   // Get all templates
-  getTemplates: publicProcedure.query(async () => {
+  getTemplates: protectedProcedure.query(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/templates`);
+      const response = await apiFetch(`${API_BASE_URL}/templates`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch templates: ${response.statusText}`);
@@ -63,11 +77,11 @@ export const templatesRouter = createTRPCRouter({
   }),
 
   // Get a single template by ID
-  getTemplate: publicProcedure
+  getTemplate: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/templates/${input.id}`);
+        const response = await apiFetch(`${API_BASE_URL}/templates/${input.id}`);
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -85,15 +99,12 @@ export const templatesRouter = createTRPCRouter({
     }),
 
   // Create a new template
-  createTemplate: publicProcedure
+  createTemplate: protectedProcedure
     .input(templateSchema.omit({ created_at: true, updated_at: true }))
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/templates`, {
+        const response = await apiFetch(`${API_BASE_URL}/templates`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(input),
         });
 
@@ -111,15 +122,12 @@ export const templatesRouter = createTRPCRouter({
     }),
 
   // Update an existing template
-  updateTemplate: publicProcedure
+  updateTemplate: protectedProcedure
     .input(templateSchema.partial().extend({ id: z.string() }))
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/templates/${input.id}`, {
+        const response = await apiFetch(`${API_BASE_URL}/templates/${input.id}`, {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(input),
         });
 
@@ -137,11 +145,11 @@ export const templatesRouter = createTRPCRouter({
     }),
 
   // Delete a template
-  deleteTemplate: publicProcedure
+  deleteTemplate: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/templates/${input.id}`, {
+        const response = await apiFetch(`${API_BASE_URL}/templates/${input.id}`, {
           method: "DELETE",
         });
 

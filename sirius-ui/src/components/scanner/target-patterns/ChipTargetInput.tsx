@@ -20,6 +20,20 @@ const ChipTargetInput: React.FC<PatternProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [initializedFromProps, setInitializedFromProps] = useState(false);
+
+  // Sync with initialTargets when they change (e.g., from URL params)
+  useEffect(() => {
+    if (initialTargets.length > 0 && !initializedFromProps) {
+      setTargets((prev) => {
+        // Merge initial targets with any existing targets, avoiding duplicates
+        const existingValues = new Set(prev.map((t) => t.value));
+        const newTargets = initialTargets.filter((t) => !existingValues.has(t.value));
+        return [...prev, ...newTargets];
+      });
+      setInitializedFromProps(true);
+    }
+  }, [initialTargets, initializedFromProps]);
 
   // Update parent when targets change
   useEffect(() => {
@@ -218,7 +232,7 @@ const ChipTargetInput: React.FC<PatternProps> = ({
               {getStatusIcon(target)}
               <span className="text-xs">{target.value}</span>
               {target.hostCount && target.hostCount > 1 && (
-                <span className="ml-1 rounded bg-white/10 px-1.5 py-0.5 text-xs text-white/80">
+                <span className="ml-1 rounded bg-gray-800/10 px-1.5 py-0.5 text-xs text-white/80">
                   {target.hostCount}
                 </span>
               )}
@@ -227,7 +241,7 @@ const ChipTargetInput: React.FC<PatternProps> = ({
                   e.stopPropagation();
                   handleRemoveTarget(target.id);
                 }}
-                className="ml-1 rounded p-0.5 hover:bg-white/10"
+                className="ml-1 rounded p-0.5 hover:bg-gray-800/10"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -244,7 +258,7 @@ const ChipTargetInput: React.FC<PatternProps> = ({
             onBlur={handleAddTarget}
             placeholder={
               targets.length === 0
-                ? "Type or paste targets (192.168.1.1, 10.0.0.0/24, scanme.nmap.org...)"
+                ? "Type or paste targets (192.168.1.1, 10.0.0.0/24, 192.168.1.1-10, scanme.nmap.org...)"
                 : "Add more..."
             }
             className="min-w-[240px] flex-1 bg-transparent px-2 py-1 text-sm text-white outline-none placeholder:text-gray-500"
@@ -288,8 +302,9 @@ const ChipTargetInput: React.FC<PatternProps> = ({
         <strong>Tip:</strong> Press{" "}
         <kbd className="rounded bg-violet-500/20 px-1.5 py-0.5">Enter</kbd> or{" "}
         <kbd className="rounded bg-violet-500/20 px-1.5 py-0.5">comma</kbd> to
-        add targets. Drag & drop CSV/TXT files, or paste multiple targets at
-        once.
+        add targets. Supports IP addresses, CIDR ranges (10.0.0.0/24), IP ranges
+        (192.168.1.1-10 or 192.168.1.1-192.168.1.10), and domain names. Drag &
+        drop CSV/TXT files, or paste multiple targets at once.
       </div>
     </div>
   );

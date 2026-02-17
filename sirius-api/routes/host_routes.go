@@ -18,6 +18,7 @@ func (h *HostRouteSetter) SetupRoutes(app *fiber.App) {
 	// Specific routes first (before parameterized routes)
 	hostRoutes.Get("/", handlers.GetAllHosts)
 	hostRoutes.Post("/", handlers.AddHost)
+	hostRoutes.Put("/:id", handlers.UpdateHost)
 	hostRoutes.Post("/delete", handlers.DeleteHost)
 	hostRoutes.Get("/vulnerabilities/all", handlers.GetAllVulnerabilities)
 	hostRoutes.Get("/source-coverage", handlers.GetSourceCoverageStats)

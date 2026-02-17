@@ -39,7 +39,7 @@ const severityOptions: { value: Severity; label: string; color: string }[] = [
   {
     value: "medium",
     label: "Medium",
-    color: "bg-yellow-500/20 text-yellow-400",
+    color: "bg-amber-500/20 text-amber-400",
   },
   { value: "low", label: "Low", color: "bg-blue-500/20 text-blue-400" },
   { value: "info", label: "Info", color: "bg-gray-500/20 text-gray-400" },
@@ -174,7 +174,7 @@ export const TemplateFilters: React.FC<TemplateFiltersProps> = ({
             className={cn(
               "px-3",
               viewMode === "grid"
-                ? "border-violet-500/50 bg-violet-600 text-white hover:bg-violet-500"
+                ? "border-violet-500/30 bg-violet-500/20 text-violet-200 hover:bg-violet-500/30"
                 : "border-gray-700 bg-gray-800 hover:bg-gray-700"
             )}
           >
@@ -187,7 +187,7 @@ export const TemplateFilters: React.FC<TemplateFiltersProps> = ({
             className={cn(
               "px-3",
               viewMode === "list"
-                ? "border-violet-500/50 bg-violet-600 text-white hover:bg-violet-500"
+                ? "border-violet-500/30 bg-violet-500/20 text-violet-200 hover:bg-violet-500/30"
                 : "border-gray-700 bg-gray-800 hover:bg-gray-700"
             )}
           >
@@ -209,7 +209,7 @@ export const TemplateFilters: React.FC<TemplateFiltersProps> = ({
               <Filter className="mr-2 h-4 w-4" />
               Severity
               {filters.severity.length > 0 && (
-                <Badge className="ml-2 bg-violet-600 text-white">
+                <Badge className="ml-2 border border-violet-500/30 bg-violet-500/20 text-violet-200">
                   {filters.severity.length}
                 </Badge>
               )}
@@ -252,7 +252,7 @@ export const TemplateFilters: React.FC<TemplateFiltersProps> = ({
             >
               Platform
               {filters.platforms.length > 0 && (
-                <Badge className="ml-2 bg-violet-600 text-white">
+                <Badge className="ml-2 border border-violet-500/30 bg-violet-500/20 text-violet-200">
                   {filters.platforms.length}
                 </Badge>
               )}
@@ -293,7 +293,7 @@ export const TemplateFilters: React.FC<TemplateFiltersProps> = ({
             >
               Type
               {filters.type.length > 0 && (
-                <Badge className="ml-2 bg-violet-600 text-white">
+                <Badge className="ml-2 border border-violet-500/30 bg-violet-500/20 text-violet-200">
                   {filters.type.length}
                 </Badge>
               )}
@@ -355,7 +355,7 @@ export const TemplateFilters: React.FC<TemplateFiltersProps> = ({
                   className={cn(
                     "w-full rounded px-2 py-1 text-left text-sm transition-colors",
                     filters.sortBy === option.value
-                      ? "bg-violet-600 text-white"
+                      ? "bg-violet-500/20 text-violet-200"
                       : "text-gray-300 hover:bg-gray-700"
                   )}
                 >

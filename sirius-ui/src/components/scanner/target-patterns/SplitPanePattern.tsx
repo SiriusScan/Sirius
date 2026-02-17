@@ -125,7 +125,7 @@ const SplitPanePattern: React.FC<PatternProps> = ({
             <Button
               onClick={handleParse}
               disabled={!inputValue.trim()}
-              className="w-full bg-violet-600 text-sm hover:bg-violet-500 disabled:opacity-50"
+              className="w-full text-sm disabled:opacity-50"
             >
               Add Targets
             </Button>
@@ -148,7 +148,7 @@ const SplitPanePattern: React.FC<PatternProps> = ({
                   onClick={() => setFilter(f)}
                   className={`flex-1 rounded px-2 py-1 text-xs transition ${
                     filter === f
-                      ? "bg-violet-600 text-white"
+                      ? "bg-violet-500/20 text-violet-200"
                       : "bg-gray-800 text-gray-400 hover:bg-gray-700"
                   }`}
                 >

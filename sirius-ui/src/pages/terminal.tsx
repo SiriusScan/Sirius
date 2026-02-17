@@ -7,7 +7,8 @@ const Terminal: NextPage = () => {
   return (
     <Layout>
       <PageWrapper pageName="Terminal">
-        <div className="h-[calc(100vh-4rem)]">
+        {/* Negative margin pulls into Layout padding, height fills to viewport bottom */}
+        <div className="-mx-6 -mb-6 h-[calc(100vh-4.5rem)]">
           <TerminalWrapper />
         </div>
       </PageWrapper>

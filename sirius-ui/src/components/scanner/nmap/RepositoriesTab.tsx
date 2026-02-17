@@ -121,7 +121,7 @@ const RepositoriesTab: React.FC = () => {
         <Button
           onClick={() => initializeRepos()}
           variant="default"
-          className="bg-violet-600 hover:bg-violet-700"
+          
         >
           Initialize with Default Repository
         </Button>
@@ -237,7 +237,7 @@ const RepositoriesTab: React.FC = () => {
         <Button
           onClick={handleAddRepository}
           disabled={isAdding}
-          className="mt-2 bg-violet-600 text-white hover:bg-violet-700"
+          className="mt-2"
         >
           {isAdding ? "Adding..." : "Add Repository"}
         </Button>

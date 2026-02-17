@@ -1,4 +1,4 @@
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { z } from "zod";
 import Valkey from "iovalkey";
 import { fallbackScripts } from "~/components/scanner/nmap/mockScriptsData";
@@ -12,6 +12,11 @@ const valkey = new Valkey({
 const NSE_MANIFEST_KEY = "nse:manifest";
 const NSE_REPO_MANIFEST_KEY = "nse:repo-manifest";
 const NSE_SCRIPT_PREFIX = "nse:script:";
+const ALLOWED_KEY_PREFIXES = ["nse:", "currentScan", "agent_scan:"] as const;
+
+function isAllowedKey(key: string): boolean {
+  return ALLOWED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
 
 // Define schemas for repositories
 const RepositorySchema = z.object({
@@ -69,7 +74,7 @@ const DEFAULT_REPOSITORIES = [
 export const storeRouter = createTRPCRouter({
   // Initialize NSE scripts from the sirius-nse repository
   // Read NSE scripts status from ValKey (populated by scanner at startup)
-  initializeNseScripts: publicProcedure.mutation(async () => {
+  initializeNseScripts: protectedProcedure.mutation(async () => {
     try {
       // ✅ CORRECT: Read from ValKey (scanner populates this at startup)
       // The scanner manages the sirius-nse repository and syncs to ValKey
@@ -116,19 +121,25 @@ export const storeRouter = createTRPCRouter({
   }),
 
   // Returns the value of a key in the store
-  getValue: publicProcedure
+  getValue: protectedProcedure
     .input(z.object({ key: z.string() }))
     .query(async ({ input }) => {
       const { key } = input;
+      if (!isAllowedKey(key)) {
+        throw new Error(`Access denied for key: ${key}`);
+      }
       const value = await valkey.get(key);
       return value ?? null;
     }),
 
   // Sets the value of a key in the store
-  setValue: publicProcedure
+  setValue: protectedProcedure
     .input(z.object({ key: z.string(), value: z.string() }))
     .mutation(async ({ input }) => {
       const { key, value } = input;
+      if (!isAllowedKey(key)) {
+        throw new Error(`Write denied for key: ${key}`);
+      }
       try {
         await valkey.set(key, value);
         console.log("Value set successfully");
@@ -140,7 +151,7 @@ export const storeRouter = createTRPCRouter({
     }),
 
   // Get NSE scripts from the manifest
-  getNseScripts: publicProcedure.query(async () => {
+  getNseScripts: protectedProcedure.query(async () => {
     try {
       // Get the manifest first
       const manifestData = await valkey.get(NSE_MANIFEST_KEY);
@@ -217,7 +228,7 @@ export const storeRouter = createTRPCRouter({
     }
   }),
 
-  getNseScript: publicProcedure
+  getNseScript: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
       try {
@@ -261,7 +272,7 @@ export const storeRouter = createTRPCRouter({
       }
     }),
 
-  updateNseScript: publicProcedure
+  updateNseScript: protectedProcedure
     .input(
       z.object({
         id: z.string(),
@@ -325,8 +336,120 @@ export const storeRouter = createTRPCRouter({
       }
     }),
 
+  // Create a new NSE script (adds to manifest + stores content)
+  createNseScript: protectedProcedure
+    .input(
+      z.object({
+        id: z.string().min(1, "Script ID is required"),
+        name: z.string().min(1, "Script name is required"),
+        code: z.string(),
+        protocol: z.string().optional().default("*"),
+        metadata: z
+          .object({
+            author: z.string().optional(),
+            tags: z.array(z.string()).optional(),
+            description: z.string().optional(),
+          })
+          .optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const { id, name, code, protocol, metadata } = input;
+
+        // Get or create the manifest
+        let manifest: { scripts: Record<string, any> } = { scripts: {} };
+        const manifestData = await valkey.get(NSE_MANIFEST_KEY);
+        if (manifestData) {
+          manifest = JSON.parse(manifestData);
+          if (!manifest.scripts) {
+            manifest.scripts = {};
+          }
+        }
+
+        // Check if script ID already exists
+        if (manifest.scripts[id]) {
+          return {
+            success: false,
+            error: `Script with ID '${id}' already exists`,
+          };
+        }
+
+        // Add to manifest
+        manifest.scripts[id] = {
+          name,
+          path: `scripts/custom/${id}.nse`,
+          protocol: protocol || "*",
+        };
+
+        // Store script content
+        const scriptContent = {
+          content: code,
+          metadata: {
+            author: metadata?.author || "User",
+            tags: metadata?.tags || [],
+            description: metadata?.description || "",
+          },
+          updatedAt: Date.now(),
+          createdAt: Date.now(),
+          custom: true, // Flag to distinguish user-created scripts
+        };
+
+        // Write both in parallel
+        await Promise.all([
+          valkey.set(NSE_MANIFEST_KEY, JSON.stringify(manifest)),
+          valkey.set(
+            `${NSE_SCRIPT_PREFIX}${id}`,
+            JSON.stringify(scriptContent)
+          ),
+        ]);
+
+        return { success: true, id };
+      } catch (error) {
+        console.error("Failed to create NSE script:", error);
+        return { success: false, error: String(error) };
+      }
+    }),
+
+  // Delete an NSE script (removes from manifest + deletes content)
+  deleteNseScript: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      try {
+        const { id } = input;
+
+        // Get the manifest
+        const manifestData = await valkey.get(NSE_MANIFEST_KEY);
+        if (!manifestData) {
+          return { success: false, error: "No NSE manifest found" };
+        }
+
+        const manifest = JSON.parse(manifestData);
+        if (!manifest.scripts || !manifest.scripts[id]) {
+          return {
+            success: false,
+            error: `Script '${id}' not found in manifest`,
+          };
+        }
+
+        // Remove from manifest
+        delete manifest.scripts[id];
+
+        // Delete content and update manifest in parallel
+        await Promise.all([
+          valkey.set(NSE_MANIFEST_KEY, JSON.stringify(manifest)),
+          valkey.del(`${NSE_SCRIPT_PREFIX}${id}`),
+        ]);
+
+        return { success: true };
+      } catch (error) {
+        console.error(`Failed to delete NSE script ${input.id}:`, error);
+        return { success: false, error: String(error) };
+      }
+    }),
+
   // Repository management procedures
-  getNseRepositories: publicProcedure.query(async () => {
+  getNseRepositories: protectedProcedure.query(async () => {
     try {
       const repoData = await valkey.get(NSE_REPO_MANIFEST_KEY);
       if (!repoData) {
@@ -342,7 +465,7 @@ export const storeRouter = createTRPCRouter({
     }
   }),
 
-  addNseRepository: publicProcedure
+  addNseRepository: protectedProcedure
     .input(
       z.object({
         name: z.string().min(1, "Repository name is required"),
@@ -388,7 +511,7 @@ export const storeRouter = createTRPCRouter({
       }
     }),
 
-  removeNseRepository: publicProcedure
+  removeNseRepository: protectedProcedure
     .input(
       z.object({
         name: z.string(),
@@ -434,7 +557,7 @@ export const storeRouter = createTRPCRouter({
     }),
 
   // Initialize repositories (if none exist)
-  initializeNseRepositories: publicProcedure.mutation(async () => {
+  initializeNseRepositories: protectedProcedure.mutation(async () => {
     try {
       // Check if repositories already exist
       const repoData = await valkey.get(NSE_REPO_MANIFEST_KEY);

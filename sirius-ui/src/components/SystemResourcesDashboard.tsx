@@ -817,10 +817,10 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                                         <span
                                           className={`rounded px-1.5 py-0.5 text-xs font-medium ${
                                             log.level === "ERROR"
-                                              ? "bg-red-100 text-red-800"
+                                              ? "bg-red-500/20 text-red-300"
                                               : log.level === "WARN"
-                                              ? "bg-yellow-100 text-yellow-800"
-                                              : "bg-green-100 text-green-800"
+                                              ? "bg-yellow-500/20 text-yellow-300"
+                                              : "bg-green-500/20 text-green-300"
                                           }`}
                                         >
                                           {log.level}

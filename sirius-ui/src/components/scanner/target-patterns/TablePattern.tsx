@@ -352,7 +352,7 @@ const TablePattern: React.FC<PatternProps> = ({
                     size="sm"
                     onClick={handleAddTarget}
                     disabled={!newTargetValue.trim()}
-                    className="h-7 bg-violet-600 px-3 text-xs hover:bg-violet-500 disabled:opacity-50"
+                    className="h-7 px-3 text-xs disabled:opacity-50"
                   >
                     Add
                   </Button>

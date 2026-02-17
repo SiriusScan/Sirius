@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/SiriusScan/go-api/sirius/queue"
@@ -68,9 +68,9 @@ func GetAgentTemplateRepositories(c *fiber.Ctx) error {
 	resp, err := kvStore.GetValue(ctx, repositoryManifestKey)
 	if err != nil {
 		// No repositories exist - initialize default repository
-		log.Printf("No repositories found, initializing default repository")
+		slog.Info("No repositories found, initializing default repository")
 		if err := initializeDefaultRepository(ctx, kvStore); err != nil {
-			log.Printf("Warning: Failed to initialize default repository: %v", err)
+			slog.Warn("Failed to initialize default repository", "error", err)
 			// Return empty list even if initialization fails
 			return c.JSON([]AgentTemplateRepository{})
 		}
@@ -83,15 +83,15 @@ func GetAgentTemplateRepositories(c *fiber.Ctx) error {
 
 	var manifest RepositoryManifest
 	if err := json.Unmarshal([]byte(resp.Message.Value), &manifest); err != nil {
-		log.Printf("Error parsing repository manifest: %v", err)
+		slog.Error("Error parsing repository manifest", "error", err)
 		return c.JSON([]AgentTemplateRepository{})
 	}
 
 	// If manifest exists but has no repositories, initialize default
 	if len(manifest.Repositories) == 0 {
-		log.Printf("Repository manifest exists but is empty, initializing default repository")
+		slog.Info("Repository manifest empty, initializing default repository")
 		if err := initializeDefaultRepository(ctx, kvStore); err != nil {
-			log.Printf("Warning: Failed to initialize default repository: %v", err)
+			slog.Warn("Failed to initialize default repository", "error", err)
 		} else {
 			// Retry getting the manifest after initialization
 			resp, err = kvStore.GetValue(ctx, repositoryManifestKey)
@@ -228,7 +228,7 @@ func AddAgentTemplateRepository(c *fiber.Ctx) error {
 	}
 
 	if err := publishSyncJob(syncMsg); err != nil {
-		log.Printf("Warning: Failed to publish sync job: %v", err)
+		slog.Warn("Failed to publish sync job", "error", err)
 		// Don't fail the request, sync can happen later
 	}
 
@@ -330,7 +330,7 @@ func UpdateAgentTemplateRepository(c *fiber.Ctx) error {
 		}
 
 		if err := publishSyncJob(syncMsg); err != nil {
-			log.Printf("Warning: Failed to publish sync job: %v", err)
+			slog.Warn("Failed to publish sync job", "error", err)
 		}
 	}
 
@@ -396,7 +396,7 @@ func DeleteAgentTemplateRepository(c *fiber.Ctx) error {
 	}
 
 	if err := publishSyncJob(syncMsg); err != nil {
-		log.Printf("Warning: Failed to publish cleanup job: %v", err)
+		slog.Warn("Failed to publish cleanup job", "error", err)
 	}
 
 	return c.JSON(fiber.Map{
@@ -535,11 +535,3 @@ func publishSyncJob(msg SyncJobMessage) error {
 
 	return queue.Send(syncJobQueue, string(data))
 }
-
-
-
-
-
-
-
-

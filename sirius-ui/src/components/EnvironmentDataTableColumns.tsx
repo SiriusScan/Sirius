@@ -4,48 +4,11 @@ import React from "react";
 import { createColumnHelper } from "@tanstack/react-table";
 import { type EnvironmentTableData } from "~/server/api/routers/host";
 import { VulnerabilityBarGraphCompact } from "~/components/VulnerabilityBarGraph";
-import { calculateHostRiskScore } from "~/utils/vulnerability-service";
-import { type HostVulnerabilityCounts } from "~/types/vulnerabilityTypes";
 
-import {
-  ArrowUp,
-  ArrowDown,
-  Circle,
-  MoreHorizontal,
-  ShieldAlert,
-  ShieldCheck,
-} from "lucide-react";
-
-import { Button } from "~/components/lib/ui/button";
-import { Checkbox } from "~/components/lib/ui/checkbox";
-
-import AppleIcon from "~/components/icons/AppleIcon";
-import LinuxIcon from "~/components/icons/LinuxIcon";
-import WindowsIcon from "~/components/icons/WindowsIcon";
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "~/components/lib/ui/dropdown-menu";
+import { Circle, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import { cn } from "~/components/lib/utils";
 import { HostRowActions } from "~/components/HostRowActions";
-
-// Calculate risk score based on vulnerability distribution
-function calculateRiskScore(host: EnvironmentTableData): number {
-  // Calculate risk score directly from the vulnerability count
-  // Uses a logarithmic scale to represent diminishing returns on risk
-  // (e.g., 100 vulnerabilities isn't 10x as risky as 10)
-  const count = host.vulnerabilityCount || 0;
-  if (count === 0) return 0;
-
-  // Simple formula: base points per vulnerability with diminishing returns
-  return Math.min(Math.round(20 * Math.log10(count + 1)), 100);
-}
 
 // Helper for OS icons
 const OSIconSelector = ({ os }: { os: string }) => {
@@ -155,20 +118,20 @@ const OSSelector = ({ os }: { os: string }) => {
   );
 };
 
-// Risk score badge with color coding
+// Risk score badge with color coding (v4 palette)
 const RiskScoreBadge = ({ score }: { score: number }) => {
-  let colorClass = "bg-gray-100 text-gray-800";
+  let colorClass = "bg-gray-900/50 text-gray-400 border border-violet-500/10";
 
   if (score >= 80) {
-    colorClass = "bg-red-100 text-red-800";
+    colorClass = "bg-red-500/20 text-red-300 border border-red-500/20";
   } else if (score >= 60) {
-    colorClass = "bg-orange-100 text-orange-800";
+    colorClass = "bg-orange-500/20 text-orange-300 border border-orange-500/20";
   } else if (score >= 40) {
-    colorClass = "bg-yellow-100 text-yellow-800";
+    colorClass = "bg-yellow-500/20 text-yellow-300 border border-yellow-500/20";
   } else if (score >= 20) {
-    colorClass = "bg-green-100 text-green-800";
+    colorClass = "bg-green-500/20 text-green-300 border border-green-500/20";
   } else if (score > 0) {
-    colorClass = "bg-blue-100 text-blue-800";
+    colorClass = "bg-blue-500/20 text-blue-300 border border-blue-500/20";
   }
 
   return (
@@ -200,23 +163,23 @@ const StatusBadge = ({ status }: { status: string }) => {
     { bg: string; text: string; icon: JSX.Element }
   > = {
     online: {
-      bg: "bg-green-100 dark:bg-green-900/20",
-      text: "text-green-800 dark:text-green-300",
+      bg: "bg-green-900/20",
+      text: "text-green-300",
       icon: <Circle className="h-2 w-2 fill-green-500 text-green-500" />,
     },
     offline: {
-      bg: "bg-red-100 dark:bg-red-900/20",
-      text: "text-red-800 dark:text-red-300",
+      bg: "bg-red-900/20",
+      text: "text-red-300",
       icon: <Circle className="h-2 w-2 fill-red-500 text-red-500" />,
     },
     warning: {
-      bg: "bg-yellow-100 dark:bg-yellow-900/20",
-      text: "text-yellow-800 dark:text-yellow-300",
+      bg: "bg-yellow-900/20",
+      text: "text-yellow-300",
       icon: <ShieldAlert className="h-3 w-3 text-yellow-500" />,
     },
     secure: {
-      bg: "bg-green-100 dark:bg-green-900/20",
-      text: "text-green-800 dark:text-green-300",
+      bg: "bg-green-900/20",
+      text: "text-green-300",
       icon: <ShieldCheck className="h-3 w-3 text-green-500" />,
     },
   };
@@ -244,86 +207,119 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
-// Utility function to render a risk badge
-const RiskBadge = ({ risk }: { risk: string }) => {
-  const colorMap: Record<string, { bg: string; text: string }> = {
-    critical: {
-      bg: "bg-red-100 dark:bg-red-900/20",
-      text: "text-red-800 dark:text-red-300",
-    },
-    high: {
-      bg: "bg-orange-100 dark:bg-orange-900/20",
-      text: "text-orange-800 dark:text-orange-300",
-    },
-    medium: {
-      bg: "bg-yellow-100 dark:bg-yellow-900/20",
-      text: "text-yellow-800 dark:text-yellow-300",
-    },
-    low: {
-      bg: "bg-green-100 dark:bg-green-900/20",
-      text: "text-green-800 dark:text-green-300",
-    },
-    info: {
-      bg: "bg-blue-100 dark:bg-blue-900/20",
-      text: "text-blue-800 dark:text-blue-300",
-    },
-  };
-
-  const riskKey = risk.toLowerCase();
-  const config = colorMap[riskKey] || colorMap.medium;
-
-  // Ensure config is never undefined
-  if (!config) {
-    throw new Error("Config should never be undefined");
-  }
-
-  return (
-    <div className={cn("rounded-full px-2 py-0.5 text-center", config.bg)}>
-      <span className={cn("text-xs font-medium", config.text)}>
-        {risk.charAt(0).toUpperCase() + risk.slice(1)}
-      </span>
-    </div>
-  );
-};
+// Risk badge — uses shared component
+import { RiskBadge } from "~/components/shared/SeverityBadge";
 
 // Function to render vulnerability count with color coding
 const VulnerabilityCount = ({ count }: { count: number }) => {
-  let colorClass = "text-green-600 dark:text-green-400";
+  let colorClass = "text-green-400";
 
   if (count > 50) {
-    colorClass = "text-red-600 dark:text-red-400";
+    colorClass = "text-red-400";
   } else if (count > 20) {
-    colorClass = "text-orange-600 dark:text-orange-400";
+    colorClass = "text-orange-400";
   } else if (count > 5) {
-    colorClass = "text-yellow-600 dark:text-yellow-400";
+    colorClass = "text-yellow-400";
   }
 
   return <span className={colorClass}>{count}</span>;
 };
 
-// Function to determine host risk level based on vulnerability count
-const getRiskLevel = (vulnerabilityCount: number): string => {
-  if (vulnerabilityCount > 50) return "critical";
-  if (vulnerabilityCount > 20) return "high";
-  if (vulnerabilityCount > 5) return "medium";
-  if (vulnerabilityCount > 0) return "low";
-  return "info";
+// getRiskLevel — uses centralized util, extracts maxCvss from host vulnerabilities
+import { getRiskLevel as getRiskLevelUtil } from "~/utils/riskScoreCalculator";
+const getRiskLevel = (host: EnvironmentTableData): string => {
+  const maxScore =
+    host.vulnerabilities && host.vulnerabilities.length > 0
+      ? host.vulnerabilities.reduce((max, v) => Math.max(max, v.riskScore || 0), 0)
+      : undefined;
+  return getRiskLevelUtil(maxScore, host.vulnerabilityCount || 0);
+};
+
+// Severity indicator dot — shows the host's highest severity
+const SeverityDot = ({ host }: { host: EnvironmentTableData }) => {
+  const vulns = host.vulnerabilities ?? [];
+  if (vulns.length === 0) return null;
+
+  // Determine the highest severity present
+  const hasCritical = vulns.some(
+    (v) => v.severity?.toLowerCase() === "critical",
+  );
+  const hasHigh = vulns.some((v) => v.severity?.toLowerCase() === "high");
+  const hasMedium = vulns.some((v) => v.severity?.toLowerCase() === "medium");
+  const hasLow = vulns.some((v) => v.severity?.toLowerCase() === "low");
+
+  let dotColor = "bg-blue-500"; // informational
+  if (hasCritical) dotColor = "bg-red-500";
+  else if (hasHigh) dotColor = "bg-orange-500";
+  else if (hasMedium) dotColor = "bg-amber-500";
+  else if (hasLow) dotColor = "bg-green-500";
+
+  return (
+    <span
+      className={cn(
+        "inline-block h-2.5 w-2.5 rounded-full ring-2 ring-gray-900/50",
+        dotColor,
+      )}
+      title={
+        hasCritical
+          ? "Critical severity"
+          : hasHigh
+            ? "High severity"
+            : hasMedium
+              ? "Medium severity"
+              : hasLow
+                ? "Low severity"
+                : "Informational"
+      }
+    />
+  );
+};
+
+// Open Ports cell — renders count + top port badges
+const OpenPortsCell = ({ host }: { host: EnvironmentTableData }) => {
+  const ports = host.ports ?? [];
+  if (ports.length === 0) {
+    return <span className="text-xs text-gray-500">—</span>;
+  }
+
+  const top3 = ports.slice(0, 3);
+  const remaining = ports.length - top3.length;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-sm font-medium text-gray-300">{ports.length}</span>
+      <div className="flex gap-1">
+        {top3.map((p, i) => (
+          <span
+            key={i}
+            className="inline-flex items-center rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-medium text-violet-300"
+          >
+            {p.number}
+          </span>
+        ))}
+        {remaining > 0 && (
+          <span className="text-[10px] text-gray-500">+{remaining}</span>
+        )}
+      </div>
+    </div>
+  );
 };
 
 // Define the columns
 export const columns = [
-  // Host column with hostname and IP
+  // Host column with hostname, IP, and severity indicator dot
   columnHelper.accessor((row) => ({ hostname: row.hostname, ip: row.ip }), {
     id: "host",
     header: "Host",
     cell: ({ getValue, row }) => {
       const { hostname, ip } = getValue();
-      const status = determineHostStatus(row.original);
       return (
-        <div className="flex flex-col">
-          <div className="font-medium">{hostname || ip}</div>
-          {hostname && <div className="text-xs text-gray-500">{ip}</div>}
-          <div className="text-xs text-gray-500">{status}</div>
+        <div className="flex items-center gap-2.5">
+          <SeverityDot host={row.original} />
+          <div className="flex flex-col">
+            <div className="font-medium">{hostname || ip}</div>
+            {hostname && <div className="text-xs text-gray-500">{ip}</div>}
+          </div>
         </div>
       );
     },
@@ -345,14 +341,21 @@ export const columns = [
     },
   }),
 
+  // Open Ports column
+  columnHelper.accessor((row) => row.ports?.length ?? 0, {
+    id: "openPorts",
+    header: "Open Ports",
+    cell: ({ row }) => <OpenPortsCell host={row.original} />,
+  }),
+
   // Risk score column
   columnHelper.accessor((row) => row, {
     id: "riskScore",
     header: "Risk Level",
-    cell: ({ getValue, table }) => {
+    cell: ({ getValue }) => {
       const host = getValue();
-      const riskLevel = getRiskLevel(host.vulnerabilityCount || 0);
-      return <RiskBadge risk={riskLevel} />;
+      const riskLevel = getRiskLevel(host);
+      return <RiskBadge severity={riskLevel} />;
     },
   }),
 
@@ -368,7 +371,7 @@ export const columns = [
           {tags.slice(0, 3).map((tag, i) => (
             <span
               key={i}
-              className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800"
+              className="inline-flex items-center rounded-full bg-violet-500/20 px-2.5 py-0.5 text-xs font-medium text-violet-300"
             >
               {tag}
             </span>
@@ -418,7 +421,7 @@ export const columns = [
                 confirm(
                   `Are you sure you want to remove ${
                     host.hostname || host.ip
-                  } from the environment?`
+                  } from the environment?`,
                 )
               ) {
                 // Delete logic here

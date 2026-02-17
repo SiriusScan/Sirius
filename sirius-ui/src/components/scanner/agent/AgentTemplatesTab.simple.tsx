@@ -199,7 +199,7 @@ const AgentTemplatesTab: React.FC<AgentTemplatesTabProps> = ({
               <Button
                 onClick={handleUpload}
                 disabled={!!uploadError || uploadMutation.isPending}
-                className="bg-violet-600 hover:bg-violet-500"
+                
               >
                 {uploadMutation.isPending ? "Uploading..." : "Upload Template"}
               </Button>

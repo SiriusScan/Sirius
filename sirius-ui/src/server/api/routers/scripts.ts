@@ -1,7 +1,6 @@
 import { z } from "zod";
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-
-const API_BASE_URL = process.env.SIRIUS_API_URL || "http://sirius-api:9001";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
 // Script interfaces
 export interface Script {
@@ -45,9 +44,9 @@ const scriptSchema = z.object({
 
 export const scriptsRouter = createTRPCRouter({
   // Get all scripts
-  getScripts: publicProcedure.query(async () => {
+  getScripts: protectedProcedure.query(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/scripts`);
+      const response = await apiFetch(`${API_BASE_URL}/scripts`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch scripts: ${response.statusText}`);
@@ -62,11 +61,11 @@ export const scriptsRouter = createTRPCRouter({
   }),
 
   // Get a single script by ID (with content)
-  getScript: publicProcedure
+  getScript: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/scripts/${input.id}`);
+        const response = await apiFetch(`${API_BASE_URL}/scripts/${input.id}`);
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -84,7 +83,7 @@ export const scriptsRouter = createTRPCRouter({
     }),
 
   // Update script content
-  updateScript: publicProcedure
+  updateScript: protectedProcedure
     .input(
       z.object({
         id: z.string(),
@@ -93,11 +92,8 @@ export const scriptsRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/scripts/${input.id}`, {
+        const response = await apiFetch(`${API_BASE_URL}/scripts/${input.id}`, {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(input.content),
         });
 
@@ -115,15 +111,12 @@ export const scriptsRouter = createTRPCRouter({
     }),
 
   // Create a new custom script
-  createScript: publicProcedure
+  createScript: protectedProcedure
     .input(scriptSchema)
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/scripts`, {
+        const response = await apiFetch(`${API_BASE_URL}/scripts`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
           body: JSON.stringify(input),
         });
 
@@ -141,11 +134,11 @@ export const scriptsRouter = createTRPCRouter({
     }),
 
   // Delete a custom script
-  deleteScript: publicProcedure
+  deleteScript: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/scripts/${input.id}`, {
+        const response = await apiFetch(`${API_BASE_URL}/scripts/${input.id}`, {
           method: "DELETE",
         });
 

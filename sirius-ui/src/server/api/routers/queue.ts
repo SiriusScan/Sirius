@@ -3,7 +3,12 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { z } from "zod";
 import amqp, { type Connection, type Channel } from "amqplib";
 
+const RABBITMQ_URL =
+  process.env.RABBITMQ_URL || "amqp://guest:guest@sirius-rabbitmq:5672/";
+
 const ALLOWED_QUEUES = [
+  "scan",
+  "scan_control",
   "agent_commands",
   "agent_response",
   "terminal",
@@ -14,55 +19,41 @@ const ALLOWED_QUEUES = [
 
 const QueueNameSchema = z.enum(ALLOWED_QUEUES);
 
+export const QUEUE_OPTIONS = {
+  durable: false,
+  autoDelete: false,
+  exclusive: false,
+} as const;
+
 export const queueRouter = createTRPCRouter({
-  // Sends a message to the queue
   sendMsg: protectedProcedure
     .input(z.object({ queue: QueueNameSchema, message: z.string().min(1) }))
     .mutation(async ({ input }) => {
       const { queue, message } = input;
-      try {
-        await handleSendMsg(queue, message);
-      } catch (error) {
-        console.error("Error setting value:", error);
-      }
-
+      await handleSendMsg(queue, message);
       return true;
     }),
 });
-
-// Update queue settings to match Go
-export const QUEUE_OPTIONS = {
-  durable: false, // Match Go settings
-  autoDelete: false,
-  exclusive: false,
-};
 
 export async function handleSendMsg(
   queue: string,
   message: string
 ): Promise<void> {
-  let connection: Connection;
-  try {
-    connection = await amqp.connect(
-      "amqp://guest:guest@sirius-rabbitmq:5672/"
-    );
-  } catch (connErr) {
-    throw connErr;
-  }
-  const channel: Channel = await connection.createChannel();
+  const connection: Connection = await amqp.connect(RABBITMQ_URL);
+  let channel: Channel | null = null;
 
   try {
-    await channel.assertQueue(queue, {
-      durable: false,
-      autoDelete: false,
-      exclusive: false,
-    });
+    channel = await connection.createChannel();
 
+    await channel.assertQueue(queue, QUEUE_OPTIONS);
     channel.sendToQueue(queue, Buffer.from(message));
   } finally {
-    setTimeout(() => {
-      connection.close();
-    }, 500);
+    try {
+      if (channel) await channel.close();
+    } catch { /* channel may already be closed */ }
+    try {
+      await connection.close();
+    } catch { /* connection may already be closed */ }
   }
 }
 
@@ -71,17 +62,12 @@ export async function waitForResponse(queue: string): Promise<string> {
   let channel: Channel | null = null;
 
   try {
-    connection = await amqp.connect("amqp://guest:guest@sirius-rabbitmq:5672/");
+    connection = await amqp.connect(RABBITMQ_URL);
     channel = await connection.createChannel();
 
     // Assert queue first
-    await channel.assertQueue(queue, {
-      durable: false,
-      autoDelete: false,
-      exclusive: false,
-    });
+    await channel.assertQueue(queue, QUEUE_OPTIONS);
 
-    // Capture channel in closure to ensure type safety
     const currentChannel = channel;
 
     // Only consume one message at a time to avoid race conditions

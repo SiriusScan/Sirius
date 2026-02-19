@@ -101,9 +101,12 @@ export function useScanDataMapping(): {
       (host: HostEntry) => ({
         hostname: host.hostname || host.ip,
         ip: host.ip,
-        os: osLookup[host.ip] || "unknown",
-        vulnerabilityCount: perHostVulnCount[host.ip] ?? 0,
-        maxCvss: perHostMaxCvss[host.ip] ?? 0,
+        os: osLookup[host.ip] || osLookup[host.id] || "unknown",
+        // Vulnerability counts are keyed by host_id from the backend, which may be
+        // the IP or a separate identifier. Check both to stay resilient.
+        vulnerabilityCount:
+          perHostVulnCount[host.ip] ?? perHostVulnCount[host.id] ?? 0,
+        maxCvss: perHostMaxCvss[host.ip] ?? perHostMaxCvss[host.id] ?? 0,
         groups: [],
         tags: [],
         scan_sources: host.sources || [],

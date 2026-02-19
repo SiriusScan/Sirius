@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ScanBar } from "../ScanBar";
 import {
   Bot,
@@ -177,6 +177,26 @@ interface ScanStatusProps {
   isRescanLoading?: boolean;
 }
 
+type ScanTargetLike =
+  | string
+  | {
+      id?: string;
+      ip?: string;
+      value?: string;
+      hostname?: string;
+      sources?: string[];
+    };
+
+function getTargetDisplay(target: ScanTargetLike): string {
+  if (typeof target === "string") return target;
+  return target.ip ?? target.value ?? target.hostname ?? target.id ?? "[unknown]";
+}
+
+function getTargetKey(target: ScanTargetLike, index: number): string {
+  if (typeof target === "string") return target;
+  return target.id ?? target.ip ?? target.value ?? target.hostname ?? `target-${index}`;
+}
+
 export const ScanStatus: React.FC<ScanStatusProps> = ({
   results,
   onStopScan,
@@ -187,6 +207,10 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({
   onRescan,
   isRescanLoading = false,
 }) => {
+  const normalizedTargets = useMemo(() => {
+    return (results?.targets ?? []) as ScanTargetLike[];
+  }, [results?.targets]);
+
   // Count vulnerabilities by severity (normalized to lowercase canonical keys)
   const severityCounts = results?.vulnerabilities?.reduce<
     Record<string, number>
@@ -348,12 +372,12 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({
         <div className="flex flex-col border-l border-violet-500/20 pl-6">
           <div className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-400">Targets</div>
           <div className="flex flex-wrap gap-2">
-            {results?.targets?.map((target) => (
+            {normalizedTargets.map((target, index) => (
               <div
-                key={target}
+                key={getTargetKey(target, index)}
                 className="rounded-md bg-violet-500/10 px-2.5 py-1 font-mono text-sm text-violet-300"
               >
-                {target}
+                {getTargetDisplay(target)}
               </div>
             ))}
           </div>

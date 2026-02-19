@@ -160,14 +160,12 @@ export function useStopScan() {
 
   const forceStopScan = useCallback(
     async (scanId?: string): Promise<StopScanResult> => {
-      // Clear graceful timeout
       if (gracefulTimeoutRef.current) clearTimeout(gracefulTimeoutRef.current);
 
       setIsStopping(true);
       setError(null);
       setStopStage("force_stopping");
 
-      // Start force stop escalation timeout
       forceTimeoutRef.current = setTimeout(() => {
         setStopStage((current) => {
           if (current === "force_stopping") {
@@ -184,6 +182,19 @@ export function useStopScan() {
 
         if (forceTimeoutRef.current) clearTimeout(forceTimeoutRef.current);
 
+        if (!result.success) {
+          // Server-side force stop returned failure — fall back to full reset (del)
+          try {
+            await resetScanMutation.mutateAsync();
+            setStopStage("idle");
+            setError(null);
+            setIsStopping(false);
+            return { success: true, message: "Scan state reset (fallback)" };
+          } catch {
+            // Fall through to original error handling
+          }
+        }
+
         return {
           success: result.success,
           message: result.message,
@@ -192,25 +203,35 @@ export function useStopScan() {
       } catch (err) {
         if (forceTimeoutRef.current) clearTimeout(forceTimeoutRef.current);
 
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to force stop scan";
-        setError(errorMessage);
-        setStopStage("reset_available");
-        setIsStopping(false);
-        return {
-          success: false,
-          message: errorMessage,
-          error: errorMessage,
-        };
+        // Server-side force stop threw — fall back to full reset (del)
+        try {
+          await resetScanMutation.mutateAsync();
+          setStopStage("idle");
+          setError(null);
+          setIsStopping(false);
+          return { success: true, message: "Scan state reset (fallback)" };
+        } catch {
+          const errorMessage =
+            err instanceof Error ? err.message : "Failed to force stop scan";
+          setError(errorMessage);
+          setStopStage("reset_available");
+          setIsStopping(false);
+          return {
+            success: false,
+            message: errorMessage,
+            error: errorMessage,
+          };
+        }
       }
     },
-    [forceStopMutation]
+    [forceStopMutation, resetScanMutation]
   );
 
   // --- Tier 3: Reset Dashboard ---
+  // Directly deletes the currentScan key from ValKey via scanner.resetScanState.
+  // Guaranteed to work if ValKey is up.
 
   const resetScan = useCallback(async (): Promise<StopScanResult> => {
-    // Clear all timeouts
     if (gracefulTimeoutRef.current) clearTimeout(gracefulTimeoutRef.current);
     if (forceTimeoutRef.current) clearTimeout(forceTimeoutRef.current);
 
@@ -219,7 +240,10 @@ export function useStopScan() {
 
     try {
       const result = await resetScanMutation.mutateAsync();
-
+      if (result.success) {
+        setStopStage("idle");
+      }
+      setIsStopping(false);
       return {
         success: result.success,
         message: result.message,

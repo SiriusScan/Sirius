@@ -14,7 +14,29 @@ export interface UseScanOrchestrationParams {
   /** Current scan ID (e.g. from scanResults.scanResult?.id) for stop scan */
   scanId: string | undefined;
   /** Targets from the previous/current scan result — used as fallback for rescan when controls are collapsed */
-  previousScanTargets?: string[];
+  previousScanTargets?: Array<
+    | string
+    | {
+        id?: string;
+        ip?: string;
+        value?: string;
+        hostname?: string;
+      }
+  >;
+}
+
+function normalizePreviousTarget(
+  target:
+    | string
+    | {
+        id?: string;
+        ip?: string;
+        value?: string;
+        hostname?: string;
+    }
+): string {
+  if (typeof target === "string") return target;
+  return target.ip ?? target.value ?? target.hostname ?? target.id ?? "";
 }
 
 /**
@@ -83,7 +105,11 @@ export function useScanOrchestration({
         previousScanTargets &&
         previousScanTargets.length > 0
       ) {
-        effectiveTargets = parseTargets(previousScanTargets.join(", "));
+        const normalizedPreviousTargets = previousScanTargets
+          .map(normalizePreviousTarget)
+          .filter((value) => value.trim().length > 0);
+
+        effectiveTargets = parseTargets(normalizedPreviousTargets.join(", "));
       }
 
       if (!isAgentOnlyProfile) {

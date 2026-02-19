@@ -1,12 +1,7 @@
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { z } from "zod";
-import Valkey from "iovalkey";
 import { fallbackScripts } from "~/components/scanner/nmap/mockScriptsData";
-
-const valkey = new Valkey({
-  port: 6379,
-  host: "sirius-valkey",
-});
+import { valkey } from "~/server/valkey";
 
 // Key constants to match backend
 const NSE_MANIFEST_KEY = "nse:manifest";
@@ -140,13 +135,7 @@ export const storeRouter = createTRPCRouter({
       if (!isAllowedKey(key)) {
         throw new Error(`Write denied for key: ${key}`);
       }
-      try {
-        await valkey.set(key, value);
-        console.log("Value set successfully");
-      } catch (error) {
-        console.error("Error setting value:", error);
-      }
-
+      await valkey.set(key, value);
       return true;
     }),
 

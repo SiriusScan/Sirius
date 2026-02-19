@@ -1,6 +1,7 @@
 // src/hooks/useStartScan.ts
 import { useState } from "react";
 import { api } from "~/utils/api";
+import { b64Decode } from "~/utils/std";
 import {
   type ScanResult,
   type AgentScanConfig,
@@ -131,8 +132,8 @@ export const useStartScan = () => {
             try {
               const currentData = await utils.store.getValue.fetch({ key: "currentScan" });
               if (currentData) {
-                const currentDecoded = JSON.parse(atob(currentData)) as ScanResult;
-                if (currentDecoded.id === scanId && currentDecoded.sub_scans) {
+                const currentDecoded = b64Decode(currentData);
+                if (currentDecoded && currentDecoded.id === scanId && currentDecoded.sub_scans) {
                   const agentSS = currentDecoded.sub_scans.agent;
                   if (agentSS) {
                     // Only update frontend-owned dispatch fields

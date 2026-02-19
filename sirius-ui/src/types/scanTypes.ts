@@ -86,6 +86,17 @@ export interface HostEntry {
   sources?: string[];
 }
 
+/** Backward/forward compatible scan target shape from scanner state. */
+export type ScanTargetEntry =
+  | string
+  | {
+      id?: string;
+      ip?: string;
+      value?: string;
+      hostname?: string;
+      sources?: string[];
+    };
+
 /** Progress tracking for a sub-scan (completed/total counts and optional label). */
 export interface SubScanProgress {
   completed: number;
@@ -120,12 +131,22 @@ export interface AgentScanStatus {
   error?: string;
 }
 
+/** Known scan lifecycle states. */
+export type ScanStatus =
+  | "pending"
+  | "running"
+  | "cancelling"
+  | "cancelled"
+  | "completed"
+  | "failed";
+
 /** Live scan result object stored in ValKey and polled by the frontend. */
 export interface ScanResult {
   id: string;
-  status: string;
-  targets: string[];
-  hosts: HostEntry[];
+  status: ScanStatus;
+  targets: ScanTargetEntry[];
+  /** Backend may send plain IP strings or full HostEntry objects. */
+  hosts: (HostEntry | string)[];
   hosts_completed: number;
   vulnerabilities: VulnerabilitySummary[];
   start_time: string;

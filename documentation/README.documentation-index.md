@@ -72,6 +72,7 @@ This document provides a complete index of all documentation files in the Sirius
 
 - [README.git-operations.md](dev/operations/README.git-operations.md) - Git workflows and version control
 - [README.api-key-operations.md](dev/operations/README.api-key-operations.md) - API key lifecycle and incident recovery runbook
+- [README.release-closeout-v1.0.0.md](dev/operations/README.release-closeout-v1.0.0.md) - Final push, merge, and release acceptance evidence for Sirius v1.0.0
 
 ### Project Management
 

@@ -1,10 +1,24 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import type {
-  ScanResult,
-  VulnerabilitySummary,
-} from "~/types/scanTypes";
-import { apiClient, API_BASE_URL } from "~/server/api/shared/apiClient";
+import type { ScanResult } from "~/types/scanTypes";
+import { handleSendMsg } from "~/server/api/routers/queue";
+import { valkey } from "~/server/valkey";
+
+const CURRENT_SCAN_KEY = "currentScan";
+
+function decodeScanState(raw: string): ScanResult {
+  return JSON.parse(Buffer.from(raw, "base64").toString("utf-8")) as ScanResult;
+}
+
+function encodeScanState(state: ScanResult): string {
+  return Buffer.from(JSON.stringify(state)).toString("base64");
+}
+
+async function getCurrentScan(): Promise<ScanResult | null> {
+  const raw = await valkey.get(CURRENT_SCAN_KEY);
+  if (!raw) return null;
+  return decodeScanState(raw);
+}
 
 export interface CancelScanResponse {
   success: boolean;
@@ -28,89 +42,6 @@ export interface ResetScanResponse {
 }
 
 export const scannerRouter = createTRPCRouter({
-  getLatestScan: protectedProcedure.query(async () => {
-    try {
-      // For now, return a base64 encoded mock scan result
-      // This will be replaced with actual scan data later
-      const mockScanResult: ScanResult = {
-        id: "1",
-        status: "completed",
-        targets: ["192.168.1.0/24"],
-        hosts: [
-          { id: "host-1", ip: "192.168.1.10" },
-          { id: "host-2", ip: "192.168.1.11" },
-        ],
-        hosts_completed: 2,
-        start_time: new Date().toISOString(),
-        vulnerabilities: [
-          {
-            id: "vuln-1",
-            severity: "high",
-            title: "Sample Vulnerability",
-            description: "This is a sample vulnerability description",
-          },
-        ],
-      };
-
-      // Encode the result as base64 (matching the expected format)
-      const encodedResult = Buffer.from(
-        JSON.stringify(mockScanResult)
-      ).toString("base64");
-      return encodedResult;
-    } catch (error) {
-      console.error("Error fetching latest scan:", error);
-      return null;
-    }
-  }),
-
-  startScan: protectedProcedure
-    .input(
-      z.object({
-        targets: z.array(z.string()),
-        options: z.object({}).optional(),
-      })
-    )
-    .mutation(async ({ input }) => {
-      try {
-        // TODO: Implement actual scan starting logic
-        console.log("Starting scan for targets:", input.targets);
-
-        const scanResult: ScanResult = {
-          id: Date.now().toString(),
-          status: "running",
-          targets: input.targets,
-          hosts: [],
-          hosts_completed: 0,
-          start_time: new Date().toISOString(),
-          vulnerabilities: [],
-        };
-
-        return scanResult;
-      } catch (error) {
-        console.error("Error starting scan:", error);
-        throw new Error("Failed to start scan");
-      }
-    }),
-
-  getScanStatus: protectedProcedure
-    .input(z.object({ scanId: z.string() }))
-    .query(async ({ input }) => {
-      try {
-        // TODO: Implement actual scan status checking
-        console.log("Checking scan status for ID:", input.scanId);
-
-        return {
-          id: input.scanId,
-          status: "completed" as const,
-          progress: 100,
-        };
-      } catch (error) {
-        console.error("Error fetching scan status:", error);
-        return null;
-      }
-    }),
-
-  // Cancel the current running scan
   cancelScan: protectedProcedure
     .input(
       z
@@ -121,17 +52,25 @@ export const scannerRouter = createTRPCRouter({
     )
     .mutation(async ({ input }): Promise<CancelScanResponse> => {
       try {
-        console.log("Cancelling scan:", input?.scanId || "current");
+        const current = await getCurrentScan();
+        const scanId = input?.scanId ?? current?.id;
 
-        const response = await apiClient.post<CancelScanResponse>(
-          "/api/v1/scans/cancel",
-          { scan_id: input?.scanId }
-        );
+        const cancelCommand = JSON.stringify({
+          action: "cancel",
+          scan_id: scanId ?? "",
+          timestamp: new Date().toISOString(),
+        });
+        await handleSendMsg("scan_control", cancelCommand);
+
+        if (current && current.id === scanId && current.status === "running") {
+          current.status = "cancelling";
+          await valkey.set(CURRENT_SCAN_KEY, encodeScanState(current));
+        }
 
         return {
           success: true,
-          message: response.data.message || "Scan cancellation requested",
-          status: response.data.status,
+          message: "Scan cancellation requested",
+          status: "cancelling",
         };
       } catch (error) {
         console.error("Error cancelling scan:", error);
@@ -143,7 +82,6 @@ export const scannerRouter = createTRPCRouter({
       }
     }),
 
-  // Force stop the scan - Tier 2 escalation when graceful stop fails
   forceStopScan: protectedProcedure
     .input(
       z
@@ -154,17 +92,31 @@ export const scannerRouter = createTRPCRouter({
     )
     .mutation(async ({ input }): Promise<ForceStopResponse> => {
       try {
-        console.log("Force stopping scan:", input?.scanId || "current");
+        const cancelCommand = JSON.stringify({
+          action: "force_cancel",
+          scan_id: input?.scanId ?? "",
+          timestamp: new Date().toISOString(),
+        });
+        await handleSendMsg("scan_control", cancelCommand).catch(() => {});
 
-        const response = await apiClient.post<ForceStopResponse>(
-          "/api/v1/scans/force-stop",
-          { scan_id: input?.scanId }
-        );
+        const current = await getCurrentScan();
+        if (current) {
+          current.status = "cancelled";
+          current.end_time = new Date().toISOString();
+          if (current.sub_scans) {
+            for (const sub of Object.values(current.sub_scans)) {
+              if (sub.status === "running" || sub.status === "dispatching") {
+                sub.status = "failed";
+              }
+            }
+          }
+          await valkey.set(CURRENT_SCAN_KEY, encodeScanState(current));
+        }
 
         return {
           success: true,
-          message: response.data.message || "Scan force stopped",
-          status: response.data.status,
+          message: "Scan force stopped",
+          status: "cancelled",
         };
       } catch (error) {
         console.error("Error force stopping scan:", error);
@@ -176,20 +128,16 @@ export const scannerRouter = createTRPCRouter({
       }
     }),
 
-  // Reset scan dashboard state - Tier 3 last resort
+  // Reset scan dashboard state - Tier 3 last resort: directly clears ValKey
   resetScanState: protectedProcedure.mutation(
     async (): Promise<ResetScanResponse> => {
       try {
-        console.log("Resetting scan state");
-
-        const response = await apiClient.post<ResetScanResponse>(
-          "/api/v1/scans/reset"
-        );
+        await valkey.del(CURRENT_SCAN_KEY);
 
         return {
           success: true,
-          message: response.data.message || "Scan state reset",
-          status: response.data.status,
+          message: "Scan state reset",
+          status: "idle",
         };
       } catch (error) {
         console.error("Error resetting scan state:", error);

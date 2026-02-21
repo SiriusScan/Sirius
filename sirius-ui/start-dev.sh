@@ -2,6 +2,25 @@
 
 echo "🚀 Starting Sirius UI Development Server..."
 
+# Keep container node_modules in sync with package manifests.
+# Dev uses a persistent named volume for /app/node_modules, which can drift when deps change.
+if [ -f "/app/package.json" ] && [ -f "/app/package-lock.json" ]; then
+    CURRENT_DEPS_HASH=$(cat /app/package.json /app/package-lock.json | sha256sum | awk '{print $1}')
+    STORED_DEPS_HASH=""
+    if [ -f "/app/node_modules/.deps-hash" ]; then
+        STORED_DEPS_HASH=$(cat /app/node_modules/.deps-hash)
+    fi
+
+    if [ "$CURRENT_DEPS_HASH" != "$STORED_DEPS_HASH" ]; then
+        echo "📦 Dependency manifest changed; running npm install..."
+        npm install || exit 1
+        mkdir -p /app/node_modules
+        echo "$CURRENT_DEPS_HASH" > /app/node_modules/.deps-hash
+    else
+        echo "✅ Dependencies are up to date"
+    fi
+fi
+
 # Start System Monitor if available
 if [ -d "/system-monitor" ] && [ -f "/system-monitor/main.go" ]; then
     echo "📊 Starting System Monitor..."

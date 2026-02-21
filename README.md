@@ -13,26 +13,31 @@ Sirius is an open-source comprehensive vulnerability scanner that leverages comm
 - **Network Access**: Internet connectivity for vulnerability database updates
 - **Supported Platforms**: Linux, macOS, Windows (with WSL2)
 
-### ⚡ One-Command Setup
+### ⚡ Quick Start (Current Runtime Requirements)
 
 ```bash
-# Clone and start Sirius (uses prebuilt images from GitHub Container Registry)
+# Clone repository
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
+
+# Create required environment file
+cp .env.production.example .env
+# Then edit .env and set at minimum:
+# - SIRIUS_API_KEY
+# - POSTGRES_PASSWORD
+# - NEXTAUTH_SECRET
+
+# Start Sirius with release images
 docker compose up -d
 
 # Access the web interface
 open http://localhost:3000
 ```
 
-**Note**: By default, Sirius uses prebuilt container images from GitHub Container Registry for fast deployments (5-8 minutes). For local development with source code changes, use `docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d`.
-
-**Login Credentials**:
-
-- Username: `admin`
-- Password: `password`
-
-**⚠️ Security Notice**: Change these default credentials immediately in production environments.
+**Important**:
+- `SIRIUS_API_KEY` is required for `sirius-ui`, `sirius-api`, and `sirius-engine`.
+- For production overlay runs, `POSTGRES_PASSWORD` and `NEXTAUTH_SECRET` are also required.
+- This repository does **not** include `docker-compose.user.yaml`; use `docker-compose.yaml`, `docker-compose.dev.yaml`, and `docker-compose.prod.yaml`.
 
 ## 🆕 What's New in v1.0.0
 
@@ -62,25 +67,33 @@ cd Sirius
 docker compose up -d
 ```
 
-#### Option 2: User-Focused Setup (Simplified)
+#### Option 2: Local Development Overlay
 
-For the cleanest experience without development tooling:
-
-```bash
-git clone https://github.com/SiriusScan/Sirius.git
-cd Sirius
-docker compose -f docker-compose.user.yaml up -d
-```
-
-#### Option 3: Production Deployment
-
-For production environments with optimized performance:
+Use live-reload/development mounts for active code work:
 
 ```bash
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
-docker compose -f docker-compose.production.yaml up -d
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
 ```
+
+#### Option 3: Production Overlay
+
+Use production-oriented environment settings and validation:
+
+```bash
+git clone https://github.com/SiriusScan/Sirius.git
+cd Sirius
+cp .env.production.example .env
+# edit required values before starting
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+```
+
+##### Host Discovery Prerequisites (Prod Overlay)
+
+- `sirius-engine` requires `NET_RAW` capability for ICMP-based fingerprint discovery.
+- Keep `SIRIUS_API_URL` and `API_BASE_URL` pointing to `http://sirius-api:9001` for container-to-container API persistence.
+- Use `NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001` so browser calls hit the host-exposed API.
 
 ### ✅ Verify Installation
 
@@ -101,6 +114,21 @@ curl http://localhost:3000
 
 # Check API health
 curl http://localhost:9001/health
+```
+
+### 🔎 Host Discovery Validation (Prod Overlay)
+
+```bash
+# Confirm production overlay renders successfully and includes NET_RAW
+SIRIUS_API_KEY=test-key POSTGRES_PASSWORD=test-pass NEXTAUTH_SECRET=test-secret \
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml config | rg "NET_RAW"
+
+# Confirm scanner system template is canonicalized on startup (quick includes fingerprint)
+docker compose exec sirius-valkey valkey-cli GET template:quick | rg '"scan_types"'
+
+# Run a scan from UI/API, then verify queue consumers and scan state
+docker compose exec sirius-rabbitmq rabbitmqctl list_queues name consumers messages_ready messages_unacknowledged | rg "scan|scan_control"
+docker compose exec sirius-valkey valkey-cli GET currentScan
 ```
 
 ## 🎯 What Can Sirius Do?
@@ -132,7 +160,7 @@ Sirius uses a microservices architecture with the following components:
 | ------------------- | ----------------------- | ------------------------------ | ----------- | ------------------------------------- |
 | **sirius-ui**       | Web frontend            | Next.js 14, React, TailwindCSS | 3000        | User interface and visualization      |
 | **sirius-api**      | REST API backend        | Go, Gin framework              | 9001        | API endpoints and business logic      |
-| **sirius-engine**   | Multi-service container | Go, Air live-reload            | 5174, 50051 | Scanner, terminal, and agent services |
+| **sirius-engine**   | Multi-service container | Go services + embedded app-agent gRPC server | 5174, 50051 | Scanner, terminal, and agent services |
 | **sirius-postgres** | Primary database        | PostgreSQL 15                  | 5432        | Vulnerability and scan data storage   |
 | **sirius-rabbitmq** | Message queue           | RabbitMQ                       | 5672, 15672 | Inter-service communication           |
 | **sirius-valkey**   | Cache layer             | Redis-compatible               | 6379        | Session and temporary data            |
@@ -150,6 +178,12 @@ Scanning Engine (sirius-engine)
     ↓ SQL Queries
 Database (sirius-postgres)
 ```
+
+### 🤖 Agent Runtime Note
+
+- `app-agent` runs inside `sirius-engine` in the default deployment.
+- The gRPC endpoint is exposed on port `50051`.
+- You do not need a separate `app-agent` container for the standard/prod compose flows in this repo.
 
 ### 🗄️ Data Storage
 
@@ -277,11 +311,9 @@ Sirius provides comprehensive APIs for integration with existing security workfl
 
 ### REST API Endpoints
 
-- **Authentication**: `/api/auth` - JWT-based authentication
-- **Hosts**: `/api/hosts` - Host management and discovery
-- **Scans**: `/api/scans` - Scan management and execution
-- **Vulnerabilities**: `/api/vulnerabilities` - Vulnerability data access
-- **Reports**: `/api/reports` - Report generation and export
+- Sirius exposes REST endpoints on `http://localhost:9001`.
+- The API is protected by `SIRIUS_API_KEY` middleware.
+- Include the API key in requests with `X-API-Key: <your key>`.
 
 ### WebSocket APIs
 
@@ -292,20 +324,13 @@ Sirius provides comprehensive APIs for integration with existing security workfl
 ### Integration Examples
 
 ```bash
-# Start a network scan via API
-curl -X POST http://localhost:9001/api/scans \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"target": "192.168.1.0/24", "scan_type": "network"}'
+# Health endpoint
+curl http://localhost:9001/health \
+  -H "X-API-Key: $SIRIUS_API_KEY"
 
-# Get vulnerability summary
-curl http://localhost:9001/api/vulnerabilities/summary \
-  -H "Authorization: Bearer $TOKEN"
-
-# Export scan results
-curl http://localhost:9001/api/reports/scan/123/pdf \
-  -H "Authorization: Bearer $TOKEN" \
-  -o scan-report.pdf
+# Example authenticated request
+curl http://localhost:9001/api/v1/scan/get/all \
+  -H "X-API-Key: $SIRIUS_API_KEY"
 ```
 
 ## 🔧 Troubleshooting
@@ -407,7 +432,7 @@ docker exec sirius-rabbitmq rabbitmqctl status
 docker exec sirius-rabbitmq rabbitmqctl list_queues
 
 # Access management interface
-open http://localhost:15672  # guest/guest
+open http://localhost:15672
 ```
 
 **Problem**: RabbitMQ schema integrity check failed
@@ -433,7 +458,7 @@ docker exec sirius-api ping sirius-postgres
 
 # Check network configuration
 docker network ls
-docker network inspect sirius_default
+docker network inspect sirius
 ```
 
 **Problem**: External access issues
@@ -488,10 +513,10 @@ docker cp sirius-engine:/opt/sirius/ ./sirius-backup/
 1. **Change Default Credentials**:
 
 ```bash
-# Update in docker-compose.production.yaml
+# Update in .env (used by docker-compose.prod.yaml)
 POSTGRES_PASSWORD=your_secure_password
-RABBITMQ_DEFAULT_PASS=your_secure_password
 NEXTAUTH_SECRET=your_long_random_secret
+SIRIUS_API_KEY=your_long_random_api_key
 ```
 
 2. **Network Security**:

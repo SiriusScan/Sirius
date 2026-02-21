@@ -1,5 +1,3 @@
-github.com/SiriusScan/go-api v0.0.14 h1:4Bm05xCVfySPAa+2HTq44cSGQhdofsPxeFocSSW6r8E=
-github.com/SiriusScan/go-api v0.0.14/go.mod h1:3uw5dE8qotMGDkF7AF3pwVSxcLNJY7ZI8csTXEmkOkE=
 github.com/SiriusScan/go-api v0.0.15 h1:ReSc+oy3RXp4UbV/jD4ccJZsCFzPRhDqG+DdJKxV3Os=
 github.com/SiriusScan/go-api v0.0.15/go.mod h1:3uw5dE8qotMGDkF7AF3pwVSxcLNJY7ZI8csTXEmkOkE=
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=

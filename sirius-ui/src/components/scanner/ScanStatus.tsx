@@ -321,6 +321,8 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({
               hasRun={results?.status === "completed"}
               isCancelling={results?.status === "cancelling"}
               wasCancelled={results?.status === "cancelled"}
+              scanStartTime={results?.start_time ?? null}
+              scanEndTime={results?.end_time ?? null}
             />
           </div>
           {renderStopActions()}

@@ -6,6 +6,8 @@ interface ScanBarProps {
   hasRun?: boolean; // Optional prop to indicate if a scan has completed
   isCancelling?: boolean; // Optional prop to indicate scan is being cancelled
   wasCancelled?: boolean; // Optional prop to indicate scan was cancelled
+  scanStartTime?: string | null; // Persisted scan start from backend/store
+  scanEndTime?: string | null; // Optional persisted end timestamp
 }
 
 export const ScanBar: React.FC<ScanBarProps> = ({
@@ -13,23 +15,50 @@ export const ScanBar: React.FC<ScanBarProps> = ({
   hasRun = false,
   isCancelling = false,
   wasCancelled = false,
+  scanStartTime,
+  scanEndTime,
 }) => {
   const [darkMode, setDarkMode] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
   const finalTimeRef = useRef(0);
 
+  const parseIsoMs = (value?: string | null): number | null => {
+    if (!value) return null;
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) ? ms : null;
+  };
+
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
     if (isScanning || isCancelling) {
-      // Start/continue timer when scanning or cancelling
-      const startTime = Date.now();
+      // Use persisted scan start when available so rerenders/remounts don't reset visible time.
+      const scanStartMs = parseIsoMs(scanStartTime);
+      const localStartMs = Date.now();
+      const computeElapsedSeconds = () => {
+        const base = scanStartMs ?? localStartMs;
+        return Math.max(0, Math.floor((Date.now() - base) / 1000));
+      };
+      const initialElapsed = computeElapsedSeconds();
+      setElapsedTime(initialElapsed);
       interval = setInterval(() => {
-        setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+        const nextElapsed = computeElapsedSeconds();
+        setElapsedTime(nextElapsed);
       }, 1000);
     } else {
-      // Store final time when scan completes or is cancelled
-      if (elapsedTime > 0) {
+      const scanStartMs = parseIsoMs(scanStartTime);
+      const scanEndMs = parseIsoMs(scanEndTime);
+
+      // Prefer persisted timestamps to derive final duration.
+      if ((hasRun || wasCancelled) && scanStartMs !== null) {
+        const resolvedEndMs = scanEndMs ?? Date.now();
+        const finalElapsed = Math.max(
+          0,
+          Math.floor((resolvedEndMs - scanStartMs) / 1000)
+        );
+        finalTimeRef.current = finalElapsed;
+        setElapsedTime(finalElapsed);
+      } else if (elapsedTime > 0) {
         finalTimeRef.current = elapsedTime;
       }
       // Only reset elapsed time if we're not preserving the final time
@@ -41,7 +70,7 @@ export const ScanBar: React.FC<ScanBarProps> = ({
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isScanning, isCancelling, hasRun, wasCancelled]);
+  }, [isScanning, isCancelling, hasRun, wasCancelled, scanStartTime, scanEndTime]);
 
   // Format elapsed time as mm:ss
   const formatTime = (seconds: number): string => {

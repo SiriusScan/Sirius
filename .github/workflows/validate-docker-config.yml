@@ -14,7 +14,7 @@ on:
 jobs:
   validate-docker-config:
     name: Validate Docker Compose Configuration
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
 
     steps:
       - name: Checkout code

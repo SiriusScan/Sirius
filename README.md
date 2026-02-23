@@ -179,6 +179,102 @@ curl http://localhost:3000
 curl http://localhost:9001/health
 ```
 
+### Clean Rollout Verification (Fresh Clone)
+
+Use this sequence to validate a production rollout from a fresh checkout.
+
+```bash
+# 1) Start from a clean runtime state
+docker compose down -v --remove-orphans
+
+# 2) Generate runtime secrets/config
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
+
+# 3) Build from local source deterministically (no registry pulls)
+env -u SIRIUS_API_KEY -u POSTGRES_PASSWORD -u NEXTAUTH_SECRET -u INITIAL_ADMIN_PASSWORD \
+SIRIUS_IMAGE_PULL_POLICY=never docker compose up -d --build
+
+# 4) Confirm all services are healthy
+docker compose ps
+
+# 5) Validate API auth behavior
+curl -i http://localhost:9001/host/            # expect 401 (no key)
+RUNTIME_KEY=$(docker inspect sirius-api --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY=' | sed 's/^SIRIUS_API_KEY=//')
+curl -i -H "X-API-Key: ${RUNTIME_KEY}" http://localhost:9001/host/   # expect 200
+
+# 6) Ensure startup regressions are absent
+docker compose logs --no-color sirius-ui sirius-engine | rg -i "ENOTFOUND|permission denied|Failed to open log file"
+```
+
+If step 6 returns any lines, capture full logs and investigate before rollout.
+
+### Release Image Propagation Verification
+
+Use this path to validate what operators experience when running pulled release images.
+
+```bash
+# 1) Ensure local builds are not used
+docker compose down -v --remove-orphans
+
+# 2) Generate runtime secrets/config
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
+
+# 3) Pull and run release images for the selected tag
+export IMAGE_TAG=v1.0.0
+export SIRIUS_IMAGE_PULL_POLICY=always
+docker compose up -d
+
+# 4) Verify running container image IDs match pulled release images
+bash scripts/verify-release-images.sh
+```
+
+Expected result: all checks print `✅` and no service is running an unexpected local image.
+
+### Runtime Auth Contract Verification
+
+Use this check any time you run `reset`, switch between source/release mode, or see `401` and DB auth errors.
+
+```bash
+# Validate runtime env parity, stale postgres entrypoint behavior, and auth probes
+bash scripts/verify-runtime-auth-contract.sh
+```
+
+If this script fails, do not start new scans until the mismatch is corrected.
+
+### Scan-Stuck Troubleshooting Runbook
+
+If scans complete in backend logs but UI remains non-terminal, run:
+
+```bash
+# 0) Do NOT use command-scoped secret overrides for single-service restarts.
+# Bad (causes key drift): SIRIUS_API_KEY=local-dev docker compose up -d sirius-engine
+# Good: keep secrets in .env and recreate dependent services together.
+
+# 1) Verify API key contract is consistent across services
+docker inspect sirius-ui --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY='
+docker inspect sirius-api --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY='
+docker inspect sirius-engine --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY='
+
+# 2) Check engine scanner warnings and terminal status persistence
+docker compose logs --no-color sirius-engine | rg -i "source-aware|status|completed|failed|warning|401"
+
+# 3) Check UI auth/session and API bridge logs
+docker compose logs --no-color sirius-ui | rg -i "JWT_SESSION_ERROR|SIRIUS_API_KEY|fetch failed|401"
+
+# 4) Verify DB credential consistency from runtime containers
+docker compose logs --no-color sirius-postgres sirius-api sirius-engine | rg -i "password authentication failed|database connection not available"
+
+# 5) Run contract verifier
+bash scripts/verify-runtime-auth-contract.sh
+```
+
+If any command surfaces key/secret mismatch, re-run installer and restart:
+
+```bash
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
+docker compose up -d --force-recreate
+```
+
 ### 🔎 Host Discovery Validation
 
 ```bash
@@ -556,8 +652,15 @@ docker compose down -v
 # Clean Docker system
 docker system prune -a -f
 
-# Fresh start
-docker compose up -d --build
+# Recreate .env using installer (required after reset)
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
+
+# Fresh start without shell variable shadowing
+env -u SIRIUS_API_KEY -u POSTGRES_PASSWORD -u NEXTAUTH_SECRET -u INITIAL_ADMIN_PASSWORD \
+SIRIUS_IMAGE_PULL_POLICY=never docker compose up -d --build
+
+# Verify auth contract before interacting with UI
+bash scripts/verify-runtime-auth-contract.sh
 ```
 
 **Backup Current Data**:

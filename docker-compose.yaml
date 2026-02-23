@@ -53,7 +53,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test:
+        [
+          "CMD-SHELL",
+          "PGPASSWORD=\"$${POSTGRES_PASSWORD}\" psql -h 127.0.0.1 -U \"$${POSTGRES_USER:-postgres}\" -d \"$${POSTGRES_DB:-sirius}\" -c 'SELECT 1;' >/dev/null 2>&1",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -95,8 +99,14 @@ services:
           cpus: "0.1"
 
   sirius-ui:
+    build:
+      context: ./sirius-ui
+      dockerfile: Dockerfile
+    # Runtime contract:
+    # - release mode: IMAGE_TAG=<tag> + SIRIUS_IMAGE_PULL_POLICY=always
+    # - source mode: SIRIUS_IMAGE_PULL_POLICY=never + docker compose up --build
     image: ghcr.io/siriusscan/sirius-ui:${IMAGE_TAG:-latest}
-    pull_policy: always
+    pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
     container_name: sirius-ui
     hostname: sirius-ui
     restart: unless-stopped
@@ -119,6 +129,10 @@ services:
     depends_on:
       sirius-postgres:
         condition: service_healthy
+      sirius-api:
+        condition: service_healthy
+      sirius-rabbitmq:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/"]
       interval: 30s
@@ -134,8 +148,11 @@ services:
           cpus: "0.5"
 
   sirius-api:
+    build:
+      context: ./sirius-api
+      dockerfile: Dockerfile
     image: ghcr.io/siriusscan/sirius-api:${IMAGE_TAG:-latest}
-    pull_policy: always
+    pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
     container_name: sirius-api
     hostname: sirius-api
     restart: unless-stopped
@@ -177,8 +194,11 @@ services:
       retries: 3
 
   sirius-engine:
+    build:
+      context: ./sirius-engine
+      dockerfile: Dockerfile
     image: ghcr.io/siriusscan/sirius-engine:${IMAGE_TAG:-latest}
-    pull_policy: always
+    pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
     container_name: sirius-engine
     hostname: sirius-engine
     restart: unless-stopped

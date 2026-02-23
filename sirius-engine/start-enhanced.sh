@@ -57,6 +57,72 @@ trap cleanup SIGTERM SIGINT
 echo "Starting Sirius Engine services..."
 echo "Environment: ${GO_ENV:-production}"
 
+validate_required_env() {
+    local var_name=$1
+    local value
+    value=$(printenv "$var_name")
+    if [ -z "$value" ]; then
+        echo "Error: required environment variable '$var_name' is not set"
+        exit 1
+    fi
+}
+
+validate_postgres_connection() {
+    local max_attempts=30
+    local attempt=0
+
+    echo "Validating PostgreSQL connectivity with runtime credentials..."
+    while [ "$attempt" -lt "$max_attempts" ]; do
+        if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1" >/dev/null 2>&1; then
+            echo "PostgreSQL connectivity validated."
+            return 0
+        fi
+        attempt=$((attempt + 1))
+        sleep 2
+    done
+
+    echo "Error: unable to connect to PostgreSQL with configured credentials."
+    exit 1
+}
+
+validate_api_key_contract() {
+    local max_attempts=30
+    local attempt=0
+
+    echo "Validating API key contract with sirius-api..."
+    while [ "$attempt" -lt "$max_attempts" ]; do
+        http_status=$(curl -sS -o /tmp/sirius-api-auth-probe.out -w "%{http_code}" \
+            -H "X-API-Key: $SIRIUS_API_KEY" \
+            "${SIRIUS_API_URL%/}/host/" || true)
+
+        if [ "$http_status" = "401" ] || [ "$http_status" = "403" ]; then
+            echo "Error: sirius-engine API key was rejected by sirius-api (status $http_status)."
+            echo "This usually means SIRIUS_API_KEY is mismatched across containers due to shell overrides."
+            exit 1
+        fi
+
+        if [ "$http_status" != "000" ] && [ "$http_status" != "502" ] && [ "$http_status" != "503" ] && [ "$http_status" != "504" ]; then
+            echo "API key contract validated (status $http_status)."
+            return 0
+        fi
+
+        attempt=$((attempt + 1))
+        sleep 2
+    done
+
+    echo "Error: unable to validate API key contract with sirius-api."
+    exit 1
+}
+
+validate_required_env "POSTGRES_HOST"
+validate_required_env "POSTGRES_USER"
+validate_required_env "POSTGRES_PASSWORD"
+validate_required_env "POSTGRES_DB"
+validate_required_env "SIRIUS_API_KEY"
+validate_required_env "SIRIUS_API_URL"
+validate_postgres_connection
+validate_api_key_contract
+
 # Start system monitor if available
 if [ -d "/system-monitor" ]; then
     echo "Starting system monitor..."
@@ -182,14 +248,16 @@ if [ -d "$AGENT_PATH" ] && [ -f "$AGENT_PATH/go.mod" ]; then
         go run cmd/server/main.go < /dev/null &
         AGENT_SERVER_PID=$!
     else
+        # Keep runtime artifacts (e.g., command logs) in a writable location.
+        cd /engine
         # Production mode - start server binary
         if has_binary "$AGENT_PATH" "server"; then
             echo "Running production agent server binary"
-            ./server < /dev/null &
+            "$AGENT_PATH/server" < /dev/null &
             AGENT_SERVER_PID=$!
         else
             echo "Running agent server with go run (fallback)"
-            go run cmd/server/main.go < /dev/null &
+            go run "$AGENT_PATH/cmd/server/main.go" < /dev/null &
             AGENT_SERVER_PID=$!
         fi
     fi
@@ -202,10 +270,10 @@ if [ -d "$AGENT_PATH" ] && [ -f "$AGENT_PATH/go.mod" ]; then
         echo "Agent server started with PID: $AGENT_SERVER_PID"
     fi
 elif [ -d "$AGENT_PATH" ] && has_binary "$AGENT_PATH" "server"; then
-    cd "$AGENT_PATH"
+    cd /engine
     echo "Starting agent server from $AGENT_PATH (binary only)..."
     echo "Running production agent server binary"
-    ./server < /dev/null &
+    "$AGENT_PATH/server" < /dev/null &
     AGENT_SERVER_PID=$!
     sleep 2
     if ! kill -0 $AGENT_SERVER_PID 2>/dev/null; then

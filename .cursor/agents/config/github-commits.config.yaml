@@ -1,0 +1,72 @@
+product: github-commits
+product_path: .github
+docker_service_name: null
+
+metadata:
+  name: "GitHub Commits"
+  title: "GitHub Commits (Commit, Push, Release Hygiene)"
+  description: "Specialized operator for Sirius commit workflows, safe staging, and push/release hygiene."
+  role_type: operations
+  version: "1.0.0"
+  last_updated: "2026-02-23"
+  author: "Sirius Team"
+  specialization:
+    - git-commit-workflows
+    - selective-staging
+    - push-hygiene
+    - commit-message-quality
+    - release-branch-safety
+  technology_stack:
+    - Git
+    - GitHub
+    - GitHub Actions
+    - Docker test hooks
+  system_integration_level: medium
+  categories:
+    - operations
+    - git
+    - release
+  tags:
+    - commits
+    - push
+    - staging
+    - git-hygiene
+    - workflow
+  related_docs:
+    - documentation/dev/operations/README.git-operations.md
+    - documentation/dev/test/README.container-testing.md
+    - documentation/dev/deployment/README.workflows.md
+  dependencies:
+    - .github/workflows/
+    - testing/container-testing/
+    - documentation/dev/operations/README.git-operations.md
+  llm_context: high
+  context_window_target: 1000
+
+generation:
+  include_file_structure: true
+  file_structure_path: .github
+  file_structure_depth: 2
+  file_structure_ignore:
+    - node_modules
+    - dist
+    - bin
+    - .git
+
+  include_ports: false
+  include_dependencies: false
+
+  include_config_examples: true
+  config_files:
+    - path: .github/workflows/ci.yml
+      title: "Primary CI Workflow"
+      max_lines: 60
+    - path: documentation/dev/operations/README.git-operations.md
+      title: "Git Operations Guide"
+      max_lines: 60
+
+  extract_code_patterns_from_docs:
+    - documentation/dev/operations/README.git-operations.md
+
+template_path: ../../.cursor/agents/templates/github-commits.template.md
+output_path: ../../.cursor/commands/bot-github-commits.md

@@ -39,6 +39,7 @@ Central registry of all agent identities in the Sirius project. Use this index t
 | [Security Template Curator](mdc:.cursor/agents/security-template-curator.agent.md) | documentation | none              | ✅ Active     |
 | [SRE Monitoring Engineer](mdc:.cursor/agents/sre-monitoring-engineer.agent.md)     | operations    | high              | ✅ Active     |
 | [Maintainer Ops](mdc:.cursor/commands/bot-maintainer-ops.md)                       | operations    | high              | ✅ Active     |
+| [GitHub Commits](mdc:.cursor/commands/bot-github-commits.md)                       | operations    | medium            | ✅ Active     |
 | [System Architect](mdc:.cursor/agents/system-architect.agent.md)                   | engineering   | high              | ✅ Active     |
 | [Technical Writer](mdc:.cursor/agents/technical-writer.agent.md)                   | documentation | none              | ✅ Active     |
 
@@ -118,6 +119,11 @@ Agents focused on infrastructure, deployment, and system reliability.
   - Specialization: Issue triage taxonomy, ChatOps command handling, evidence-driven review
   - Integration: High (issues, PRs, workflows, runbooks, test evidence)
   - Tech Stack: GitHub Actions, issue forms, labels, container/security test harnesses
+
+- **[GitHub Commits](mdc:.cursor/commands/bot-github-commits.md)**
+  - Specialization: Commit scope control, selective staging, safe push/release hygiene
+  - Integration: Medium (git workflow + CI hooks + release discipline)
+  - Tech Stack: Git, GitHub, GitHub Actions, repository policy workflows
 
 ### QA
 
@@ -223,12 +229,12 @@ Agents focused on technical writing, documentation, and knowledge management.
 
 ## Statistics
 
-**Total Agents:** 15 active + 6 system files
+**Total Agents:** 16 active + 6 system files
 
 **By Role Type:**
 
 - Engineering: 7 agents (50%)
-- Operations: 4 agents (27%)
+- Operations: 5 agents (31%)
 - QA: 1 agent (7%)
 - Product: 1 agent (7%)
 - Documentation: 2 agents (14%)

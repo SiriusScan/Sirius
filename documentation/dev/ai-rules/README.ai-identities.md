@@ -163,6 +163,7 @@ Use as slash commands (recommended):
 /bot-api-engineer
 /bot-ui-engineer
 /bot-maintainer-ops
+/bot-github-commits
 ```
 
 Or reference directly:

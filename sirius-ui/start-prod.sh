@@ -2,6 +2,19 @@
 
 echo "🚀 Starting Sirius UI Production Server..."
 
+require_env() {
+    VAR_NAME="$1"
+    eval "VAR_VALUE=\${$VAR_NAME}"
+    if [ -z "$VAR_VALUE" ]; then
+        echo "❌ Missing required environment variable: $VAR_NAME"
+        exit 1
+    fi
+}
+
+require_env "NEXTAUTH_SECRET"
+require_env "INITIAL_ADMIN_PASSWORD"
+require_env "SIRIUS_API_KEY"
+
 # Start system monitor if available
 if [ -f "/system-monitor/system-monitor" ] && [ -x "/system-monitor/system-monitor" ]; then
     echo "📊 Starting system monitor..."

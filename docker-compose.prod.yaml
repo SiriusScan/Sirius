@@ -5,18 +5,19 @@ services:
   sirius-postgres:
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for production}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for production. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
       - POSTGRES_DB=${POSTGRES_DB:-sirius}
 
   sirius-ui:
     environment:
       - NODE_ENV=production
       - SKIP_ENV_VALIDATION=0
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required for production}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required for production. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
+      - INITIAL_ADMIN_PASSWORD=${INITIAL_ADMIN_PASSWORD:?INITIAL_ADMIN_PASSWORD is required for production. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
       - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
       - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-http://localhost:9001}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for production}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for production. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
     restart: unless-stopped
 
   sirius-api:
@@ -25,23 +26,21 @@ services:
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,https://sirius.local}
       - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for production}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for production. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
       - POSTGRES_DB=${POSTGRES_DB:-sirius}
       - POSTGRES_PORT=${POSTGRES_PORT:-5432}
       - VALKEY_HOST=${VALKEY_HOST:-sirius-valkey}
       - VALKEY_PORT=${VALKEY_PORT:-6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for production}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for production. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
     restart: unless-stopped
 
   sirius-engine:
-    cap_add:
-      - NET_RAW
     environment:
       - GO_ENV=production
       - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for production}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for production. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
       - POSTGRES_DB=${POSTGRES_DB:-sirius}
       - POSTGRES_PORT=${POSTGRES_PORT:-5432}
       - VALKEY_HOST=${VALKEY_HOST:-sirius-valkey}
@@ -49,5 +48,5 @@ services:
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
       - API_BASE_URL=${API_BASE_URL:-http://sirius-api:9001}
       - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for production}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for production. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
     restart: unless-stopped

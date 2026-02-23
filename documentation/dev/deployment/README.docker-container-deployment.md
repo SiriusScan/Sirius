@@ -57,6 +57,9 @@ This guide explains how to deploy Sirius using prebuilt container images from Gi
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
 
+# Generate startup config and secrets
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer
+
 # Deploy with prebuilt images (default)
 docker compose up -d
 
@@ -165,11 +168,12 @@ The `docker-compose.dev.yaml` file overrides the registry images with local buil
    cd Sirius
    ```
 
-2. **Configure environment** (optional):
+2. **Configure environment**:
 
    ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
+   docker compose -f docker-compose.installer.yaml run --rm sirius-installer
+   # Optional: pass explicit values
+   # docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
    ```
 
 3. **Deploy services**:
@@ -251,6 +255,25 @@ If GitHub Container Registry is unavailable or images fail to pull, you can fall
    ```
 
 **Note**: Local builds take significantly longer (20-25 minutes vs 5-8 minutes) and require more system resources.
+
+## Secrets Hardening Overlays
+
+For hardened deployments, Sirius includes optional overlay manifests:
+
+- `docker-compose.secrets.yaml` for Compose secrets mounted at `/run/secrets/*`
+- `docker-stack.swarm.yaml` for Swarm stack deployments
+
+Example:
+
+```bash
+mkdir -p secrets
+printf '%s' "your-postgres-password" > secrets/postgres_password.txt
+printf '%s' "your-service-key" > secrets/sirius_api_key.txt
+printf '%s' "your-nextauth-secret" > secrets/nextauth_secret.txt
+printf '%s' "your-admin-password" > secrets/initial_admin_password.txt
+
+docker compose -f docker-compose.yaml -f docker-compose.secrets.yaml up -d
+```
 
 ## Troubleshooting
 

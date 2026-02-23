@@ -3,7 +3,7 @@ title: "Documentation Index"
 description: "Complete index of all documentation files in the Sirius project, organized by category and purpose"
 template: "TEMPLATE.documentation-standard"
 version: "1.0.0"
-last_updated: "2025-01-03"
+last_updated: "2026-02-22"
 author: "Development Team"
 tags: ["documentation", "index", "reference", "organization"]
 categories: ["documentation", "reference"]
@@ -48,6 +48,7 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.cicd.md](dev/architecture/README.cicd.md) - CI/CD pipeline architecture and workflows
 - [README.go-api-sdk.md](dev/architecture/README.go-api-sdk.md) - Go API SDK architecture, design patterns, and integration guide
 - [README.auth-surface-matrix.md](dev/architecture/README.auth-surface-matrix.md) - Authentication and authorization policy matrix across API surfaces
+- [ADR.startup-secrets-model.md](dev/architecture/ADR.startup-secrets-model.md) - Architectural decision record for installer-first startup and secrets model
 - [ARCHITECTURE.nse-repository-management.md](dev/architecture/ARCHITECTURE.nse-repository-management.md) - NSE repository management architecture
 - [README.docker-architecture.md](dev/architecture/README.docker-architecture.md) - Comprehensive Docker setup and container architecture
 
@@ -78,6 +79,7 @@ This document provides a complete index of all documentation files in the Sirius
 
 - [README.new-project.md](dev/operations/README.new-project.md) - New project development workflow and structure
 - [README.tasks.md](dev/operations/README.tasks.md) - Task management system and project tracking
+- [startup-secrets-redesign-plan.md](dev-notes/startup-secrets-redesign-plan.md) - Detailed implementation plan for startup and secrets redesign
 
 ### Deployment
 

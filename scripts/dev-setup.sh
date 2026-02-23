@@ -9,6 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 LOCAL_COMPOSE="$PROJECT_ROOT/docker-compose.local.yaml"
 EXAMPLE_COMPOSE="$PROJECT_ROOT/docker-compose.local.example.yaml"
+ENV_FILE="$PROJECT_ROOT/.env"
+INSTALLER_COMPOSE_FILE="$PROJECT_ROOT/docker-compose.installer.yaml"
 
 echo "🚀 Sirius Development Setup"
 echo "================================"
@@ -75,11 +77,31 @@ init_dev() {
     echo "🔧 For standard development (no local repos needed): '$0 start'"
 }
 
+# Ensure required env exists before startup.
+ensure_env_ready() {
+    if [ -f "$ENV_FILE" ]; then
+        return 0
+    fi
+
+    echo "⚠️  Missing $ENV_FILE"
+    if [ "${SIRIUS_AUTO_SETUP:-0}" = "1" ]; then
+        echo "🔧 Running installer container in non-interactive mode..."
+        docker compose -f "$INSTALLER_COMPOSE_FILE" run --rm sirius-installer --non-interactive --no-print-secrets
+        return 0
+    fi
+
+    echo "Run installer first:"
+    echo "  docker compose -f docker-compose.installer.yaml run --rm sirius-installer"
+    echo "Or rerun with SIRIUS_AUTO_SETUP=1 for automated setup."
+    return 1
+}
+
 # Function to start development environment
 start_dev() {
     local mode=$1
     
     cd "$PROJECT_ROOT"
+    ensure_env_ready || return 1
     
     if [ "$mode" = "extended" ]; then
         echo "🔧 Starting extended development environment..."
@@ -87,10 +109,10 @@ start_dev() {
             return 1
         fi
         echo "📁 Using local repository mounts from docker-compose.local.yaml"
-        docker-compose -f docker-compose.yaml -f docker-compose.override.yaml -f docker-compose.local.yaml up -d
+        docker compose -f docker-compose.yaml -f docker-compose.override.yaml -f docker-compose.local.yaml up -d
     else
         echo "🔧 Starting standard development environment..."
-        docker-compose up -d
+        docker compose up -d
     fi
     
     echo ""
@@ -99,10 +121,10 @@ start_dev() {
     echo "🔧 API: http://localhost:9001"
     echo "📊 RabbitMQ Management: http://localhost:15672 (guest/guest)"
     
-    if command -v docker-compose &> /dev/null; then
+    if command -v docker &> /dev/null; then
         echo ""
         echo "📋 Container Status:"
-        docker-compose ps
+        docker compose ps
     fi
 }
 
@@ -110,7 +132,7 @@ start_dev() {
 stop_dev() {
     echo "🛑 Stopping development environment..."
     cd "$PROJECT_ROOT"
-    docker-compose down
+    docker compose down
     echo "✅ Development environment stopped"
 }
 
@@ -126,7 +148,7 @@ clean_dev() {
         return 0
     fi
     
-    docker-compose down -v --remove-orphans
+    docker compose down -v --remove-orphans
     docker system prune -f
     echo "✅ Development environment cleaned"
 }
@@ -135,7 +157,7 @@ clean_dev() {
 show_status() {
     echo "📋 Container Status:"
     cd "$PROJECT_ROOT"
-    docker-compose ps
+    docker compose ps
 }
 
 # Function to show logs
@@ -145,10 +167,10 @@ show_logs() {
     
     if [ -n "$service" ]; then
         echo "📜 Showing logs for $service..."
-        docker-compose logs -f "$service"
+        docker compose logs -f "$service"
     else
         echo "📜 Showing logs for all services..."
-        docker-compose logs -f
+        docker compose logs -f
     fi
 }
 
@@ -164,7 +186,7 @@ open_shell() {
     
     cd "$PROJECT_ROOT"
     echo "🐚 Opening shell in $service..."
-    docker-compose exec "$service" /bin/bash || docker-compose exec "$service" /bin/sh
+    docker compose exec "$service" /bin/bash || docker compose exec "$service" /bin/sh
 }
 
 # Main command handling

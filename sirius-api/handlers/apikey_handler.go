@@ -31,6 +31,9 @@ func (h *APIKeyHandler) CreateKey(c *fiber.Ctx) error {
 
 	// Determine creator from the API key metadata (set by middleware).
 	createdBy := "system"
+	if label, ok := c.Locals("apikey_label").(string); ok && label != "" {
+		createdBy = label
+	}
 	if meta, ok := c.Locals("apikey_meta").(store.APIKeyMeta); ok {
 		createdBy = meta.Label
 	}

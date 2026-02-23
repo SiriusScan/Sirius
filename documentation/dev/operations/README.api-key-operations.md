@@ -1,6 +1,6 @@
 ---
 title: "API Key Operations Runbook"
-description: "Production runbook for service API key rotation, bootstrap recovery, and incident response."
+description: "Production runbook for stateless service API key rotation, recovery, and incident response."
 template: "TEMPLATE.guide"
 llm_context: "high"
 categories: ["operations", "security", "deployment"]
@@ -27,7 +27,8 @@ Applies to service-to-service credential `SIRIUS_API_KEY` used by:
 - `SIRIUS_API_KEY` must be non-empty in production.
 - Go API must reject requests without a valid `X-API-Key`.
 - Only `/health` is public.
-- Key bootstrap must reconcile metadata and bootstrap flag on startup.
+- Root service key validation is stateless from runtime environment configuration.
+- Valkey stores only dynamic/user-generated API key records.
 
 ## Rotation Procedure (No Downtime)
 
@@ -61,30 +62,28 @@ Applies to service-to-service credential `SIRIUS_API_KEY` used by:
 ## Incident: Valkey Data Loss
 
 Symptoms:
-- sudden 401s with previously valid key
+- sudden 401s for user-generated keys
 - API key list empty
-- bootstrap state inconsistent
+- dynamic key operations fail while root key requests still succeed
 
 Recovery:
 1. Restore Valkey from backup if available.
 2. If no backup:
    - ensure production `SIRIUS_API_KEY` is correctly set for all services.
-   - restart `sirius-api` first to reconcile key metadata + bootstrap state.
+   - restart `sirius-api` first; root key path remains stateless.
 3. Restart `sirius-ui` and `sirius-engine`.
 4. Validate end-to-end operations and security harness results.
 
-## Incident: Bootstrap Mismatch (Flag/key metadata drift)
+## Incident: Root Key Mismatch (Configuration Drift)
 
 Symptoms:
-- bootstrap flag exists but key lookups fail
-- key exists but bootstrap flag absent
+- services return 401 with old key after key rotation
+- env values differ between `sirius-ui`, `sirius-api`, and `sirius-engine`
 
 Recovery:
 1. Confirm deployed `SIRIUS_API_KEY` value in runtime environment.
-2. Restart `sirius-api` (reconciliation should repair state).
-3. Re-check:
-   - key validation success for deployed key
-   - bootstrap complete marker present
+2. Restart `sirius-api`, then `sirius-ui` and `sirius-engine`.
+3. Re-check key validation success for deployed root key.
 4. If still failing, capture API logs and run security harness `auth-surface` and `api` suites.
 
 ## Incident: Unauthorized Agent/Scanner API Writes
@@ -112,8 +111,8 @@ go run . --suite auth-surface
 ## Operational Checklist
 
 - [ ] `SIRIUS_API_KEY` secret exists and is non-empty in production.
-- [ ] API startup confirms key reconciliation succeeded.
+- [ ] API middleware accepts configured root key on non-health routes.
 - [ ] UI + engine are using the same active service key.
 - [ ] Old keys are revoked only after rollout validation.
-- [ ] Recovery procedure for Valkey/key mismatch is documented in incident ticket.
+- [ ] Recovery procedure for config drift or Valkey loss is documented in incident ticket.
 

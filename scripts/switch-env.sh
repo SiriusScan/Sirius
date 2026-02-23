@@ -7,6 +7,26 @@ set -e
 
 ENV=${1:-"base"}
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+INSTALLER_COMPOSE_FILE="$PROJECT_ROOT/docker-compose.installer.yaml"
+ENV_FILE="$PROJECT_ROOT/.env"
+
+require_env_file() {
+    if [ -f "$ENV_FILE" ]; then
+        return 0
+    fi
+
+    echo "⚠️  Missing $ENV_FILE"
+    if [ "${SIRIUS_AUTO_SETUP:-0}" = "1" ]; then
+        echo "🔧 SIRIUS_AUTO_SETUP=1 detected; running installer container..."
+        docker compose -f "$INSTALLER_COMPOSE_FILE" run --rm sirius-installer --non-interactive --no-print-secrets
+        return 0
+    fi
+
+    echo "Run installer first:"
+    echo "  docker compose -f docker-compose.installer.yaml run --rm sirius-installer"
+    echo "Or rerun with SIRIUS_AUTO_SETUP=1 to auto-generate missing values."
+    exit 1
+}
 
 echo "🔄 Switching Sirius environment to: $ENV"
 
@@ -58,14 +78,17 @@ cd "$PROJECT_ROOT"
 
 case $ENV in
     "dev"|"development")
+        require_env_file
         cleanup
         start_dev
         ;;
     "prod"|"production")
+        require_env_file
         cleanup
         start_prod
         ;;
     "base"|"default")
+        require_env_file
         cleanup
         start_base
         ;;

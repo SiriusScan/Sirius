@@ -8,14 +8,14 @@
 
 ## Database Management
 
-### Default Credentials
+### Initial Credentials
 
 - **Username**: `admin`
-- **Password**: `password`
+- **Password**: value from `INITIAL_ADMIN_PASSWORD`
 
 ### Resetting the Database
 
-If you've modified the database during testing (e.g., changed the password) and need to reset it to default values:
+If you've modified the database during testing and need to reset it:
 
 **Inside the container:**
 
@@ -35,7 +35,7 @@ npm run seed
 This will:
 
 1. Reset the database schema
-2. Recreate the default admin user with password: `password`
+2. Recreate the admin user using `INITIAL_ADMIN_PASSWORD`
 
 **Note:** Database files (`*.db`, `*.sqlite`) are gitignored to prevent committing test data. Each developer maintains their own local database state.
 

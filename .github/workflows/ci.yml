@@ -382,6 +382,7 @@ jobs:
                 - SKIP_ENV_VALIDATION=1
                 - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius_test
                 - NEXTAUTH_SECRET=test-secret
+                - INITIAL_ADMIN_PASSWORD=test-admin-password
                 - NEXTAUTH_URL=http://localhost:3000
                 - SIRIUS_API_URL=http://sirius-api:9001
                 - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001

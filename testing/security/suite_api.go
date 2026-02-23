@@ -26,11 +26,11 @@ func RunAPISuite(cfg *Config) SuiteResult {
 	// ── Phase 1: Obtain a valid API key for positive tests ──────────────
 	validKey := cfg.APIKey
 	if validKey == "" {
-		validKey = bootstrapAPIKey(cfg, &suite)
+		validKey = provisionAPIKeyForTests(cfg, &suite)
 		if validKey == "" {
 			// Cannot proceed without a valid key; all remaining tests skipped.
 			suite.Results = append(suite.Results, TestResult{
-				Name:     "API key bootstrap",
+				Name:     "API key provisioning",
 				Result:   Skip,
 				Severity: SevCritical,
 				Detail:   "Could not obtain a valid API key; remaining tests skipped",
@@ -307,10 +307,10 @@ func testHeaderCaseSensitivity(base, key string) TestResult {
 
 // ────────────────── Bootstrap helper ──────────────────
 
-// bootstrapAPIKey creates a test API key using the /api/v1/keys endpoint.
+// provisionAPIKeyForTests creates a test API key using the /api/v1/keys endpoint.
 // It first tries without auth (in case API_KEY_REQUIRED=false in dev mode).
 // Falls back to checking if there's an existing root key reference.
-func bootstrapAPIKey(cfg *Config, suite *SuiteResult) string {
+func provisionAPIKeyForTests(cfg *Config, suite *SuiteResult) string {
 	base := cfg.APIURL
 
 	// Try creating a key without auth (works if API_KEY_REQUIRED=false).
@@ -321,7 +321,7 @@ func bootstrapAPIKey(cfg *Config, suite *SuiteResult) string {
 		}
 		if json.Unmarshal([]byte(body), &resp) == nil && resp.RawKey != "" {
 			suite.Results = append(suite.Results, TestResult{
-				Name: "API key bootstrap (no auth)", Result: Warn, Severity: SevHigh,
+				Name: "API key provisioning (no auth)", Result: Warn, Severity: SevHigh,
 				Detail: "Key creation succeeded without API key — API_KEY_REQUIRED may be false",
 			})
 			return resp.RawKey
@@ -331,7 +331,7 @@ func bootstrapAPIKey(cfg *Config, suite *SuiteResult) string {
 	// If we got 401, auth is enforced. We need a key from the environment.
 	if code == 401 {
 		suite.Results = append(suite.Results, TestResult{
-			Name: "API key bootstrap", Result: Info, Severity: SevInfo,
+			Name: "API key provisioning", Result: Info, Severity: SevInfo,
 			Detail: "API requires authentication — set SIRIUS_API_KEY env var with a valid key",
 		})
 	}
@@ -339,8 +339,8 @@ func bootstrapAPIKey(cfg *Config, suite *SuiteResult) string {
 	// Last resort: check if the API returns something useful at health that hints at setup.
 	if strings.Contains(body, "error") {
 		suite.Results = append(suite.Results, TestResult{
-			Name: "API key bootstrap", Result: Skip, Severity: SevInfo,
-			Detail: fmt.Sprintf("Cannot bootstrap key: %s", truncate(body, 120)),
+			Name: "API key provisioning", Result: Skip, Severity: SevInfo,
+			Detail: fmt.Sprintf("Cannot provision key: %s", truncate(body, 120)),
 		})
 	}
 

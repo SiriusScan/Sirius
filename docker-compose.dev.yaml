@@ -46,7 +46,7 @@ services:
       - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
       - CONTAINER_NAME=sirius-ui
       # Coordinated dev API key shared across UI/API/Engine.
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-sirius-dev-api-key-do-not-use-in-production}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for development. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
       # Performance: increase Node.js heap for faster webpack compilation
       - NODE_OPTIONS=--max-old-space-size=4096
       # Performance: enable filesystem polling for reliable hot reload on Docker bind mounts
@@ -88,7 +88,7 @@ services:
       - API_PORT=9001
       - POSTGRES_HOST=sirius-postgres
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for development. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
       - POSTGRES_DB=sirius
       - POSTGRES_PORT=5432
       - VALKEY_HOST=sirius-valkey
@@ -97,7 +97,7 @@ services:
       - LOG_LEVEL=info
       - CONTAINER_NAME=sirius-api
       # Coordinated dev API key shared across UI/API/Engine.
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-sirius-dev-api-key-do-not-use-in-production}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for development. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
 
   sirius-engine:
     build:
@@ -136,7 +136,7 @@ services:
       - GRPC_AGENT_PORT=50051
       - POSTGRES_HOST=sirius-postgres
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for development. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
       - POSTGRES_DB=sirius
       - POSTGRES_PORT=5432
       - VALKEY_HOST=sirius-valkey
@@ -152,7 +152,7 @@ services:
       - ENABLE_SCRIPTING=true
       - CONTAINER_NAME=sirius-engine
       # Coordinated dev API key shared across UI/API/Engine.
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-sirius-dev-api-key-do-not-use-in-production}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for development. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
 
 networks:
   default:

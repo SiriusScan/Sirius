@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -107,35 +106,13 @@ func runMigrations() error {
 	return nil
 }
 
-// bootstrapAPIKeys reconciles the configured service API key with Valkey state.
-// It repairs partial states by ensuring both key metadata and bootstrap flag
-// exist on every startup.
-func bootstrapAPIKeys(kvStore store.KVStore, rawKey string) error {
-	ctx := context.Background()
-	wasBootstrapped := store.IsBootstrapped(ctx, kvStore)
-
-	meta, err := store.EnsureAPIKey(ctx, kvStore, rawKey, "root", "system-bootstrap")
-	if err != nil {
-		return fmt.Errorf("failed to ensure root API key metadata: %w", err)
-	}
-
-	if err := store.MarkBootstrapped(ctx, kvStore); err != nil {
-		return fmt.Errorf("failed to mark bootstrap complete: %w", err)
-	}
-
-	if wasBootstrapped {
-		slog.Info("API key bootstrap reconciled", "key_prefix", meta.Prefix)
-	} else {
-		slog.Info("API key bootstrap completed", "key_prefix", meta.Prefix)
-	}
-
-	return nil
-}
 
 func main() {
 	// Initialize structured logging (reads LOG_LEVEL env var)
 	slogger.Init()
 
+	// Root service key is validated statelessly in middleware against env config.
+	// Valkey remains authoritative only for user-generated API keys.
 	serviceAPIKey := strings.TrimSpace(os.Getenv("SIRIUS_API_KEY"))
 	if serviceAPIKey == "" {
 		slog.Error("SIRIUS_API_KEY is required for sirius-api startup")
@@ -152,19 +129,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize Valkey store for API key management.
+	// Initialize Valkey store for dynamic API key management.
 	kvStore, err := store.NewValkeyStore()
 	if err != nil {
 		slog.Error("Failed to connect to Valkey", "error", err)
 		os.Exit(1)
 	}
 	defer kvStore.Close()
-
-	// Reconcile service API key metadata and bootstrap flag state.
-	if err := bootstrapAPIKeys(kvStore, serviceAPIKey); err != nil {
-		slog.Error("Failed to reconcile API key bootstrap state", "error", err)
-		os.Exit(1)
-	}
 
 	app := fiber.New()
 

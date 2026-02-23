@@ -74,7 +74,6 @@ FROM base AS builder
 
 # Accept build args
 ARG NEXT_PUBLIC_CLIENTVAR
-ARG SIRIUS_API_KEY=build-time-placeholder
 
 # Copy source code for building
 COPY . .
@@ -91,7 +90,7 @@ RUN npx prisma generate
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_CLIENTVAR=${NEXT_PUBLIC_CLIENTVAR}
-ENV SIRIUS_API_KEY=${SIRIUS_API_KEY}
+ENV SKIP_ENV_VALIDATION=1
 
 # Create a temporary next.config.mjs with errors ignored for Docker building.
 # Use a Node-based replacement for portability across sed variants.

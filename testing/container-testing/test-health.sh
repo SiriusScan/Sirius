@@ -24,6 +24,12 @@ LOG_DIR="$PROJECT_ROOT/testing/logs"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="$LOG_DIR/health_test_$TIMESTAMP.log"
 
+# Required compose variables for strict startup contract.
+export SIRIUS_API_KEY="${SIRIUS_API_KEY:-test-api-key}"
+export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-test-postgres-password}"
+export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-test-nextauth-secret}"
+export INITIAL_ADMIN_PASSWORD="${INITIAL_ADMIN_PASSWORD:-test-admin-password}"
+
 # Environment variables for configuration
 TEST_TIMEOUT="${TEST_TIMEOUT:-60}"  # Default 60 seconds
 TEST_RETRIES="${TEST_RETRIES:-60}"  # Default 60 retries (2 seconds each = 120 seconds total)

@@ -5,6 +5,35 @@ All notable changes to SiriusScan will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Installer-first startup workflow under `installer/` with interactive and non-interactive configuration generation.
+- Optional deployment hardening overlays: `docker-compose.secrets.yaml` and `docker-stack.swarm.yaml`.
+- Architecture decision record documenting stateless root key auth model.
+
+### Changed
+- Installer startup now uses `docker-compose.installer.yaml` as the canonical entrypoint.
+- Root compose and overlays now require security-critical startup variables (`SIRIUS_API_KEY`, `POSTGRES_PASSWORD`, `NEXTAUTH_SECRET`, `INITIAL_ADMIN_PASSWORD`).
+- UI startup scripts enforce required auth/seed variables before migrations and seeding.
+- API middleware now marks explicit auth mode (`infra_env` vs `valkey`) and uses constant-time root key comparison.
+- Documentation updated for installer-first setup and stateless root-key lifecycle operations.
+
+### Fixed
+- UI production image build compatibility with stricter secret validation during build stage.
+- Integration test expectation for protected API error handling under API-key middleware.
+
+### Migration Notes
+- Replace manual `.env` copying with installer:
+  1. `docker compose -f docker-compose.installer.yaml run --rm sirius-installer`
+  2. `docker compose up -d` (or include prod/dev overlays)
+- Ensure these variables are present for startup:
+  - `SIRIUS_API_KEY`
+  - `POSTGRES_PASSWORD`
+  - `NEXTAUTH_SECRET`
+  - `INITIAL_ADMIN_PASSWORD`
+- Existing `.env` values are preserved by default; use `docker compose -f docker-compose.installer.yaml run --rm sirius-installer --force` when rotating/re-generating secrets.
+
 ## [1.0.0] - 2026-02-17
 
 ### Added

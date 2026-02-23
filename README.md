@@ -15,17 +15,29 @@ Sirius is an open-source comprehensive vulnerability scanner that leverages comm
 
 ### ⚡ Quick Start (Current Runtime Requirements)
 
+### ⚡ Startup Command Cheat Sheet
+
+```bash
+# 1) Generate/merge required runtime secrets (.env)
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer
+
+# 2a) Start standard stack
+docker compose up -d
+
+# 2b) Start development overlay
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
+
+# 2c) Optional hardened production overlay
+docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+```
+
 ```bash
 # Clone repository
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
 
-# Create required environment file
-cp .env.production.example .env
-# Then edit .env and set at minimum:
-# - SIRIUS_API_KEY
-# - POSTGRES_PASSWORD
-# - NEXTAUTH_SECRET
+# Generate and validate startup secrets/config (installer-first)
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer
 
 # Start Sirius with release images
 docker compose up -d
@@ -36,8 +48,58 @@ open http://localhost:3000
 
 **Important**:
 - `SIRIUS_API_KEY` is required for `sirius-ui`, `sirius-api`, and `sirius-engine`.
-- For production overlay runs, `POSTGRES_PASSWORD` and `NEXTAUTH_SECRET` are also required.
+- `POSTGRES_PASSWORD`, `NEXTAUTH_SECRET`, and `INITIAL_ADMIN_PASSWORD` are required.
 - This repository does **not** include `docker-compose.user.yaml`; use `docker-compose.yaml`, `docker-compose.dev.yaml`, and `docker-compose.prod.yaml`.
+
+### 🧭 Using the New Startup System
+
+Sirius now uses an installer-first startup flow. This keeps secrets synchronized across services and removes insecure defaults.
+
+#### 1) First-time local setup (interactive)
+
+```bash
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer
+docker compose up -d
+```
+
+What happens:
+- Reads `.env.production.example`
+- Merges existing `.env` values if present
+- Generates missing required values:
+  - `SIRIUS_API_KEY`
+  - `POSTGRES_PASSWORD`
+  - `NEXTAUTH_SECRET`
+  - `INITIAL_ADMIN_PASSWORD`
+
+#### 2) Non-interactive setup (CI/Terraform/user-data)
+
+```bash
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
+docker compose up -d
+```
+
+#### 3) Force secret rotation/regeneration
+
+```bash
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer --force
+```
+
+#### 4) Development overlay startup
+
+```bash
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
+```
+
+#### 5) Verify configuration renders
+
+```bash
+SIRIUS_API_KEY=test-key \
+POSTGRES_PASSWORD=test-pass \
+NEXTAUTH_SECRET=test-secret \
+INITIAL_ADMIN_PASSWORD=test-admin-pass \
+docker compose config --quiet
+```
 
 ## 🆕 What's New in v1.0.0
 
@@ -64,6 +126,7 @@ The default configuration provides a complete scanning environment:
 ```bash
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer
 docker compose up -d
 ```
 
@@ -74,24 +137,24 @@ Use live-reload/development mounts for active code work:
 ```bash
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer
 docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
 ```
 
 #### Option 3: Production Overlay
 
-Use production-oriented environment settings and validation:
+Optional hardened production settings and validation overlay:
 
 ```bash
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
-cp .env.production.example .env
-# edit required values before starting
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer
 docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
 ```
 
-##### Host Discovery Prerequisites (Prod Overlay)
+##### Host Discovery Prerequisites (All Compose Modes)
 
-- `sirius-engine` requires `NET_RAW` capability for ICMP-based fingerprint discovery.
+- `sirius-engine` runs with `NET_RAW` capability in base/dev/prod compose configurations for ICMP-based fingerprint discovery.
 - Keep `SIRIUS_API_URL` and `API_BASE_URL` pointing to `http://sirius-api:9001` for container-to-container API persistence.
 - Use `NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001` so browser calls hit the host-exposed API.
 
@@ -116,12 +179,13 @@ curl http://localhost:3000
 curl http://localhost:9001/health
 ```
 
-### 🔎 Host Discovery Validation (Prod Overlay)
+### 🔎 Host Discovery Validation
 
 ```bash
-# Confirm production overlay renders successfully and includes NET_RAW
+# Confirm compose renders successfully and includes NET_RAW
 SIRIUS_API_KEY=test-key POSTGRES_PASSWORD=test-pass NEXTAUTH_SECRET=test-secret \
-docker compose -f docker-compose.yaml -f docker-compose.prod.yaml config | rg "NET_RAW"
+INITIAL_ADMIN_PASSWORD=test-admin-pass \
+docker compose -f docker-compose.yaml config | rg "NET_RAW"
 
 # Confirm scanner system template is canonicalized on startup (quick includes fingerprint)
 docker compose exec sirius-valkey valkey-cli GET template:quick | rg '"scan_types"'
@@ -275,6 +339,7 @@ Perfect for security professionals and penetration testers:
 ```bash
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer
 docker compose up -d
 ```
 
@@ -348,6 +413,7 @@ docker compose logs <service>  # View service logs
 docker system df              # Check disk space
 
 # Solutions
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer  # Ensure required secrets exist in .env
 docker compose down && docker compose up -d --build  # Fresh restart
 docker system prune -f                               # Clean up space
 ```
@@ -513,10 +579,14 @@ docker cp sirius-engine:/opt/sirius/ ./sirius-backup/
 1. **Change Default Credentials**:
 
 ```bash
-# Update in .env (used by docker-compose.prod.yaml)
-POSTGRES_PASSWORD=your_secure_password
-NEXTAUTH_SECRET=your_long_random_secret
-SIRIUS_API_KEY=your_long_random_api_key
+# Generate secure values with the installer
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer --force
+
+# Or set explicit values in .env if needed
+# POSTGRES_PASSWORD=your_secure_password
+# NEXTAUTH_SECRET=your_long_random_secret
+# SIRIUS_API_KEY=your_long_random_api_key
+# INITIAL_ADMIN_PASSWORD=your_strong_admin_password
 ```
 
 2. **Network Security**:

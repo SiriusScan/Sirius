@@ -1,0 +1,11 @@
+services:
+  sirius-installer:
+    image: sirius-installer:local
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: installer/Dockerfile
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
+    command: ["--template", ".env.production.example", "--output", ".env"]

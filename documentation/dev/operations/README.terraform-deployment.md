@@ -429,43 +429,10 @@ echo "Branch: ${sirius_branch}"
 git clone --branch ${sirius_branch} ${sirius_repo_url} repo
 cd repo
 
-# Create environment configuration
+# Create environment configuration using installer-first flow
 echo "⚙️  Configuring environment..."
-cat > .env << 'EOF'
-# Environment Configuration
-NODE_ENV=production
-GO_ENV=production
-
-# Database
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=change_me_in_production
-POSTGRES_DB=sirius
-POSTGRES_HOST=sirius-postgres
-POSTGRES_PORT=5432
-
-# API
-API_PORT=9001
-
-# UI
-NEXTAUTH_SECRET=change_me_in_production
-NEXTAUTH_URL=http://localhost:3000
-
-# Redis/Valkey
-VALKEY_HOST=sirius-valkey
-VALKEY_PORT=6379
-
-# RabbitMQ
-RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
-
-# Engine
-ENGINE_MAIN_PORT=5174
-GRPC_AGENT_PORT=50051
-
-# Logging
-LOG_LEVEL=info
-EOF
-
-echo "✅ Environment configuration created"
+docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
+echo "✅ Environment configuration created with installer"
 
 # Determine image tag from sirius_branch variable
 if [[ "${sirius_branch}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then

@@ -2,6 +2,19 @@
 
 echo "🚀 Starting Sirius UI Development Server..."
 
+require_env() {
+    VAR_NAME="$1"
+    eval "VAR_VALUE=\${$VAR_NAME}"
+    if [ -z "$VAR_VALUE" ]; then
+        echo "❌ Missing required environment variable: $VAR_NAME"
+        exit 1
+    fi
+}
+
+require_env "NEXTAUTH_SECRET"
+require_env "INITIAL_ADMIN_PASSWORD"
+require_env "SIRIUS_API_KEY"
+
 # Keep container node_modules in sync with package manifests.
 # Dev uses a persistent named volume for /app/node_modules, which can drift when deps change.
 if [ -f "/app/package.json" ] && [ -f "/app/package-lock.json" ]; then

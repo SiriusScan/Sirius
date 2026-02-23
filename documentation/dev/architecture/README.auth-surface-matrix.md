@@ -23,6 +23,30 @@ This checklist is the canonical auth policy map for current Sirius architecture.
 - Agent auth: gRPC token model for agent channel identity.
 - Current platform model: single UI admin (no multi-user tenant isolation yet).
 
+## Architecture Decision: Startup and Secret Strategy
+
+### Decision Summary
+
+- Startup onboarding is installer-first: generate/merge runtime config before compose startup.
+- The infrastructure/root API key is validated statelessly from environment configuration.
+- Valkey-backed key validation remains for dynamic, user-generated API keys only.
+- Runtime auth and seed flows fail fast when required secrets are missing in production.
+
+### Rationale
+
+- Removes bootstrap drift between persistent key-value state and deployment configuration.
+- Reduces first-run friction by automating secret generation and synchronization.
+- Improves operational reliability for key rotation and service restarts.
+- Aligns local and automated deployments with a single deterministic configuration model.
+
+### Operational Implications
+
+- Health endpoints remain public by explicit policy.
+- Non-health API endpoints require `X-API-Key` and validate against either:
+  - environment root key (infrastructure path), or
+  - Valkey metadata (dynamic key path).
+- Migration guidance is required for users moving from manual `.env` setup to installer flow.
+
 ## Policy Checklist
 
 - [x] All sensitive tRPC procedures require `protectedProcedure`.
@@ -30,7 +54,7 @@ This checklist is the canonical auth policy map for current Sirius architecture.
 - [x] UI -> Go API calls use shared authenticated client (`apiClient` / `apiFetch`).
 - [x] Direct tRPC backends (Valkey/RabbitMQ) remain session-gated.
 - [ ] Agent identity to HTTP/API actions is fully cryptographically bound.
-- [ ] Production key lifecycle is fully deterministic for bootstrap/recovery/rotation.
+- [x] Production key lifecycle is deterministic for root key validation and user-key lifecycle handling.
 
 ## tRPC Procedure Matrix (By Router)
 

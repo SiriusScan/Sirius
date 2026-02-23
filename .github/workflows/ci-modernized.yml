@@ -97,6 +97,9 @@ jobs:
       - name: Validate Docker Compose Configurations
         env:
           SIRIUS_API_KEY: ci-placeholder-api-key
+          POSTGRES_PASSWORD: ci-postgres-password
+          NEXTAUTH_SECRET: ci-nextauth-secret
+          INITIAL_ADMIN_PASSWORD: ci-admin-password
         run: |
           echo "🔍 Validating Docker Compose configurations..."
           docker compose config --quiet
@@ -247,6 +250,7 @@ jobs:
                 - SKIP_ENV_VALIDATION=1
                 - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius_test
                 - NEXTAUTH_SECRET=test-secret-key
+                - INITIAL_ADMIN_PASSWORD=test-admin-password
                 - NEXTAUTH_URL=http://localhost:3000
                 - SIRIUS_API_URL=http://sirius-api:9001
                 - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001

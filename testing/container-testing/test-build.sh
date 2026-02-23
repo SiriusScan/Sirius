@@ -24,6 +24,12 @@ LOG_DIR="$PROJECT_ROOT/testing/logs"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="$LOG_DIR/build_test_$TIMESTAMP.log"
 
+# Required compose variables for strict startup contract.
+export SIRIUS_API_KEY="${SIRIUS_API_KEY:-test-api-key}"
+export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-test-postgres-password}"
+export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-test-nextauth-secret}"
+export INITIAL_ADMIN_PASSWORD="${INITIAL_ADMIN_PASSWORD:-test-admin-password}"
+
 # Create logs directory
 mkdir -p "$LOG_DIR"
 

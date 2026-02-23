@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  sirius-postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=sirius
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sirius
+
+  sirius-valkey:
+    image: valkey/valkey:latest
+    networks:
+      - sirius
+
+  sirius-rabbitmq:
+    image: rabbitmq:3-management
+    networks:
+      - sirius
+
+  sirius-api:
+    image: ghcr.io/siriusscan/sirius-api:${IMAGE_TAG:-latest}
+    environment:
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY}
+    networks:
+      - sirius
+
+  sirius-ui:
+    image: ghcr.io/siriusscan/sirius-ui:${IMAGE_TAG:-latest}
+    environment:
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - INITIAL_ADMIN_PASSWORD=${INITIAL_ADMIN_PASSWORD}
+    ports:
+      - "3000:3000"
+    networks:
+      - sirius
+
+  sirius-engine:
+    image: ghcr.io/siriusscan/sirius-engine:${IMAGE_TAG:-latest}
+    cap_add:
+      - NET_RAW
+    environment:
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY}
+    networks:
+      - sirius
+
+secrets:
+  postgres_password:
+    external: true
+
+volumes:
+  postgres_data:
+
+networks:
+  sirius:
+    driver: overlay

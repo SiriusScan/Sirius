@@ -1,7 +1,7 @@
 // Simple environment object - no validation needed for Docker compose setup
 export const env = {
   NODE_ENV: process.env.NODE_ENV || "production",
-  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || "change-this-secret-in-production-please",
+  NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET || "",
   NEXTAUTH_URL: process.env.NEXTAUTH_URL || "http://localhost:3000",
   DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID || "dummy_client_id",
   DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET || "dummy_client_secret",
@@ -12,6 +12,13 @@ export const env = {
   SIRIUS_API_KEY: process.env.SIRIUS_API_KEY || "",
 };
 
-if (env.NODE_ENV === "production" && !env.SIRIUS_API_KEY.trim()) {
+const skipValidation = process.env.SKIP_ENV_VALIDATION === "1";
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+
+if (!skipValidation && !isBuildPhase && env.NODE_ENV === "production" && !env.SIRIUS_API_KEY.trim()) {
   throw new Error("SIRIUS_API_KEY is required in production");
+}
+
+if (!skipValidation && !isBuildPhase && env.NODE_ENV === "production" && !env.NEXTAUTH_SECRET.trim()) {
+  throw new Error("NEXTAUTH_SECRET is required in production");
 }

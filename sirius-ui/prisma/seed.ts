@@ -3,8 +3,13 @@ import { hash } from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  const rawPassword = process.env.INITIAL_ADMIN_PASSWORD;
+  if (!rawPassword) {
+    throw new Error('INITIAL_ADMIN_PASSWORD is required for database seed');
+  }
+
   // Hash the password with bcrypt
-  const hashedPassword = await hash('password', 10);
+  const hashedPassword = await hash(rawPassword, 10);
   
   try {
     // First, try to get the existing user

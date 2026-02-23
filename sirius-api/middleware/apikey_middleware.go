@@ -2,6 +2,9 @@ package middleware
 
 import (
 	"context"
+	"crypto/subtle"
+	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/SiriusScan/go-api/sirius/store"
@@ -32,6 +35,15 @@ func APIKeyMiddleware(kvStore store.KVStore) fiber.Handler {
 			})
 		}
 
+		rootKey := strings.TrimSpace(os.Getenv("SIRIUS_API_KEY"))
+		if rootKey != "" && subtle.ConstantTimeCompare([]byte(apiKey), []byte(rootKey)) == 1 {
+			c.Locals("auth_mode", "infra_env")
+			c.Locals("apikey_label", "Infrastructure Key")
+			slog.Debug("request authenticated with environment infrastructure key")
+			return c.Next()
+		}
+
+		// Fallback: Check Valkey for dynamic, user-generated API keys
 		meta, err := store.ValidateAPIKey(context.Background(), kvStore, apiKey)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -40,6 +52,7 @@ func APIKeyMiddleware(kvStore store.KVStore) fiber.Handler {
 		}
 
 		// Store metadata in request locals for downstream handlers.
+		c.Locals("auth_mode", "valkey")
 		c.Locals("apikey_meta", meta)
 		return c.Next()
 	}

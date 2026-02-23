@@ -16,8 +16,8 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Build arguments for submodule commit SHAs
-ARG GO_API_COMMIT_SHA=v0.0.14
-ARG APP_SCANNER_COMMIT_SHA=e862e83
+ARG GO_API_COMMIT_SHA=v0.0.16
+ARG APP_SCANNER_COMMIT_SHA=921bae8
 ARG APP_TERMINAL_COMMIT_SHA=main
 ARG SIRIUS_NSE_COMMIT_SHA=main
 ARG APP_AGENT_COMMIT_SHA=50b405a

@@ -241,6 +241,14 @@ bash scripts/verify-runtime-auth-contract.sh
 
 If this script fails, do not start new scans until the mismatch is corrected.
 
+If `sirius-engine` is still restarting after this passes, verify runtime preflight tooling:
+
+```bash
+docker exec sirius-engine sh -lc 'which psql && psql --version'
+```
+
+Expected result: prints `/usr/bin/psql` and a PostgreSQL client version. If missing, pull the corrected release image and recreate services.
+
 ### Scan-Stuck Troubleshooting Runbook
 
 If scans complete in backend logs but UI remains non-terminal, run:
@@ -266,6 +274,11 @@ docker compose logs --no-color sirius-postgres sirius-api sirius-engine | rg -i 
 
 # 5) Run contract verifier
 bash scripts/verify-runtime-auth-contract.sh
+
+# 6) Verify templates endpoint is populated and not in missing/empty state
+API_KEY=$(docker inspect sirius-api --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY=' | sed 's/^SIRIUS_API_KEY=//')
+curl -s -D - -o /tmp/sirius-templates.json -H "X-API-Key: ${API_KEY}" http://localhost:9001/templates | rg '^HTTP/|^X-Sirius-Template-State'
+python3 -c 'import json; print(len(json.load(open("/tmp/sirius-templates.json"))))'
 ```
 
 If any command surfaces key/secret mismatch, re-run installer and restart:
@@ -274,6 +287,8 @@ If any command surfaces key/secret mismatch, re-run installer and restart:
 docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
 docker compose up -d --force-recreate
 ```
+
+Expected result for step 6: HTTP `200` and template count `>= 1`. If `X-Sirius-Template-State: missing` or `empty` appears, `sirius-engine` has not initialized template data yet.
 
 ### 🔎 Host Discovery Validation
 

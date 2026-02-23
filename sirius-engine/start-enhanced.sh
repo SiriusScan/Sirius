@@ -67,6 +67,16 @@ validate_required_env() {
     fi
 }
 
+validate_required_binary() {
+    local binary_name=$1
+    local install_hint=$2
+    if ! command -v "$binary_name" >/dev/null 2>&1; then
+        echo "Error: required runtime binary '$binary_name' is not available in sirius-engine container."
+        echo "$install_hint"
+        exit 1
+    fi
+}
+
 validate_postgres_connection() {
     local max_attempts=30
     local attempt=0
@@ -120,6 +130,7 @@ validate_required_env "POSTGRES_PASSWORD"
 validate_required_env "POSTGRES_DB"
 validate_required_env "SIRIUS_API_KEY"
 validate_required_env "SIRIUS_API_URL"
+validate_required_binary "psql" "This release image is missing PostgreSQL client tooling. Pull a corrected sirius-engine image for the active release tag and restart."
 validate_postgres_connection
 validate_api_key_contract
 

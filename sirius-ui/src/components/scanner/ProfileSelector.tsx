@@ -186,7 +186,12 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
   onChange,
   showDescription = false,
 }) => {
-  const { data: profiles, isLoading } = api.templates.getTemplates.useQuery();
+  const {
+    data: profiles,
+    isLoading,
+    isError,
+    error,
+  } = api.templates.getTemplates.useQuery();
 
   // Sort profiles into a stable display order
   const sortedProfiles = useMemo(() => {
@@ -240,11 +245,24 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
             })
           ) : (
             <SelectItem value="none" disabled className="text-gray-400">
-              No profiles available
+              No profiles available (engine templates not initialized)
             </SelectItem>
           )}
         </SelectContent>
       </Select>
+
+      {isError && (
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
+          Unable to load scan profiles: {error.message}
+        </div>
+      )}
+
+      {!isLoading && !isError && sortedProfiles.length === 0 && (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          No scan profiles are currently available. Verify that `sirius-engine`
+          is healthy and template initialization has completed.
+        </div>
+      )}
 
       {/* Reactive sub-label — updates when selection changes */}
       {selectedFlavor && (

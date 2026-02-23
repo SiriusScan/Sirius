@@ -66,6 +66,8 @@ func GetTemplates(c *fiber.Ctx) error {
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			// No templates yet
+			slog.Warn("Template list is missing in store", "key", templateListKey)
+			c.Set("X-Sirius-Template-State", "missing")
 			return c.JSON([]Template{})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -89,6 +91,11 @@ func GetTemplates(c *fiber.Ctx) error {
 			continue
 		}
 		templates = append(templates, *template)
+	}
+
+	if len(templates) == 0 {
+		slog.Warn("Template list resolved to empty set", "template_ids", len(templateList.Templates))
+		c.Set("X-Sirius-Template-State", "empty")
 	}
 
 	return c.JSON(templates)

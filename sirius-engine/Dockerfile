@@ -45,6 +45,18 @@ RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     sed -i 's/contains(scan.Hosts, discoveryResults.IP)/containsHostEntry(scan.Hosts, discoveryResults.IP)/g' internal/scan/manager.go && \
     sed -i 's/scan.Hosts = append(scan.Hosts, enumResults.IP)/scan.Hosts = append(scan.Hosts, store.HostEntry{IP: enumResults.IP})/g' internal/scan/manager.go && \
     sed -i 's/scan.Hosts = append(scan.Hosts, discoveryResults.IP)/scan.Hosts = append(scan.Hosts, store.HostEntry{IP: discoveryResults.IP})/g' internal/scan/manager.go && \
+    # Ensure template resolution failures transition scan state to failed
+    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            }' internal/scan/manager.go && \
+    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                log.Printf("Failed to mark scan as failed: %v", updateErr)' internal/scan/manager.go && \
+    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            }); updateErr != nil {' internal/scan/manager.go && \
+    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                return nil' internal/scan/manager.go && \
+    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                scan.EndTime = time.Now().Format(time.RFC3339)' internal/scan/manager.go && \
+    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                scan.Status = "failed"' internal/scan/manager.go && \
+    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            if updateErr := sm.scanUpdater.Update(context.Background(), func(scan *store.ScanResult) error {' internal/scan/manager.go && \
+    # Ensure host completion tracking runs even if scan context is cancelled
+    sed -i '0,/if ctx.Err() != nil {/s//if false \&\& ctx.Err() != nil {/' internal/scan/manager.go && \
+    # Source-aware persistence failures must not block scan finalization
+    sed -i 's|return fmt.Errorf("failed to submit host data with source attribution: %w", err)|slog.Warn("Will continue scan without source-attributed persistence", "error", err)|' internal/scan/manager.go && \
     printf '\n// containsHostEntry checks whether a host IP already exists in HostEntry slices.\nfunc containsHostEntry(slice []store.HostEntry, ip string) bool {\n\tfor _, host := range slice {\n\t\tif host.IP == ip {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}\n' >> internal/scan/manager.go && \
     go mod download && \
     CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o scanner main.go
@@ -94,6 +106,7 @@ RUN apt-get update && \
     tzdata \
     build-essential \
     libpcap-dev \
+    postgresql-client \
     libicu-dev \
     libssl-dev \
     curl \
@@ -106,6 +119,9 @@ RUN apt-get update && \
     libtool \
     perl \
     && rm -rf /var/lib/apt/lists/*
+
+# Enforce runtime contract required by start-enhanced.sh preflight checks
+RUN psql --version >/dev/null
 
 # Build and install Nmap 7.95 from source for compatibility with sirius-nse scripts
 RUN cd /tmp && \
@@ -241,6 +257,7 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     git \
     libpcap-dev \
+    postgresql-client \
     libicu-dev \
     build-essential \
     libssl-dev \

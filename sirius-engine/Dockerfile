@@ -17,7 +17,7 @@ RUN apt-get update && \
 
 # Build arguments for submodule commit SHAs
 ARG GO_API_COMMIT_SHA=v0.0.14
-ARG APP_SCANNER_COMMIT_SHA=f98dd58
+ARG APP_SCANNER_COMMIT_SHA=e862e83
 ARG APP_TERMINAL_COMMIT_SHA=main
 ARG SIRIUS_NSE_COMMIT_SHA=main
 ARG APP_AGENT_COMMIT_SHA=50b405a
@@ -31,23 +31,19 @@ RUN git clone https://github.com/SiriusScan/go-api.git && \
     git checkout ${GO_API_COMMIT_SHA} && \
     go mod tidy
 
+# Clone ping++ (fingerprinting engine, needed by app-scanner)
+ARG PINGPP_COMMIT_SHA=master
+RUN git clone https://github.com/SiriusScan/pingpp.git "ping++" && \
+    cd "ping++" && \
+    git checkout ${PINGPP_COMMIT_SHA}
+
 # Clone app-scanner
 RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     cd app-scanner && \
     git checkout ${APP_SCANNER_COMMIT_SHA} && \
-    # Fix Port struct compilation errors against newer go-api model
-    sed -i '/sirius\.Port{/,/}/s/ID:\s*\([^,}]*\)/Number: \1/g' modules/rustscan/rustscan.go && \
-    sed -i '/sirius\.Port{/,/}/s/ID:\s*\([^,}]*\)/Number: \1/g' modules/nmap/nmap.go && \
-    sed -i '/sirius\.Port{/,/}/s/ID:\s*\([^,}]*\)/Number: \1/g' modules/naabu/naabu.go && \
-    sed -i 's/port\.ID/port.Number/g' internal/scan/manager.go && \
-    # Fix HostEntry migration compatibility for older scanner commit
-    sed -i 's/contains(scan.Hosts, enumResults.IP)/containsHostEntry(scan.Hosts, enumResults.IP)/g' internal/scan/manager.go && \
-    sed -i 's/contains(scan.Hosts, discoveryResults.IP)/containsHostEntry(scan.Hosts, discoveryResults.IP)/g' internal/scan/manager.go && \
-    sed -i 's/scan.Hosts = append(scan.Hosts, enumResults.IP)/scan.Hosts = append(scan.Hosts, store.HostEntry{IP: enumResults.IP})/g' internal/scan/manager.go && \
-    sed -i 's/scan.Hosts = append(scan.Hosts, discoveryResults.IP)/scan.Hosts = append(scan.Hosts, store.HostEntry{IP: discoveryResults.IP})/g' internal/scan/manager.go && \
     # Ensure template resolution failures transition scan state to failed
     sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            }' internal/scan/manager.go && \
-    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                log.Printf("Failed to mark scan as failed: %v", updateErr)' internal/scan/manager.go && \
+    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                slog.Error("Failed to mark scan as failed", "error", updateErr)' internal/scan/manager.go && \
     sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            }); updateErr != nil {' internal/scan/manager.go && \
     sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                return nil' internal/scan/manager.go && \
     sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                scan.EndTime = time.Now().Format(time.RFC3339)' internal/scan/manager.go && \
@@ -57,7 +53,6 @@ RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     sed -i '0,/if ctx.Err() != nil {/s//if false \&\& ctx.Err() != nil {/' internal/scan/manager.go && \
     # Source-aware persistence failures must not block scan finalization
     sed -i 's|return fmt.Errorf("failed to submit host data with source attribution: %w", err)|slog.Warn("Will continue scan without source-attributed persistence", "error", err)|' internal/scan/manager.go && \
-    printf '\n// containsHostEntry checks whether a host IP already exists in HostEntry slices.\nfunc containsHostEntry(slice []store.HostEntry, ip string) bool {\n\tfor _, host := range slice {\n\t\tif host.IP == ip {\n\t\t\treturn true\n\t\t}\n\t}\n\treturn false\n}\n' >> internal/scan/manager.go && \
     go mod download && \
     CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o scanner main.go
 

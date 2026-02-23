@@ -57,3 +57,30 @@ jobs:
           docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ github.event.inputs.target_tag }}" > /dev/null
           docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ github.event.inputs.target_tag }}" > /dev/null
           echo "Published release image tags: ${{ github.event.inputs.target_tag }}"
+
+      - name: Verify source and release digest parity
+        run: |
+          set -euo pipefail
+
+          verify_digest() {
+            local component="$1"
+            local source_ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${component}:${{ github.event.inputs.source_tag }}"
+            local target_ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${component}:${{ github.event.inputs.target_tag }}"
+            local source_digest
+            local target_digest
+
+            source_digest=$(docker buildx imagetools inspect "$source_ref" | awk '/^Digest:/ {print $2; exit}')
+            target_digest=$(docker buildx imagetools inspect "$target_ref" | awk '/^Digest:/ {print $2; exit}')
+
+            echo "${component} source digest: ${source_digest}"
+            echo "${component} target digest: ${target_digest}"
+
+            if [ -z "$source_digest" ] || [ -z "$target_digest" ] || [ "$source_digest" != "$target_digest" ]; then
+              echo "Digest verification failed for ${component}" >&2
+              exit 1
+            fi
+          }
+
+          verify_digest sirius-ui
+          verify_digest sirius-api
+          verify_digest sirius-engine

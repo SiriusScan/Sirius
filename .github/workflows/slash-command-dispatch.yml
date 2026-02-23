@@ -1,0 +1,65 @@
+name: Slash Command Dispatch
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
+jobs:
+  dispatch:
+    name: Dispatch chatops command
+    runs-on: ubuntu-latest
+    if: >
+      github.event.issue.pull_request || !github.event.issue.pull_request
+    steps:
+      - name: Validate and dispatch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const commentBody = (context.payload.comment.body || "").trim();
+            const assoc = context.payload.comment.author_association || "";
+            const allowedAssociations = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
+
+            if (!commentBody.startsWith("/")) {
+              core.info("Not a slash command, skipping.");
+              return;
+            }
+
+            if (!allowedAssociations.has(assoc)) {
+              core.info(`Ignoring slash command from association: ${assoc}`);
+              return;
+            }
+
+            const isSupported =
+              commentBody.startsWith("/triage ") ||
+              commentBody === "/triage" ||
+              commentBody.startsWith("/test ");
+
+            if (!isSupported) {
+              core.info(`Unsupported slash command: ${commentBody}`);
+              return;
+            }
+
+            const issueNumber = context.payload.issue.number;
+            const isPr = !!context.payload.issue.pull_request;
+            const prNumber = isPr ? issueNumber : null;
+
+            await github.request("POST /repos/{owner}/{repo}/dispatches", {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              event_type: "chatops-command",
+              client_payload: {
+                command: commentBody,
+                issue_number: issueNumber,
+                pr_number: prNumber,
+                is_pr: isPr,
+                comment_id: context.payload.comment.id,
+                actor: context.actor,
+              },
+            });
+
+            core.info(`Dispatched chatops command: ${commentBody}`);

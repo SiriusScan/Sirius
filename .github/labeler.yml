@@ -1,0 +1,68 @@
+area:ui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sirius-ui/**"
+
+area:api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sirius-api/**"
+
+area:engine:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sirius-engine/**"
+
+area:compose-dev:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docker-compose.dev.yaml"
+          - "docker-compose.override.yaml"
+          - "scripts/dev-setup.sh"
+
+area:compose-prod:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docker-compose.prod.yaml"
+          - ".github/workflows/deploy.yml"
+
+area:installer-secrets:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docker-compose.installer.yaml"
+          - ".env.production.example"
+          - "documentation/dev/architecture/ADR.startup-secrets-model.md"
+          - "documentation/dev/operations/README.api-key-operations.md"
+
+area:auth:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sirius-ui/src/server/auth.ts"
+          - "sirius-ui/src/server/api/**"
+          - "sirius-api/**/middleware/**"
+          - "documentation/dev/architecture/README.auth-surface-matrix.md"
+
+area:rabbitmq:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sirius-rabbitmq/**"
+          - "**/*rabbitmq*"
+
+area:postgres:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "sirius-postgres/**"
+          - "**/*prisma*"
+          - "**/*migration*"
+
+area:valkey:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*valkey*"
+          - "**/*redis*"
+
+type:docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "documentation/**"
+          - "README.md"

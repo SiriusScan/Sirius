@@ -1,0 +1,67 @@
+name: Auth or 401 Issue
+description: Report API key drift, auth mismatches, and unauthorized responses.
+title: "[auth/401]: "
+labels:
+  - status:needs-triage
+  - type:bug
+  - area:auth
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for `401` responses, API key mismatch, and auth surface incidents.
+        This maps directly to the API key operations runbook.
+
+  - type: input
+    id: endpoint
+    attributes:
+      label: Endpoint/Surface Affected
+      placeholder: "e.g. /host/, tRPC scanner.getScanStatus, /api/v1/keys"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: Primary Symptom
+      options:
+        - 401 on non-health API routes
+        - UI cannot read/write through tRPC
+        - scanner/agent submissions return 401
+        - key rotation appears incomplete
+        - unknown auth failure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: runbook_checks
+    attributes:
+      label: Runbook Checks Completed
+      options:
+        - label: I verified `SIRIUS_API_KEY` is set and non-empty in all runtime services.
+          required: true
+        - label: I confirmed services are using the same active key (`sirius-api`, `sirius-ui`, `sirius-engine`).
+          required: true
+        - label: I re-ran installer and restarted services after any key changes.
+          required: false
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Diagnostics and Evidence
+      description: Include key env checks and relevant logs.
+      placeholder: |
+        docker inspect sirius-api --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY='
+        docker inspect sirius-ui --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY='
+        docker inspect sirius-engine --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY='
+        docker compose logs --no-color --tail=120 sirius-api sirius-ui sirius-engine
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro_steps
+    attributes:
+      label: Reproduction Steps
+      placeholder: "Provide exact, minimal steps to reproduce."
+    validations:
+      required: true

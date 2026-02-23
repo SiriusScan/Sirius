@@ -1,0 +1,65 @@
+name: Security Report (Non-sensitive)
+description: Report security hardening gaps suitable for public tracking.
+title: "[security]: "
+labels:
+  - status:needs-triage
+  - type:security
+  - sev:high
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for non-sensitive security issues appropriate for public discussion.
+        For sensitive vulnerabilities, use GitHub Security Advisories instead.
+
+  - type: checkboxes
+    id: sensitivity
+    attributes:
+      label: Sensitivity Check
+      options:
+        - label: This report does not include exploit details or sensitive data.
+          required: true
+        - label: I understand sensitive issues must be reported privately.
+          required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Security Surface
+      options:
+        - Auth / API key validation
+        - Session / NextAuth
+        - CORS / headers
+        - RabbitMQ / queue integrity
+        - Deployment / secrets handling
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Estimated Impact
+      options:
+        - critical
+        - high
+        - medium
+        - low
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      placeholder: "Describe the security concern and affected components."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction / Validation
+      placeholder: "Steps, logs, and relevant hardening/security-suite evidence."
+    validations:
+      required: true

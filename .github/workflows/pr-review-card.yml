@@ -1,0 +1,123 @@
+name: PR Review Card
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review-card:
+    name: Publish review card
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and post review card
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.payload.pull_request.number;
+            const marker = "<!-- sirius-pr-review-card -->";
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number,
+              per_page: 100,
+            });
+
+            const paths = files.map((f) => f.filename);
+            const changed = new Set();
+            const risks = [];
+            const requiredTests = new Set();
+
+            const has = (pattern) => paths.some((p) => pattern.test(p));
+
+            if (has(/^sirius-ui\//)) {
+              changed.add("area:ui");
+              requiredTests.add("Frontend checklist (visual + functional + container checks)");
+            }
+            if (has(/^sirius-api\//)) {
+              changed.add("area:api");
+              requiredTests.add("Backend API checklist (endpoint, validation, auth checks)");
+            }
+            if (has(/^sirius-engine\//)) {
+              changed.add("area:engine");
+              requiredTests.add("Docker/container + integration checklist");
+            }
+            if (has(/^documentation\//) || has(/^README\.md$/)) {
+              changed.add("type:docs");
+              requiredTests.add("Documentation checklist (`lint-docs`, `lint-index`)");
+            }
+            if (has(/docker-compose|Dockerfile|\.github\/workflows/)) {
+              changed.add("area:compose-prod");
+              requiredTests.add("Container/Docker checklist (`test-build`, `test-health`, `test-integration`)");
+              risks.push("Runtime/startup contract changed (compose/workflow/dockerfile touched).");
+            }
+            if (has(/auth|apikey|nextauth|README\.auth-surface-matrix\.md|README\.api-key-operations\.md/i)) {
+              changed.add("area:auth");
+              requiredTests.add("Authentication checklist + `security auth-surface` suite");
+              risks.push("Auth surface touched; require explicit auth regression evidence.");
+            }
+            if (has(/prisma|migration|sirius-postgres/i)) {
+              changed.add("area:postgres");
+              requiredTests.add("Database schema/migration checklist");
+              risks.push("Persistence layer changed; validate migrations and rollback safety.");
+            }
+            if (has(/rabbitmq|queue|amqp/i)) {
+              changed.add("area:rabbitmq");
+              requiredTests.add("Integration + queue behavior validation");
+            }
+
+            if (risks.length === 0) {
+              risks.push("No high-risk patterns detected by automation.");
+            }
+
+            const body = `${marker}
+            ## PR Review Card
+
+            **Changed surfaces**
+            ${[...changed].length ? [...changed].map((c) => `- ${c}`).join("\n") : "- none detected"}
+
+            **Risk flags**
+            ${risks.map((r) => `- ${r}`).join("\n")}
+
+            **Required testing evidence**
+            ${[...requiredTests].length ? [...requiredTests].map((t) => `- [ ] ${t}`).join("\n") : "- [ ] General smoke + health evidence"}
+
+            **Reference checklist**
+            - \`documentation/dev/test/CHECKLIST.testing-by-type.md\`
+
+            **Maintainer commands**
+            - \`/test health\`
+            - \`/test integration\`
+            - \`/test security auth-surface\`
+            `;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: pull_number,
+              per_page: 100,
+            });
+
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pull_number,
+                body,
+              });
+            }

@@ -1,0 +1,172 @@
+name: ChatOps Runner
+
+on:
+  repository_dispatch:
+    types: [chatops-command]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  run-command:
+    name: Execute triage/test command
+    runs-on: ubuntu-latest
+    env:
+      COMMAND: ${{ github.event.client_payload.command }}
+      ISSUE_NUMBER: ${{ github.event.client_payload.issue_number }}
+      IS_PR: ${{ github.event.client_payload.is_pr }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Parse command
+        id: parse
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmd="${COMMAND}"
+          echo "raw=$cmd" >> "$GITHUB_OUTPUT"
+
+          if [[ "$cmd" == /triage* ]]; then
+            state="$(echo "$cmd" | awk '{print $2}')"
+            echo "kind=triage" >> "$GITHUB_OUTPUT"
+            echo "state=${state}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$cmd" == /test* ]]; then
+            sub="$(echo "$cmd" | awk '{print $2}')"
+            suite="$(echo "$cmd" | awk '{print $3}')"
+            echo "kind=test" >> "$GITHUB_OUTPUT"
+            echo "sub=${sub}" >> "$GITHUB_OUTPUT"
+            echo "suite=${suite}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "kind=unknown" >> "$GITHUB_OUTPUT"
+
+      - name: Handle triage status transition
+        if: steps.parse.outputs.kind == 'triage'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const target = "${{ steps.parse.outputs.state }}";
+            const allowed = new Set(["needs-info", "repro-ready", "confirmed"]);
+            if (!allowed.has(target)) {
+              core.setOutput("triage_message", `Unsupported triage state: ${target}`);
+              return;
+            }
+
+            const statusLabels = [
+              "status:needs-triage",
+              "status:needs-info",
+              "status:repro-ready",
+              "status:confirmed",
+              "status:in-progress",
+              "status:blocked",
+              "status:ready-to-merge",
+              "status:done",
+            ];
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = Number(process.env.ISSUE_NUMBER);
+
+            const issue = await github.rest.issues.get({ owner, repo, issue_number });
+            const existingLabels = issue.data.labels.map((l) => l.name);
+
+            for (const label of existingLabels) {
+              if (statusLabels.includes(label)) {
+                try {
+                  await github.rest.issues.removeLabel({ owner, repo, issue_number, name: label });
+                } catch (error) {
+                  core.warning(`Could not remove ${label}: ${error.message}`);
+                }
+              }
+            }
+
+            const newLabel = `status:${target}`;
+            await github.rest.issues.addLabels({
+              owner,
+              repo,
+              issue_number,
+              labels: [newLabel],
+            });
+
+            core.setOutput("triage_message", `Applied \`${newLabel}\`.`);
+
+      - name: Run requested test suite
+        id: test
+        if: steps.parse.outputs.kind == 'test'
+        shell: bash
+        run: |
+          set -uo pipefail
+          sub="${{ steps.parse.outputs.sub }}"
+          suite="${{ steps.parse.outputs.suite }}"
+          mkdir -p .chatops
+          log_file=".chatops/output.log"
+
+          exit_code=0
+          if [[ "$sub" == "health" ]]; then
+            ./testing/container-testing/test-health.sh > "$log_file" 2>&1 || exit_code=$?
+          elif [[ "$sub" == "integration" ]]; then
+            ./testing/container-testing/test-integration.sh > "$log_file" 2>&1 || exit_code=$?
+          elif [[ "$sub" == "security" ]]; then
+            if [[ -z "$suite" ]]; then
+              echo "Missing suite. Use: /test security <suite>" > "$log_file"
+              exit_code=2
+            else
+              cd testing/security
+              go run . --suite "$suite" > "../../$log_file" 2>&1 || exit_code=$?
+            fi
+          else
+            echo "Unsupported test command: /test $sub" > "$log_file"
+            exit_code=2
+          fi
+
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "excerpt<<'EOF'"
+            tail -n 40 "$log_file"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish result comment
+        uses: actions/github-script@v7
+        env:
+          TRIAGE_MESSAGE: ${{ steps.handle-triage-status-transition.outputs.triage_message }}
+          TEST_EXIT: ${{ steps.test.outputs.exit_code }}
+          TEST_EXCERPT: ${{ steps.test.outputs.excerpt }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = Number(process.env.ISSUE_NUMBER);
+            const command = process.env.COMMAND;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            let body = `<!-- sirius-chatops-result -->\n## ChatOps Result\n\n- Command: \`${command}\`\n`;
+
+            if ("${{ steps.parse.outputs.kind }}" === "triage") {
+              body += `- Outcome: ${process.env.TRIAGE_MESSAGE || "No change was applied."}\n`;
+            } else if ("${{ steps.parse.outputs.kind }}" === "test") {
+              const code = Number(process.env.TEST_EXIT || "1");
+              body += `- Outcome: ${code === 0 ? "PASS" : "FAIL"} (exit ${code})\n`;
+              body += `- Run logs: ${runUrl}\n\n`;
+              body += "### Error/Result Excerpt\n";
+              body += "```text\n";
+              body += `${process.env.TEST_EXCERPT || "No excerpt captured."}\n`;
+              body += "```\n";
+            } else {
+              body += "- Outcome: Unsupported command.\n";
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body,
+            });

@@ -14,11 +14,12 @@ export const env = {
 
 const skipValidation = process.env.SKIP_ENV_VALIDATION === "1";
 const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+const isDockerBuildStage = process.env.SIRIUS_BUILD_STAGE === "docker-build";
 
-if (!skipValidation && !isBuildPhase && env.NODE_ENV === "production" && !env.SIRIUS_API_KEY.trim()) {
-  throw new Error("SIRIUS_API_KEY is required in production");
+if (!isBuildPhase && !isDockerBuildStage && !env.SIRIUS_API_KEY.trim()) {
+  throw new Error("SIRIUS_API_KEY is required at runtime");
 }
 
-if (!skipValidation && !isBuildPhase && env.NODE_ENV === "production" && !env.NEXTAUTH_SECRET.trim()) {
-  throw new Error("NEXTAUTH_SECRET is required in production");
+if (!isBuildPhase && !isDockerBuildStage && !env.NEXTAUTH_SECRET.trim()) {
+  throw new Error("NEXTAUTH_SECRET is required at runtime");
 }

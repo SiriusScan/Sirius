@@ -1,0 +1,77 @@
+name: Install or Startup Failure
+description: Report stack startup failures, restart loops, and first-run issues.
+title: "[install/startup]: "
+labels:
+  - status:needs-triage
+  - type:bug
+  - area:installer-secrets
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form when Sirius fails to start or continuously restarts.
+        Include required diagnostics so maintainers can triage without back-and-forth.
+
+  - type: dropdown
+    id: install_mode
+    attributes:
+      label: Install/Run Mode
+      description: Which compose mode are you using?
+      options:
+        - Standard (`docker compose up -d`)
+        - Dev overlay (`-f docker-compose.yaml -f docker-compose.dev.yaml`)
+        - Prod overlay (`-f docker-compose.yaml -f docker-compose.prod.yaml`)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Sirius Version / Image Tag
+      placeholder: "e.g. v1.0.0, latest, or image digest"
+    validations:
+      required: true
+
+  - type: input
+    id: host
+    attributes:
+      label: Host OS + Docker Version
+      placeholder: "e.g. macOS 15.2, Docker 27.x"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: installer_check
+    attributes:
+      label: Installer-First Validation
+      options:
+        - label: I ran `docker compose -f docker-compose.installer.yaml run --rm sirius-installer` before starting.
+          required: true
+        - label: I confirmed `docker compose config --quiet` renders successfully with required secrets.
+          required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs (last 100 lines)
+      description: Include logs from `sirius-api`, `sirius-engine`, and `sirius-ui`.
+      placeholder: |
+        docker compose logs --no-color --tail=100 sirius-api sirius-engine sirius-ui
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      placeholder: "What did you expect to happen?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed Behavior
+      placeholder: "What happened instead? Include exact errors."
+    validations:
+      required: true

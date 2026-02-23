@@ -1,0 +1,197 @@
+name: Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  triage:
+    name: Deterministic issue triage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply labels and publish triage card
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const issueNumber = issue.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const text = `${issue.title}\n${issue.body || ""}`.toLowerCase();
+
+            const statusLabels = new Set([
+              "status:needs-triage",
+              "status:needs-info",
+              "status:repro-ready",
+              "status:confirmed",
+              "status:in-progress",
+              "status:blocked",
+              "status:ready-to-merge",
+              "status:done",
+            ]);
+
+            const nextLabels = new Set();
+            const reasons = [];
+
+            // Type classification
+            if (/(security|vulnerability|cve|hardening|auth bypass|cors)/.test(text)) {
+              nextLabels.add("type:security");
+              reasons.push("Detected security-oriented keywords.");
+            } else if (/(question|how do i|help|clarify)/.test(text)) {
+              nextLabels.add("type:question");
+              reasons.push("Detected question/support language.");
+            } else if (/(docs|documentation|readme|guide)/.test(text)) {
+              nextLabels.add("type:docs");
+              reasons.push("Detected documentation-related language.");
+            } else if (/(feature|enhancement|improve|request)/.test(text)) {
+              nextLabels.add("type:enhancement");
+              reasons.push("Detected enhancement/request language.");
+            } else {
+              nextLabels.add("type:bug");
+              reasons.push("Defaulted to bug classification.");
+            }
+
+            // Area classification
+            if (/(sirius_api_key|x-api-key|401|auth|nextauth|jwt|session)/.test(text)) {
+              nextLabels.add("area:auth");
+              reasons.push("Matched auth/API-key indicators.");
+            }
+            if (/(installer|startup|secret|nextauth_secret|initial_admin_password|postgres_password)/.test(text)) {
+              nextLabels.add("area:installer-secrets");
+              reasons.push("Matched installer/startup secret indicators.");
+            }
+            if (/(docker-compose\.dev|dev overlay|volume mount|mount shadow|prisma)/.test(text)) {
+              nextLabels.add("area:compose-dev");
+              reasons.push("Matched dev-overlay/compose indicators.");
+            }
+            if (/(docker-compose\.prod|production overlay|hardened production)/.test(text)) {
+              nextLabels.add("area:compose-prod");
+              reasons.push("Matched production overlay indicators.");
+            }
+            if (/(ui|frontend|next\.js|trpc|browser)/.test(text)) nextLabels.add("area:ui");
+            if (/(api|fiber|endpoint|rest)/.test(text)) nextLabels.add("area:api");
+            if (/(engine|scanner|grpc|agent)/.test(text)) nextLabels.add("area:engine");
+            if (/(rabbitmq|queue|amqp)/.test(text)) nextLabels.add("area:rabbitmq");
+            if (/(postgres|database|migration|prisma schema)/.test(text)) nextLabels.add("area:postgres");
+            if (/(valkey|redis|cache)/.test(text)) nextLabels.add("area:valkey");
+            if (/(windows|wsl|crlf)/.test(text)) nextLabels.add("platform:windows");
+
+            // Severity hint
+            if (/(critical|auth bypass|remote code execution|data loss|privilege escalation)/.test(text)) {
+              nextLabels.add("sev:critical");
+            } else if (/(stack won't boot|cannot start|service down|outage|unusable|401 everywhere)/.test(text)) {
+              nextLabels.add("sev:high");
+            } else if (/(intermittent|major|fails often)/.test(text)) {
+              nextLabels.add("sev:medium");
+            } else {
+              nextLabels.add("sev:low");
+            }
+
+            // Missing info checks for fast mobile triage
+            const missing = [];
+            if (!/(repro|steps to reproduce|reproduction)/.test(text)) {
+              missing.push("Reproduction steps");
+            }
+            if (!/(docker compose logs|logs --no-color|stack trace|error:)/.test(text)) {
+              missing.push("Relevant service logs");
+            }
+            if (!/(docker compose config --quiet|installer|sirius-installer)/.test(text)) {
+              missing.push("Installer/config-render validation evidence");
+            }
+
+            if (missing.length > 0) {
+              nextLabels.add("status:needs-info");
+              reasons.push("Missing diagnostics were detected.");
+            } else {
+              nextLabels.add("status:repro-ready");
+              reasons.push("Sufficient diagnostics detected for reproduction.");
+            }
+
+            // Remove existing status labels to keep lifecycle single-valued
+            for (const label of issue.labels.map((l) => l.name)) {
+              if (statusLabels.has(label) && !nextLabels.has(label)) {
+                try {
+                  await github.rest.issues.removeLabel({
+                    owner,
+                    repo,
+                    issue_number: issueNumber,
+                    name: label,
+                  });
+                } catch (error) {
+                  core.warning(`Could not remove label ${label}: ${error.message}`);
+                }
+              }
+            }
+
+            // Add computed labels
+            const labelsToAdd = [...nextLabels];
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                labels: labelsToAdd,
+              });
+            }
+
+            const triageMarker = "<!-- sirius-triage-card -->";
+            const missingBlock = missing.length
+              ? missing.map((m) => `- [ ] ${m}`).join("\n")
+              : "- [x] Issue includes baseline diagnostics.";
+
+            const body = `${triageMarker}
+            ## Triage Card
+
+            **Summary**
+            - Type: ${[...nextLabels].find((l) => l.startsWith("type:")) || "not-set"}
+            - Areas: ${[...nextLabels].filter((l) => l.startsWith("area:") || l.startsWith("platform:")).join(", ") || "not-set"}
+            - Severity hint: ${[...nextLabels].find((l) => l.startsWith("sev:")) || "not-set"}
+            - Status: ${[...nextLabels].find((l) => l.startsWith("status:")) || "not-set"}
+
+            **Why this classification**
+            ${reasons.map((r) => `- ${r}`).join("\n")}
+
+            **Missing info checklist**
+            ${missingBlock}
+
+            **Relevant runbooks**
+            - API Key Operations: \`documentation/dev/operations/README.api-key-operations.md\`
+            - Startup/Secrets ADR: \`documentation/dev/architecture/ADR.startup-secrets-model.md\`
+            - Auth Surface Matrix: \`documentation/dev/architecture/README.auth-surface-matrix.md\`
+
+            **Maintainer mobile commands**
+            - \`/triage needs-info\`
+            - \`/triage repro-ready\`
+            - \`/triage confirmed\`
+            - \`/test health\`
+            - \`/test integration\`
+            - \`/test security auth-surface\`
+            `;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number: issueNumber,
+              per_page: 100,
+            });
+
+            const existing = comments.find((c) => c.body && c.body.includes(triageMarker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                body,
+              });
+            }

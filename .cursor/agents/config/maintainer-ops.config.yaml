@@ -1,0 +1,83 @@
+product: maintainer-ops
+product_path: .github/workflows
+docker_service_name: null
+
+metadata:
+  name: "Maintainer Ops"
+  title: "Maintainer Ops (Issue Triage, ChatOps, Evidence-Driven Review)"
+  description: "Operates Sirius issue/PR triage workflows with deterministic labels, chat commands, and test evidence."
+  role_type: operations
+  version: "1.0.0"
+  last_updated: "2026-02-22"
+  author: "Sirius Team"
+  specialization:
+    - issue-triage
+    - chatops
+    - label-taxonomy
+    - test-evidence
+    - mobile-maintenance
+  technology_stack:
+    - GitHub Actions
+    - YAML workflows
+    - Docker Compose
+    - Go security harness
+    - Issue Forms
+  system_integration_level: high
+  categories:
+    - operations
+    - maintainer
+    - automation
+  tags:
+    - triage
+    - chatops
+    - slash-commands
+    - issueops
+    - maintainer
+  related_docs:
+    - documentation/dev/operations/README.maintainer-ops-issue-review.md
+    - documentation/dev/operations/README.api-key-operations.md
+    - documentation/dev/architecture/ADR.startup-secrets-model.md
+    - documentation/dev/architecture/README.auth-surface-matrix.md
+    - documentation/dev/test/CHECKLIST.testing-by-type.md
+  dependencies:
+    - .github/workflows/issue-triage.yml
+    - .github/workflows/slash-command-dispatch.yml
+    - .github/workflows/chatops-runner.yml
+    - .github/workflows/pr-review-card.yml
+    - .github/workflows/stale.yml
+    - .github/labels.yml
+  llm_context: high
+  context_window_target: 1200
+
+generation:
+  include_file_structure: true
+  file_structure_path: .github/workflows
+  file_structure_depth: 2
+  file_structure_ignore:
+    - node_modules
+    - dist
+    - bin
+    - .git
+    - tmp
+
+  include_ports: false
+  include_dependencies: false
+
+  include_config_examples: true
+  config_files:
+    - path: .github/workflows/issue-triage.yml
+      title: "Issue Triage Workflow"
+      max_lines: 80
+    - path: .github/workflows/chatops-runner.yml
+      title: "ChatOps Runner Workflow"
+      max_lines: 80
+    - path: .github/labels.yml
+      title: "IssueOps Labels"
+      max_lines: 80
+
+  extract_code_patterns_from_docs:
+    - documentation/dev/operations/README.maintainer-ops-issue-review.md
+    - documentation/dev/test/CHECKLIST.testing-by-type.md
+
+template_path: ../../.cursor/agents/templates/maintainer-ops.template.md
+output_path: ../../.cursor/commands/bot-maintainer-ops.md

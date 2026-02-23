@@ -1,0 +1,36 @@
+name: Stale Needs-Info Hygiene
+
+on:
+  schedule:
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    name: Mark stale needs-info issues
+    runs-on: ubuntu-latest
+    steps:
+      - name: Process stale issues
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          stale-issue-message: >
+            This issue is marked `status:needs-info` and has been inactive.
+            Please provide the requested diagnostics or reproduction details to keep it active.
+          close-issue-message: >
+            Closing due to inactivity while awaiting required diagnostics.
+            Reopen with updated evidence and we will continue triage.
+          stale-pr-message: "PR stale management is disabled by policy."
+          days-before-issue-stale: 14
+          days-before-issue-close: 7
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          only-labels: "status:needs-info"
+          exempt-issue-labels: "type:security,status:confirmed,sev:critical"
+          exempt-all-milestones: true
+          stale-issue-label: "status:needs-info"
+          close-issue-label: "status:done"

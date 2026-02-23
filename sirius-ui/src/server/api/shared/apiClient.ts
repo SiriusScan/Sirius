@@ -4,6 +4,14 @@ import { env } from "~/env.mjs";
 /** Shared Go API base URL used by all TRPC routers. */
 export const API_BASE_URL = env.SIRIUS_API_URL || "http://localhost:9001";
 
+function getRequiredApiKey(): string {
+  const key = env.SIRIUS_API_KEY?.trim();
+  if (!key) {
+    throw new Error("SIRIUS_API_KEY is missing; outbound API requests are blocked");
+  }
+  return key;
+}
+
 /**
  * Shared, authenticated axios instance for server-side (TRPC router) calls to
  * the Go API.  The X-API-Key header is injected automatically from the
@@ -16,8 +24,14 @@ export const apiClient = axios.create({
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
-    ...(env.SIRIUS_API_KEY ? { "X-API-Key": env.SIRIUS_API_KEY } : {}),
+    "X-API-Key": getRequiredApiKey(),
   },
+});
+
+apiClient.interceptors.request.use((config) => {
+  config.headers = config.headers ?? {};
+  config.headers["X-API-Key"] = getRequiredApiKey();
+  return config;
 });
 
 /**
@@ -29,9 +43,7 @@ export async function apiFetch(
   init?: RequestInit,
 ): Promise<Response> {
   const headers = new Headers(init?.headers);
-  if (env.SIRIUS_API_KEY) {
-    headers.set("X-API-Key", env.SIRIUS_API_KEY);
-  }
+  headers.set("X-API-Key", getRequiredApiKey());
   if (!headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }

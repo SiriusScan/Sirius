@@ -162,6 +162,7 @@ Use as slash commands (recommended):
 /bot-agent-engineer
 /bot-api-engineer
 /bot-ui-engineer
+/bot-maintainer-ops
 ```
 
 Or reference directly:

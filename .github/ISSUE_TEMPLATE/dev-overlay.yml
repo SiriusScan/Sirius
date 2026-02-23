@@ -1,0 +1,49 @@
+name: Dev Overlay / Compose Override Issue
+description: Report local dev overlay, mount shadowing, and compose override problems.
+title: "[dev-overlay]: "
+labels:
+  - status:needs-triage
+  - type:bug
+  - area:compose-dev
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for `docker-compose.dev.yaml` usage issues, mount shadowing, and missing infra services.
+        Reminder: dev compose is an override file and must be combined with base compose.
+
+  - type: checkboxes
+    id: compose_usage
+    attributes:
+      label: Compose Command Validation
+      options:
+        - label: I used `docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d` (not dev file alone).
+          required: true
+        - label: `docker compose -f docker-compose.yaml -f docker-compose.dev.yaml config --quiet` succeeds.
+          required: true
+
+  - type: textarea
+    id: command_history
+    attributes:
+      label: Exact Commands Run
+      placeholder: "Paste exact commands in order."
+    validations:
+      required: true
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: What Broke?
+      placeholder: "e.g. missing postgres/rabbitmq/valkey, mount shadowing, prisma init issues."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Compose Output
+      placeholder: |
+        docker compose ps
+        docker compose logs --no-color --tail=120 sirius-ui sirius-api sirius-engine
+    validations:
+      required: true

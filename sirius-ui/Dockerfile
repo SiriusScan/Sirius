@@ -91,6 +91,7 @@ RUN npx prisma generate
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_CLIENTVAR=${NEXT_PUBLIC_CLIENTVAR}
 ENV SKIP_ENV_VALIDATION=1
+ENV SIRIUS_BUILD_STAGE=docker-build
 
 # Create a temporary next.config.mjs with errors ignored for Docker building.
 # Use a Node-based replacement for portability across sed variants.

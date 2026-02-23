@@ -1,0 +1,62 @@
+name: Windows / WSL2 Issue
+description: Report Windows-specific startup and script problems (including CRLF handling).
+title: "[windows-wsl2]: "
+labels:
+  - status:needs-triage
+  - type:bug
+  - platform:windows
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Sirius supports Windows via WSL2. Use this form for CRLF, shell script, and path/mount issues.
+
+  - type: input
+    id: windows_version
+    attributes:
+      label: Windows + WSL Version
+      placeholder: "e.g. Windows 11 24H2, WSL2 Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: input
+    id: docker_desktop
+    attributes:
+      label: Docker Desktop Version
+      placeholder: "e.g. 4.x"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue_class
+    attributes:
+      label: Issue Class
+      options:
+        - CRLF / shell script execution
+        - bind mount behavior
+        - path translation
+        - networking/port behavior
+        - unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      placeholder: |
+        Include:
+        - exact error text
+        - command output
+        - relevant logs
+        - whether files were cloned in Windows FS or WSL FS
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction Steps
+      placeholder: "Minimal steps from clone to failure."
+    validations:
+      required: true

@@ -86,8 +86,11 @@ main() {
     
     # Test 2: Development Docker Compose Configuration
     run_test "Development Docker Compose Config" "docker compose -f docker-compose.yaml -f docker-compose.dev.yaml config --quiet"
+
+    # Test 3: sirius-postgres entrypoint contract
+    run_test "sirius-postgres Entrypoint Contract" "docker build -t sirius-postgres:test ./sirius-postgres/ && docker run --rm --entrypoint /bin/sh sirius-postgres:test -lc 'test -x /usr/local/bin/start-with-monitor.sh && /bin/sh -n /usr/local/bin/start-with-monitor.sh'"
     
-    # Test 3: sirius-ui Production Build (base docker-compose.yaml is production-ready)
+    # Test 4: sirius-ui Production Build (base docker-compose.yaml is production-ready)
     run_test "sirius-ui Production Build" "docker build -t sirius-ui:test ./sirius-ui/ --target production"
     
     # Test 5: sirius-api Runner Build
@@ -107,7 +110,7 @@ main() {
     
     # Cleanup test images
     log "${YELLOW}🧹 Cleaning up test images...${NC}"
-    docker rmi sirius-ui:test sirius-api:test sirius-engine:dev sirius-engine:runtime sirius-ui:dev sirius-api:dev 2>/dev/null || true
+    docker rmi sirius-postgres:test sirius-ui:test sirius-api:test sirius-engine:dev sirius-engine:runtime sirius-ui:dev sirius-api:dev 2>/dev/null || true
     
     # Summary
     log ""

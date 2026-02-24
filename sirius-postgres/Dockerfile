@@ -77,6 +77,7 @@ echo "✅ All services started"
 wait "$POSTGRES_PID"
 EOF
 RUN chmod +x /usr/local/bin/start-with-monitor.sh
+RUN test -x /usr/local/bin/start-with-monitor.sh && /bin/sh -n /usr/local/bin/start-with-monitor.sh
 
 # Set environment variables for system monitor
 ENV VALKEY_HOST=sirius-valkey

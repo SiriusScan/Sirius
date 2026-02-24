@@ -113,10 +113,9 @@ jobs:
       - name: Deploy to staging
         run: |
           echo "Deploying to staging with tag: ${{ needs.build.outputs.tag || 'latest' }}"
-          # In a real deployment, this would connect to staging server
-          # For now, we'll just validate the deployment configuration
 
-          # Generate staging environment file
+          mkdir -p environments
+
           cat > environments/.env.staging << EOF
           ENVIRONMENT=staging
           NODE_ENV=staging
@@ -173,6 +172,8 @@ jobs:
         run: |
           ENV="${{ github.event.inputs.environment }}"
           TAG="${{ github.event.inputs.image_tag }}"
+
+          mkdir -p environments
 
           case "$ENV" in
             staging)

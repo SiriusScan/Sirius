@@ -1,0 +1,29 @@
+name: Welcome First-Time Contributors
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    name: Welcome contributors
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post welcome message
+        uses: actions/first-interaction@v2
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Thanks for opening your first issue in Sirius Scan.
+            Please include as much diagnostic detail as possible so maintainers can triage quickly.
+            You can also use Discussions for questions and design proposals.
+          pr-message: |
+            Thanks for your first pull request to Sirius Scan.
+            Please complete the PR template checklist and include validation evidence.
+            A maintainer will review as soon as possible.

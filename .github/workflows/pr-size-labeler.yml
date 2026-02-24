@@ -1,0 +1,28 @@
+name: PR Size Labeler
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  size:
+    name: Apply size label
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply PR size label
+        uses: pascalgn/size-label-action@v0.5.5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          XS_MAX_SIZE: "25"
+          S_MAX_SIZE: "99"
+          M_MAX_SIZE: "299"
+          L_MAX_SIZE: "699"
+          XL_MAX_SIZE: "1499"
+          FAIL_IF_XL: "false"
+          IGNORE_FILE_PATTERNS: |
+            *.lock
+            *.snap

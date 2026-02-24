@@ -1,0 +1,54 @@
+name: Feature Request
+description: Propose a new capability or improvement for Sirius Scan.
+title: "[feature]: "
+labels:
+  - status:needs-triage
+  - type:enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to propose features with clear problem framing and success criteria.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What user or operator problem are you trying to solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the preferred implementation or behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: List alternatives and why they were not chosen.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Expected Impact
+      options:
+        - low
+        - medium
+        - high
+    validations:
+      required: true
+
+  - type: textarea
+    id: success
+    attributes:
+      label: Success Criteria
+      description: What outcomes or metrics indicate this feature is complete?
+    validations:
+      required: true

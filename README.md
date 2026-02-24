@@ -1,8 +1,21 @@
 # Sirius Scan v1.0.0
 
+[![CI](https://github.com/SiriusScan/Sirius/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SiriusScan/Sirius/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/codecov/c/github/SiriusScan/Sirius?label=coverage)](https://codecov.io/gh/SiriusScan/Sirius)
+[![Docker Pulls](https://img.shields.io/docker/pulls/siriusscan/sirius?label=docker%20pulls)](https://hub.docker.com/r/siriusscan/sirius)
+[![Go Report Card](https://goreportcard.com/badge/github.com/SiriusScan/Sirius)](https://goreportcard.com/report/github.com/SiriusScan/Sirius)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+[![Discord](https://img.shields.io/badge/community-discord-5865F2)](https://sirius.publickey.io/community)
+
 ![Sirius Scan Dashboard](/documentation/dash-dark.gif)
 
 Sirius is an open-source comprehensive vulnerability scanner that leverages community-driven security intelligence and automated penetration testing capabilities. **v1.0.0** is the first production release, bringing the complete scanning platform, hardened CI/CD workflows, and release-grade deployment readiness. Get started in minutes with our Docker-based setup.
+
+## Navigate by Role
+
+- **End Users**: [Quick Start](https://sirius.publickey.io/docs/getting-started/quick-start), [Installation](https://sirius.publickey.io/docs/getting-started/installation), [Interface Tour](https://sirius.publickey.io/docs/getting-started/interface-tour)
+- **Contributors**: [CONTRIBUTING.md](./CONTRIBUTING.md), [Issue Tracker](https://github.com/SiriusScan/Sirius/issues), [Discussions](https://github.com/SiriusScan/Sirius/discussions)
+- **Maintainers**: [Maintainer Ops Review](./documentation/dev/operations/README.maintainer-ops-issue-review.md), [CI/CD Guide](./documentation/README.cicd.md), [Container Testing](./documentation/dev/test/README.container-testing.md)
 
 ## 🚀 Quick Start Guide
 
@@ -342,16 +355,32 @@ Sirius uses a microservices architecture with the following components:
 
 ### 📡 Service Communication Flow
 
-```
-User Interface (sirius-ui)
-    ↓ HTTP/WebSocket
-REST API (sirius-api)
-    ↓ AMQP Messages
-Message Queue (sirius-rabbitmq)
-    ↓ Queue Processing
-Scanning Engine (sirius-engine)
-    ↓ SQL Queries
-Database (sirius-postgres)
+```mermaid
+graph TD
+    subgraph clients [Clients]
+        UI["Sirius UI (Next.js)"]
+        CLI["Terminal and Agent Runtime"]
+    end
+
+    subgraph core [Core Services]
+        API["Sirius API (Go/Gin)"]
+        Engine["Sirius Engine"]
+    end
+
+    subgraph infra [Infrastructure]
+        MQ["RabbitMQ"]
+        DB["PostgreSQL"]
+        Cache["Valkey"]
+    end
+
+    UI -->|"HTTP/WebSocket"| API
+    CLI -->|"gRPC"| Engine
+    API -->|"AMQP publish"| MQ
+    MQ -->|"Queue consume"| Engine
+    API -->|"SQL read/write"| DB
+    Engine -->|"SQL read/write"| DB
+    API -->|"Session/cache ops"| Cache
+    Engine -->|"Scan state cache ops"| Cache
 ```
 
 ### 🤖 Agent Runtime Note

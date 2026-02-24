@@ -1,4 +1,4 @@
-name: Stale Needs-Info Hygiene
+name: Stale Issue and PR Hygiene
 
 on:
   schedule:
@@ -11,26 +11,33 @@ permissions:
 
 jobs:
   stale:
-    name: Mark stale needs-info issues
+    name: Mark stale issues and PRs
     runs-on: ubuntu-latest
     steps:
-      - name: Process stale issues
+      - name: Process stale issues and PRs
         uses: actions/stale@v9
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           stale-issue-message: >
-            This issue is marked `status:needs-info` and has been inactive.
-            Please provide the requested diagnostics or reproduction details to keep it active.
+            This issue has had no activity for 60 days and is now marked stale.
+            If this is still relevant, add an update and we will keep it open.
           close-issue-message: >
-            Closing due to inactivity while awaiting required diagnostics.
-            Reopen with updated evidence and we will continue triage.
-          stale-pr-message: "PR stale management is disabled by policy."
-          days-before-issue-stale: 14
-          days-before-issue-close: 7
-          days-before-pr-stale: -1
-          days-before-pr-close: -1
-          only-labels: "status:needs-info"
-          exempt-issue-labels: "type:security,status:confirmed,sev:critical"
+            Closing this issue due to inactivity.
+            Comment with updated context to reopen if work is still needed.
+          stale-pr-message: >
+            This pull request has had no activity for 60 days and is now marked stale.
+            Please push updates or comment if it should remain open.
+          close-pr-message: >
+            Closing this pull request due to inactivity.
+            Reopen or open a new PR when updates are ready.
+          days-before-issue-stale: 60
+          days-before-issue-close: 14
+          days-before-pr-stale: 60
+          days-before-pr-close: 14
+          exempt-issue-labels: "type:security,sev:critical,status:blocked"
+          exempt-pr-labels: "type:security,sev:critical,status:blocked"
           exempt-all-milestones: true
           stale-issue-label: "status:needs-info"
+          stale-pr-label: "status:needs-info"
           close-issue-label: "status:done"
+          close-pr-label: "status:done"

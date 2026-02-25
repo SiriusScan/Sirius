@@ -1,7 +1,6 @@
 package integration_tests
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"

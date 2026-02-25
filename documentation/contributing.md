@@ -443,7 +443,7 @@ We welcome contributions in:
 - **GitHub Issues**: Bug reports and features
 - **GitHub Discussions**: Questions and ideas
 - **Discord**: Real-time community chat
-- **Email**: support@publickey.io
+- **Email**: support@opensecurity.com
 
 ---
 

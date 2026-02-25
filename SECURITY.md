@@ -18,7 +18,7 @@ Do not open public issues for suspected vulnerabilities.
 Use one of the private channels below:
 
 - GitHub Security Advisories: <https://github.com/SiriusScan/Sirius/security/advisories/new>
-- Email: `security@publickey.io`
+- Email: `security@opensecurity.com`
 
 If possible, include:
 

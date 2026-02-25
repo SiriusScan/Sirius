@@ -15,7 +15,7 @@ Sirius is an open-source comprehensive vulnerability scanner that leverages comm
 
 - **End Users**: [Quick Start](https://sirius.opensecurity.com/docs/getting-started/quick-start), [Installation](https://sirius.opensecurity.com/docs/getting-started/installation), [Interface Tour](https://sirius.opensecurity.com/docs/getting-started/interface-tour)
 - **Contributors**: [CONTRIBUTING.md](./CONTRIBUTING.md), [Issue Tracker](https://github.com/SiriusScan/Sirius/issues), [Discussions](https://github.com/SiriusScan/Sirius/discussions)
-- **Maintainers**: [Maintainer Ops Review](./documentation/dev/operations/README.maintainer-ops-issue-review.md), [CI/CD Guide](./documentation/README.cicd.md), [Container Testing](./documentation/dev/test/README.container-testing.md)
+- **Maintainers**: [Maintainer Ops Review](./documentation/dev/operations/README.maintainer-ops-issue-review.md), [CI/CD Guide](./documentation/dev/architecture/README.cicd.md), [Container Testing](./documentation/dev/test/README.container-testing.md)
 
 ## 🚀 Quick Start Guide
 
@@ -785,9 +785,9 @@ docker compose pull  # Update images regularly
 
 - [🚀 API Reference](https://sirius.opensecurity.com/docs/api/rest/authentication) - Complete API documentation
 - [📦 Go SDK](https://sirius.opensecurity.com/docs/api/sdk/go) - Go integration library
-- [🐳 Docker Guide](./documentation/DOCKER-IMPLEMENTATION-DOCUMENTATION.md) - Comprehensive Docker documentation
-- [🏗️ Architecture Guide](./documentation/README.architecture.md) - System architecture deep-dive
-- [🔄 CI/CD Guide](./documentation/README.cicd.md) - Deployment automation
+- [🐳 Docker Guide](./documentation/dev/architecture/README.docker-architecture.md) - Comprehensive Docker documentation
+- [🏗️ Architecture Guide](./documentation/dev/architecture/README.architecture.md) - System architecture deep-dive
+- [🔄 CI/CD Guide](./documentation/dev/architecture/README.cicd.md) - Deployment automation
 
 ### 🎓 User Guides
 
@@ -803,7 +803,7 @@ docker compose pull  # Update images regularly
 - [🐛 GitHub Issues](https://github.com/SiriusScan/Sirius/issues) - Bug reports and feature requests
 - [💬 Discord Community](https://sirius.opensecurity.com/community) - Real-time community support
 - [🤝 Contributing Guide](./documentation/contributing.md) - How to contribute to Sirius
-- [📧 Support Contact](mailto:support@publickey.io) - Direct technical support
+- [📧 Support Contact](mailto:support@opensecurity.com) - Direct technical support
 
 ## 📊 Performance & Scaling
 

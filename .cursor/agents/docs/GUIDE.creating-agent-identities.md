@@ -436,7 +436,7 @@ return c.Status(401).JSON(fiber.Map{"error": "missing authorization"})
             if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
                 return nil, fmt.Errorf("unexpected signing method")
             }
-            return publicKey, nil
+            return signingKey, nil
         })
 
         if err != nil || !token.Valid {

@@ -728,7 +728,7 @@ type RepositoryManager struct {
     localPath      string
     updateInterval time.Duration
     verifyGPG      bool
-    publicKey      string
+    signingKey     string
 }
 
 func (rm *RepositoryManager) UpdateRepository(ctx context.Context) error {

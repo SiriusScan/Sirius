@@ -311,7 +311,7 @@ jobs:
           push: true
           build-args: |
             GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.14' }}
-            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'f98dd58' }}
+            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || '4a47f73' }}
             APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || 'main' }}
             SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'main' }}
             APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '50b405a' }}

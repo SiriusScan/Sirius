@@ -17,7 +17,7 @@ RUN apt-get update && \
 
 # Build arguments for submodule commit SHAs
 ARG GO_API_COMMIT_SHA=v0.0.16
-ARG APP_SCANNER_COMMIT_SHA=921bae8
+ARG APP_SCANNER_COMMIT_SHA=4a47f73
 ARG APP_TERMINAL_COMMIT_SHA=main
 ARG SIRIUS_NSE_COMMIT_SHA=main
 ARG APP_AGENT_COMMIT_SHA=50b405a
@@ -204,13 +204,11 @@ COPY --from=builder /repos/app-system-monitor/system-monitor /system-monitor/
 COPY --from=builder /repos/app-administrator/administrator /app-administrator/
 RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 
-# Copy NSE scripts and manifest to the expected location
-RUN mkdir -p /opt/sirius/nse/sirius-nse && \
-    cp -r /sirius-nse/* /opt/sirius/nse/sirius-nse/ 2>/dev/null || echo "No sirius-nse files to copy" && \
-    chmod -R 755 /opt/sirius/nse
+# Ensure sirius-nse repository is readable
+RUN chmod -R 755 /sirius-nse
 
-# Symlink Nmap scripts directory to sirius-nse (ensures ONLY sirius-nse scripts are used)
-RUN ln -sf /opt/sirius/nse/sirius-nse/scripts /usr/local/share/nmap/scripts && \
+# Symlink Nmap scripts directory to sirius-nse (single source of truth)
+RUN ln -sf /sirius-nse/scripts /usr/local/share/nmap/scripts && \
     echo "Symlinked Nmap scripts to sirius-nse"
 
 # Copy configuration and scripts
@@ -218,15 +216,8 @@ COPY .air.toml .air.toml
 COPY start.sh /start.sh
 COPY start-enhanced.sh /start-enhanced.sh
 
-# Copy local apps directory (includes manifest.json) to provide fallback
+# Copy local apps directory for runtime fallback assets
 COPY apps/ /engine/apps/
-
-# Ensure the NSE manifest is available from local apps as fallback
-RUN if [ -f /engine/apps/app-scanner/manifest.json ]; then \
-        mkdir -p /opt/sirius/nse/sirius-nse && \
-        cp /engine/apps/app-scanner/manifest.json /opt/sirius/nse/sirius-nse/ && \
-        echo "✅ Copied local manifest.json to /opt/sirius/nse/sirius-nse/"; \
-    fi
 
 # Make scripts executable and fix line endings
 RUN dos2unix /start.sh /start-enhanced.sh && \
@@ -357,13 +348,11 @@ COPY --from=builder /repos/app-system-monitor/system-monitor /system-monitor/
 COPY --from=builder /repos/app-administrator/administrator /app-administrator/
 RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 
-# Copy NSE scripts and manifest to the expected location for production
-RUN mkdir -p /opt/sirius/nse/sirius-nse && \
-    cp -r /sirius-nse/* /opt/sirius/nse/sirius-nse/ 2>/dev/null || echo "No sirius-nse files to copy" && \
-    chmod -R 755 /opt/sirius/nse
+# Ensure sirius-nse repository is readable in runtime image
+RUN chmod -R 755 /sirius-nse
 
-# Symlink Nmap scripts directory to sirius-nse (ensures ONLY sirius-nse scripts are used)
-RUN ln -sf /opt/sirius/nse/sirius-nse/scripts /usr/local/share/nmap/scripts && \
+# Symlink Nmap scripts directory to sirius-nse (single source of truth)
+RUN ln -sf /sirius-nse/scripts /usr/local/share/nmap/scripts && \
     echo "Symlinked Nmap scripts to sirius-nse"
 
 # Enforce runtime startup contract expected by start-enhanced.sh.

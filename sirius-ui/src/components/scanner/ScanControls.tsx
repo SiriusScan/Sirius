@@ -176,7 +176,7 @@ export function ScanControls({
                 Need the Sirius Agent?
               </h3>
               <p className="text-[11px] text-gray-400">
-                Download from GitHub to enable remote scanning
+                Download for your platform to enable remote scanning
               </p>
             </div>
             <Button
@@ -184,7 +184,7 @@ export function ScanControls({
               size="sm"
               onClick={() =>
                 window.open(
-                  "https://github.com/SiriusScan/app-agent/releases",
+                  "https://sirius.opensecurity.com/get-started/agent",
                   "_blank",
                   "noopener,noreferrer"
                 )

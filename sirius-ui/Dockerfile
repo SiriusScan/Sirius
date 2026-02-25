@@ -61,7 +61,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 # Copy startup script
 COPY start-dev.sh /app/start-dev.sh
-RUN chmod +x /app/start-dev.sh
+RUN sed -i 's/\r$//' /app/start-dev.sh && chmod +x /app/start-dev.sh
 
 # Create non-root user for development
 RUN addgroup --system --gid 1001 nodejs && \
@@ -160,7 +160,7 @@ COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
 # Copy production startup script
 COPY start-prod.sh /app/start-prod.sh
-RUN chmod +x /app/start-prod.sh
+RUN sed -i 's/\r$//' /app/start-prod.sh && chmod +x /app/start-prod.sh
 
 # Change ownership
 RUN chown -R nextjs:nodejs /app /system-monitor

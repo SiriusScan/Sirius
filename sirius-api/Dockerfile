@@ -21,7 +21,7 @@ RUN chown -R appuser:appgroup /api
 
 # Copy startup script
 COPY start-dev.sh /start-dev.sh
-RUN chmod +x /start-dev.sh
+RUN sed -i 's/\r$//' /start-dev.sh && chmod +x /start-dev.sh
 
 # Switch to non-root user
 USER appuser

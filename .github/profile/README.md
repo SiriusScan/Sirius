@@ -1,39 +1,37 @@
-# Sirius Scan
+# SiriusScan
 
-Sirius Scan is an open-source security platform for continuous vulnerability discovery, assessment, and remediation tracking across modern infrastructure.
+SiriusScan is an open-source security engineering platform for teams that want continuous visibility, faster risk triage, and practical remediation workflows.
 
-## Why Sirius Scan
+We build security tooling for real operators and developers: discover assets, identify vulnerabilities, prioritize what matters, and integrate security work into day-to-day delivery.
 
-- Continuous network and host discovery with scan orchestration
-- Vulnerability intelligence with CVE/CVSS-based risk prioritization
-- Real-time dashboards for security posture and remediation workflows
-- Developer-first architecture with API access and automated CI/CD
+## What We Build
 
-## Core Repositories
-
-- [`Sirius`](https://github.com/SiriusScan/Sirius) - Primary platform repository and deployment stack
-- [`go-api`](https://github.com/SiriusScan/go-api) - Backend API services in Go
-- [`app-scanner`](https://github.com/SiriusScan/app-scanner) - Scanning service and execution engine
-- [`app-agent`](https://github.com/SiriusScan/app-agent) - Agent runtime for distributed operations
-- [`pingpp`](https://github.com/SiriusScan/pingpp) - Network utility services
-- [`website`](https://github.com/SiriusScan/website) - Public website and product content
+- Continuous discovery and scanning across hosts, services, and infrastructure
+- Vulnerability intelligence and risk prioritization using actionable severity context
+- Operational workflows for remediation tracking and security posture reporting
+- API-first and automation-friendly components for modern DevSecOps pipelines
 
 ## Start Here
 
-- Product docs: <https://sirius.publickey.io/docs/getting-started/quick-start>
-- Installation guide: <https://sirius.publickey.io/docs/getting-started/installation>
-- API reference: <https://sirius.publickey.io/docs/api/rest/authentication>
+- Quick start: <https://sirius.publickey.io/docs/getting-started/quick-start>
+- Installation: <https://sirius.publickey.io/docs/getting-started/installation>
+- API docs: <https://sirius.publickey.io/docs/api/rest/authentication>
 - Security policy: <https://github.com/SiriusScan/Sirius/security/policy>
+- Project discussions: <https://github.com/SiriusScan/Sirius/discussions>
 
-## Community
+## Core Repositories
 
-- Discussions: <https://github.com/SiriusScan/Sirius/discussions>
-- Issues: <https://github.com/SiriusScan/Sirius/issues>
-- Discord: <https://sirius.publickey.io/community>
+- [`Sirius`](https://github.com/SiriusScan/Sirius) - Core platform, orchestration, documentation, and deployment baseline
+- [`go-api`](https://github.com/SiriusScan/go-api) - Backend API services for integrations and platform operations
+- [`app-scanner`](https://github.com/SiriusScan/app-scanner) - Scanning execution service for discovery and vulnerability collection
+- [`app-agent`](https://github.com/SiriusScan/app-agent) - Agent runtime for distributed scanning and remote execution patterns
+- [`pingpp`](https://github.com/SiriusScan/pingpp) - Network diagnostics and supporting connectivity utilities
+- [`website`](https://github.com/SiriusScan/website) - Public website, messaging, and product-facing content
 
-## Contributing
+## Contribute
 
-We welcome contributors across code, documentation, testing, and security hardening.
+We welcome improvements in code, testing, documentation, and security hardening.
 
 - Contribution guide: <https://github.com/SiriusScan/Sirius/blob/main/CONTRIBUTING.md>
 - Code of conduct: <https://github.com/SiriusScan/Sirius/blob/main/CODE_OF_CONDUCT.md>
+- Support channels: <https://github.com/SiriusScan/Sirius/blob/main/SUPPORT.md>

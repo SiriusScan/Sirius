@@ -1,5 +1,13 @@
 name: Sirius CI/CD Pipeline
 
+# Canonical CI pipeline. Handles all builds, tests, and canary dispatch.
+# deploy.yml is now deployment-only (workflow_dispatch) and does not build images.
+#
+# Multi-arch strategy: each container is built separately on native amd64 and
+# arm64 runners (via Blacksmith) to avoid slow QEMU cross-compilation.
+# After both arch builds succeed, arch-specific tags are merged into a single
+# multi-arch manifest.
+
 on:
   push:
     branches: [main, sirius-demo]
@@ -13,11 +21,13 @@ env:
   IMAGE_NAMESPACE: siriusscan
 
 jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Detect which services actually changed so we only build what's needed
+  # ─────────────────────────────────────────────────────────────────────────────
   detect-changes:
     name: Detect Changes
     runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
-      submodule_changes: ${{ steps.changes.outputs.submodule_changes }}
       sirius_ui_changes: ${{ steps.changes.outputs.sirius_ui_changes }}
       sirius_api_changes: ${{ steps.changes.outputs.sirius_api_changes }}
       sirius_engine_changes: ${{ steps.changes.outputs.sirius_engine_changes }}
@@ -25,20 +35,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch all history for all branches and tags
+          fetch-depth: 0
 
       - name: Determine Changed Files
         id: changes
         run: |
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            # Set changes based on which submodule was updated
             SUBMODULE="${{ github.event.client_payload.submodule }}"
             echo "submodule_changes=true" >> $GITHUB_OUTPUT
             echo "Submodule update detected: $SUBMODULE"
-            
-            # Extract repository name from full path
+
             REPO_NAME=$(echo $SUBMODULE | awk -F'/' '{print $NF}')
-            
+
             case $REPO_NAME in
               "go-api")
                 echo "Affects both sirius-api and sirius-engine"
@@ -57,43 +65,40 @@ jobs:
                 ;;
             esac
           else
-            # For direct pushes/PRs, detect actual file changes
             if [ "${{ github.event_name }}" == "pull_request" ]; then
               BASE_SHA=${{ github.event.pull_request.base.sha }}
               HEAD_SHA=${{ github.event.pull_request.head.sha }}
             else
-              # For push events
               BASE_SHA=${{ github.event.before }}
               HEAD_SHA=${{ github.event.after }}
             fi
-            
-            # Check if files in specific directories changed
+
             git diff --name-only $BASE_SHA $HEAD_SHA > changed_files.txt
-            
+
             if grep -q "sirius-ui/" changed_files.txt; then
               echo "UI changes detected"
               echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
             fi
-            
+
             if grep -q "sirius-api/" changed_files.txt; then
               echo "API changes detected"
               echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
             fi
-            
+
             if grep -q "sirius-engine/" changed_files.txt || grep -q "rabbitmq/" changed_files.txt; then
               echo "Engine or RabbitMQ changes detected"
               echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
             fi
-            
-            # If docker files or CI changed, rebuild everything
+
+            # Dockerfile or CI changes trigger a full rebuild
             if grep -q -E "(Dockerfile|\.github/|docker-compose)" changed_files.txt; then
               echo "Docker or CI changes detected, rebuilding everything"
               echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
               echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
               echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
             fi
-            
-            # If nothing specific changed but we have changes, rebuild everything
+
+            # No specific changes but something did change: full rebuild
             if [ ! -s changed_files.txt ]; then
               echo "General changes detected, rebuilding everything"
               echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
@@ -102,21 +107,33 @@ jobs:
             fi
           fi
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Build sirius-ui
+  # Native runners per architecture avoid QEMU emulation of npm/Next.js builds.
+  # PRs build amd64 only; main/dispatch builds both arches.
+  # ─────────────────────────────────────────────────────────────────────────────
   build-ui:
-    name: Build & Push UI
+    name: "Build UI (${{ matrix.platform }})"
     needs: detect-changes
-    runs-on: blacksmith-4vcpu-ubuntu-2404
     if: needs.detect-changes.outputs.sirius_ui_changes == 'true'
-    outputs:
-      image_tag: ${{ steps.meta.outputs.image_tag }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ github.event_name == 'pull_request' && fromJSON('["amd64"]') || fromJSON('["amd64","arm64"]') }}
+        include:
+          - platform: amd64
+            runner: blacksmith-4vcpu-ubuntu-2404
+          - platform: arm64
+            runner: blacksmith-4vcpu-ubuntu-2404-arm
+
     steps:
       - name: Checkout Sirius repository
         uses: actions/checkout@v4
 
-      - name: Generate metadata
+      - name: Generate image tag
         id: meta
         run: |
-          # Set image tags based on event type
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             TAG="pr-${{ github.event.number }}"
           elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -128,9 +145,7 @@ jobs:
           else
             TAG="dev"
           fi
-          
           echo "image_tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Generated image tag: $TAG"
 
       - name: Install UI dependencies
         run: npm ci
@@ -151,43 +166,101 @@ jobs:
           username: ${{ secrets.GHCR_PUSH_USER }}
           password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
-      - name: Build and push sirius-ui
+      - name: Build and push sirius-ui (${{ matrix.platform }})
         uses: useblacksmith/build-push-action@v2
         with:
           context: ./sirius-ui
-          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          platforms: linux/${{ matrix.platform }}
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}
-            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-ui:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
-  build-api:
-    name: Build & Push API
-    needs: detect-changes
+  # Merge arch-specific UI images into a single multi-arch manifest
+  merge-ui:
+    name: "Merge UI Manifest"
+    needs: build-ui
+    if: needs.detect-changes.outputs.sirius_ui_changes == 'true' && github.event_name != 'pull_request'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: needs.detect-changes.outputs.sirius_api_changes == 'true'
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Generate image tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Create and push multi-arch manifest for sirius-ui
+        run: |
+          TAG="${{ steps.meta.outputs.image_tag }}"
+          BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui"
+
+          docker manifest create ${BASE}:${TAG} \
+            ${BASE}:${TAG}-amd64 \
+            ${BASE}:${TAG}-arm64
+
+          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-amd64 --arch amd64
+          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-arm64 --arch arm64
+          docker manifest push ${BASE}:${TAG}
+
+          if [ "${{ steps.meta.outputs.also_tag_beta }}" == "true" ]; then
+            docker manifest create ${BASE}:beta \
+              ${BASE}:${TAG}-amd64 \
+              ${BASE}:${TAG}-arm64
+            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-amd64 --arch amd64
+            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-arm64 --arch arm64
+            docker manifest push ${BASE}:beta
+          fi
+
+          echo "Published ${BASE}:${TAG} (amd64 + arm64)"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Build sirius-api
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-api:
+    name: "Build API (${{ matrix.platform }})"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sirius_api_changes == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ github.event_name == 'pull_request' && fromJSON('["amd64"]') || fromJSON('["amd64","arm64"]') }}
+        include:
+          - platform: amd64
+            runner: blacksmith-4vcpu-ubuntu-2404
+          - platform: arm64
+            runner: blacksmith-4vcpu-ubuntu-2404-arm
+
     steps:
       - name: Checkout Sirius repository
         uses: actions/checkout@v4
 
-      - name: Generate metadata
+      - name: Generate image tag
         id: meta
         run: |
-          # Set submodule commit SHAs based on repository_dispatch
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
             SUBMODULE="${{ github.event.client_payload.submodule }}"
             REPO_NAME=$(echo $SUBMODULE | awk -F'/' '{print $NF}')
             COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
-            
             if [ "$REPO_NAME" == "go-api" ]; then
               echo "GO_API_COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
-              echo "go-api submodule SHA: $COMMIT_SHA"
             fi
           fi
 
-          # Set image tags based on event type
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             TAG="pr-${{ github.event.number }}"
           elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -199,9 +272,7 @@ jobs:
           else
             TAG="dev"
           fi
-          
           echo "image_tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Generated image tag: $TAG"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -229,46 +300,102 @@ jobs:
           username: ${{ secrets.GHCR_PUSH_USER }}
           password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
-      - name: Build and push sirius-api
+      - name: Build and push sirius-api (${{ matrix.platform }})
         uses: useblacksmith/build-push-action@v2
         with:
           context: ./sirius-api
-          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          platforms: linux/${{ matrix.platform }}
           push: true
           build-args: |
             GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.15' }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}
-            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-api:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
-  build-engine:
-    name: Build & Push Engine
-    needs: detect-changes
+  # Merge arch-specific API images into a single multi-arch manifest
+  merge-api:
+    name: "Merge API Manifest"
+    needs: build-api
+    if: needs.detect-changes.outputs.sirius_api_changes == 'true' && github.event_name != 'pull_request'
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Generate image tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Create and push multi-arch manifest for sirius-api
+        run: |
+          TAG="${{ steps.meta.outputs.image_tag }}"
+          BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api"
+
+          docker manifest create ${BASE}:${TAG} \
+            ${BASE}:${TAG}-amd64 \
+            ${BASE}:${TAG}-arm64
+
+          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-amd64 --arch amd64
+          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-arm64 --arch arm64
+          docker manifest push ${BASE}:${TAG}
+
+          if [ "${{ steps.meta.outputs.also_tag_beta }}" == "true" ]; then
+            docker manifest create ${BASE}:beta \
+              ${BASE}:${TAG}-amd64 \
+              ${BASE}:${TAG}-arm64
+            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-amd64 --arch amd64
+            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-arm64 --arch arm64
+            docker manifest push ${BASE}:beta
+          fi
+
+          echo "Published ${BASE}:${TAG} (amd64 + arm64)"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Build sirius-engine
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-engine:
+    name: "Build Engine (${{ matrix.platform }})"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{ github.event_name == 'pull_request' && fromJSON('["amd64"]') || fromJSON('["amd64","arm64"]') }}
+        include:
+          - platform: amd64
+            runner: blacksmith-4vcpu-ubuntu-2404
+          - platform: arm64
+            runner: blacksmith-4vcpu-ubuntu-2404-arm
+
     steps:
       - name: Checkout Sirius repository
         uses: actions/checkout@v4
 
-      - name: Generate metadata
+      - name: Generate image tag and submodule SHAs
         id: meta
         run: |
-          # Set submodule commit SHAs based on repository_dispatch
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
             SUBMODULE="${{ github.event.client_payload.submodule }}"
             REPO_NAME=$(echo $SUBMODULE | awk -F'/' '{print $NF}')
             COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
-            
-            # Uppercase for Dockerfile ARGs
             REPO_NAME_UPPER=$(echo $REPO_NAME | tr '-' '_' | tr 'a-z' 'A-Z')
             echo "${REPO_NAME_UPPER}_COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
-            
-            echo "Submodule $REPO_NAME commit SHA: $COMMIT_SHA"
           fi
 
-          # Set image tags based on event type
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             TAG="pr-${{ github.event.number }}"
           elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -280,9 +407,7 @@ jobs:
           else
             TAG="dev"
           fi
-          
           echo "image_tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Generated image tag: $TAG"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -310,11 +435,11 @@ jobs:
           username: ${{ secrets.GHCR_PUSH_USER }}
           password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
-      - name: Build and push sirius-engine
+      - name: Build and push sirius-engine (${{ matrix.platform }})
         uses: useblacksmith/build-push-action@v2
         with:
           context: ./sirius-engine
-          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          platforms: linux/${{ matrix.platform }}
           push: true
           build-args: |
             GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.14' }}
@@ -322,15 +447,86 @@ jobs:
             APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || 'main' }}
             SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'main' }}
             APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '50b405a' }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}
-            ${{ steps.meta.outputs.also_tag_beta == 'true' && format('{0}/{1}/sirius-engine:beta', env.REGISTRY, env.IMAGE_NAMESPACE) || '' }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
+  # Merge arch-specific Engine images into a single multi-arch manifest
+  merge-engine:
+    name: "Merge Engine Manifest"
+    needs: build-engine
+    if: needs.detect-changes.outputs.sirius_engine_changes == 'true' && github.event_name != 'pull_request'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Generate image tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Create and push multi-arch manifest for sirius-engine
+        run: |
+          TAG="${{ steps.meta.outputs.image_tag }}"
+          BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine"
+
+          docker manifest create ${BASE}:${TAG} \
+            ${BASE}:${TAG}-amd64 \
+            ${BASE}:${TAG}-arm64
+
+          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-amd64 --arch amd64
+          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-arm64 --arch arm64
+          docker manifest push ${BASE}:${TAG}
+
+          if [ "${{ steps.meta.outputs.also_tag_beta }}" == "true" ]; then
+            docker manifest create ${BASE}:beta \
+              ${BASE}:${TAG}-amd64 \
+              ${BASE}:${TAG}-arm64
+            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-amd64 --arch amd64
+            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-arm64 --arch arm64
+            docker manifest push ${BASE}:beta
+          fi
+
+          echo "Published ${BASE}:${TAG} (amd64 + arm64)"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Integration Test
+  #
+  # Runs after at least one service build (or merge for multi-arch) succeeds.
+  # Key fixes vs the previous version:
+  #   1. sirius-api is ALWAYS started when sirius-engine is tested, because
+  #      start-enhanced.sh validates the API key contract at startup.
+  #   2. sirius-engine depends_on sirius-api in the test compose config.
+  #   3. The health-wait loop covers sirius-api even when only engine changed.
+  # ─────────────────────────────────────────────────────────────────────────────
   test:
     name: Integration Test
-    needs: [detect-changes, build-ui, build-api, build-engine]
+    needs:
+      - detect-changes
+      - build-ui
+      - build-api
+      - build-engine
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: always() && (needs.build-ui.result == 'success' || needs.build-api.result == 'success' || needs.build-engine.result == 'success')
+    if: >
+      always() &&
+      (
+        needs.build-ui.result == 'success' ||
+        needs.build-api.result == 'success' ||
+        needs.build-engine.result == 'success'
+      )
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -348,7 +544,7 @@ jobs:
       - name: Determine image tag
         id: tag
         run: |
-          # Use whichever build job ran successfully
+          # Use whichever build job ran successfully (amd64 arch-specific tag)
           if [ "${{ needs.build-ui.result }}" == "success" ]; then
             TAG="${{ needs.build-ui.outputs.image_tag }}"
           elif [ "${{ needs.build-api.result }}" == "success" ]; then
@@ -358,8 +554,9 @@ jobs:
           else
             TAG="latest"
           fi
-          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Using image tag: $TAG"
+          # Integration tests always use the amd64 arch-specific tag
+          echo "image_tag=${TAG}-amd64" >> $GITHUB_OUTPUT
+          echo "Using image tag: ${TAG}-amd64"
 
       - name: Create test environment
         run: |
@@ -474,15 +671,16 @@ jobs:
                   condition: service_healthy
                 sirius-valkey:
                   condition: service_healthy
+                sirius-api:
+                  condition: service_healthy
               healthcheck:
                 test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/50051"]
                 interval: 10s
                 timeout: 5s
                 retries: 12
-                start_period: 10s
+                start_period: 30s
           EOF
 
-          # Inject actual image references (expressions can't live inside the single-quoted heredoc)
           IMAGE_TAG="${{ steps.tag.outputs.image_tag }}"
           export SIRIUS_UI_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${IMAGE_TAG}"
           export SIRIUS_API_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${IMAGE_TAG}"
@@ -493,12 +691,12 @@ jobs:
 
       - name: Run integration test
         run: |
-          echo "🧪 Starting integration test..."
+          echo "Starting integration test..."
 
-          # --- 1. Infrastructure ---
+          # 1. Infrastructure services
           docker compose -f docker-compose.test.yml up -d sirius-postgres sirius-rabbitmq sirius-valkey
 
-          echo "⏳ Waiting for infrastructure services to become healthy..."
+          echo "Waiting for infrastructure services to become healthy..."
           timeout 90 bash -c '
             until docker compose -f docker-compose.test.yml ps --format json | \
               python3 -c "
@@ -509,31 +707,42 @@ jobs:
           sys.exit(0 if len(healthy) == 3 else 1)
           "; do sleep 3; done
           '
-          echo "✅ Infrastructure healthy"
+          echo "Infrastructure healthy"
 
-          # --- 2. Application services ---
+          # 2. Determine which application services to test.
+          #    IMPORTANT: sirius-api must always be started alongside sirius-engine
+          #    because start-enhanced.sh validates the API key contract at startup.
           SERVICES_TO_TEST=""
+          API_REQUIRED=false
+
           if [ "${{ needs.detect-changes.outputs.sirius_api_changes }}" == "true" ]; then
             SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-api"
+            API_REQUIRED=true
           fi
+
           if [ "${{ needs.detect-changes.outputs.sirius_engine_changes }}" == "true" ]; then
             SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-engine"
+            # Engine requires the API to be running for its startup preflight check
+            if [ "$API_REQUIRED" != "true" ]; then
+              SERVICES_TO_TEST="sirius-api$SERVICES_TO_TEST"
+              API_REQUIRED=true
+              echo "Adding sirius-api as required dependency for sirius-engine"
+            fi
           fi
+
           if [ "${{ needs.detect-changes.outputs.sirius_ui_changes }}" == "true" ]; then
             SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-ui"
           fi
 
           if [ -z "$SERVICES_TO_TEST" ]; then
-            echo "ℹ️  No application services to test"
+            echo "No application services to test"
             exit 0
           fi
 
-          echo "🚀 Starting application services:$SERVICES_TO_TEST"
+          echo "Starting application services:$SERVICES_TO_TEST"
           docker compose -f docker-compose.test.yml up -d $SERVICES_TO_TEST
 
-          # Wait for each service's health endpoint inside its own container.
-          # Timeout per service: 180 s. Uses the container's wget, not the host.
-          # sirius-api requires X-API-Key header for auth.
+          # 3. Wait for each service to become healthy
           for SVC in $SERVICES_TO_TEST; do
             case $SVC in
               sirius-api)    HEALTH_CMD="wget -q --tries=1 -O /dev/null http://127.0.0.1:9001/health" ;;
@@ -541,20 +750,20 @@ jobs:
               sirius-ui)     HEALTH_CMD="wget -q --tries=1 -O /dev/null http://127.0.0.1:3000/" ;;
               *) continue ;;
             esac
-            echo "⏳ Waiting for $SVC..."
+            echo "Waiting for $SVC..."
             timeout 180 bash -c "
               until docker compose -f docker-compose.test.yml exec -T $SVC sh -c '$HEALTH_CMD' 2>/dev/null; do
                 sleep 5
               done
             "
-            echo "✅ $SVC is healthy"
+            echo "$SVC is healthy"
           done
 
-          # --- 3. Final health assertions ---
-          echo "📊 Service status:"
+          # 4. Final health assertions
+          echo "Service status:"
           docker compose -f docker-compose.test.yml ps
 
-          echo "🏥 Running final health assertions..."
+          echo "Running final health assertions..."
           FAILED=0
           for SVC in $SERVICES_TO_TEST; do
             case $SVC in
@@ -564,9 +773,9 @@ jobs:
               *) continue ;;
             esac
             if docker compose -f docker-compose.test.yml exec -T $SVC sh -c "$HEALTH_CMD" 2>/dev/null; then
-              echo "  ✅ $SVC passed"
+              echo "  $SVC passed"
             else
-              echo "  ❌ $SVC FAILED"
+              echo "  $SVC FAILED"
               FAILED=1
             fi
           done
@@ -575,7 +784,7 @@ jobs:
             echo "::error::One or more services failed their health check"
             exit 1
           fi
-          echo "✅ All health checks passed"
+          echo "All health checks passed"
 
       - name: Capture diagnostics on failure
         if: failure()
@@ -597,11 +806,9 @@ jobs:
           echo "::group::Compose Status"
           cat ci-diagnostics/compose-status.txt
           echo "::endgroup::"
-
           echo "::group::sirius-engine logs"
           cat ci-diagnostics/sirius-engine.log
           echo "::endgroup::"
-
           echo "::group::sirius-api logs"
           cat ci-diagnostics/sirius-api.log
           echo "::endgroup::"
@@ -619,13 +826,22 @@ jobs:
         run: |
           docker compose -f docker-compose.test.yml down --volumes --remove-orphans 2>/dev/null || true
 
-  # Dispatch to sirius-demo repository when sirius-demo branch is updated
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Dispatch to sirius-demo when sirius-demo branch is pushed
+  # ─────────────────────────────────────────────────────────────────────────────
   dispatch-demo-deployment:
     name: Dispatch Demo Deployment (sirius-demo branch)
     runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: [detect-changes, build-ui, build-api, build-engine, test]
-    if: github.ref == 'refs/heads/sirius-demo' && github.event_name == 'push' && always() && (needs.detect-changes.result == 'success' || needs.detect-changes.result == 'skipped') && (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') && (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') && (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') && (needs.test.result == 'success' || needs.test.result == 'skipped')
-    
+    if: >
+      github.ref == 'refs/heads/sirius-demo' &&
+      github.event_name == 'push' &&
+      always() &&
+      (needs.detect-changes.result == 'success' || needs.detect-changes.result == 'skipped') &&
+      (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') &&
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped')
     steps:
       - name: Dispatch to sirius-demo repository
         uses: peter-evans/repository-dispatch@v3
@@ -638,31 +854,42 @@ jobs:
               "source_repo": "${{ github.repository }}",
               "source_branch": "${{ github.ref_name }}",
               "source_sha": "${{ github.sha }}",
-              "triggered_by": "${{ github.actor }}",
-              "commit_message": "${{ github.event.head_commit.message }}"
+              "triggered_by": "${{ github.actor }}"
             }
 
-  # Dispatch to sirius-demo repository when main branch is updated
-  # This acts as a canary - demo rebuilds on every main branch push to catch bad commits
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Canary dispatch to sirius-demo on every main branch push.
+  # Fixed: commit messages with newlines are sanitized before injection into JSON
+  # by using `gh api -f` flags which handle escaping correctly.
+  # ─────────────────────────────────────────────────────────────────────────────
   dispatch-demo-canary:
     name: Dispatch Demo Canary (main branch)
     runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: [detect-changes, build-ui, build-api, build-engine, test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && always() && (needs.detect-changes.result == 'success' || needs.detect-changes.result == 'skipped') && (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') && (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') && (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') && (needs.test.result == 'success' || needs.test.result == 'skipped')
-    
+    if: >
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push' &&
+      always() &&
+      (needs.detect-changes.result == 'success' || needs.detect-changes.result == 'skipped') &&
+      (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') &&
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped')
     steps:
       - name: Dispatch to sirius-demo repository (canary trigger)
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: SiriusScan/sirius-demo
-          event-type: sirius-main-updated
-          client-payload: |
-            {
-              "source_repo": "${{ github.repository }}",
-              "source_branch": "${{ github.ref_name }}",
-              "source_sha": "${{ github.sha }}",
-              "triggered_by": "${{ github.actor }}",
-              "commit_message": "${{ github.event.head_commit.message }}",
-              "canary": true
-            }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          # Sanitize: take first line only and strip characters that break JSON
+          SAFE_MSG=$(printf '%s' "$COMMIT_MSG" | head -1 | tr -d '"\\' | cut -c1-200)
+
+          gh api repos/SiriusScan/sirius-demo/dispatches \
+            --method POST \
+            -f event_type=sirius-main-updated \
+            -f "client_payload[source_repo]=${{ github.repository }}" \
+            -f "client_payload[source_branch]=${{ github.ref_name }}" \
+            -f "client_payload[source_sha]=${{ github.sha }}" \
+            -f "client_payload[triggered_by]=${{ github.actor }}" \
+            -f "client_payload[commit_message]=$SAFE_MSG" \
+            -f "client_payload[canary]=true"

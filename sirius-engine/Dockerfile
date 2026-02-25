@@ -1,18 +1,31 @@
 # Multi-stage Dockerfile for sirius-engine
-# Stage 1: Build stage with all dependencies
+#
+# Stage 1 (builder): Compiles all engine-specific Go services.
+#   Uses golang:1.24-bullseye because app-scanner requires CGO + libpcap.
+#   Pulls pre-built system-monitor and administrator from the shared base image
+#   so they never need to be compiled here.
+#
+# Stage 2 (development): Hot-reload dev environment.
+#   Based on sirius-base-engine-tools which already contains Nmap 7.95,
+#   RustScan, and PowerShell -- nothing heavy needs to be installed here.
+#
+# Stage 3 (runtime): Production container.
+#   Based on sirius-base-engine-tools for the same reason.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1: Builder
+# ─────────────────────────────────────────────────────────────────────────────
 FROM golang:1.24-bullseye AS builder
 
-# Set working directory
 WORKDIR /build
 
-# Install build dependencies
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    git \
-    ca-certificates \
-    tzdata \
-    build-essential \
-    libpcap-dev \
+        git \
+        ca-certificates \
+        tzdata \
+        build-essential \
+        libpcap-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Build arguments for submodule commit SHAs
@@ -21,27 +34,25 @@ ARG APP_SCANNER_COMMIT_SHA=4a47f73
 ARG APP_TERMINAL_COMMIT_SHA=main
 ARG SIRIUS_NSE_COMMIT_SHA=main
 ARG APP_AGENT_COMMIT_SHA=50b405a
+ARG PINGPP_COMMIT_SHA=master
 
-# Clone and build repositories
 WORKDIR /repos
 
-# Clone go-api first (needed by other components)
+# Clone go-api (needed as a dependency by other components)
 RUN git clone https://github.com/SiriusScan/go-api.git && \
     cd go-api && \
     git checkout ${GO_API_COMMIT_SHA} && \
     go mod tidy
 
 # Clone ping++ (fingerprinting engine, needed by app-scanner)
-ARG PINGPP_COMMIT_SHA=master
 RUN git clone https://github.com/SiriusScan/pingpp.git "ping++" && \
     cd "ping++" && \
     git checkout ${PINGPP_COMMIT_SHA}
 
-# Clone app-scanner
+# Clone and build app-scanner (CGO_ENABLED=1, requires libpcap)
 RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     cd app-scanner && \
     git checkout ${APP_SCANNER_COMMIT_SHA} && \
-    # Ensure template resolution failures transition scan state to failed
     sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            }' internal/scan/manager.go && \
     sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                slog.Error("Failed to mark scan as failed", "error", updateErr)' internal/scan/manager.go && \
     sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            }); updateErr != nil {' internal/scan/manager.go && \
@@ -49,20 +60,19 @@ RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                scan.EndTime = time.Now().Format(time.RFC3339)' internal/scan/manager.go && \
     sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                scan.Status = "failed"' internal/scan/manager.go && \
     sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            if updateErr := sm.scanUpdater.Update(context.Background(), func(scan *store.ScanResult) error {' internal/scan/manager.go && \
-    # Ensure host completion tracking runs even if scan context is cancelled
     sed -i '0,/if ctx.Err() != nil {/s//if false \&\& ctx.Err() != nil {/' internal/scan/manager.go && \
-    # Source-aware persistence failures must not block scan finalization
     sed -i 's|return fmt.Errorf("failed to submit host data with source attribution: %w", err)|slog.Warn("Will continue scan without source-attributed persistence", "error", err)|' internal/scan/manager.go && \
     go mod download && \
     CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o scanner main.go
 
-# Clone and build app-terminal from GitHub
+# Clone and build app-terminal
 RUN git clone https://github.com/SiriusScan/app-terminal.git && \
     cd app-terminal && \
+    git checkout ${APP_TERMINAL_COMMIT_SHA} && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o terminal cmd/main.go
 
-# Clone and build app-agent from GitHub
+# Clone and build app-agent
 RUN git clone https://github.com/SiriusScan/app-agent.git && \
     cd app-agent && \
     git checkout ${APP_AGENT_COMMIT_SHA} && \
@@ -70,271 +80,101 @@ RUN git clone https://github.com/SiriusScan/app-agent.git && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o agent cmd/agent/main.go && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server cmd/server/main.go
 
-# Clone sirius-nse
+# Clone sirius-nse (Nmap script library, no compilation needed)
 RUN git clone https://github.com/SiriusScan/sirius-nse.git && \
     cd sirius-nse && \
     git checkout ${SIRIUS_NSE_COMMIT_SHA}
 
-# Clone and build app-system-monitor from GitHub
-RUN git clone https://github.com/SiriusScan/app-system-monitor.git && \
-    cd app-system-monitor && \
-    go mod download && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o system-monitor main.go
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2: Development
+# Based on sirius-base-engine-tools which already contains:
+#   Nmap 7.95, RustScan, PowerShell, all required system packages
+# ─────────────────────────────────────────────────────────────────────────────
+FROM ghcr.io/siriusscan/sirius-base-engine-tools:latest AS development
 
-# Clone and build app-administrator from GitHub
-RUN git clone https://github.com/SiriusScan/app-administrator.git && \
-    cd app-administrator && \
-    go mod download && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o administrator main.go
-
-# Stage 2: Development stage with Go compiler and tools
-FROM golang:1.24-bullseye AS development
-
-# Set working directory
 WORKDIR /engine
 
-# Install development dependencies
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    git \
-    ca-certificates \
-    tzdata \
-    build-essential \
-    libpcap-dev \
-    postgresql-client \
-    libicu-dev \
-    libssl-dev \
-    curl \
-    wget \
-    bash \
-    dos2unix \
-    unzip \
-    automake \
-    autoconf \
-    libtool \
-    perl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Enforce runtime contract required by start-enhanced.sh preflight checks
-RUN psql --version >/dev/null
-
-# Build and install Nmap 7.95 from source for compatibility with sirius-nse scripts
-RUN cd /tmp && \
-    wget https://nmap.org/dist/nmap-7.95.tar.bz2 && \
-    tar xjf nmap-7.95.tar.bz2 && \
-    cd nmap-7.95 && \
-    touch aclocal.m4 configure Makefile.in config.h.in && \
-    find . -name Makefile.in -exec touch {} \; && \
-    ./configure --without-zenmap --without-nmap-update --without-ndiff && \
-    make && \
-    make install && \
-    cd / && \
-    rm -rf /tmp/nmap-7.95 /tmp/nmap-7.95.tar.bz2
-
-# Remove default Nmap scripts - will symlink to sirius-nse after it's copied
-RUN rm -rf /usr/local/share/nmap/scripts
-
-# Install air for live reloading (compatible version with Go 1.23)
-RUN go install github.com/air-verse/air@v1.52.3
-
-# Install RustScan pre-built binary (much faster than compiling from source)
+# Install Go 1.24 for hot-reload development (air requires Go 1.20+)
+# Ubuntu 22.04's apt golang is 1.18; air's hugo dep needs 1.20+
 RUN ARCH=$(uname -m) && \
     case "$ARCH" in \
-    "aarch64") \
-    echo "Installing ARM64 RustScan" && \
-    wget https://github.com/bee-san/RustScan/releases/latest/download/aarch64-linux-rustscan.zip && \
-    unzip aarch64-linux-rustscan.zip && \
-    mv rustscan /usr/local/bin/ && \
-    chmod +x /usr/local/bin/rustscan && \
-    rm aarch64-linux-rustscan.zip \
-    ;; \
-    "x86_64") \
-    echo "Installing AMD64 RustScan" && \
-    wget https://github.com/bee-san/RustScan/releases/latest/download/x86_64-linux-rustscan.tar.gz.zip && \
-    unzip x86_64-linux-rustscan.tar.gz.zip && \
-    tar -xzf x86_64-linux-rustscan.tar.gz && \
-    mv rustscan /usr/local/bin/ && \
-    chmod +x /usr/local/bin/rustscan && \
-    rm x86_64-linux-rustscan.tar.gz.zip x86_64-linux-rustscan.tar.gz \
-    ;; \
-    *) \
-    echo "Unsupported architecture: $ARCH" && exit 1 \
-    ;; \
-    esac
-ENV PATH="/usr/local/bin:${PATH}"
-
-# Install PowerShell for development stage
-RUN mkdir -p /opt/microsoft/powershell && \
-    cd /opt/microsoft/powershell && \
-    ARCH=$(uname -m) && \
-    case "$ARCH" in \
-    "aarch64") \
-    echo "Installing ARM64 version" && \
-    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-arm64.tar.gz && \
-    tar -xvf powershell-7.4.6-linux-arm64.tar.gz && \
-    rm powershell-7.4.6-linux-arm64.tar.gz \
-    ;; \
-    "x86_64") \
-    echo "Installing AMD64 version" && \
-    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz && \
-    tar -xvf powershell-7.4.6-linux-x64.tar.gz && \
-    rm powershell-7.4.6-linux-x64.tar.gz \
-    ;; \
-    *) \
-    echo "Unsupported architecture: $ARCH" && exit 1 \
-    ;; \
+        aarch64|arm64) GOARCH=arm64 ;; \
+        x86_64|amd64)  GOARCH=amd64 ;; \
+        *) echo "Unsupported: $ARCH" && exit 1 ;; \
     esac && \
-    chmod +x /opt/microsoft/powershell/pwsh && \
-    ln -s /opt/microsoft/powershell/pwsh /usr/bin/pwsh
+    wget -q "https://go.dev/dl/go1.24.0.linux-${GOARCH}.tar.gz" -O /tmp/go.tar.gz && \
+    rm -rf /usr/local/go && tar -C /usr/local -xzf /tmp/go.tar.gz && \
+    rm /tmp/go.tar.gz && \
+    ln -sf /usr/local/go/bin/go /usr/bin/go
+
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+# Install air for live reloading
+RUN go install github.com/air-verse/air@v1.52.3
 
 # Set up NSE directory structure
-RUN mkdir -p /opt/sirius/nse && \
-    chmod -R 755 /opt/sirius
+RUN mkdir -p /opt/sirius/nse && chmod -R 755 /opt/sirius
 
 # Create application directories
 RUN mkdir -p /app-scanner /app-terminal /app-agent /go-api /sirius-nse /system-monitor /app-administrator
 
-# Copy built applications and repositories from builder stage for fallback
+# Copy pre-built system-monitor and administrator from shared base
+COPY --from=ghcr.io/siriusscan/sirius-base-go-builder:latest /usr/local/bin/system-monitor /system-monitor/system-monitor
+COPY --from=ghcr.io/siriusscan/sirius-base-go-builder:latest /usr/local/bin/administrator /app-administrator/administrator
+RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
+
+# Copy built applications and repositories from builder stage (used as fallback sources)
 COPY --from=builder /repos/app-scanner /app-scanner-src/
 COPY --from=builder /repos/app-terminal /app-terminal-src/
 COPY --from=builder /repos/app-agent /app-agent-src/
 COPY --from=builder /repos/go-api /go-api/
 COPY --from=builder /repos/sirius-nse /sirius-nse/
-COPY --from=builder /repos/app-system-monitor/system-monitor /system-monitor/
-COPY --from=builder /repos/app-administrator/administrator /app-administrator/
-RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 
-# Ensure sirius-nse repository is readable
+# Ensure sirius-nse is readable
 RUN chmod -R 755 /sirius-nse
 
-# Symlink Nmap scripts directory to sirius-nse (single source of truth)
-RUN ln -sf /sirius-nse/scripts /usr/local/share/nmap/scripts && \
-    echo "Symlinked Nmap scripts to sirius-nse"
+# Remove default Nmap scripts and symlink to sirius-nse
+RUN rm -rf /usr/local/share/nmap/scripts && \
+    ln -sf /sirius-nse/scripts /usr/local/share/nmap/scripts
 
-# Copy configuration and scripts
+# Copy configuration and startup scripts
 COPY .air.toml .air.toml
 COPY start.sh /start.sh
 COPY start-enhanced.sh /start-enhanced.sh
 
-# Copy local apps directory for runtime fallback assets
-COPY apps/ /engine/apps/
-
-# Make scripts executable and fix line endings
+# Fix line endings and validate startup scripts
 RUN dos2unix /start.sh /start-enhanced.sh && \
     chmod +x /start.sh /start-enhanced.sh && \
     /bin/bash -n /start-enhanced.sh
 
-# Set environment variables for development
 ENV GO_ENV=development
-ENV PATH="/root/.cargo/bin:${PATH}"
+ENV PATH="/root/.cargo/bin:/usr/local/bin:${PATH}"
 
-# Expose ports
 EXPOSE 5174 50051
 
 ENTRYPOINT ["/start-enhanced.sh"]
 
-# Stage 3: Production runtime stage with optimized tools
-FROM ubuntu:22.04 AS runtime
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 3: Runtime (production)
+# Based on sirius-base-engine-tools which already contains:
+#   Nmap 7.95, RustScan, PowerShell, all required system packages
+# ─────────────────────────────────────────────────────────────────────────────
+FROM ghcr.io/siriusscan/sirius-base-engine-tools:latest AS runtime
 
-# Set working directory
 WORKDIR /engine
 
-# Install runtime dependencies
-RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    git \
-    libpcap-dev \
-    postgresql-client \
-    libicu-dev \
-    build-essential \
-    libssl-dev \
-    libssh-dev \
-    ca-certificates \
-    wget \
-    curl \
-    dos2unix \
-    unzip \
-    automake \
-    autoconf \
-    libtool \
-    perl \
-    procps \
-    && rm -rf /var/lib/apt/lists/*
-
-# Build and install Nmap 7.95 from source for compatibility with sirius-nse scripts
-RUN cd /tmp && \
-    wget https://nmap.org/dist/nmap-7.95.tar.bz2 && \
-    tar xjf nmap-7.95.tar.bz2 && \
-    cd nmap-7.95 && \
-    touch aclocal.m4 configure Makefile.in config.h.in && \
-    find . -name Makefile.in -exec touch {} \; && \
-    ./configure --without-zenmap --without-nmap-update --without-ndiff && \
-    make && \
-    make install && \
-    cd / && \
-    rm -rf /tmp/nmap-7.95 /tmp/nmap-7.95.tar.bz2
-
-# Remove default Nmap scripts - will symlink to sirius-nse after it's copied
-RUN rm -rf /usr/local/share/nmap/scripts
-
-# Install RustScan pre-built binary (much faster than compiling from source)
-RUN ARCH=$(uname -m) && \
-    case "$ARCH" in \
-    "aarch64") \
-    echo "Installing ARM64 RustScan" && \
-    wget https://github.com/bee-san/RustScan/releases/latest/download/aarch64-linux-rustscan.zip && \
-    unzip aarch64-linux-rustscan.zip && \
-    mv rustscan /usr/local/bin/ && \
-    chmod +x /usr/local/bin/rustscan && \
-    rm aarch64-linux-rustscan.zip \
-    ;; \
-    "x86_64") \
-    echo "Installing AMD64 RustScan" && \
-    wget https://github.com/bee-san/RustScan/releases/latest/download/x86_64-linux-rustscan.tar.gz.zip && \
-    unzip x86_64-linux-rustscan.tar.gz.zip && \
-    tar -xzf x86_64-linux-rustscan.tar.gz && \
-    mv rustscan /usr/local/bin/ && \
-    chmod +x /usr/local/bin/rustscan && \
-    rm x86_64-linux-rustscan.tar.gz.zip x86_64-linux-rustscan.tar.gz \
-    ;; \
-    *) \
-    echo "Unsupported architecture: $ARCH" && exit 1 \
-    ;; \
-    esac
-ENV PATH="/usr/local/bin:${PATH}"
-
-# Install PowerShell - Architecture specific
-WORKDIR /opt/microsoft/powershell
-RUN ARCH=$(uname -m) && \
-    case "$ARCH" in \
-    "aarch64") \
-    echo "Installing ARM64 version" && \
-    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-arm64.tar.gz && \
-    tar -xvf powershell-7.4.6-linux-arm64.tar.gz && \
-    rm powershell-7.4.6-linux-arm64.tar.gz \
-    ;; \
-    "x86_64") \
-    echo "Installing AMD64 version" && \
-    wget https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz && \
-    tar -xvf powershell-7.4.6-linux-x64.tar.gz && \
-    rm powershell-7.4.6-linux-x64.tar.gz \
-    ;; \
-    *) \
-    echo "Unsupported architecture: $ARCH" && exit 1 \
-    ;; \
-    esac
-
-RUN chmod +x /opt/microsoft/powershell/pwsh && \
-    ln -s /opt/microsoft/powershell/pwsh /usr/bin/pwsh
-
 # Set up NSE directory structure
-RUN mkdir -p /opt/sirius/nse && \
-    chmod -R 755 /opt/sirius
+RUN mkdir -p /opt/sirius/nse && chmod -R 755 /opt/sirius
 
 # Create application directories
 RUN mkdir -p /app-scanner /app-terminal /app-agent /go-api /sirius-nse /system-monitor /app-administrator
 
-# Copy built applications and repositories from builder stage
+# Copy pre-built system-monitor and administrator from shared base
+COPY --from=ghcr.io/siriusscan/sirius-base-go-builder:latest /usr/local/bin/system-monitor /system-monitor/system-monitor
+COPY --from=ghcr.io/siriusscan/sirius-base-go-builder:latest /usr/local/bin/administrator /app-administrator/administrator
+RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
+
+# Copy compiled binaries from builder stage
 COPY --from=builder /repos/app-scanner/scanner /app-scanner/
 COPY --from=builder /repos/app-scanner /app-scanner-src/
 COPY --from=builder /repos/app-terminal/terminal /app-terminal/
@@ -344,47 +184,45 @@ COPY --from=builder /repos/app-agent/server /app-agent/
 COPY --from=builder /repos/app-agent /app-agent-src/
 COPY --from=builder /repos/go-api /go-api/
 COPY --from=builder /repos/sirius-nse /sirius-nse/
-COPY --from=builder /repos/app-system-monitor/system-monitor /system-monitor/
-COPY --from=builder /repos/app-administrator/administrator /app-administrator/
-RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 
-# Ensure sirius-nse repository is readable in runtime image
+# Ensure sirius-nse is readable
 RUN chmod -R 755 /sirius-nse
 
-# Symlink Nmap scripts directory to sirius-nse (single source of truth)
-RUN ln -sf /sirius-nse/scripts /usr/local/share/nmap/scripts && \
-    echo "Symlinked Nmap scripts to sirius-nse"
+# Remove default Nmap scripts and symlink to sirius-nse
+RUN rm -rf /usr/local/share/nmap/scripts && \
+    ln -sf /sirius-nse/scripts /usr/local/share/nmap/scripts
 
-# Enforce runtime startup contract expected by start-enhanced.sh.
-RUN command -v bash >/dev/null && \
-    command -v curl >/dev/null && \
-    command -v psql >/dev/null && \
-    command -v pkill >/dev/null && \
-    command -v nmap >/dev/null && \
+# Enforce runtime startup contract
+RUN command -v bash    >/dev/null && \
+    command -v curl    >/dev/null && \
+    command -v psql    >/dev/null && \
+    command -v pkill   >/dev/null && \
+    command -v nmap    >/dev/null && \
     command -v rustscan >/dev/null && \
-    command -v pwsh >/dev/null
+    command -v pwsh    >/dev/null
 
-# Create non-root user for security
-RUN groupadd -r sirius && useradd -r -g sirius sirius
-
-# Copy configuration and scripts
+# Copy configuration and startup scripts
 COPY .air.toml .air.toml
 COPY start.sh /start.sh
 COPY start-enhanced.sh /start-enhanced.sh
 
-# Make scripts executable and fix line endings
+# Fix line endings and validate startup scripts
 RUN dos2unix /start.sh /start-enhanced.sh && \
     chmod +x /start.sh /start-enhanced.sh && \
     /bin/bash -n /start-enhanced.sh
 
+# Non-root user for security
+RUN groupadd -r sirius && useradd -r -g sirius sirius
+
 # Change ownership for non-root execution
-RUN chown -R sirius:sirius /engine /app-scanner /app-terminal /app-agent /go-api /sirius-nse /opt/sirius /system-monitor /app-administrator
+RUN chown -R sirius:sirius \
+    /engine /app-scanner /app-terminal /app-agent /go-api \
+    /sirius-nse /opt/sirius /system-monitor /app-administrator
+
 USER sirius
 
-# Expose ports
 EXPOSE 5174 50051
 
-# Set environment variables
 ENV GO_ENV=production
 ENV PATH="/usr/local/bin:${PATH}"
 

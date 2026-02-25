@@ -1,7 +1,7 @@
 # SiriusScan Docker Testing Makefile
 # Provides easy commands for testing and development
 
-.PHONY: help build test test-build test-health test-integration test-runtime-contract test-release-gates test-all test-security clean logs lint-docs lint-docs-quick lint-agents lint-agents-quick lint-agent-index regenerate-agents regenerate-agent check-agent-sync
+.PHONY: help build test test-build test-health test-integration test-runtime-contract test-release-gates test-all test-security validate-ci-overhaul clean logs lint-docs lint-docs-quick lint-agents lint-agents-quick lint-agent-index regenerate-agents regenerate-agent check-agent-sync
 
 # Default target
 help:
@@ -22,6 +22,7 @@ help:
 	@echo "  test-release-gates Run release-blocking validation checks"
 	@echo "  test-security  Run security/auth penetration tests"
 	@echo "  test-all       Run all tests"
+	@echo "  validate-ci-overhaul  Validate base images and CI pipeline changes"
 	@echo ""
 	@echo "Development Commands:"
 	@echo "  dev            Start development environment"
@@ -143,6 +144,12 @@ status:
 # Quick test for CI/CD
 ci-test: build-all test-build
 	@echo "✅ CI/CD tests passed!"
+
+# Validate CI/CD overhaul (base images + all app containers)
+validate-ci-overhaul:
+	@echo "🔬 Validating CI/CD overhaul (base images, app builds, compose config)..."
+	../../scripts/validate-ci-overhaul.sh
+	@echo "✅ CI/CD overhaul validation passed!"
 
 # Full validation
 validate: build-all test-all

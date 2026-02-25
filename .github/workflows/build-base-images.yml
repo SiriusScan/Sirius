@@ -1,0 +1,191 @@
+name: Build Base Images
+
+# Builds and publishes shared base images to GHCR.
+#
+# Base images are heavy-dependency layers (Nmap compiled from source,
+# RustScan, PowerShell, pre-built Go binaries) that would otherwise be
+# rebuilt redundantly inside every application container build.
+#
+# Triggers:
+#   - Push to main when base-images/** files change
+#   - Manual dispatch (for emergency rebuilds)
+#   - Weekly schedule to pick up upstream security patches
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "base-images/**"
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Which base image to rebuild"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - go-builder
+          - engine-tools
+  schedule:
+    # Every Sunday at 04:00 UTC
+    - cron: "0 4 * * 0"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: siriusscan
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Build go-builder base image (per architecture, native runners)
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-go-builder:
+    name: "go-builder (${{ matrix.platform }})"
+    if: >
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.image == 'all' || github.event.inputs.image == 'go-builder') ||
+      github.event_name == 'push'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [amd64, arm64]
+        include:
+          - platform: amd64
+            runner: blacksmith-4vcpu-ubuntu-2404
+          - platform: arm64
+            runner: blacksmith-4vcpu-ubuntu-2404-arm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Build and push go-builder (${{ matrix.platform }})
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: ./base-images/go-builder
+          platforms: linux/${{ matrix.platform }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest-${{ matrix.platform }}
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Merge go-builder arch-specific images into a single multi-arch manifest
+  # ─────────────────────────────────────────────────────────────────────────────
+  merge-go-builder:
+    name: "go-builder (merge manifest)"
+    needs: build-go-builder
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Create and push multi-arch manifest for go-builder
+        run: |
+          docker manifest create \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest-arm64
+
+          docker manifest annotate \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest-amd64 \
+            --arch amd64
+
+          docker manifest annotate \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest-arm64 \
+            --arch arm64
+
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest
+          echo "Published ghcr.io/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest (amd64 + arm64)"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Build engine-tools base image (per architecture, native runners)
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-engine-tools:
+    name: "engine-tools (${{ matrix.platform }})"
+    if: >
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' && (github.event.inputs.image == 'all' || github.event.inputs.image == 'engine-tools') ||
+      github.event_name == 'push'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [amd64, arm64]
+        include:
+          - platform: amd64
+            runner: blacksmith-4vcpu-ubuntu-2404
+          - platform: arm64
+            runner: blacksmith-4vcpu-ubuntu-2404-arm
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Build and push engine-tools (${{ matrix.platform }})
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: ./base-images/engine-tools
+          platforms: linux/${{ matrix.platform }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-${{ matrix.platform }}
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Merge engine-tools arch-specific images into a single multi-arch manifest
+  # ─────────────────────────────────────────────────────────────────────────────
+  merge-engine-tools:
+    name: "engine-tools (merge manifest)"
+    needs: build-engine-tools
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Create and push multi-arch manifest for engine-tools
+        run: |
+          docker manifest create \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-amd64 \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-arm64
+
+          docker manifest annotate \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-amd64 \
+            --arch amd64
+
+          docker manifest annotate \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-arm64 \
+            --arch arm64
+
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest
+          echo "Published ghcr.io/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest (amd64 + arm64)"

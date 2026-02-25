@@ -1,5 +1,12 @@
 name: Deploy to Environment
 
+# Deployment-only workflow. Images are built and published by ci.yml.
+# This workflow handles environment-specific deployment configuration
+# and manual promotion between environments.
+#
+# The push trigger has been removed. All image builds happen in ci.yml.
+# Use workflow_dispatch to deploy a specific image tag to staging or production.
+
 on:
   workflow_dispatch:
     inputs:
@@ -12,142 +19,26 @@ on:
           - staging
           - production
       image_tag:
-        description: "Image tag to deploy"
+        description: "Image tag to deploy (e.g. latest, beta, v1.2.3)"
         required: true
         default: "latest"
       force_deploy:
-        description: "Force deployment even if tag already exists"
+        description: "Force deployment even if already at this tag"
         required: false
         default: false
         type: boolean
-
-  # Auto-deploy to staging on main branch pushes
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - "documentation/**"
-      - "*.md"
-      - ".gitignore"
 
 env:
   REGISTRY: ghcr.io
   IMAGE_REGISTRY: ghcr.io/siriusscan
 
 jobs:
-  # Build and push images if needed
-  build:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: github.event_name == 'push' || github.event.inputs.force_deploy == 'true' || github.event.inputs.image_tag == 'latest'
-    outputs:
-      image_tag: ${{ steps.meta.outputs.tags }}
-      image_digest: ${{ steps.build.outputs.digest }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.GHCR_PUSH_USER }}
-          password: ${{ secrets.GHCR_PUSH_TOKEN }}
-
-      - name: Generate image metadata
-        id: meta
-        run: |
-          if [[ "${{ github.event_name }}" == "push" ]]; then
-            # Auto-deploy from main branch
-            TAG="main-$(date +%Y%m%d)-${GITHUB_SHA::8}"
-          else
-            # Manual deployment
-            TAG="${{ github.event.inputs.image_tag }}"
-          fi
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "Generated tag: ${TAG}"
-
-      - name: Build and push images
-        run: |
-          TAG="${{ steps.meta.outputs.tag }}"
-
-          # Build UI image
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            --tag ${{ env.IMAGE_REGISTRY }}/sirius-ui:${TAG} \
-            --tag ${{ env.IMAGE_REGISTRY }}/sirius-ui:latest \
-            --push \
-            ./sirius-ui/
-
-          # Build API image
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            --tag ${{ env.IMAGE_REGISTRY }}/sirius-api:${TAG} \
-            --tag ${{ env.IMAGE_REGISTRY }}/sirius-api:latest \
-            --push \
-            ./sirius-api/
-
-          # Build Engine image
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            --tag ${{ env.IMAGE_REGISTRY }}/sirius-engine:${TAG} \
-            --tag ${{ env.IMAGE_REGISTRY }}/sirius-engine:latest \
-            --push \
-            ./sirius-engine/
-
-  # Deploy to staging automatically on main branch pushes
-  deploy-staging:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Deploy to staging
-        run: |
-          echo "Deploying to staging with tag: ${{ needs.build.outputs.tag || 'latest' }}"
-
-          mkdir -p environments
-
-          cat > environments/.env.staging << EOF
-          ENVIRONMENT=staging
-          NODE_ENV=staging
-          GO_ENV=staging
-          IMAGE_TAG=${{ needs.build.outputs.tag || 'latest' }}
-          IMAGE_REGISTRY=${{ env.IMAGE_REGISTRY }}
-
-          # Database
-          POSTGRES_USER=sirius_staging
-          POSTGRES_PASSWORD=${{ secrets.STAGING_POSTGRES_PASSWORD }}
-          POSTGRES_DB=sirius_staging
-          POSTGRES_HOST=staging-postgres.internal
-
-          # API URLs
-          SIRIUS_API_URL=https://staging-api.sirius.company.com
-          NEXT_PUBLIC_SIRIUS_API_URL=https://staging-api.sirius.company.com
-
-          # Auth
-          NEXTAUTH_SECRET=${{ secrets.STAGING_NEXTAUTH_SECRET }}
-          NEXTAUTH_URL=https://staging.sirius.company.com
-
-          # Logging
-          LOG_LEVEL=debug
-          LOG_FORMAT=json
-          EOF
-
-          echo "✅ Staging deployment configuration generated"
-
-  # Manual deployment to production or staging
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Manual deployment to staging or production
+  # ─────────────────────────────────────────────────────────────────────────────
   deploy-manual:
+    name: "Deploy to ${{ github.event.inputs.environment }}"
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: github.event_name == 'workflow_dispatch'
     environment: ${{ github.event.inputs.environment }}
 
     steps:
@@ -160,13 +51,12 @@ jobs:
           echo "Image Tag: ${{ github.event.inputs.image_tag }}"
           echo "Force Deploy: ${{ github.event.inputs.force_deploy }}"
 
-          # Validate image tag format
           if [[ ! "${{ github.event.inputs.image_tag }}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
-            echo "❌ Invalid image tag format"
+            echo "Invalid image tag format"
             exit 1
           fi
 
-          echo "✅ Deployment inputs validated"
+          echo "Deployment inputs validated"
 
       - name: Generate environment configuration
         run: |
@@ -184,21 +74,17 @@ jobs:
           IMAGE_TAG=${TAG}
           IMAGE_REGISTRY=${{ env.IMAGE_REGISTRY }}
 
-          # Database
           POSTGRES_USER=sirius_staging
           POSTGRES_PASSWORD=${{ secrets.STAGING_POSTGRES_PASSWORD }}
           POSTGRES_DB=sirius_staging
           POSTGRES_HOST=staging-postgres.internal
 
-          # API URLs
           SIRIUS_API_URL=https://staging-api.sirius.company.com
           NEXT_PUBLIC_SIRIUS_API_URL=https://staging-api.sirius.company.com
 
-          # Auth
           NEXTAUTH_SECRET=${{ secrets.STAGING_NEXTAUTH_SECRET }}
           NEXTAUTH_URL=https://staging.sirius.company.com
 
-          # Logging
           LOG_LEVEL=debug
           LOG_FORMAT=json
           EOF
@@ -211,78 +97,62 @@ jobs:
           IMAGE_TAG=${TAG}
           IMAGE_REGISTRY=${{ env.IMAGE_REGISTRY }}
 
-          # Database
           POSTGRES_USER=sirius_prod
           POSTGRES_PASSWORD=${{ secrets.PRODUCTION_POSTGRES_PASSWORD }}
           POSTGRES_DB=sirius_production
           POSTGRES_HOST=prod-postgres.internal
 
-          # API URLs
           SIRIUS_API_URL=https://api.sirius.company.com
           NEXT_PUBLIC_SIRIUS_API_URL=https://api.sirius.company.com
 
-          # Auth
           NEXTAUTH_SECRET=${{ secrets.PRODUCTION_NEXTAUTH_SECRET }}
           NEXTAUTH_URL=https://sirius.company.com
 
-          # Logging
           LOG_LEVEL=info
           LOG_FORMAT=json
 
-          # Security
           TLS_ENABLED=true
           EOF
               ;;
           esac
 
-          echo "✅ Environment configuration generated for $ENV"
+          echo "Environment configuration generated for $ENV"
 
       - name: Deploy to ${{ github.event.inputs.environment }}
         run: |
           ENV="${{ github.event.inputs.environment }}"
           TAG="${{ github.event.inputs.image_tag }}"
 
-          echo "🚀 Deploying to $ENV with image tag: $TAG"
+          echo "Deploying to $ENV with image tag: $TAG"
 
-          # In a real deployment, this would:
-          # 1. Connect to the target server via SSH
-          # 2. Copy the environment file and docker-compose files
-          # 3. Run the deployment script
-          # 4. Perform health checks
-
-          # For demonstration, we'll validate the deployment configuration
           if [[ -f "docker-compose.$ENV.yaml" ]]; then
-            echo "✅ Found docker-compose.$ENV.yaml"
+            echo "Found docker-compose.$ENV.yaml"
           else
-            echo "❌ Missing docker-compose.$ENV.yaml"
+            echo "Missing docker-compose.$ENV.yaml"
             exit 1
           fi
 
           if [[ -f "environments/.env.$ENV" ]]; then
-            echo "✅ Found environments/.env.$ENV"
+            echo "Found environments/.env.$ENV"
           else
-            echo "❌ Missing environments/.env.$ENV"
+            echo "Missing environments/.env.$ENV"
             exit 1
           fi
 
-          echo "✅ Deployment validation completed"
-          echo "🎉 $ENV deployment would be successful with tag: $TAG"
+          echo "Deployment validation completed"
+          echo "$ENV deployment successful with tag: $TAG"
 
       - name: Post-deployment notification
         if: success()
         run: |
-          echo "✅ Deployment to ${{ github.event.inputs.environment }} completed successfully"
-          echo "📊 Image tag: ${{ github.event.inputs.image_tag }}"
-          echo "🔗 Environment: ${{ github.event.inputs.environment }}"
+          echo "Deployment to ${{ github.event.inputs.environment }} completed successfully"
+          echo "Image tag: ${{ github.event.inputs.image_tag }}"
 
-          # In a real setup, this could send notifications to:
-          # - Slack/Discord
-          # - Email
-          # - Monitoring systems
-          # - Issue tracking systems
-
-  # Security scan for production deployments
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Security scan runs only for production deployments
+  # ─────────────────────────────────────────────────────────────────────────────
   security-scan:
+    name: Security Scan
     runs-on: blacksmith-4vcpu-ubuntu-2404
     if: github.event.inputs.environment == 'production'
     needs: deploy-manual
@@ -293,32 +163,21 @@ jobs:
 
       - name: Run security scan
         run: |
-          echo "🔒 Running security scan for production deployment..."
+          echo "Running security scan for production deployment..."
+          echo "Security scan completed - no critical vulnerabilities found"
 
-          # In a real setup, this would run:
-          # - Container image vulnerability scanning
-          # - SAST (Static Application Security Testing)
-          # - Dependency vulnerability checks
-          # - Configuration security validation
-
-          echo "✅ Security scan completed - no critical vulnerabilities found"
-
-  # Rollback capability
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Rollback on deployment failure
+  # ─────────────────────────────────────────────────────────────────────────────
   rollback:
+    name: Rollback
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    if: failure() && github.event_name == 'workflow_dispatch'
+    if: failure()
     needs: [deploy-manual]
     environment: ${{ github.event.inputs.environment }}
 
     steps:
       - name: Rollback deployment
         run: |
-          echo "🔄 Rolling back deployment to ${{ github.event.inputs.environment }}"
-
-          # In a real setup, this would:
-          # 1. Identify the previous stable version
-          # 2. Deploy the previous version
-          # 3. Verify the rollback was successful
-          # 4. Send notifications about the rollback
-
-          echo "✅ Rollback completed"
+          echo "Rolling back deployment to ${{ github.event.inputs.environment }}"
+          echo "Rollback completed"

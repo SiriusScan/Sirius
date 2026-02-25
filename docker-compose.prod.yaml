@@ -9,6 +9,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-sirius}
 
   sirius-ui:
+    pull_policy: always
     environment:
       - NODE_ENV=production
       - SKIP_ENV_VALIDATION=0
@@ -21,6 +22,7 @@ services:
     restart: unless-stopped
 
   sirius-api:
+    pull_policy: always
     environment:
       - GO_ENV=production
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,https://sirius.local}
@@ -36,6 +38,7 @@ services:
     restart: unless-stopped
 
   sirius-engine:
+    pull_policy: always
     environment:
       - GO_ENV=production
       - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}

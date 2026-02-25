@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { api } from "~/utils/api";
-import { fallbackScripts, type NmapScript } from "./mockScriptsData";
+import { type NmapScript } from "./mockScriptsData";
 import { ScriptLibrary } from "./ScriptLibrary";
 
 interface NmapScriptsTabProps {
@@ -36,15 +36,15 @@ const NmapScriptsTab: React.FC<NmapScriptsTabProps> = ({
     });
 
   useEffect(() => {
-    // If no scripts are found, initialize with mock data
-    if (!isLoading && (!scripts || scripts.length === 0)) {
+    // Only auto-initialize when we have a clean empty-state response.
+    if (!isLoading && !error && scripts && scripts.length === 0) {
       initializeScripts();
     }
-  }, [scripts, isLoading, initializeScripts]);
+  }, [scripts, isLoading, error, initializeScripts]);
 
-  // Use the scripts from the API or fallback to mock data if there's an error
+  // Use scripts from the canonical store source only.
   const availableScripts: NmapScript[] = useMemo(() => {
-    return scripts || fallbackScripts;
+    return scripts || [];
   }, [scripts]);
 
   return (
@@ -53,7 +53,7 @@ const NmapScriptsTab: React.FC<NmapScriptsTabProps> = ({
         <div className="rounded-md border border-red-800 bg-red-900/20 p-4 text-white">
           <p className="font-medium">Failed to load NSE scripts</p>
           <p className="text-sm text-gray-300">
-            Using fallback data. The Redis server may be unavailable.
+            Unable to load scripts from the canonical store source.
           </p>
         </div>
       )}

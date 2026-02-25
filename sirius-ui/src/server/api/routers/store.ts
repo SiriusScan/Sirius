@@ -1,6 +1,5 @@
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { z } from "zod";
-import { fallbackScripts } from "~/components/scanner/nmap/mockScriptsData";
 import { valkey } from "~/server/valkey";
 
 // Key constants to match backend
@@ -11,6 +10,87 @@ const ALLOWED_KEY_PREFIXES = ["nse:", "currentScan", "agent_scan:"] as const;
 
 function isAllowedKey(key: string): boolean {
   return ALLOWED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
+function normalizeScriptId(value: string | undefined): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  const lastSegment = trimmed.split("/").filter(Boolean).pop() ?? trimmed;
+  return lastSegment.replace(/\.nse$/i, "");
+}
+
+type ManifestScriptInfo = {
+  id: string;
+  name: string;
+  path: string;
+  protocol: string;
+};
+
+function parseManifestScripts(manifest: unknown): ManifestScriptInfo[] {
+  if (!manifest || typeof manifest !== "object") return [];
+
+  const root = manifest as { scripts?: unknown };
+  const scripts = root.scripts;
+  if (!scripts) return [];
+
+  const out: ManifestScriptInfo[] = [];
+
+  const fromRaw = (rawId: string, raw: unknown): ManifestScriptInfo | null => {
+    const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    const pathFromObj = typeof obj.path === "string" ? obj.path : "";
+    const normalizedId = normalizeScriptId(rawId) || normalizeScriptId(pathFromObj);
+    const id = normalizedId || rawId;
+    if (!id) return null;
+    return {
+      id,
+      name: (typeof obj.name === "string" && obj.name.trim()) || id,
+      path:
+        pathFromObj ||
+        (typeof obj.id === "string" && obj.id.includes("/")
+          ? obj.id
+          : `scripts/${id}.nse`),
+      protocol:
+        (typeof obj.protocol === "string" && obj.protocol.trim()) || "*",
+    };
+  };
+
+  if (Array.isArray(scripts)) {
+    scripts.forEach((item, index) => {
+      if (typeof item === "string") {
+        const id = normalizeScriptId(item) || `script_${index}`;
+        out.push({
+          id,
+          name: id,
+          path: item.includes("/") ? item : `scripts/${id}.nse`,
+          protocol: "*",
+        });
+        return;
+      }
+
+      if (item && typeof item === "object") {
+        const itemObj = item as Record<string, unknown>;
+        const rawId =
+          (typeof itemObj.id === "string" && itemObj.id) ||
+          (typeof itemObj.path === "string" && itemObj.path) ||
+          `script_${index}`;
+        const parsed = fromRaw(rawId, itemObj);
+        if (parsed) out.push(parsed);
+      }
+    });
+  } else if (typeof scripts === "object") {
+    Object.entries(scripts as Record<string, unknown>).forEach(([rawId, rawInfo]) => {
+      const parsed = fromRaw(rawId, rawInfo);
+      if (parsed) out.push(parsed);
+    });
+  }
+
+  // De-duplicate by canonical id (first one wins).
+  const unique = new Map<string, ManifestScriptInfo>();
+  out.forEach((entry) => {
+    if (!unique.has(entry.id)) unique.set(entry.id, entry);
+  });
+  return Array.from(unique.values());
 }
 
 // Define schemas for repositories
@@ -89,21 +169,20 @@ export const storeRouter = createTRPCRouter({
 
       // Parse the manifest
       const manifest = JSON.parse(manifestData);
-      const scripts = manifest.scripts || {};
-
-      // Count scripts (handle both object and array formats)
-      const count = Array.isArray(scripts)
-        ? scripts.length
-        : Object.keys(scripts).length;
+      const manifestScripts = parseManifestScripts(manifest);
+      const count = manifestScripts.length;
 
       console.log(
         `Found ${count} NSE scripts in ValKey (synced by scanner)`
       );
 
       return {
-        success: true,
+        success: count > 0,
         count,
-        message: `Found ${count} NSE scripts (synced by scanner)`,
+        message:
+          count > 0
+            ? `Found ${count} NSE scripts (synced by scanner)`
+            : "No scripts found. The scanner will sync scripts when it starts.",
       };
     } catch (error) {
       console.error("Failed to read NSE scripts from ValKey:", error);
@@ -150,15 +229,25 @@ export const storeRouter = createTRPCRouter({
       }
 
       const manifest = JSON.parse(manifestData);
-      const scripts = manifest.scripts || {};
+      const manifestScripts = parseManifestScripts(manifest);
+      if (manifestScripts.length === 0) {
+        console.warn("NSE manifest exists but contains no parseable scripts");
+        return [];
+      }
 
       // Fetch each script content in parallel
-      const scriptPromises = Object.entries(scripts).map(
-        async ([id, scriptInfo]: [string, any]) => {
+      const scriptPromises = manifestScripts.map(
+        async (scriptInfo) => {
           try {
-            const scriptContentData = await valkey.get(
-              `${NSE_SCRIPT_PREFIX}${id}`
-            );
+            const contentKeys = [
+              `${NSE_SCRIPT_PREFIX}${scriptInfo.id}`,
+              `${NSE_SCRIPT_PREFIX}${normalizeScriptId(scriptInfo.path)}`,
+            ];
+            let scriptContentData: string | null = null;
+            for (const key of contentKeys) {
+              scriptContentData = await valkey.get(key);
+              if (scriptContentData) break;
+            }
             let scriptContent: {
               content: string;
               metadata?: {
@@ -175,13 +264,13 @@ export const storeRouter = createTRPCRouter({
               try {
                 scriptContent = JSON.parse(scriptContentData);
               } catch (parseError) {
-                console.warn(`Failed to parse script content for ${id}`);
+                console.warn(`Failed to parse script content for ${scriptInfo.id}`);
               }
             }
 
             return {
-              id,
-              name: scriptInfo.name || id,
+              id: scriptInfo.id,
+              name: scriptInfo.name || scriptInfo.id,
               author: scriptContent.metadata?.author || "Unknown",
               tags: scriptContent.metadata?.tags || [
                 scriptInfo.protocol || "*",
@@ -191,26 +280,26 @@ export const storeRouter = createTRPCRouter({
                 "No description available",
               code: scriptContent.content || "-- No code available",
               protocol: scriptInfo.protocol || "*",
-              path: scriptInfo.path || `scripts/${id}.nse`,
+              path: scriptInfo.path || `scripts/${scriptInfo.id}.nse`,
             };
           } catch (error) {
-            console.error(`Error processing script ${id}:`, error);
+            console.error(`Error processing script ${scriptInfo.id}:`, error);
             return {
-              id,
-              name: scriptInfo.name || id,
+              id: scriptInfo.id,
+              name: scriptInfo.name || scriptInfo.id,
               author: "Unknown",
               tags: [scriptInfo.protocol || "*"],
               description: "Error loading script",
               code: "-- Error loading script content",
               protocol: scriptInfo.protocol || "*",
-              path: scriptInfo.path || `scripts/${id}.nse`,
+              path: scriptInfo.path || `scripts/${scriptInfo.id}.nse`,
             };
           }
         }
       );
 
       const results = await Promise.all(scriptPromises);
-      return results;
+      return results.filter((script) => !!script.id && !!script.name);
     } catch (error) {
       console.error("Failed to fetch NSE scripts:", error);
       return [];
@@ -230,30 +319,45 @@ export const storeRouter = createTRPCRouter({
         }
 
         const manifest = JSON.parse(manifestData);
-        const scriptInfo = manifest.scripts?.[id];
+        const manifestScripts = parseManifestScripts(manifest);
+        const normalizedRequestedId = normalizeScriptId(id);
+        const scriptInfo = manifestScripts.find(
+          (script) =>
+            script.id === id ||
+            script.id === normalizedRequestedId ||
+            normalizeScriptId(script.path) === normalizedRequestedId
+        );
 
         if (!scriptInfo) {
           throw new Error(`Script with ID ${id} not found in manifest`);
         }
 
         // Get the script content
-        const scriptContentData = await valkey.get(`${NSE_SCRIPT_PREFIX}${id}`);
+        const contentKeys = [
+          `${NSE_SCRIPT_PREFIX}${scriptInfo.id}`,
+          `${NSE_SCRIPT_PREFIX}${normalizedRequestedId}`,
+        ];
+        let scriptContentData: string | null = null;
+        for (const key of contentKeys) {
+          scriptContentData = await valkey.get(key);
+          if (scriptContentData) break;
+        }
         if (!scriptContentData) {
-          throw new Error(`Script content for ${id} not found`);
+          throw new Error(`Script content for ${scriptInfo.id} not found`);
         }
 
         const scriptContent = JSON.parse(scriptContentData);
 
         return {
-          id,
-          name: scriptInfo.name || id,
+          id: scriptInfo.id,
+          name: scriptInfo.name || scriptInfo.id,
           author: scriptContent.metadata?.author || "Unknown",
           tags: scriptContent.metadata?.tags || [scriptInfo.protocol || "*"],
           description:
             scriptContent.metadata?.description || "No description available",
           code: scriptContent.content || "-- No code available",
           protocol: scriptInfo.protocol || "*",
-          path: scriptInfo.path || `scripts/${id}.nse`,
+          path: scriptInfo.path || `scripts/${scriptInfo.id}.nse`,
         };
       } catch (error) {
         console.error(`Failed to fetch NSE script ${input.id}:`, error);

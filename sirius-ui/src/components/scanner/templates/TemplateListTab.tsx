@@ -26,6 +26,8 @@ const TemplateListTab: React.FC<TemplateListTabProps> = ({
 
   const utils = api.useContext();
   const { data: templates, isLoading } = api.templates.getTemplates.useQuery();
+  const { data: scripts } = api.store.getNseScripts.useQuery();
+  const availableScriptIds = new Set((scripts || []).map((script) => script.id));
 
   const deleteMutation = api.templates.deleteTemplate.useMutation({
     onSuccess: () => {
@@ -82,7 +84,12 @@ const TemplateListTab: React.FC<TemplateListTabProps> = ({
             {templates && templates.length > 0 ? (
               templates.map((template) => {
                 const isSystem = template.type === "system";
-                const scriptCount = template.enabled_scripts?.length || 0;
+                const linkedScriptCount =
+                  template.enabled_scripts?.filter((scriptId) =>
+                    availableScriptIds.has(scriptId)
+                  ).length || 0;
+                const totalScriptRefs = template.enabled_scripts?.length || 0;
+                const missingScriptRefs = totalScriptRefs - linkedScriptCount;
 
                 return (
                   <tr
@@ -98,8 +105,14 @@ const TemplateListTab: React.FC<TemplateListTabProps> = ({
                         variant="outline"
                         className="bg-violet-800/20 text-violet-200"
                       >
-                        {scriptCount} {scriptCount === 1 ? "script" : "scripts"}
+                        {linkedScriptCount}{" "}
+                        {linkedScriptCount === 1 ? "script" : "scripts"}
                       </Badge>
+                      {missingScriptRefs > 0 && (
+                        <span className="ml-2 text-xs text-yellow-400">
+                          +{missingScriptRefs} missing
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {isSystem ? (

@@ -230,7 +230,8 @@ RUN if [ -f /engine/apps/app-scanner/manifest.json ]; then \
 
 # Make scripts executable and fix line endings
 RUN dos2unix /start.sh /start-enhanced.sh && \
-    chmod +x /start.sh /start-enhanced.sh
+    chmod +x /start.sh /start-enhanced.sh && \
+    /bin/bash -n /start-enhanced.sh
 
 # Set environment variables for development
 ENV GO_ENV=development
@@ -266,6 +267,7 @@ RUN apt-get update && \
     autoconf \
     libtool \
     perl \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Build and install Nmap 7.95 from source for compatibility with sirius-nse scripts
@@ -364,6 +366,15 @@ RUN mkdir -p /opt/sirius/nse/sirius-nse && \
 RUN ln -sf /opt/sirius/nse/sirius-nse/scripts /usr/local/share/nmap/scripts && \
     echo "Symlinked Nmap scripts to sirius-nse"
 
+# Enforce runtime startup contract expected by start-enhanced.sh.
+RUN command -v bash >/dev/null && \
+    command -v curl >/dev/null && \
+    command -v psql >/dev/null && \
+    command -v pkill >/dev/null && \
+    command -v nmap >/dev/null && \
+    command -v rustscan >/dev/null && \
+    command -v pwsh >/dev/null
+
 # Create non-root user for security
 RUN groupadd -r sirius && useradd -r -g sirius sirius
 
@@ -374,7 +385,8 @@ COPY start-enhanced.sh /start-enhanced.sh
 
 # Make scripts executable and fix line endings
 RUN dos2unix /start.sh /start-enhanced.sh && \
-    chmod +x /start.sh /start-enhanced.sh
+    chmod +x /start.sh /start-enhanced.sh && \
+    /bin/bash -n /start-enhanced.sh
 
 # Change ownership for non-root execution
 RUN chown -R sirius:sirius /engine /app-scanner /app-terminal /app-agent /go-api /sirius-nse /opt/sirius /system-monitor /app-administrator

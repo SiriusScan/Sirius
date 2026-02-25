@@ -12,6 +12,7 @@ services:
         NEXT_PUBLIC_CLIENTVAR: "clientvar"
     # Override registry image with local dev build
     image: sirius-sirius-ui:dev
+    pull_policy: never
     volumes:
       # Mount source code for live reloading
       - ./sirius-ui/src:/app/src
@@ -73,6 +74,7 @@ services:
       target: development # Use development stage
     # Override image for dev builds
     image: sirius-sirius-api:dev
+    pull_policy: never
     volumes:
       - ./sirius-api:/api
       # Enable for local go-api development with source-aware functionality:
@@ -105,6 +107,7 @@ services:
       target: development # Use development stage
     # Override image for dev builds
     image: sirius-sirius-engine:dev
+    pull_policy: never
     # Uses bridge networking (from base compose) with explicit port mapping:
     #   5174:5174  - Engine main port
     #   50051:50051 - Agent gRPC port

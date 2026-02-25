@@ -155,6 +155,15 @@ test_service_communication() {
     run_test "Engine gRPC Ready" "nc -z localhost 50051 && echo 'Engine gRPC server ready'"
 }
 
+# Validate scanner script-linkage contracts in ValKey state.
+test_scanner_linkage_contract() {
+    log "${BLUE}🧩 Testing Scanner Script-Linkage Contract${NC}"
+
+    run_test "NSE Manifest Exists in ValKey" "docker exec sirius-valkey redis-cli EXISTS nse:manifest | rg -q '^1$'"
+    run_test "NSE Manifest Contains Scripts Block" "docker exec sirius-valkey redis-cli --raw GET nse:manifest | rg -q '\"scripts\"'"
+    run_test "NSE Manifest Contains Script Entries" "docker exec sirius-valkey redis-cli --raw GET nse:manifest | python3 -c 'import json,sys; manifest=json.load(sys.stdin); scripts=manifest.get(\"scripts\", {}); count=len(scripts) if isinstance(scripts, (dict, list)) else 0; raise SystemExit(0 if count > 0 else 1)'"
+}
+
 # Note: Authentication and UI functionality tests removed
 # These are not necessary for container health validation
 
@@ -221,6 +230,7 @@ main() {
     test_api_endpoints
     test_database_operations
     test_service_communication
+    test_scanner_linkage_contract
     test_error_handling
     
     # Summary

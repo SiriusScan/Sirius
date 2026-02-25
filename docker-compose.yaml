@@ -235,7 +235,13 @@ services:
       sirius-valkey:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "bash", "-lc", "echo > /dev/tcp/127.0.0.1/50051"]
+      test:
+        [
+          "CMD",
+          "bash",
+          "-lc",
+          "command -v psql >/dev/null && command -v curl >/dev/null && [ -n \"$SIRIUS_API_KEY\" ] && echo > /dev/tcp/127.0.0.1/50051",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

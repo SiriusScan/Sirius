@@ -1,7 +1,7 @@
 # SiriusScan Docker Testing Makefile
 # Provides easy commands for testing and development
 
-.PHONY: help build test test-build test-health test-integration test-all test-security clean logs lint-docs lint-docs-quick lint-agents lint-agents-quick lint-agent-index regenerate-agents regenerate-agent check-agent-sync
+.PHONY: help build test test-build test-health test-integration test-runtime-contract test-release-gates test-all test-security clean logs lint-docs lint-docs-quick lint-agents lint-agents-quick lint-agent-index regenerate-agents regenerate-agent check-agent-sync
 
 # Default target
 help:
@@ -18,6 +18,8 @@ help:
 	@echo "  test-build     Test individual container builds"
 	@echo "  test-health    Test service health checks"
 	@echo "  test-integration Test service integration"
+	@echo "  test-runtime-contract Verify runtime auth/binary contracts"
+	@echo "  test-release-gates Run release-blocking validation checks"
 	@echo "  test-security  Run security/auth penetration tests"
 	@echo "  test-all       Run all tests"
 	@echo ""
@@ -76,6 +78,19 @@ test-health:
 test-integration:
 	@echo "🔗 Running integration tests..."
 	./test-integration.sh
+
+test-runtime-contract:
+	@echo "🧷 Verifying runtime auth/binary contracts..."
+	SIRIUS_API_KEY=$${SIRIUS_API_KEY:-test-api-key} \
+	POSTGRES_PASSWORD=$${POSTGRES_PASSWORD:-test-postgres-password} \
+	NEXTAUTH_SECRET=$${NEXTAUTH_SECRET:-test-nextauth-secret} \
+	INITIAL_ADMIN_PASSWORD=$${INITIAL_ADMIN_PASSWORD:-test-admin-password} \
+	docker compose up -d
+	bash ../../scripts/verify-runtime-auth-contract.sh
+	docker compose down
+
+test-release-gates: test-build test-integration test-runtime-contract
+	@echo "✅ Release-gating contract checks passed!"
 
 test-security:
 	@echo "🔒 Running security penetration tests..."

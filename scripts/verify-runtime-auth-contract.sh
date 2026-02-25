@@ -37,6 +37,10 @@ engine_key="$(extract_env sirius-engine SIRIUS_API_KEY)"
 postgres_db_pw="$(extract_env sirius-postgres POSTGRES_PASSWORD)"
 api_db_pw="$(extract_env sirius-api POSTGRES_PASSWORD)"
 engine_db_pw="$(extract_env sirius-engine POSTGRES_PASSWORD)"
+engine_api_base_url="$(extract_env sirius-engine API_BASE_URL)"
+engine_sirius_api_url="$(extract_env sirius-engine SIRIUS_API_URL)"
+engine_agent_id="$(extract_env sirius-engine AGENT_ID)"
+engine_host_id="$(extract_env sirius-engine HOST_ID)"
 
 echo "Runtime key fingerprints:"
 echo "  sirius-ui:     $(mask_value "$ui_key")"
@@ -65,11 +69,29 @@ if [ "$postgres_db_pw" != "$api_db_pw" ] || [ "$api_db_pw" != "$engine_db_pw" ];
 fi
 echo "✅ POSTGRES_PASSWORD parity check passed"
 
+if [ -z "$engine_api_base_url" ] || [ -z "$engine_sirius_api_url" ] || [ -z "$engine_agent_id" ] || [ -z "$engine_host_id" ]; then
+  echo "❌ sirius-engine is missing one or more required runtime env values (API_BASE_URL, SIRIUS_API_URL, AGENT_ID, HOST_ID)"
+  exit 1
+fi
+echo "✅ sirius-engine runtime env contract check passed"
+
 if docker exec sirius-postgres sh -lc "grep -E -q 'psql[^\\n]*\\|\\| true|ALTER ROLE[^\\n]*\\|\\| true' /usr/local/bin/start-with-monitor.sh"; then
   echo "❌ Running postgres entrypoint still contains permissive psql reconciliation fallback"
   exit 1
 fi
 echo "✅ Postgres reconciliation script does not contain permissive psql fallback"
+
+if ! docker exec sirius-engine bash -lc 'for bin in bash curl psql pkill nmap rustscan pwsh; do command -v "$bin" >/dev/null || exit 1; done'; then
+  echo "❌ sirius-engine runtime binary contract check failed"
+  exit 1
+fi
+echo "✅ sirius-engine runtime binary contract check passed"
+
+if ! docker exec sirius-engine bash -lc '/bin/bash -n /start-enhanced.sh && grep -q "validate_required_binary \"psql\"" /start-enhanced.sh'; then
+  echo "❌ sirius-engine startup script contract check failed"
+  exit 1
+fi
+echo "✅ sirius-engine startup script contract check passed"
 
 unauth_code="$(curl -s -o /tmp/sirius-auth-unauth.out -w '%{http_code}' "http://localhost:9001/host/" || true)"
 if [ "$unauth_code" != "401" ]; then

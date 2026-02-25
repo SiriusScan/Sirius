@@ -101,11 +101,17 @@ main() {
     
     # Test 7: sirius-engine Runtime Build
     run_test "sirius-engine Runtime Build" "docker build -t sirius-engine:runtime ./sirius-engine/ --target runtime"
+
+    # Test 8: sirius-engine runtime startup contract binaries
+    run_test "sirius-engine Runtime Binary Contract" "docker run --rm --entrypoint /bin/bash sirius-engine:runtime -lc 'command -v bash >/dev/null && command -v curl >/dev/null && command -v psql >/dev/null && command -v pkill >/dev/null && command -v nmap >/dev/null && command -v rustscan >/dev/null && command -v pwsh >/dev/null'"
+
+    # Test 9: sirius-engine entrypoint syntax contract
+    run_test "sirius-engine Entrypoint Syntax Contract" "docker run --rm --entrypoint /bin/bash sirius-engine:runtime -lc '/bin/bash -n /start-enhanced.sh && grep -q \"validate_required_binary \\\"psql\\\"\" /start-enhanced.sh'"
     
-    # Test 8: sirius-ui Development Build
+    # Test 10: sirius-ui Development Build
     run_test "sirius-ui Development Build" "docker build -t sirius-ui:dev ./sirius-ui/ --target development"
     
-    # Test 9: sirius-api Development Build
+    # Test 11: sirius-api Development Build
     run_test "sirius-api Development Build" "docker build -t sirius-api:dev ./sirius-api/ --target development"
     
     # Cleanup test images

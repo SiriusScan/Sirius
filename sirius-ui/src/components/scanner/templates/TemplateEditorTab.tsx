@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "~/components/lib/ui/select";
 import { type AgentScanMode, DEFAULT_AGENT_SCAN_CONFIG } from "~/types/scanTypes";
+import { toast } from "sonner";
 
 interface TemplateEditorTabProps {
   templateId?: string;
@@ -213,11 +214,18 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
   const handleSave = () => {
     if (!name.trim()) return;
     if (scanTypes.length === 0) return;
+    if (missingScripts.length > 0) {
+      toast.error("Profile has unlinked scripts", {
+        description:
+          "Remove missing script references before saving this profile.",
+      });
+      return;
+    }
 
     const baseData = {
       name: name.trim(),
       description: description.trim(),
-      enabled_scripts: selectedScripts,
+      enabled_scripts: validSelectedScripts,
       type: "custom" as const,
       scan_options: {
         scan_types: scanTypes,
@@ -256,6 +264,13 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
   };
 
   const handleSaveAsCopy = () => {
+    if (missingScripts.length > 0) {
+      toast.error("Profile has unlinked scripts", {
+        description:
+          "Remove missing script references before saving this profile copy.",
+      });
+      return;
+    }
     // Set name to copy version
     setName(`${name} (Copy)`);
     // Force create new by treating as if no templateId
@@ -267,7 +282,7 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
       const baseData = {
         name: `${existingTemplate?.name || name} (Copy)`,
         description: description.trim(),
-        enabled_scripts: selectedScripts,
+        enabled_scripts: validSelectedScripts,
         type: "custom" as const,
         scan_options: {
           scan_types: scanTypes,

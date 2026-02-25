@@ -97,7 +97,9 @@ const ProfileManager: React.FC = () => {
       </div>
 
       {/* Initialization Status */}
-      {initializeScripts.isSuccess && initializeScripts.data && (
+      {initializeScripts.isSuccess &&
+        initializeScripts.data?.success &&
+        initializeScripts.data && (
         <div className="rounded-md border border-green-500/30 bg-green-500/5 p-3">
           <div className="flex items-start gap-2">
             <CheckCircle className="h-5 w-5 text-green-400" />
@@ -113,6 +115,23 @@ const ProfileManager: React.FC = () => {
           </div>
         </div>
       )}
+      {initializeScripts.isSuccess &&
+        !initializeScripts.data?.success &&
+        initializeScripts.data && (
+          <div className="rounded-md border border-yellow-500/30 bg-yellow-500/5 p-3">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-400" />
+              <div>
+                <p className="text-sm font-medium text-yellow-300">
+                  Scripts Not Ready
+                </p>
+                <p className="text-xs text-yellow-400">
+                  {initializeScripts.data.message}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
       {initializeScripts.isError && (
         <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3">

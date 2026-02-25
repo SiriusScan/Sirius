@@ -4,7 +4,7 @@ contact_links:
     url: https://github.com/SiriusScan/Sirius/discussions
     about: Ask usage and architecture questions in Discussions.
   - name: Sirius Documentation
-    url: https://sirius.publickey.io/docs/getting-started/installation
+    url: https://sirius.opensecurity.com/docs/getting-started/installation
     about: Start here for setup and troubleshooting guidance.
   - name: Security Policy
     url: https://github.com/SiriusScan/Sirius/security/policy

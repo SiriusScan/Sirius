@@ -13,9 +13,9 @@ We build security tooling for real operators and developers: discover assets, id
 
 ## Start Here
 
-- Quick start: <https://sirius.publickey.io/docs/getting-started/quick-start>
-- Installation: <https://sirius.publickey.io/docs/getting-started/installation>
-- API docs: <https://sirius.publickey.io/docs/api/rest/authentication>
+- Quick start: <https://sirius.opensecurity.com/docs/getting-started/quick-start>
+- Installation: <https://sirius.opensecurity.com/docs/getting-started/installation>
+- API docs: <https://sirius.opensecurity.com/docs/api/rest/authentication>
 - Security policy: <https://github.com/SiriusScan/Sirius/security/policy>
 - Project discussions: <https://github.com/SiriusScan/Sirius/discussions>
 

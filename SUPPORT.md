@@ -7,8 +7,8 @@ Use this guide to choose the right support channel.
 For usage questions, setup clarifications, and architecture discussions:
 
 - GitHub Discussions: <https://github.com/SiriusScan/Sirius/discussions>
-- Documentation portal: <https://sirius.publickey.io/docs>
-- Community Discord: <https://sirius.publickey.io/community>
+- Documentation portal: <https://sirius.opensecurity.com/docs>
+- Community Discord: <https://sirius.opensecurity.com/community>
 
 ## Bug Reports
 

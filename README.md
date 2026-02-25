@@ -5,7 +5,7 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/siriusscan/sirius?label=docker%20pulls)](https://hub.docker.com/r/siriusscan/sirius)
 [![Go Report Card](https://goreportcard.com/badge/github.com/SiriusScan/Sirius)](https://goreportcard.com/report/github.com/SiriusScan/Sirius)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
-[![Discord](https://img.shields.io/badge/community-discord-5865F2)](https://sirius.publickey.io/community)
+[![Discord](https://img.shields.io/badge/community-discord-5865F2)](https://sirius.opensecurity.com/community)
 
 ![Sirius Scan Dashboard](/documentation/dash-dark.gif)
 
@@ -13,7 +13,7 @@ Sirius is an open-source comprehensive vulnerability scanner that leverages comm
 
 ## Navigate by Role
 
-- **End Users**: [Quick Start](https://sirius.publickey.io/docs/getting-started/quick-start), [Installation](https://sirius.publickey.io/docs/getting-started/installation), [Interface Tour](https://sirius.publickey.io/docs/getting-started/interface-tour)
+- **End Users**: [Quick Start](https://sirius.opensecurity.com/docs/getting-started/quick-start), [Installation](https://sirius.opensecurity.com/docs/getting-started/installation), [Interface Tour](https://sirius.opensecurity.com/docs/getting-started/interface-tour)
 - **Contributors**: [CONTRIBUTING.md](./CONTRIBUTING.md), [Issue Tracker](https://github.com/SiriusScan/Sirius/issues), [Discussions](https://github.com/SiriusScan/Sirius/discussions)
 - **Maintainers**: [Maintainer Ops Review](./documentation/dev/operations/README.maintainer-ops-issue-review.md), [CI/CD Guide](./documentation/README.cicd.md), [Container Testing](./documentation/dev/test/README.container-testing.md)
 
@@ -775,33 +775,33 @@ docker compose pull  # Update images regularly
 
 ### 📖 Essential Documentation
 
-- [📘 Installation Guide](https://sirius.publickey.io/docs/getting-started/installation) - Detailed setup instructions
-- [🎯 Quick Start Guide](https://sirius.publickey.io/docs/getting-started/quick-start) - Get scanning in 5 minutes
-- [🎪 Interface Tour](https://sirius.publickey.io/docs/getting-started/interface-tour) - Complete UI walkthrough
-- [🔧 Configuration Guide](https://sirius.publickey.io/docs/guides/configuration) - Advanced configuration options
-- [🛡️ Security Guide](https://sirius.publickey.io/docs/guides/security) - Production security best practices
+- [📘 Installation Guide](https://sirius.opensecurity.com/docs/getting-started/installation) - Detailed setup instructions
+- [🎯 Quick Start Guide](https://sirius.opensecurity.com/docs/getting-started/quick-start) - Get scanning in 5 minutes
+- [🎪 Interface Tour](https://sirius.opensecurity.com/docs/getting-started/interface-tour) - Complete UI walkthrough
+- [🔧 Configuration Guide](https://sirius.opensecurity.com/docs/guides/configuration) - Advanced configuration options
+- [🛡️ Security Guide](https://sirius.opensecurity.com/docs/guides/security) - Production security best practices
 
 ### 🔌 Technical Documentation
 
-- [🚀 API Reference](https://sirius.publickey.io/docs/api/rest/authentication) - Complete API documentation
-- [📦 Go SDK](https://sirius.publickey.io/docs/api/sdk/go) - Go integration library
+- [🚀 API Reference](https://sirius.opensecurity.com/docs/api/rest/authentication) - Complete API documentation
+- [📦 Go SDK](https://sirius.opensecurity.com/docs/api/sdk/go) - Go integration library
 - [🐳 Docker Guide](./documentation/DOCKER-IMPLEMENTATION-DOCUMENTATION.md) - Comprehensive Docker documentation
 - [🏗️ Architecture Guide](./documentation/README.architecture.md) - System architecture deep-dive
 - [🔄 CI/CD Guide](./documentation/README.cicd.md) - Deployment automation
 
 ### 🎓 User Guides
 
-- [🔍 Scanning Guide](https://sirius.publickey.io/docs/guides/scanning) - Advanced scanning techniques
-- [🎯 Vulnerability Management](https://sirius.publickey.io/docs/guides/vulnerabilities) - Managing discovered vulnerabilities
-- [🌐 Environment Management](https://sirius.publickey.io/docs/guides/environment) - Infrastructure assessment
-- [🖥️ Host Management](https://sirius.publickey.io/docs/guides/hosts) - Individual host analysis
-- [💻 Terminal Guide](https://sirius.publickey.io/docs/guides/terminal) - Advanced PowerShell operations
+- [🔍 Scanning Guide](https://sirius.opensecurity.com/docs/guides/scanning) - Advanced scanning techniques
+- [🎯 Vulnerability Management](https://sirius.opensecurity.com/docs/guides/vulnerabilities) - Managing discovered vulnerabilities
+- [🌐 Environment Management](https://sirius.opensecurity.com/docs/guides/environment) - Infrastructure assessment
+- [🖥️ Host Management](https://sirius.opensecurity.com/docs/guides/hosts) - Individual host analysis
+- [💻 Terminal Guide](https://sirius.opensecurity.com/docs/guides/terminal) - Advanced PowerShell operations
 
 ### 🤝 Community & Support
 
-- [❓ FAQ](https://sirius.publickey.io/docs/community/faq) - Frequently asked questions
+- [❓ FAQ](https://sirius.opensecurity.com/docs/community/faq) - Frequently asked questions
 - [🐛 GitHub Issues](https://github.com/SiriusScan/Sirius/issues) - Bug reports and feature requests
-- [💬 Discord Community](https://sirius.publickey.io/community) - Real-time community support
+- [💬 Discord Community](https://sirius.opensecurity.com/community) - Real-time community support
 - [🤝 Contributing Guide](./documentation/contributing.md) - How to contribute to Sirius
 - [📧 Support Contact](mailto:support@publickey.io) - Direct technical support
 
@@ -860,12 +860,12 @@ This project is licensed under the terms specified in the [LICENSE](./LICENSE) f
 
 ---
 
-**🚀 Ready to start scanning?** Follow our [Quick Start Guide](https://sirius.publickey.io/docs/getting-started/quick-start) and have Sirius running in under 5 minutes!
+**🚀 Ready to start scanning?** Follow our [Quick Start Guide](https://sirius.opensecurity.com/docs/getting-started/quick-start) and have Sirius running in under 5 minutes!
 
-**💡 Need help?** Join our [Discord community](https://sirius.publickey.io/community) for real-time support and discussion.
+**💡 Need help?** Join our [Discord community](https://sirius.opensecurity.com/community) for real-time support and discussion.
 
 **🐛 Found a bug?** Report it on [GitHub Issues](https://github.com/SiriusScan/Sirius/issues) - we respond quickly!
 
 ---
 
-_For production deployments, always change default credentials and review our [Security Guide](https://sirius.publickey.io/docs/guides/security) for best practices._
+_For production deployments, always change default credentials and review our [Security Guide](https://sirius.opensecurity.com/docs/guides/security) for best practices._

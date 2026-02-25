@@ -49,12 +49,12 @@ Recommended descriptions and links:
 
 | Repository | Description | Homepage | Suggested topics |
 | --- | --- | --- | --- |
-| `Sirius` | Core platform, orchestration, docs, and deployment baseline for SiriusScan. | `https://sirius.publickey.io/docs/getting-started/quick-start` | `security`, `devsecops`, `vulnerability-scanner`, `docker`, `nextjs` |
-| `go-api` | Backend API services for platform operations and integrations. | `https://sirius.publickey.io/docs/api/rest/authentication` | `golang`, `api`, `security`, `backend` |
-| `app-scanner` | Scanning execution service for discovery and vulnerability collection. | `https://sirius.publickey.io/docs/getting-started/installation` | `scanner`, `security`, `golang`, `automation` |
-| `app-agent` | Agent runtime for distributed scanning and remote execution workflows. | `https://sirius.publickey.io/docs/getting-started/installation` | `agent`, `golang`, `security`, `distributed-systems` |
-| `pingpp` | Network diagnostics and connectivity support utilities. | `https://sirius.publickey.io/docs/getting-started/installation` | `networking`, `golang`, `diagnostics`, `security` |
-| `website` | Public website and product-facing content for SiriusScan. | `https://sirius.publickey.io` | `website`, `nextjs`, `security`, `docs` |
+| `Sirius` | Core platform, orchestration, docs, and deployment baseline for SiriusScan. | `https://sirius.opensecurity.com/docs/getting-started/quick-start` | `security`, `devsecops`, `vulnerability-scanner`, `docker`, `nextjs` |
+| `go-api` | Backend API services for platform operations and integrations. | `https://sirius.opensecurity.com/docs/api/rest/authentication` | `golang`, `api`, `security`, `backend` |
+| `app-scanner` | Scanning execution service for discovery and vulnerability collection. | `https://sirius.opensecurity.com/docs/getting-started/installation` | `scanner`, `security`, `golang`, `automation` |
+| `app-agent` | Agent runtime for distributed scanning and remote execution workflows. | `https://sirius.opensecurity.com/docs/getting-started/installation` | `agent`, `golang`, `security`, `distributed-systems` |
+| `pingpp` | Network diagnostics and connectivity support utilities. | `https://sirius.opensecurity.com/docs/getting-started/installation` | `networking`, `golang`, `diagnostics`, `security` |
+| `website` | Public website and product-facing content for SiriusScan. | `https://sirius.opensecurity.com` | `website`, `nextjs`, `security`, `docs` |
 
 ## 5. Enable community and trust signals
 

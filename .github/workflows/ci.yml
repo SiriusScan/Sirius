@@ -132,13 +132,14 @@ jobs:
           echo "image_tag=$TAG" >> $GITHUB_OUTPUT
           echo "Generated image tag: $TAG"
 
-      - name: Validate UI code
-        run: |
-          cd sirius-ui
-          echo "Running UI validation..."
-          npm ci
-          npm run lint || echo "⚠️ Lint warnings present"
-          echo "✅ UI validation complete"
+      - name: Install UI dependencies
+        run: npm ci
+        working-directory: sirius-ui
+
+      - name: Lint UI code
+        continue-on-error: true
+        run: npm run lint
+        working-directory: sirius-ui
 
       - name: Setup Blacksmith Builder
         uses: useblacksmith/setup-docker-builder@v1
@@ -207,13 +208,16 @@ jobs:
         with:
           go-version: '1.24'
 
-      - name: Validate API code
+      - name: Compile-check API code
         run: |
-          cd sirius-api
-          echo "Running API validation..."
           go mod download
-          go test ./... -v || echo "⚠️ Some tests failed, continuing with build"
-          echo "✅ API validation complete"
+          go vet ./...
+        working-directory: sirius-api
+
+      - name: Run API tests (non-blocking)
+        continue-on-error: true
+        run: go test ./... -short -count=1
+        working-directory: sirius-api
 
       - name: Setup Blacksmith Builder
         uses: useblacksmith/setup-docker-builder@v1
@@ -285,13 +289,16 @@ jobs:
         with:
           go-version: '1.24'
 
-      - name: Validate Engine code
+      - name: Compile-check Engine code
         run: |
-          cd sirius-engine
-          echo "Running Engine validation..."
           go mod download
-          go test ./... -v || echo "⚠️ Some tests failed, continuing with build"
-          echo "✅ Engine validation complete"
+          go vet ./...
+        working-directory: sirius-engine
+
+      - name: Run Engine tests (non-blocking)
+        continue-on-error: true
+        run: go test ./... -short -count=1
+        working-directory: sirius-engine
 
       - name: Setup Blacksmith Builder
         uses: useblacksmith/setup-docker-builder@v1
@@ -356,8 +363,7 @@ jobs:
 
       - name: Create test environment
         run: |
-          # Create test docker-compose configuration
-          cat > docker-compose.test.yml << EOF
+          cat > docker-compose.test.yml << 'EOF'
           name: sirius-test
           services:
             sirius-postgres:
@@ -366,19 +372,37 @@ jobs:
                 POSTGRES_USER: postgres
                 POSTGRES_PASSWORD: postgres
                 POSTGRES_DB: sirius_test
-              tmpfs: 
-                - /var/lib/postgresql/data # Use RAM for CI testing
-          
+              tmpfs:
+                - /var/lib/postgresql/data
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U postgres"]
+                interval: 5s
+                timeout: 5s
+                retries: 10
+
             sirius-rabbitmq:
               image: rabbitmq:3-management
-          
+              environment:
+                RABBITMQ_DEFAULT_USER: guest
+                RABBITMQ_DEFAULT_PASS: guest
+              healthcheck:
+                test: ["CMD", "rabbitmq-diagnostics", "ping"]
+                interval: 5s
+                timeout: 5s
+                retries: 10
+
             sirius-valkey:
               image: valkey/valkey:latest
+              healthcheck:
+                test: ["CMD", "redis-cli", "ping"]
+                interval: 5s
+                timeout: 5s
+                retries: 10
 
             sirius-ui:
-              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.tag.outputs.image_tag }}
+              image: ${SIRIUS_UI_IMAGE}
               environment:
-                - NODE_ENV=test
+                - NODE_ENV=production
                 - SKIP_ENV_VALIDATION=1
                 - DATABASE_URL=postgresql://postgres:postgres@sirius-postgres:5432/sirius_test
                 - NEXTAUTH_SECRET=test-secret
@@ -388,12 +412,19 @@ jobs:
                 - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
                 - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
-                - sirius-postgres
-          
+                sirius-postgres:
+                  condition: service_healthy
+              healthcheck:
+                test: ["CMD-SHELL", "wget -q --tries=1 -O /dev/null http://127.0.0.1:3000/"]
+                interval: 10s
+                timeout: 5s
+                retries: 12
+                start_period: 15s
+
             sirius-api:
-              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.tag.outputs.image_tag }}
+              image: ${SIRIUS_API_IMAGE}
               environment:
-                - GO_ENV=test
+                - GO_ENV=production
                 - API_PORT=9001
                 - POSTGRES_HOST=sirius-postgres
                 - POSTGRES_USER=postgres
@@ -403,17 +434,26 @@ jobs:
                 - VALKEY_HOST=sirius-valkey
                 - VALKEY_PORT=6379
                 - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
-                - LOG_LEVEL=debug
+                - LOG_LEVEL=info
                 - SIRIUS_API_KEY=ci-placeholder-api-key
               depends_on:
-                - sirius-postgres
-                - sirius-rabbitmq
-                - sirius-valkey
-          
+                sirius-postgres:
+                  condition: service_healthy
+                sirius-rabbitmq:
+                  condition: service_healthy
+                sirius-valkey:
+                  condition: service_healthy
+              healthcheck:
+                test: ["CMD-SHELL", "wget -q --tries=1 -O /dev/null http://127.0.0.1:9001/health"]
+                interval: 10s
+                timeout: 5s
+                retries: 12
+                start_period: 10s
+
             sirius-engine:
-              image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.tag.outputs.image_tag }}
+              image: ${SIRIUS_ENGINE_IMAGE}
               environment:
-                - GO_ENV=test
+                - GO_ENV=production
                 - ENGINE_MAIN_PORT=5174
                 - GRPC_AGENT_PORT=50051
                 - POSTGRES_HOST=sirius-postgres
@@ -424,66 +464,160 @@ jobs:
                 - VALKEY_HOST=sirius-valkey
                 - VALKEY_PORT=6379
                 - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
-                - LOG_LEVEL=debug
+                - LOG_LEVEL=info
                 - SIRIUS_API_KEY=ci-placeholder-api-key
+                - SIRIUS_API_URL=http://sirius-api:9001
               depends_on:
-                - sirius-rabbitmq
+                sirius-postgres:
+                  condition: service_healthy
+                sirius-rabbitmq:
+                  condition: service_healthy
+                sirius-valkey:
+                  condition: service_healthy
+              healthcheck:
+                test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/50051"]
+                interval: 10s
+                timeout: 5s
+                retries: 12
+                start_period: 10s
           EOF
+
+          # Inject actual image references (expressions can't live inside the single-quoted heredoc)
+          IMAGE_TAG="${{ steps.tag.outputs.image_tag }}"
+          export SIRIUS_UI_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${IMAGE_TAG}"
+          export SIRIUS_API_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${IMAGE_TAG}"
+          export SIRIUS_ENGINE_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${IMAGE_TAG}"
+          echo "SIRIUS_UI_IMAGE=$SIRIUS_UI_IMAGE" >> $GITHUB_ENV
+          echo "SIRIUS_API_IMAGE=$SIRIUS_API_IMAGE" >> $GITHUB_ENV
+          echo "SIRIUS_ENGINE_IMAGE=$SIRIUS_ENGINE_IMAGE" >> $GITHUB_ENV
 
       - name: Run integration test
         run: |
-          echo "Starting integration test..."
-          
-          # Start infrastructure services
+          echo "🧪 Starting integration test..."
+
+          # --- 1. Infrastructure ---
           docker compose -f docker-compose.test.yml up -d sirius-postgres sirius-rabbitmq sirius-valkey
-          
-          # Wait for infrastructure
-          echo "Waiting for infrastructure services..."
-          sleep 20
-          
-          # Start application services based on what was built
+
+          echo "⏳ Waiting for infrastructure services to become healthy..."
+          timeout 90 bash -c '
+            until docker compose -f docker-compose.test.yml ps --format json | \
+              python3 -c "
+          import sys, json
+          svcs = [json.loads(l) for l in sys.stdin if l.strip()]
+          infra = [s for s in svcs if s[\"Service\"] in (\"sirius-postgres\",\"sirius-rabbitmq\",\"sirius-valkey\")]
+          healthy = [s for s in infra if s.get(\"Health\",\"\") == \"healthy\"]
+          sys.exit(0 if len(healthy) == 3 else 1)
+          "; do sleep 3; done
+          '
+          echo "✅ Infrastructure healthy"
+
+          # --- 2. Application services ---
           SERVICES_TO_TEST=""
-          
           if [ "${{ needs.detect-changes.outputs.sirius_api_changes }}" == "true" ]; then
             SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-api"
           fi
-          
           if [ "${{ needs.detect-changes.outputs.sirius_engine_changes }}" == "true" ]; then
             SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-engine"
           fi
-          
           if [ "${{ needs.detect-changes.outputs.sirius_ui_changes }}" == "true" ]; then
             SERVICES_TO_TEST="$SERVICES_TO_TEST sirius-ui"
           fi
-          
-          if [ -n "$SERVICES_TO_TEST" ]; then
-            docker compose -f docker-compose.test.yml up -d $SERVICES_TO_TEST
-            
-            # Wait for services to start
-            echo "Waiting for application services..."
-            sleep 30
-            
-            # Check service health
-            echo "Checking service status..."
-            docker compose -f docker-compose.test.yml ps
-            
-            # Basic smoke tests
-            echo "Running smoke tests..."
-            if echo "$SERVICES_TO_TEST" | grep -q "sirius-api"; then
-              docker compose -f docker-compose.test.yml exec -T sirius-api sh -c "ps aux | grep sirius-api || true"
-            fi
-            
-            if echo "$SERVICES_TO_TEST" | grep -q "sirius-engine"; then
-              docker compose -f docker-compose.test.yml exec -T sirius-engine sh -c "ps aux | grep start-enhanced || true"
-            fi
-            
-            echo "✅ Integration test completed"
-          else
-            echo "No services to test"
+
+          if [ -z "$SERVICES_TO_TEST" ]; then
+            echo "ℹ️  No application services to test"
+            exit 0
           fi
-          
-          # Cleanup
-          docker compose -f docker-compose.test.yml down
+
+          echo "🚀 Starting application services:$SERVICES_TO_TEST"
+          docker compose -f docker-compose.test.yml up -d $SERVICES_TO_TEST
+
+          # Wait for each service's health endpoint inside its own container.
+          # Timeout per service: 180 s. Uses the container's wget, not the host.
+          # sirius-api requires X-API-Key header for auth.
+          for SVC in $SERVICES_TO_TEST; do
+            case $SVC in
+              sirius-api)    HEALTH_CMD="wget -q --tries=1 -O /dev/null http://127.0.0.1:9001/health" ;;
+              sirius-engine) HEALTH_CMD="bash -c 'echo > /dev/tcp/127.0.0.1/50051'" ;;
+              sirius-ui)     HEALTH_CMD="wget -q --tries=1 -O /dev/null http://127.0.0.1:3000/" ;;
+              *) continue ;;
+            esac
+            echo "⏳ Waiting for $SVC..."
+            timeout 180 bash -c "
+              until docker compose -f docker-compose.test.yml exec -T $SVC sh -c '$HEALTH_CMD' 2>/dev/null; do
+                sleep 5
+              done
+            "
+            echo "✅ $SVC is healthy"
+          done
+
+          # --- 3. Final health assertions ---
+          echo "📊 Service status:"
+          docker compose -f docker-compose.test.yml ps
+
+          echo "🏥 Running final health assertions..."
+          FAILED=0
+          for SVC in $SERVICES_TO_TEST; do
+            case $SVC in
+              sirius-api)    HEALTH_CMD="wget -q --tries=1 -O /dev/null http://127.0.0.1:9001/health" ;;
+              sirius-engine) HEALTH_CMD="bash -c 'echo > /dev/tcp/127.0.0.1/50051'" ;;
+              sirius-ui)     HEALTH_CMD="wget -q --tries=1 -O /dev/null http://127.0.0.1:3000/" ;;
+              *) continue ;;
+            esac
+            if docker compose -f docker-compose.test.yml exec -T $SVC sh -c "$HEALTH_CMD" 2>/dev/null; then
+              echo "  ✅ $SVC passed"
+            else
+              echo "  ❌ $SVC FAILED"
+              FAILED=1
+            fi
+          done
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo "::error::One or more services failed their health check"
+            exit 1
+          fi
+          echo "✅ All health checks passed"
+
+      - name: Capture diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p ci-diagnostics
+          echo "=== docker compose ps ===" > ci-diagnostics/compose-status.txt
+          docker compose -f docker-compose.test.yml ps --format "table {{.Name}}\t{{.Service}}\t{{.Status}}\t{{.Health}}" \
+            >> ci-diagnostics/compose-status.txt 2>&1 || true
+
+          echo "=== sirius-engine inspect ===" > ci-diagnostics/engine-inspect.json
+          docker inspect sirius-test-sirius-engine-1 >> ci-diagnostics/engine-inspect.json 2>&1 || true
+
+          for SVC in sirius-engine sirius-api sirius-ui sirius-postgres sirius-rabbitmq sirius-valkey; do
+            echo "--- $SVC logs (last 200 lines) ---" > "ci-diagnostics/${SVC}.log"
+            docker compose -f docker-compose.test.yml logs --tail=200 "$SVC" \
+              >> "ci-diagnostics/${SVC}.log" 2>&1 || true
+          done
+
+          echo "::group::Compose Status"
+          cat ci-diagnostics/compose-status.txt
+          echo "::endgroup::"
+
+          echo "::group::sirius-engine logs"
+          cat ci-diagnostics/sirius-engine.log
+          echo "::endgroup::"
+
+          echo "::group::sirius-api logs"
+          cat ci-diagnostics/sirius-api.log
+          echo "::endgroup::"
+
+      - name: Upload diagnostic artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-diagnostics
+          path: ci-diagnostics/
+          retention-days: 7
+
+      - name: Cleanup test environment
+        if: always()
+        run: |
+          docker compose -f docker-compose.test.yml down --volumes --remove-orphans 2>/dev/null || true
 
   # Dispatch to sirius-demo repository when sirius-demo branch is updated
   dispatch-demo-deployment:

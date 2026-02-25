@@ -1,10 +1,9 @@
-name: Sirius CI/CD Pipeline
+name: Sirius CI/CD Pipeline (Reference Only)
 
+# Triggers disabled — ci.yml is the canonical CI pipeline.
+# This file is retained for reference; it never executes automatically.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io

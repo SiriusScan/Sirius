@@ -76,7 +76,8 @@ CONTAINER_NAME=sirius-postgres /usr/local/bin/system-monitor >> /tmp/system-moni
 echo "✅ All services started"
 wait "$POSTGRES_PID"
 EOF
-RUN chmod +x /usr/local/bin/start-with-monitor.sh
+RUN sed -i 's/\r$//' /usr/local/bin/start-with-monitor.sh && \
+    chmod +x /usr/local/bin/start-with-monitor.sh
 RUN test -x /usr/local/bin/start-with-monitor.sh && /bin/sh -n /usr/local/bin/start-with-monitor.sh
 
 # Set environment variables for system monitor

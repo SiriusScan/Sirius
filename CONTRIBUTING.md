@@ -35,6 +35,19 @@ docker compose up -d
 
 For advanced local development, follow [`documentation/contributing.md`](./documentation/contributing.md).
 
+### Windows Development
+
+Sirius targets Linux containers. On Windows only **Docker Desktop** is required to clone, build, and run the full stack via `docker compose`.
+
+- The repository ships a `.gitattributes` that forces LF line endings on all platforms. If you cloned before this file existed and see `\r\n` issues, re-normalise your checkout:
+
+```bash
+git add --renormalize .
+git checkout -- .
+```
+
+- Avoid setting `core.autocrlf = true` in your Git config; the `.gitattributes` file handles line endings automatically.
+
 ## Branch and Commit Standards
 
 - Branch naming: `<type>/<short-description>` (example: `fix/auth-key-drift`)

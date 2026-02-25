@@ -31,29 +31,29 @@ export type SeverityLevel = (typeof SEVERITY_LEVELS)[number];
 export const SEVERITY_COLORS = {
   critical: {
     text: "text-red-400",
-    bg: "bg-red-500/20",
-    border: "border-red-500",
-    hex: "#ef4444",            // red-500
-    ring: "ring-red-500/30",
-    base: "bg-red-500",
-    cardBg: "bg-red-600",      // deeper shade for solid card backgrounds
-    cardHex: "#dc2626",        // red-600
+    bg: "bg-[#8c1c1c]/20",     // ~half step between red-800 and red-900
+    border: "border-[#8c1c1c]",
+    hex: "#8c1c1c",
+    ring: "ring-[#8c1c1c]/30",
+    base: "bg-[#8c1c1c]",
+    cardBg: "bg-[#731a1a]",    // ~half step between red-900 and red-950
+    cardHex: "#731a1a",
   },
   high: {
-    text: "text-orange-400",
-    bg: "bg-orange-500/20",
-    border: "border-orange-500",
-    hex: "#f97316",            // orange-500
-    ring: "ring-orange-500/30",
-    base: "bg-orange-500",
-    cardBg: "bg-orange-600",
-    cardHex: "#ea580c",        // orange-600
+    text: "text-red-500",
+    bg: "bg-red-600/20",
+    border: "border-red-600",
+    hex: "#dc2626",            // red-600 — one level darker
+    ring: "ring-red-600/30",
+    base: "bg-red-600",
+    cardBg: "bg-red-700",
+    cardHex: "#b91c1c",        // red-700
   },
   medium: {
-    text: "text-amber-400",
+    text: "text-amber-500",
     bg: "bg-amber-500/20",
     border: "border-amber-500",
-    hex: "#f59e0b",            // amber-500 — warmer golden tone for dark UIs
+    hex: "#f59e0b",            // amber-500 — slightly darker
     ring: "ring-amber-500/30",
     base: "bg-amber-500",
     cardBg: "bg-amber-600",

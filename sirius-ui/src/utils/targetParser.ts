@@ -20,13 +20,6 @@ export interface ValidationResult {
   hostCount?: number;
 }
 
-// RFC1918 Private IP ranges
-const PRIVATE_RANGES = [
-  { start: "10.0.0.0", end: "10.255.255.255", cidr: "10.0.0.0/8" },
-  { start: "172.16.0.0", end: "172.31.255.255", cidr: "172.16.0.0/12" },
-  { start: "192.168.0.0", end: "192.168.255.255", cidr: "192.168.0.0/16" },
-];
-
 // Reserved IP ranges
 const RESERVED_RANGES = [
   { start: "127.0.0.0", end: "127.255.255.255", name: "Loopback" },
@@ -93,18 +86,6 @@ function validateIpAddress(ip: string): ValidationResult {
       return {
         isValid: false,
         error: `IP is in ${range.name} range (not scannable)`,
-      };
-    }
-  }
-
-  // Warn about private IPs
-  for (const range of PRIVATE_RANGES) {
-    if (isIpInRange(ip, range.start, range.end)) {
-      return {
-        isValid: true,
-        type: "ip",
-        warning: `Private IP (${range.cidr})`,
-        hostCount: 1,
       };
     }
   }

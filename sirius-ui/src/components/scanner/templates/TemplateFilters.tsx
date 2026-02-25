@@ -34,12 +34,12 @@ interface TemplateFiltersProps {
 }
 
 const severityOptions: { value: Severity; label: string; color: string }[] = [
-  { value: "critical", label: "Critical", color: "bg-red-500/20 text-red-400" },
-  { value: "high", label: "High", color: "bg-orange-500/20 text-orange-400" },
+  { value: "critical", label: "Critical", color: "bg-[#8c1c1c]/20 text-red-400" },
+  { value: "high", label: "High", color: "bg-red-600/20 text-red-500" },
   {
     value: "medium",
     label: "Medium",
-    color: "bg-amber-500/20 text-amber-400",
+    color: "bg-amber-500/20 text-amber-500",
   },
   { value: "low", label: "Low", color: "bg-blue-500/20 text-blue-400" },
   { value: "info", label: "Info", color: "bg-gray-500/20 text-gray-400" },

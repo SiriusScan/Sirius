@@ -50,9 +50,9 @@ function escapeHtml(str: string): string {
 function getSeverityColorHex(severity: string): string {
   switch (normalizeSeverity(severity)) {
     case "critical":
-      return "#ef4444";
+      return "#8c1c1c";
     case "high":
-      return "#f97316";
+      return "#dc2626";
     case "medium":
       return "#f59e0b";
     case "low":

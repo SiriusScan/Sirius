@@ -18,8 +18,8 @@ import { cn } from "~/components/lib/utils";
 /* ------------------------------------------------------------------ */
 
 function getBarColor(score: number): string {
-  if (score >= 9.0) return "bg-red-500";
-  if (score >= 7.0) return "bg-orange-500";
+  if (score >= 9.0) return "bg-[#8c1c1c]";
+  if (score >= 7.0) return "bg-red-600";
   if (score >= 4.0) return "bg-amber-500";
   if (score > 0) return "bg-green-500";
   return "bg-blue-500";
@@ -27,8 +27,8 @@ function getBarColor(score: number): string {
 
 function getTextColor(score: number): string {
   if (score >= 9.0) return "text-red-400";
-  if (score >= 7.0) return "text-orange-400";
-  if (score >= 4.0) return "text-amber-400";
+  if (score >= 7.0) return "text-red-500";
+  if (score >= 4.0) return "text-amber-500";
   if (score > 0) return "text-green-400";
   return "text-blue-400";
 }

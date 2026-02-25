@@ -35,9 +35,9 @@ interface TemplateLibraryProps {
 }
 
 const severityColors: Record<string, string> = {
-  critical: "border-red-500/50 bg-red-500/10",
-  high: "border-orange-500/50 bg-orange-500/10",
-  medium: "border-yellow-500/50 bg-yellow-500/10",
+  critical: "border-[#8c1c1c]/50 bg-[#8c1c1c]/10",
+  high: "border-red-600/50 bg-red-600/10",
+  medium: "border-amber-500/50 bg-amber-500/10",
   low: "border-green-500/50 bg-green-500/10",
   info: "border-blue-500/50 bg-blue-500/10",
 };

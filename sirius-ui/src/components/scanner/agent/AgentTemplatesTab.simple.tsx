@@ -251,11 +251,11 @@ const AgentTemplatesTab: React.FC<AgentTemplatesTabProps> = ({
                       <Badge
                         className={`text-xs ${
                           template.severity === "critical"
-                            ? "bg-red-500/20 text-red-400"
+                            ? "bg-[#8c1c1c]/20 text-red-400"
                             : template.severity === "high"
-                            ? "bg-orange-500/20 text-orange-400"
+                            ? "bg-red-600/20 text-red-500"
                             : template.severity === "medium"
-                            ? "bg-yellow-500/20 text-yellow-400"
+                            ? "bg-amber-500/20 text-amber-500"
                             : "bg-blue-500/20 text-blue-400"
                         }`}
                       >

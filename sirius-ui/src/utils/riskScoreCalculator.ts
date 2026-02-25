@@ -143,7 +143,7 @@ export function getRiskScoreColor(score: number): string {
  * Get background color class for risk score badge
  */
 export function getRiskScoreBgColor(score: number): string {
-  if (score >= 9.0) return "bg-red-900";
+  if (score >= 9.0) return "bg-[#8c1c1c]";
   if (score >= 7.0) return "bg-orange-900";
   if (score >= 4.0) return "bg-amber-900";
   if (score > 0) return "bg-blue-900";
@@ -277,7 +277,7 @@ export function getSeverityPriority(severity: string): number {
  */
 const SEVERITY_BADGE_COLORS: Record<Severity, { bg: string; text: string }> = {
   critical: {
-    bg: "bg-red-900/20",
+    bg: "bg-[#8c1c1c]/20",
     text: "text-red-300",
   },
   high: {
@@ -322,8 +322,8 @@ export function getSeverityLabel(severity: string): string {
  * Get Tailwind background color class for a CVSS score bar.
  */
 export function getCVSSBarColor(score: number): string {
-  if (score >= 9.0) return "bg-red-500";
-  if (score >= 7.0) return "bg-orange-500";
+  if (score >= 9.0) return "bg-[#8c1c1c]";
+  if (score >= 7.0) return "bg-red-600";
   if (score >= 4.0) return "bg-amber-500";
   if (score > 0) return "bg-green-500";
   return "bg-blue-500";

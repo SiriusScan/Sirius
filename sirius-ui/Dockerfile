@@ -3,12 +3,17 @@
 # Base stage with common dependencies
 FROM node:18-alpine AS base
 
-# Install system dependencies for all architectures
+# Install system and native build dependencies for all architectures.
+# bcrypt may fall back to node-gyp compilation (notably on arm64/musl), which
+# requires Python + make + g++ at install time.
 RUN apk add --no-cache \
     libc6-compat \
     openssl \
     ca-certificates \
-    git
+    git \
+    python3 \
+    make \
+    g++
 
 # Set working directory
 WORKDIR /app

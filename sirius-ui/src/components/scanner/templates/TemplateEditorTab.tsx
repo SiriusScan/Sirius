@@ -37,6 +37,14 @@ interface TemplateEditorTabProps {
   onClose: () => void;
 }
 
+const canonicalizeScriptId = (value: string): string =>
+  value
+    .trim()
+    .split("/")
+    .filter(Boolean)
+    .pop()
+    ?.replace(/\.nse$/i, "") ?? "";
+
 const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
   templateId,
   onClose,
@@ -92,6 +100,21 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
   });
 
   const availableScripts = useMemo(() => scripts || [], [scripts]);
+  const availableCanonicalIds = useMemo(
+    () => new Set(availableScripts.map((s) => canonicalizeScriptId(s.id))),
+    [availableScripts]
+  );
+  const selectedCanonicalIds = useMemo(
+    () =>
+      new Set(
+        selectedScripts
+          .map((id) => canonicalizeScriptId(id))
+          .filter((id) => id.length > 0)
+      ),
+    [selectedScripts]
+  );
+  const isScriptSelected = (scriptId: string) =>
+    selectedCanonicalIds.has(canonicalizeScriptId(scriptId));
 
   // Initialize form with existing template data
   useEffect(() => {
@@ -126,17 +149,21 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
   const missingScripts = useMemo(() => {
     if (selectedScripts.length === 0 || availableScripts.length === 0)
       return [];
-    const availableIds = new Set(availableScripts.map((s) => s.id));
-    return selectedScripts.filter((id) => !availableIds.has(id));
-  }, [selectedScripts, availableScripts]);
+    return selectedScripts.filter((id) => {
+      const canonical = canonicalizeScriptId(id);
+      return canonical.length === 0 || !availableCanonicalIds.has(canonical);
+    });
+  }, [selectedScripts, availableScripts.length, availableCanonicalIds]);
 
   // Valid selected scripts (only those that exist)
   const validSelectedScripts = useMemo(() => {
     if (selectedScripts.length === 0 || availableScripts.length === 0)
       return selectedScripts;
-    const availableIds = new Set(availableScripts.map((s) => s.id));
-    return selectedScripts.filter((id) => availableIds.has(id));
-  }, [selectedScripts, availableScripts]);
+    return selectedScripts.filter((id) => {
+      const canonical = canonicalizeScriptId(id);
+      return canonical.length > 0 && availableCanonicalIds.has(canonical);
+    });
+  }, [selectedScripts, availableScripts.length, availableCanonicalIds]);
 
   const createMutation = api.templates.createTemplate.useMutation({
     onSuccess: () => {
@@ -153,19 +180,33 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
   });
 
   const handleToggleScript = (scriptId: string) => {
-    setSelectedScripts((prev) =>
-      prev.includes(scriptId)
-        ? prev.filter((id) => id !== scriptId)
-        : [...prev, scriptId]
-    );
+    const canonicalTarget = canonicalizeScriptId(scriptId);
+    setSelectedScripts((prev) => {
+      const alreadySelected = prev.some(
+        (id) => canonicalizeScriptId(id) === canonicalTarget
+      );
+      if (alreadySelected) {
+        return prev.filter((id) => canonicalizeScriptId(id) !== canonicalTarget);
+      }
+      return [...prev, scriptId];
+    });
   };
 
   const handleSelectAll = () => {
     // Select all filtered scripts, not all available scripts
-    const newSelections = filteredScripts.map((s) => s.id);
+    const newSelections = filteredScripts.map((s) => canonicalizeScriptId(s.id));
     setSelectedScripts((prev) => {
-      const combined = [...prev, ...newSelections];
-      return Array.from(new Set(combined)); // Remove duplicates
+      const next = [...prev];
+      const selectedCanonical = new Set(
+        prev.map((id) => canonicalizeScriptId(id)).filter(Boolean)
+      );
+      newSelections.forEach((id) => {
+        if (id && !selectedCanonical.has(id)) {
+          next.push(id);
+          selectedCanonical.add(id);
+        }
+      });
+      return next;
     });
   };
 
@@ -179,19 +220,33 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
       .filter((s) => s.protocol === protocol)
       .map((s) => s.id);
 
-    const allSelected = protocolScripts.every((id) =>
-      selectedScripts.includes(id)
-    );
+    const allSelected = protocolScripts.every((id) => isScriptSelected(id));
 
     if (allSelected) {
       setSelectedScripts((prev) =>
-        prev.filter((id) => !protocolScripts.includes(id))
+        prev.filter(
+          (id) =>
+            !protocolScripts.some(
+              (protocolId) =>
+                canonicalizeScriptId(protocolId) === canonicalizeScriptId(id)
+            )
+        )
       );
     } else {
-      setSelectedScripts((prev) => [
-        ...prev,
-        ...protocolScripts.filter((id) => !prev.includes(id)),
-      ]);
+      setSelectedScripts((prev) => {
+        const next = [...prev];
+        const selectedCanonical = new Set(
+          prev.map((id) => canonicalizeScriptId(id)).filter(Boolean)
+        );
+        protocolScripts.forEach((id) => {
+          const canonical = canonicalizeScriptId(id);
+          if (canonical && !selectedCanonical.has(canonical)) {
+            next.push(canonical);
+            selectedCanonical.add(canonical);
+          }
+        });
+        return next;
+      });
     }
   };
 
@@ -331,17 +386,13 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
 
     // Apply filter mode
     if (filterMode === "selected") {
-      filtered = filtered.filter((script) =>
-        selectedScripts.includes(script.id)
-      );
+      filtered = filtered.filter((script) => isScriptSelected(script.id));
     } else if (filterMode === "unselected") {
-      filtered = filtered.filter(
-        (script) => !selectedScripts.includes(script.id)
-      );
+      filtered = filtered.filter((script) => !isScriptSelected(script.id));
     }
 
     return filtered;
-  }, [availableScripts, searchQuery, filterMode, selectedScripts]);
+  }, [availableScripts, searchQuery, filterMode, selectedCanonicalIds]);
 
   // Group scripts by protocol
   const scriptsByProtocol = useMemo(() => {
@@ -967,13 +1018,13 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
                 Object.entries(scriptsByProtocol).map(
                   ([protocol, protocolScripts]) => {
                     const allSelected = protocolScripts.every((s) =>
-                      selectedScripts.includes(s.id)
+                      isScriptSelected(s.id)
                     );
                     const someSelected = protocolScripts.some((s) =>
-                      selectedScripts.includes(s.id)
+                      isScriptSelected(s.id)
                     );
                     const selectedCount = protocolScripts.filter((s) =>
-                      selectedScripts.includes(s.id)
+                      isScriptSelected(s.id)
                     ).length;
                     const isCollapsed = collapsedProtocols.has(protocol);
 
@@ -1031,7 +1082,7 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
                             <ScriptTable
                               scripts={protocolScripts}
                               showCheckboxes={true}
-                              selectedScripts={selectedScripts}
+                              selectedScripts={Array.from(selectedCanonicalIds)}
                               onToggleScript={handleToggleScript}
                             />
                           </div>
@@ -1046,7 +1097,7 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
             <ScriptTable
               scripts={filteredScripts}
               showCheckboxes={true}
-              selectedScripts={selectedScripts}
+              selectedScripts={Array.from(selectedCanonicalIds)}
               onToggleScript={handleToggleScript}
             />
           )}

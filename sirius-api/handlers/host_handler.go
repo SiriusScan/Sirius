@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"log/slog"
+	"net"
 	"strconv"
 	"strings"
 
@@ -13,6 +14,18 @@ import (
 	"github.com/SiriusScan/go-api/sirius/vulnerability"
 	"github.com/gofiber/fiber/v2"
 )
+
+func isValidSingleHostIP(ip string) bool {
+	candidate := strings.TrimSpace(ip)
+	if candidate == "" {
+		return false
+	}
+	// Host records must be concrete IPs, not CIDR/range/domain targets.
+	if strings.Contains(candidate, "/") || strings.Contains(candidate, "-") {
+		return false
+	}
+	return net.ParseIP(candidate) != nil
+}
 
 // GetHost handles the GET /host/{id} route with optional enhanced data
 func GetHost(c *fiber.Ctx) error {
@@ -168,6 +181,11 @@ func AddHost(c *fiber.Ctx) error {
 		})
 	}
 	slog.Info("Adding host", "ip", newHost.IP)
+	if !isValidSingleHostIP(newHost.IP) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Host IP must be a single IP address (CIDR/range/domain targets are not allowed)",
+		})
+	}
 
 	// Detect source information from request metadata
 	source := detectSourceFromRequest(c)
@@ -583,6 +601,11 @@ func AddHostWithSource(c *fiber.Ctx) error {
 	}
 
 	slog.Info("Adding host with source", "ip", request.Host.IP, "source", request.Source.Name)
+	if !isValidSingleHostIP(request.Host.IP) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Host IP must be a single IP address (CIDR/range/domain targets are not allowed)",
+		})
+	}
 
 	// Ensure vulnerabilities exist in database (same logic as original AddHost)
 	for _, vuln := range request.Host.Vulnerabilities {

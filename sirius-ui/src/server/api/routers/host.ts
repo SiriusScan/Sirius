@@ -74,6 +74,19 @@ export interface EnvironmentTableData {
   ports?: Port[];
 }
 
+function isValidIPv4HostIp(ip: string | undefined): boolean {
+  if (!ip) return false;
+  const trimmed = ip.trim();
+  if (!trimmed || trimmed.includes("/") || trimmed.includes("-")) return false;
+  const octets = trimmed.split(".");
+  if (octets.length !== 4) return false;
+  return octets.every((octet) => {
+    if (!/^\d+$/.test(octet)) return false;
+    const value = Number(octet);
+    return value >= 0 && value <= 255;
+  });
+}
+
 export type HostStatistics = {
   vulnerabilityCount: number;
   totalRiskScore: number;
@@ -400,7 +413,9 @@ export const hostRouter = createTRPCRouter({
   getHostList: protectedProcedure.query(async () => {
     try {
       const response = await httpClient.get<SiriusHost[]>("host/");
-      const hostList = response.data;
+      const hostListRaw = response.data;
+      if (!hostListRaw || !Array.isArray(hostListRaw)) return [];
+      const hostList = hostListRaw.filter((h) => isValidIPv4HostIp(h.ip));
       if (!hostList || !Array.isArray(hostList)) return [];
       return hostList.map((h) => ({
         ip: h.ip,
@@ -484,7 +499,10 @@ export const hostRouter = createTRPCRouter({
   getEnvironmentSummary: protectedProcedure.query(async () => {
     try {
       const response = await httpClient.get<SiriusHost[]>("host/");
-      const hostList = response.data;
+      const hostListRaw = response.data;
+      const hostList = Array.isArray(hostListRaw)
+        ? hostListRaw.filter((h) => isValidIPv4HostIp(h.ip))
+        : [];
 
       // Ensure hostList is an array, default to empty array if null/undefined
       if (!hostList || !Array.isArray(hostList)) {
@@ -594,7 +612,10 @@ export const hostRouter = createTRPCRouter({
     try {
       // Call to Go API
       const response = await httpClient.get<SiriusHost[]>("host/");
-      const hostList = response.data;
+      const hostListRaw = response.data;
+      const hostList = Array.isArray(hostListRaw)
+        ? hostListRaw.filter((h) => isValidIPv4HostIp(h.ip))
+        : [];
 
       // Ensure hostList is an array, default to empty array if null/undefined
       if (!hostList || !Array.isArray(hostList)) {

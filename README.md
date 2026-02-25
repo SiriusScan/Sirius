@@ -1,9 +1,9 @@
 # Sirius Scan v1.0.0
 
 [![CI](https://github.com/SiriusScan/Sirius/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SiriusScan/Sirius/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/codecov/c/github/SiriusScan/Sirius?label=coverage)](https://codecov.io/gh/SiriusScan/Sirius)
-[![Docker Pulls](https://img.shields.io/docker/pulls/siriusscan/sirius?label=docker%20pulls)](https://hub.docker.com/r/siriusscan/sirius)
-[![Go Report Card](https://goreportcard.com/badge/github.com/SiriusScan/Sirius)](https://goreportcard.com/report/github.com/SiriusScan/Sirius)
+[![Release](https://img.shields.io/github/v/release/SiriusScan/Sirius?label=release)](https://github.com/SiriusScan/Sirius/releases)
+[![Registry](https://img.shields.io/badge/registry-ghcr.io-blue)](https://github.com/orgs/SiriusScan/packages)
+[![Issues](https://img.shields.io/github/issues/SiriusScan/Sirius?label=issues)](https://github.com/SiriusScan/Sirius/issues)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![Discord](https://img.shields.io/badge/community-discord-5865F2)](https://sirius.opensecurity.com/community)
 

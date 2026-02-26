@@ -4,57 +4,95 @@
 # for the sirius-engine service. Nmap 7.95 is compiled from source once
 # here so the engine Dockerfile never has to do it again.
 #
+# Multi-stage build: Nmap is compiled in a separate stage so
+# build-essential and other compile-only packages are not present in
+# the final image. This also greatly reduces the committed layer size
+# and avoids filling the BuildKit overlay disk on CI runners.
+#
 # Published to: ghcr.io/siriusscan/sirius-base-engine-tools:latest
 # Consumers: sirius-engine (development and runtime stages)
 #
 # Contents:
-#   - Nmap 7.95 (compiled from source)
+#   - Nmap 7.95 (compiled from source, only binaries copied to final)
 #   - RustScan (architecture-specific pre-built binary)
 #   - PowerShell 7.4.6 (architecture-specific pre-built binary)
 #   - All required runtime system packages
 
-FROM ubuntu:22.04
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 1: Build Nmap from source
+# Kept separate so build-essential / dev headers never land in the final image.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM ubuntu:22.04 AS nmap-builder
 
-# Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install all runtime system packages needed by sirius-engine
 RUN apt-get update && \
-    apt-get install -y \
-        git \
-        ca-certificates \
-        tzdata \
+    apt-get install -y --no-install-recommends \
         build-essential \
         libpcap-dev \
-        postgresql-client \
-        libicu-dev \
         libssl-dev \
         libssh-dev \
-        curl \
-        wget \
-        bash \
-        dos2unix \
-        unzip \
+        libicu-dev \
         automake \
         autoconf \
         libtool \
         perl \
-        procps \
+        wget \
+        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Build and install Nmap 7.95 from source
-# Done once here so application Dockerfiles never need to repeat it
+# Compile Nmap; strip debug symbols to keep the binary smaller.
+# make -j$(nproc) parallelism is fine here – the builder stage is
+# discarded after COPY so its large intermediate files never commit.
 RUN cd /tmp && \
     wget -q https://nmap.org/dist/nmap-7.95.tar.bz2 && \
     tar xjf nmap-7.95.tar.bz2 && \
     cd nmap-7.95 && \
     touch aclocal.m4 configure Makefile.in config.h.in && \
     find . -name Makefile.in -exec touch {} \; && \
-    ./configure --without-zenmap --without-nmap-update --without-ndiff && \
-    make -j$(nproc) && \
+    ./configure \
+        --without-zenmap \
+        --without-nmap-update \
+        --without-ndiff \
+        --without-nping \
+        --without-ncat \
+    && make -j$(nproc) CFLAGS="-Os" CXXFLAGS="-Os" && \
     make install && \
+    strip /usr/local/bin/nmap 2>/dev/null || true && \
     cd / && \
     rm -rf /tmp/nmap-7.95 /tmp/nmap-7.95.tar.bz2
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2: Final runtime image
+# Only copies the nmap binary; no build tools included.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install runtime packages only (no build-essential)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git \
+        ca-certificates \
+        tzdata \
+        libpcap0.8 \
+        libpcap-dev \
+        postgresql-client \
+        libicu70 \
+        libssl3 \
+        libssh-4 \
+        curl \
+        wget \
+        bash \
+        dos2unix \
+        unzip \
+        procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy compiled nmap binary and data files from builder stage
+COPY --from=nmap-builder /usr/local/bin/nmap /usr/local/bin/nmap
+COPY --from=nmap-builder /usr/local/share/nmap /usr/local/share/nmap
 
 # Install RustScan pre-built binary (architecture-specific)
 RUN ARCH=$(uname -m) && \
@@ -100,10 +138,10 @@ RUN mkdir -p /opt/microsoft/powershell && \
 ENV PATH="/usr/local/bin:${PATH}"
 
 # Verify all required tools are present
-RUN command -v bash    >/dev/null && \
-    command -v curl    >/dev/null && \
-    command -v nmap    >/dev/null && \
+RUN command -v bash     >/dev/null && \
+    command -v curl     >/dev/null && \
+    command -v nmap     >/dev/null && \
     command -v rustscan >/dev/null && \
-    command -v pwsh    >/dev/null && \
-    command -v psql    >/dev/null && \
-    command -v pkill   >/dev/null
+    command -v pwsh     >/dev/null && \
+    command -v psql     >/dev/null && \
+    command -v pkill    >/dev/null

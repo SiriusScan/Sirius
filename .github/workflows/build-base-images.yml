@@ -95,22 +95,12 @@ jobs:
 
       - name: Create and push multi-arch manifest for go-builder
         run: |
-          docker manifest create \
+          # Blacksmith build-push-action outputs manifest lists (with provenance);
+          # docker manifest create cannot nest those. Use buildx imagetools create instead.
+          docker buildx imagetools create -t \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest-amd64 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest-arm64
-
-          docker manifest annotate \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest-amd64 \
-            --arch amd64
-
-          docker manifest annotate \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest-arm64 \
-            --arch arm64
-
-          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest
           echo "Published ghcr.io/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest (amd64 + arm64)"
 
   # ─────────────────────────────────────────────────────────────────────────────
@@ -172,20 +162,10 @@ jobs:
 
       - name: Create and push multi-arch manifest for engine-tools
         run: |
-          docker manifest create \
+          # Blacksmith build-push-action outputs manifest lists (with provenance);
+          # docker manifest create cannot nest those. Use buildx imagetools create instead.
+          docker buildx imagetools create -t \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-amd64 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-arm64
-
-          docker manifest annotate \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-amd64 \
-            --arch amd64
-
-          docker manifest annotate \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-arm64 \
-            --arch arm64
-
-          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest
           echo "Published ghcr.io/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest (amd64 + arm64)"

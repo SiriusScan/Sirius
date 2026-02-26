@@ -41,24 +41,20 @@ RUN apt-get update && \
         ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Compile Nmap; strip debug symbols to keep the binary smaller.
-# make -j$(nproc) parallelism is fine here – the builder stage is
-# discarded after COPY so its large intermediate files never commit.
+# Compile Nmap. make -j$(nproc) parallelism is fine here – the builder
+# stage is discarded after COPY so its large intermediate files never
+# commit to a registry layer. Do NOT override CFLAGS/CXXFLAGS on the
+# make command line; doing so replaces the configure-generated flags
+# (including required -D defines) and breaks the compilation.
 RUN cd /tmp && \
     wget -q https://nmap.org/dist/nmap-7.95.tar.bz2 && \
     tar xjf nmap-7.95.tar.bz2 && \
     cd nmap-7.95 && \
     touch aclocal.m4 configure Makefile.in config.h.in && \
     find . -name Makefile.in -exec touch {} \; && \
-    ./configure \
-        --without-zenmap \
-        --without-nmap-update \
-        --without-ndiff \
-        --without-nping \
-        --without-ncat \
-    && make -j$(nproc) CFLAGS="-Os" CXXFLAGS="-Os" && \
+    ./configure --without-zenmap --without-nmap-update --without-ndiff && \
+    make -j$(nproc) && \
     make install && \
-    strip /usr/local/bin/nmap 2>/dev/null || true && \
     cd / && \
     rm -rf /tmp/nmap-7.95 /tmp/nmap-7.95.tar.bz2
 

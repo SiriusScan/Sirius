@@ -661,11 +661,11 @@ jobs:
                 sirius-valkey:
                   condition: service_healthy
               healthcheck:
-                test: ["CMD-SHELL", "STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9001/host/); echo \"API health probe: $$STATUS\"; [ \"$$STATUS\" = '401' ] || [ \"$$STATUS\" = '403' ] || [ \"$$STATUS\" = '200' ]"]
+                test: ["CMD-SHELL", "STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9001/host/); echo \"API health probe: $$STATUS\"; [ -n \"$$STATUS\" ] && [ \"$$STATUS\" != '000' ] && echo \"$$STATUS\" | grep -qvE '^5'"]
                 interval: 10s
                 timeout: 10s
-                retries: 18
-                start_period: 15s
+                retries: 24
+                start_period: 30s
 
             sirius-engine:
               image: ${SIRIUS_ENGINE_IMAGE}

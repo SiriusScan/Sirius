@@ -762,20 +762,14 @@ jobs:
           echo "Starting application services:$SERVICES_TO_TEST"
           docker compose -f docker-compose.test.yml up -d $SERVICES_TO_TEST
 
-          # 3. Wait for each service to become healthy
+          # 3. Wait for each service to become healthy using Docker's built-in health status.
+          #    This avoids exec-into-container quoting issues (e.g. the engine uses
+          #    /dev/tcp which requires bash and breaks sh -c quoting).
           for SVC in $SERVICES_TO_TEST; do
-            case $SVC in
-              sirius-api)    HEALTH_CMD="wget -q --tries=1 -O /dev/null http://127.0.0.1:9001/health" ;;
-              sirius-engine) HEALTH_CMD="bash -c 'echo > /dev/tcp/127.0.0.1/50051'" ;;
-              sirius-ui)     HEALTH_CMD="wget -q --tries=1 -O /dev/null http://127.0.0.1:3000/" ;;
-              *) continue ;;
-            esac
+            CONTAINER="sirius-test-${SVC}-1"
             echo "Waiting for $SVC..."
-            timeout 180 bash -c "
-              until docker compose -f docker-compose.test.yml exec -T $SVC sh -c '$HEALTH_CMD' 2>/dev/null; do
-                sleep 5
-              done
-            "
+            timeout 180 bash -c "until [ \"\$(docker inspect --format '{{.State.Health.Status}}' ${CONTAINER} 2>/dev/null)\" = 'healthy' ]; do sleep 5; done" \
+              || { echo "::error::Timeout waiting for ${SVC} to become healthy"; exit 1; }
             echo "$SVC is healthy"
           done
 
@@ -786,16 +780,12 @@ jobs:
           echo "Running final health assertions..."
           FAILED=0
           for SVC in $SERVICES_TO_TEST; do
-            case $SVC in
-              sirius-api)    HEALTH_CMD="wget -q --tries=1 -O /dev/null http://127.0.0.1:9001/health" ;;
-              sirius-engine) HEALTH_CMD="bash -c 'echo > /dev/tcp/127.0.0.1/50051'" ;;
-              sirius-ui)     HEALTH_CMD="wget -q --tries=1 -O /dev/null http://127.0.0.1:3000/" ;;
-              *) continue ;;
-            esac
-            if docker compose -f docker-compose.test.yml exec -T $SVC sh -c "$HEALTH_CMD" 2>/dev/null; then
-              echo "  $SVC passed"
+            CONTAINER="sirius-test-${SVC}-1"
+            HEALTH=$(docker inspect --format '{{.State.Health.Status}}' "$CONTAINER" 2>/dev/null)
+            if [ "$HEALTH" = "healthy" ]; then
+              echo "  $SVC passed (healthy)"
             else
-              echo "  $SVC FAILED"
+              echo "  $SVC FAILED (status: ${HEALTH:-unknown})"
               FAILED=1
             fi
           done

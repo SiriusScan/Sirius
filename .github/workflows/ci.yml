@@ -108,13 +108,48 @@ jobs:
           fi
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # Verify base images exist in GHCR before any application build starts.
+  # This catches the race condition where Build Base Images and CI both trigger
+  # on the same push (e.g. when base-images/ and Dockerfile change together),
+  # giving a clear error message instead of a cryptic buildkit stack trace.
+  # ─────────────────────────────────────────────────────────────────────────────
+  verify-base-images:
+    name: "Verify Base Images"
+    needs: detect-changes
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Verify base images exist
+        run: |
+          set -e
+          echo "Checking ghcr.io/siriusscan/sirius-base-go-builder:latest ..."
+          docker manifest inspect ghcr.io/siriusscan/sirius-base-go-builder:latest > /dev/null || {
+            echo "::error::Base image sirius-base-go-builder:latest not found in GHCR."
+            echo "::error::Run the 'Build Base Images' workflow first (Actions → Build Base Images → Run workflow)."
+            exit 1
+          }
+          echo "Checking ghcr.io/siriusscan/sirius-base-engine-tools:latest ..."
+          docker manifest inspect ghcr.io/siriusscan/sirius-base-engine-tools:latest > /dev/null || {
+            echo "::error::Base image sirius-base-engine-tools:latest not found in GHCR."
+            echo "::error::Run the 'Build Base Images' workflow first (Actions → Build Base Images → Run workflow)."
+            exit 1
+          }
+          echo "All base images verified."
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Build sirius-ui
   # Native runners per architecture avoid QEMU emulation of npm/Next.js builds.
   # PRs build amd64 only; main/dispatch builds both arches.
   # ─────────────────────────────────────────────────────────────────────────────
   build-ui:
     name: "Build UI (${{ matrix.platform }})"
-    needs: detect-changes
+    needs: [detect-changes, verify-base-images]
     if: needs.detect-changes.outputs.sirius_ui_changes == 'true'
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -208,21 +243,16 @@ jobs:
           TAG="${{ steps.meta.outputs.image_tag }}"
           BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui"
 
-          docker manifest create ${BASE}:${TAG} \
+          # buildx imagetools handles Blacksmith manifest lists (provenance-enabled);
+          # docker manifest create cannot nest manifest lists.
+          docker buildx imagetools create -t ${BASE}:${TAG} \
             ${BASE}:${TAG}-amd64 \
             ${BASE}:${TAG}-arm64
 
-          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-amd64 --arch amd64
-          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-arm64 --arch arm64
-          docker manifest push ${BASE}:${TAG}
-
           if [ "${{ steps.meta.outputs.also_tag_beta }}" == "true" ]; then
-            docker manifest create ${BASE}:beta \
+            docker buildx imagetools create -t ${BASE}:beta \
               ${BASE}:${TAG}-amd64 \
               ${BASE}:${TAG}-arm64
-            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-amd64 --arch amd64
-            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-arm64 --arch arm64
-            docker manifest push ${BASE}:beta
           fi
 
           echo "Published ${BASE}:${TAG} (amd64 + arm64)"
@@ -232,7 +262,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-api:
     name: "Build API (${{ matrix.platform }})"
-    needs: detect-changes
+    needs: [detect-changes, verify-base-images]
     if: needs.detect-changes.outputs.sirius_api_changes == 'true'
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -344,21 +374,14 @@ jobs:
           TAG="${{ steps.meta.outputs.image_tag }}"
           BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api"
 
-          docker manifest create ${BASE}:${TAG} \
+          docker buildx imagetools create -t ${BASE}:${TAG} \
             ${BASE}:${TAG}-amd64 \
             ${BASE}:${TAG}-arm64
 
-          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-amd64 --arch amd64
-          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-arm64 --arch arm64
-          docker manifest push ${BASE}:${TAG}
-
           if [ "${{ steps.meta.outputs.also_tag_beta }}" == "true" ]; then
-            docker manifest create ${BASE}:beta \
+            docker buildx imagetools create -t ${BASE}:beta \
               ${BASE}:${TAG}-amd64 \
               ${BASE}:${TAG}-arm64
-            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-amd64 --arch amd64
-            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-arm64 --arch arm64
-            docker manifest push ${BASE}:beta
           fi
 
           echo "Published ${BASE}:${TAG} (amd64 + arm64)"
@@ -368,7 +391,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-engine:
     name: "Build Engine (${{ matrix.platform }})"
-    needs: detect-changes
+    needs: [detect-changes, verify-base-images]
     if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -483,21 +506,14 @@ jobs:
           TAG="${{ steps.meta.outputs.image_tag }}"
           BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine"
 
-          docker manifest create ${BASE}:${TAG} \
+          docker buildx imagetools create -t ${BASE}:${TAG} \
             ${BASE}:${TAG}-amd64 \
             ${BASE}:${TAG}-arm64
 
-          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-amd64 --arch amd64
-          docker manifest annotate ${BASE}:${TAG} ${BASE}:${TAG}-arm64 --arch arm64
-          docker manifest push ${BASE}:${TAG}
-
           if [ "${{ steps.meta.outputs.also_tag_beta }}" == "true" ]; then
-            docker manifest create ${BASE}:beta \
+            docker buildx imagetools create -t ${BASE}:beta \
               ${BASE}:${TAG}-amd64 \
               ${BASE}:${TAG}-arm64
-            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-amd64 --arch amd64
-            docker manifest annotate ${BASE}:beta ${BASE}:${TAG}-arm64 --arch arm64
-            docker manifest push ${BASE}:beta
           fi
 
           echo "Published ${BASE}:${TAG} (amd64 + arm64)"

@@ -560,17 +560,21 @@ jobs:
       - name: Determine image tag
         id: tag
         run: |
-          # Use whichever build job ran successfully (amd64 arch-specific tag)
-          if [ "${{ needs.build-ui.result }}" == "success" ]; then
-            TAG="${{ needs.build-ui.outputs.image_tag }}"
-          elif [ "${{ needs.build-api.result }}" == "success" ]; then
-            TAG="${{ needs.build-api.outputs.image_tag }}"
-          elif [ "${{ needs.build-engine.result }}" == "success" ]; then
-            TAG="${{ needs.build-engine.outputs.image_tag }}"
+          # Compute the tag the same way build jobs do (from event context).
+          # build-* are matrix jobs with no job-level outputs, so we cannot
+          # use needs.build-ui.outputs.image_tag — it is always empty.
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            TAG="pr-${{ github.event.number }}"
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            TAG="latest"
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/sirius-demo" ]; then
+            TAG="dev"
+          elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            TAG="latest"
           else
             TAG="latest"
           fi
-          # Integration tests always use the amd64 arch-specific tag
+          # Integration tests always use the amd64 arch-specific image tag
           echo "image_tag=${TAG}-amd64" >> $GITHUB_OUTPUT
           echo "Using image tag: ${TAG}-amd64"
 

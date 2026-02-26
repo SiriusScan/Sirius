@@ -661,7 +661,7 @@ jobs:
                 sirius-valkey:
                   condition: service_healthy
               healthcheck:
-                test: ["CMD-SHELL", "STATUS=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9001/host/); echo \"API health probe: $$STATUS\"; [ -n \"$$STATUS\" ] && [ \"$$STATUS\" != '000' ] && echo \"$$STATUS\" | grep -qvE '^5'"]
+                test: ["CMD-SHELL", "STATUS=$(curl -s -o /dev/null -w '%{http_code}' -H 'X-API-Key: ci-placeholder-api-key' http://127.0.0.1:9001/host/); echo \"API health probe: $$STATUS\"; [ -n \"$$STATUS\" ] && [ \"$$STATUS\" != '000' ] && echo \"$$STATUS\" | grep -qvE '^5'"]
                 interval: 10s
                 timeout: 10s
                 retries: 24

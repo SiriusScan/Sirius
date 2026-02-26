@@ -856,7 +856,7 @@ jobs:
       - name: Dispatch to sirius-demo repository
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.DEMO_DISPATCH_TOKEN }}
           repository: SiriusScan/sirius-demo
           event-type: sirius-demo-updated
           client-payload: |
@@ -888,7 +888,7 @@ jobs:
     steps:
       - name: Dispatch to sirius-demo repository (canary trigger)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEMO_DISPATCH_TOKEN }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           # Sanitize: take first line only and strip characters that break JSON

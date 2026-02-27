@@ -143,6 +143,10 @@ docker compose -f docker-compose.installer.yaml run --rm sirius-installer
 docker compose up -d
 ```
 
+Quick-start resilience: if the shared GHCR base-builder image is unavailable,
+infra services (`sirius-valkey`, `sirius-postgres`, `sirius-rabbitmq`) now
+build `system-monitor` locally during image build.
+
 #### Option 2: Local Development Overlay
 
 Use live-reload/development mounts for active code work:

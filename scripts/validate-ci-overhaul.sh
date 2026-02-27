@@ -8,7 +8,7 @@
 #   3. Validate docker-compose configs
 #   4. Optionally run a minimal compose stack to verify startup
 #
-# Base images are tagged as ghcr.io/siriusscan/sirius-base-*:latest
+# Base images are tagged as ${REGISTRY}/${IMAGE_NAMESPACE}/sirius-base-*:latest
 # so the application Dockerfiles (which use COPY --from=...) find them
 # in the local Docker daemon without needing to pull from the registry.
 #
@@ -27,6 +27,14 @@ FULL_COMPOSE=false
 if [[ "${1:-}" == "--full-compose" ]]; then
   FULL_COMPOSE=true
 fi
+
+REGISTRY="${REGISTRY:-ghcr.io}"
+IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-siriusscan}"
+BASE_IMAGE_TAG="${BASE_IMAGE_TAG:-latest}"
+BASE_GO_BUILDER_IMAGE="${REGISTRY}/${IMAGE_NAMESPACE}/sirius-base-go-builder:${BASE_IMAGE_TAG}"
+BASE_ENGINE_TOOLS_IMAGE="${REGISTRY}/${IMAGE_NAMESPACE}/sirius-base-engine-tools:${BASE_IMAGE_TAG}"
+BASE_GO_BUILDER_LATEST_IMAGE="${REGISTRY}/${IMAGE_NAMESPACE}/sirius-base-go-builder:latest"
+BASE_ENGINE_TOOLS_LATEST_IMAGE="${REGISTRY}/${IMAGE_NAMESPACE}/sirius-base-engine-tools:latest"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -72,17 +80,17 @@ log "${YELLOW}Phase 1: Base Images${NC}"
 log ""
 
 run_step "Build sirius-base-go-builder" \
-  "docker build -t ghcr.io/siriusscan/sirius-base-go-builder:latest ./base-images/go-builder/" || exit 1
+  "docker build -t ${BASE_GO_BUILDER_IMAGE} -t ${BASE_GO_BUILDER_LATEST_IMAGE} ./base-images/go-builder/" || exit 1
 
 run_step "Build sirius-base-engine-tools (this compiles Nmap from source, may take a few minutes)" \
-  "docker build -t ghcr.io/siriusscan/sirius-base-engine-tools:latest ./base-images/engine-tools/" || exit 1
+  "docker build -t ${BASE_ENGINE_TOOLS_IMAGE} -t ${BASE_ENGINE_TOOLS_LATEST_IMAGE} ./base-images/engine-tools/" || exit 1
 
 # Verify base image contents
 run_step "Verify go-builder has system-monitor and administrator" \
-  "docker run --rm ghcr.io/siriusscan/sirius-base-go-builder:latest sh -c 'test -x /usr/local/bin/system-monitor && test -x /usr/local/bin/administrator'" || exit 1
+  "docker run --rm ${BASE_GO_BUILDER_LATEST_IMAGE} sh -c 'test -x /usr/local/bin/system-monitor && test -x /usr/local/bin/administrator'" || exit 1
 
 run_step "Verify engine-tools has nmap, rustscan, pwsh" \
-  "docker run --rm ghcr.io/siriusscan/sirius-base-engine-tools:latest sh -c 'nmap --version >/dev/null && rustscan --version >/dev/null && pwsh --version >/dev/null'" || exit 1
+  "docker run --rm ${BASE_ENGINE_TOOLS_LATEST_IMAGE} sh -c 'nmap --version >/dev/null && rustscan --version >/dev/null && pwsh --version >/dev/null'" || exit 1
 
 log ""
 log "${YELLOW}Phase 2: Infrastructure Containers (use base images)${NC}"

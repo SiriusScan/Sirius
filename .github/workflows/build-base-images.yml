@@ -103,6 +103,15 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest-arm64
           echo "Published ghcr.io/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest (amd64 + arm64)"
 
+      - name: Verify go-builder tags resolve
+        run: |
+          set -e
+          BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder"
+          for TAG in latest latest-amd64 latest-arm64; do
+            echo "Verifying ${BASE}:${TAG}"
+            docker manifest inspect "${BASE}:${TAG}" > /dev/null
+          done
+
   # ─────────────────────────────────────────────────────────────────────────────
   # Build engine-tools base image (per architecture, native runners)
   #
@@ -179,3 +188,12 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-amd64 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest-arm64
           echo "Published ghcr.io/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest (amd64 + arm64)"
+
+      - name: Verify engine-tools tags resolve
+        run: |
+          set -e
+          BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools"
+          for TAG in latest latest-amd64 latest-arm64; do
+            echo "Verifying ${BASE}:${TAG}"
+            docker manifest inspect "${BASE}:${TAG}" > /dev/null
+          done

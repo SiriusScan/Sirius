@@ -108,6 +108,27 @@ jobs:
           fi
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # Guard against accidental image namespace typos in CI/build paths.
+  # ─────────────────────────────────────────────────────────────────────────────
+  guard-registry-namespace:
+    name: "Guard Registry Namespace"
+    needs: detect-changes
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fail on typoed GHCR namespace
+        run: |
+          set -e
+          TARGETS=".github/workflows docker-compose.yaml docker-stack.swarm.yaml scripts sirius-api sirius-engine sirius-postgres sirius-rabbitmq sirius-ui sirius-valkey"
+          if grep -R --line-number "ghcr.io/siriuscam/" $TARGETS; then
+            echo "::error::Found typoed GHCR namespace 'siriuscam'. Use '${{ env.IMAGE_NAMESPACE }}'."
+            exit 1
+          fi
+          echo "Registry namespace guard passed."
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Verify base images exist in GHCR before any application build starts.
   # This catches the race condition where Build Base Images and CI both trigger
   # on the same push (e.g. when base-images/ and Dockerfile change together),
@@ -115,7 +136,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   verify-base-images:
     name: "Verify Base Images"
-    needs: detect-changes
+    needs: [detect-changes, guard-registry-namespace]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Log in to Container Registry
@@ -128,14 +149,17 @@ jobs:
       - name: Verify base images exist
         run: |
           set -e
-          echo "Checking ghcr.io/siriusscan/sirius-base-go-builder:latest ..."
-          docker manifest inspect ghcr.io/siriusscan/sirius-base-go-builder:latest > /dev/null || {
+          BASE_GO_BUILDER="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest"
+          BASE_ENGINE_TOOLS="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest"
+
+          echo "Checking ${BASE_GO_BUILDER} ..."
+          docker manifest inspect "${BASE_GO_BUILDER}" > /dev/null || {
             echo "::error::Base image sirius-base-go-builder:latest not found in GHCR."
             echo "::error::Run the 'Build Base Images' workflow first (Actions → Build Base Images → Run workflow)."
             exit 1
           }
-          echo "Checking ghcr.io/siriusscan/sirius-base-engine-tools:latest ..."
-          docker manifest inspect ghcr.io/siriusscan/sirius-base-engine-tools:latest > /dev/null || {
+          echo "Checking ${BASE_ENGINE_TOOLS} ..."
+          docker manifest inspect "${BASE_ENGINE_TOOLS}" > /dev/null || {
             echo "::error::Base image sirius-base-engine-tools:latest not found in GHCR."
             echo "::error::Run the 'Build Base Images' workflow first (Actions → Build Base Images → Run workflow)."
             exit 1

@@ -1,5 +1,8 @@
 # SiriusScan Base Docker Compose Configuration
-# This is the base configuration that works for most environments
+# This is the base configuration that works for most environments.
+# Infra services (postgres/rabbitmq/valkey) build system-monitor locally
+# during image build so standard startup is resilient if GHCR base images
+# are unavailable.
 # Use with: docker compose up -d
 
 name: sirius

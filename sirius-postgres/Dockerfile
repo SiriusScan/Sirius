@@ -1,9 +1,15 @@
 # Custom PostgreSQL image with system monitoring
 #
-# system-monitor is sourced from the shared sirius-base-go-builder image,
-# eliminating the need for a Go build stage in this container.
-
-FROM ghcr.io/siriusscan/sirius-base-go-builder:latest AS go-binaries
+# Local fallback stage for quick-start reliability:
+# build system-monitor directly so compose up works even if GHCR base images
+# are temporarily unavailable.
+FROM golang:1.24-alpine AS go-binaries
+RUN apk add --no-cache git ca-certificates tzdata && \
+    git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
+    cd /tmp/system-monitor && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/system-monitor main.go && \
+    rm -rf /tmp/system-monitor
 
 FROM postgres:15-alpine
 

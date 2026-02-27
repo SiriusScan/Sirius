@@ -124,11 +124,7 @@ export const useDashboardData = (
 
     try {
       setSystemMetricsLoading(true);
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/resources`
-      );
+      const response = await fetch("/api/monitor/proxy/api/v1/system/resources");
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

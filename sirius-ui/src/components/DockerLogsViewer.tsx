@@ -159,9 +159,7 @@ export const DockerLogsViewer: React.FC<DockerLogsViewerProps> = ({
 
       // Fetch real Docker logs from API
       const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/logs?${params.toString()}`
+        `/api/monitor/proxy/api/v1/system/logs?${params.toString()}`
       );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

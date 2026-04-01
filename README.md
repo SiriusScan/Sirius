@@ -1,363 +1,79 @@
-# Sirius Scan v1.0.0
+# Sirius Scan
 
 [![CI](https://github.com/SiriusScan/Sirius/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SiriusScan/Sirius/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/SiriusScan/Sirius?label=release)](https://github.com/SiriusScan/Sirius/releases)
 [![Registry](https://img.shields.io/badge/registry-ghcr.io-blue)](https://github.com/orgs/SiriusScan/packages)
-[![Issues](https://img.shields.io/github/issues/SiriusScan/Sirius?label=issues)](https://github.com/SiriusScan/Sirius/issues)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![Discord](https://img.shields.io/badge/community-discord-5865F2)](https://sirius.opensecurity.com/community)
 
 ![Sirius Scan Dashboard](/documentation/dash-dark.gif)
 
-Sirius is an open-source comprehensive vulnerability scanner that leverages community-driven security intelligence and automated penetration testing capabilities. **v1.0.0** is the first production release, bringing the complete scanning platform, hardened CI/CD workflows, and release-grade deployment readiness. Get started in minutes with our Docker-based setup.
+Sirius is an open-source vulnerability scanner with automated discovery, CVE-based detection, and a modern web UI. Clone, run four commands, start scanning.
 
-## Navigate by Role
-
-- **End Users**: [Quick Start](https://sirius.opensecurity.com/docs/getting-started/quick-start), [Installation](https://sirius.opensecurity.com/docs/getting-started/installation), [Interface Tour](https://sirius.opensecurity.com/docs/getting-started/interface-tour)
-- **Contributors**: [CONTRIBUTING.md](./CONTRIBUTING.md), [Issue Tracker](https://github.com/SiriusScan/Sirius/issues), [Discussions](https://github.com/SiriusScan/Sirius/discussions)
-- **Maintainers**: [Maintainer Ops Review](./documentation/dev/operations/README.maintainer-ops-issue-review.md), [CI/CD Guide](./documentation/dev/architecture/README.cicd.md), [Container Testing](./documentation/dev/test/README.container-testing.md)
-
-## 🚀 Quick Start Guide
-
-### Prerequisites
-
-- **Docker Engine** 20.10.0+ with Docker Compose V2
-- **System Requirements**: 4GB RAM minimum, 10GB free disk space
-- **Network Access**: Internet connectivity for vulnerability database updates
-- **Supported Platforms**: Linux, macOS, Windows (with WSL2)
-
-### ⚡ Quick Start (Current Runtime Requirements)
-
-### ⚡ Startup Command Cheat Sheet
+## Quick Start
 
 ```bash
-# 1) Generate/merge required runtime secrets (.env)
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer
-
-# 2a) Start standard stack
-docker compose up -d
-
-# 2b) Start development overlay
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
-
-# 2c) Optional hardened production overlay
-docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
-```
-
-```bash
-# Clone repository
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
-
-# Generate and validate startup secrets/config (installer-first)
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer
-
-# Start Sirius with release images
-docker compose up -d
-
-# Access the web interface
-open http://localhost:3000
-```
-
-**Important**:
-- `SIRIUS_API_KEY` is required for `sirius-ui`, `sirius-api`, and `sirius-engine`.
-- `POSTGRES_PASSWORD`, `NEXTAUTH_SECRET`, and `INITIAL_ADMIN_PASSWORD` are required.
-- This repository does **not** include `docker-compose.user.yaml`; use `docker-compose.yaml`, `docker-compose.dev.yaml`, and `docker-compose.prod.yaml`.
-
-### 🧭 Using the New Startup System
-
-Sirius now uses an installer-first startup flow. This keeps secrets synchronized across services and removes insecure defaults.
-
-#### 1) First-time local setup (interactive)
-
-```bash
 docker compose -f docker-compose.installer.yaml run --rm sirius-installer
 docker compose up -d
 ```
 
-What happens:
-- Reads `.env.production.example`
-- Merges existing `.env` values if present
-- Generates missing required values:
-  - `SIRIUS_API_KEY`
-  - `POSTGRES_PASSWORD`
-  - `NEXTAUTH_SECRET`
-  - `INITIAL_ADMIN_PASSWORD`
+Open **http://localhost:3000** and log in:
 
-#### 2) Non-interactive setup (CI/Terraform/user-data)
+| | |
+|---|---|
+| **Email** | `admin@example.com` |
+| **Password** | printed by the installer (look for `INITIAL_ADMIN_PASSWORD` in the output) |
+
+That's it. All six services start automatically. The installer generates secure secrets on first run and is safe to re-run.
+
+> **Requirements:** Docker Engine 20.10+ with Compose V2, 4 GB RAM, 10 GB disk. Works on Linux, macOS, and Windows (WSL2).
+
+## What Sirius Does
+
+- **Network Discovery** -- automated host and service enumeration via Nmap
+- **Vulnerability Detection** -- CVE-based scanning with CVSS scoring
+- **Risk Dashboards** -- real-time scanning progress, severity trends, and remediation guidance
+- **Remote Agents** -- distributed scanning across multiple environments via gRPC
+- **Interactive Terminal** -- PowerShell console for advanced scripting and automation
+- **REST API** -- integrate with existing security workflows (`X-API-Key` auth on port 9001)
+
+## Deployment Options
+
+The installer step is always the same. Only the `docker compose up` command changes.
+
+| Mode | Command | Use case |
+|------|---------|----------|
+| **Standard** | `docker compose up -d` | Most users -- pulls release images from GHCR |
+| **Development** | `docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d` | Live-reload for local code work |
+| **Production** | `docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d` | Hardened settings, `pull_policy: always` |
+
+### Non-interactive setup (CI / Terraform / automation)
 
 ```bash
 docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
 docker compose up -d
 ```
 
-#### 3) Force secret rotation/regeneration
+### Rotate secrets
 
 ```bash
 docker compose -f docker-compose.installer.yaml run --rm sirius-installer --force
-```
-
-#### 4) Development overlay startup
-
-```bash
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
-```
-
-#### 5) Verify configuration renders
-
-```bash
-SIRIUS_API_KEY=test-key \
-POSTGRES_PASSWORD=test-pass \
-NEXTAUTH_SECRET=test-secret \
-INITIAL_ADMIN_PASSWORD=test-admin-pass \
-docker compose config --quiet
-```
-
-## 🆕 What's New in v1.0.0
-
-### System Monitoring & Observability
-
-- **Real-time Health Monitoring**: Live service health checks for all components
-- **Centralized Logging**: Unified log collection and management system
-- **Performance Metrics**: Container resource utilization tracking
-- **System Dashboard**: Comprehensive monitoring interface at `/system-monitor`
-
-### Enhanced Reliability
-
-- **Improved Container Builds**: Production-ready Docker configurations
-- **Better Error Handling**: Comprehensive error management and recovery
-- **SSH Troubleshooting**: Enhanced debugging capabilities for deployments
-- **Automated Testing**: Robust container testing and validation
-
-### 🔧 Installation Options
-
-#### Option 1: Standard Setup (Recommended for Most Users)
-
-The default configuration provides a complete scanning environment:
-
-```bash
-git clone https://github.com/SiriusScan/Sirius.git
-cd Sirius
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer
-docker compose up -d
-```
-
-Quick-start resilience: if the shared GHCR base-builder image is unavailable,
-infra services (`sirius-valkey`, `sirius-postgres`, `sirius-rabbitmq`) now
-build `system-monitor` locally during image build.
-
-#### Option 2: Local Development Overlay
-
-Use live-reload/development mounts for active code work:
-
-```bash
-git clone https://github.com/SiriusScan/Sirius.git
-cd Sirius
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
-```
-
-#### Option 3: Production Overlay
-
-Optional hardened production settings and validation overlay:
-
-```bash
-git clone https://github.com/SiriusScan/Sirius.git
-cd Sirius
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer
-docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
-```
-
-##### Host Discovery Prerequisites (All Compose Modes)
-
-- `sirius-engine` runs with `NET_RAW` capability in base/dev/prod compose configurations for ICMP-based fingerprint discovery.
-- Keep `SIRIUS_API_URL` and `API_BASE_URL` pointing to `http://sirius-api:9001` for container-to-container API persistence.
-- Use `NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001` so browser calls hit the host-exposed API.
-
-### ✅ Verify Installation
-
-```bash
-# Check all services are running
-docker ps
-
-# Expected services:
-# - sirius-ui (port 3000)
-# - sirius-api (port 9001)
-# - sirius-engine (ports 5174, 50051)
-# - sirius-postgres (port 5432)
-# - sirius-rabbitmq (ports 5672, 15672)
-# - sirius-valkey (port 6379)
-
-# Access web interface
-curl http://localhost:3000
-
-# Check API health
-curl http://localhost:9001/health
-```
-
-### Clean Rollout Verification (Fresh Clone)
-
-Use this sequence to validate a production rollout from a fresh checkout.
-
-```bash
-# 1) Start from a clean runtime state
-docker compose down -v --remove-orphans
-
-# 2) Generate runtime secrets/config
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
-
-# 3) Build from local source deterministically (no registry pulls)
-env -u SIRIUS_API_KEY -u POSTGRES_PASSWORD -u NEXTAUTH_SECRET -u INITIAL_ADMIN_PASSWORD \
-SIRIUS_IMAGE_PULL_POLICY=never docker compose up -d --build
-
-# 4) Confirm all services are healthy
-docker compose ps
-
-# 5) Validate API auth behavior
-curl -i http://localhost:9001/host/            # expect 401 (no key)
-RUNTIME_KEY=$(docker inspect sirius-api --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY=' | sed 's/^SIRIUS_API_KEY=//')
-curl -i -H "X-API-Key: ${RUNTIME_KEY}" http://localhost:9001/host/   # expect 200
-
-# 6) Ensure startup regressions are absent
-docker compose logs --no-color sirius-ui sirius-engine | rg -i "ENOTFOUND|permission denied|Failed to open log file"
-```
-
-If step 6 returns any lines, capture full logs and investigate before rollout.
-
-### Release Image Propagation Verification
-
-Use this path to validate what operators experience when running pulled release images.
-
-```bash
-# 1) Ensure local builds are not used
-docker compose down -v --remove-orphans
-
-# 2) Generate runtime secrets/config
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
-
-# 3) Pull and run release images for the selected tag
-export IMAGE_TAG=v1.0.0
-export SIRIUS_IMAGE_PULL_POLICY=always
-docker compose up -d
-
-# 4) Verify running container image IDs match pulled release images
-bash scripts/verify-release-images.sh
-```
-
-Expected result: all checks print `✅` and no service is running an unexpected local image.
-
-### Runtime Auth Contract Verification
-
-Use this check any time you run `reset`, switch between source/release mode, or see `401` and DB auth errors.
-
-```bash
-# Validate runtime env parity, stale postgres entrypoint behavior, and auth probes
-bash scripts/verify-runtime-auth-contract.sh
-```
-
-If this script fails, do not start new scans until the mismatch is corrected.
-
-If `sirius-engine` is still restarting after this passes, verify runtime preflight tooling:
-
-```bash
-docker exec sirius-engine sh -lc 'which psql && psql --version'
-```
-
-Expected result: prints `/usr/bin/psql` and a PostgreSQL client version. If missing, pull the corrected release image and recreate services.
-
-### Scan-Stuck Troubleshooting Runbook
-
-If scans complete in backend logs but UI remains non-terminal, run:
-
-```bash
-# 0) Do NOT use command-scoped secret overrides for single-service restarts.
-# Bad (causes key drift): SIRIUS_API_KEY=local-dev docker compose up -d sirius-engine
-# Good: keep secrets in .env and recreate dependent services together.
-
-# 1) Verify API key contract is consistent across services
-docker inspect sirius-ui --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY='
-docker inspect sirius-api --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY='
-docker inspect sirius-engine --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY='
-
-# 2) Check engine scanner warnings and terminal status persistence
-docker compose logs --no-color sirius-engine | rg -i "source-aware|status|completed|failed|warning|401"
-
-# 3) Check UI auth/session and API bridge logs
-docker compose logs --no-color sirius-ui | rg -i "JWT_SESSION_ERROR|SIRIUS_API_KEY|fetch failed|401"
-
-# 4) Verify DB credential consistency from runtime containers
-docker compose logs --no-color sirius-postgres sirius-api sirius-engine | rg -i "password authentication failed|database connection not available"
-
-# 5) Run contract verifier
-bash scripts/verify-runtime-auth-contract.sh
-
-# 6) Verify templates endpoint is populated and not in missing/empty state
-API_KEY=$(docker inspect sirius-api --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY=' | sed 's/^SIRIUS_API_KEY=//')
-curl -s -D - -o /tmp/sirius-templates.json -H "X-API-Key: ${API_KEY}" http://localhost:9001/templates | rg '^HTTP/|^X-Sirius-Template-State'
-python3 -c 'import json; print(len(json.load(open("/tmp/sirius-templates.json"))))'
-```
-
-If any command surfaces key/secret mismatch, re-run installer and restart:
-
-```bash
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
 docker compose up -d --force-recreate
 ```
 
-Expected result for step 6: HTTP `200` and template count `>= 1`. If `X-Sirius-Template-State: missing` or `empty` appears, `sirius-engine` has not initialized template data yet.
-
-### 🔎 Host Discovery Validation
+## Verify Installation
 
 ```bash
-# Confirm compose renders successfully and includes NET_RAW
-SIRIUS_API_KEY=test-key POSTGRES_PASSWORD=test-pass NEXTAUTH_SECRET=test-secret \
-INITIAL_ADMIN_PASSWORD=test-admin-pass \
-docker compose -f docker-compose.yaml config | rg "NET_RAW"
-
-# Confirm scanner system template is canonicalized on startup (quick includes fingerprint)
-docker compose exec sirius-valkey valkey-cli GET template:quick | rg '"scan_types"'
-
-# Run a scan from UI/API, then verify queue consumers and scan state
-docker compose exec sirius-rabbitmq rabbitmqctl list_queues name consumers messages_ready messages_unacknowledged | rg "scan|scan_control"
-docker compose exec sirius-valkey valkey-cli GET currentScan
+docker compose ps                    # all 6 services should show "healthy" or "running"
+curl http://localhost:3000            # UI responds
+curl http://localhost:9001/health     # API responds
 ```
 
-## 🎯 What Can Sirius Do?
+Expected services: `sirius-ui` (3000), `sirius-api` (9001), `sirius-engine` (5174, 50051), `sirius-postgres` (5432), `sirius-rabbitmq` (5672, 15672), `sirius-valkey` (6379).
 
-### Core Capabilities
-
-- **🔍 Network Discovery**: Automated host discovery and service enumeration
-- **🛡️ Vulnerability Assessment**: CVE-based vulnerability detection with CVSS scoring
-- **📊 Risk Management**: Comprehensive risk scoring and remediation guidance
-- **🎪 Visual Scanning Workflows**: Drag-and-drop scan configuration
-- **🔄 Automated Scanning**: Scheduled and continuous security assessments
-- **📡 Remote Agent Support**: Distributed scanning across multiple environments
-- **💻 Interactive Terminal**: PowerShell-based command interface for advanced operations
-- **📈 Real-time Dashboards**: Live scanning progress and vulnerability metrics
-
-### Supported Scan Types
-
-- **Network Scanning**: Nmap-based port and service discovery
-- **Vulnerability Scanning**: NSE script-based vulnerability detection
-- **SMB/Windows Assessment**: Specialized Windows security testing
-- **Custom Workflows**: User-defined scanning configurations
-- **Agent-based Scanning**: Remote endpoint assessment
-
-## 🏗️ System Architecture
-
-Sirius uses a microservices architecture with the following components:
-
-| Service             | Description             | Technology                     | Ports       | Purpose                               |
-| ------------------- | ----------------------- | ------------------------------ | ----------- | ------------------------------------- |
-| **sirius-ui**       | Web frontend            | Next.js 14, React, TailwindCSS | 3000        | User interface and visualization      |
-| **sirius-api**      | REST API backend        | Go, Gin framework              | 9001        | API endpoints and business logic      |
-| **sirius-engine**   | Multi-service container | Go services + embedded app-agent gRPC server | 5174, 50051 | Scanner, terminal, and agent services |
-| **sirius-postgres** | Primary database        | PostgreSQL 15                  | 5432        | Vulnerability and scan data storage   |
-| **sirius-rabbitmq** | Message queue           | RabbitMQ                       | 5672, 15672 | Inter-service communication           |
-| **sirius-valkey**   | Cache layer             | Redis-compatible               | 6379        | Session and temporary data            |
-
-### 📡 Service Communication Flow
+## Architecture
 
 ```mermaid
 graph TD
@@ -387,489 +103,75 @@ graph TD
     Engine -->|"Scan state cache ops"| Cache
 ```
 
-### 🤖 Agent Runtime Note
+| Service | Technology | Ports | Purpose |
+|---------|-----------|-------|---------|
+| **sirius-ui** | Next.js 14, React, Tailwind | 3000 | Web interface |
+| **sirius-api** | Go, Gin | 9001 | REST API and business logic |
+| **sirius-engine** | Go + embedded gRPC agent | 5174, 50051 | Scanner, terminal, agent services |
+| **sirius-postgres** | PostgreSQL 15 | 5432 | Vulnerability and scan data |
+| **sirius-rabbitmq** | RabbitMQ | 5672, 15672 | Inter-service messaging |
+| **sirius-valkey** | Valkey (Redis-compatible) | 6379 | Cache and session data |
 
-- `app-agent` runs inside `sirius-engine` in the default deployment.
-- The gRPC endpoint is exposed on port `50051`.
-- You do not need a separate `app-agent` container for the standard/prod compose flows in this repo.
+## Interface
 
-### 🗄️ Data Storage
+| Dashboard | Scanner | Vulnerability Navigator |
+|-----------|---------|------------------------|
+| ![Dashboard](/documentation/dash-dark.gif) | ![Scanner](/documentation/scanner.jpg) | ![Vulnerabilities](/documentation/vulnerability-navigator.jpg) |
 
-- **PostgreSQL**: Vulnerability data, scan results, host information
-- **SQLite**: User authentication and session data (development)
-- **Valkey/Redis**: Caching, temporary scan data, session storage
-- **RabbitMQ**: Message queues for scan requests and agent communication
+| Environment | Host Details | Terminal |
+|-------------|--------------|----------|
+| ![Environment](/documentation/environment.jpg) | ![Host](/documentation/host.jpg) | ![Terminal](/documentation/terminal.jpg) |
 
-## 📱 Interface Overview
+## API
 
-### 📊 Dashboard
-
-![Sirius Scan Dashboard](/documentation/dash-dark.gif)
-
-Your central command center featuring:
-
-- Real-time scanning activity and progress monitoring
-- Latest vulnerability discoveries with severity trends
-- System performance metrics and resource utilization
-- Quick-access controls for common scanning operations
-- Executive summary with risk scoring
-
-### 🔍 Scanning Interface
-
-![Scanning Interface](/documentation/scanner.jpg)
-
-Advanced scanning capabilities:
-
-- **Visual Workflow Editor**: Drag-and-drop scan module configuration
-- **Real-time Progress**: Live scan status with detailed logging
-- **Custom Profiles**: Save and reuse scanning configurations
-- **Scheduled Scans**: Automated scanning with cron-like scheduling
-- **Multi-target Support**: Scan multiple hosts, networks, or IP ranges
-- **NSE Script Integration**: Custom Nmap scripts for specialized testing
-
-### 🎯 Vulnerability Navigator
-
-![Vulnerability Navigator](/documentation/vulnerability-navigator.jpg)
-
-Comprehensive vulnerability management:
-
-- **Dynamic Filtering**: Real-time search across all vulnerability data
-- **Risk Prioritization**: CVSS-based severity sorting and filtering
-- **Detailed Reports**: CVE/CPE mapping with remediation guidance
-- **Export Capabilities**: PDF, CSV, and JSON report generation
-- **Historical Tracking**: Vulnerability timeline and remediation progress
-- **Integration Ready**: API endpoints for external security tools
-
-### 🌐 Environment Overview
-
-![Environment Overview](/documentation/environment.jpg)
-
-Complete infrastructure visibility:
-
-- **Asset Inventory**: Comprehensive host and service discovery
-- **Network Topology**: Interactive visualization of discovered infrastructure
-- **Risk Assessment**: Environment-wide security posture analysis
-- **Service Enumeration**: Detailed service versioning and configuration
-- **Compliance Tracking**: Security baseline monitoring and reporting
-
-### 🖥️ Host Details
-
-![Host Details](/documentation/host.jpg)
-
-In-depth system analysis:
-
-- **System Profiling**: Complete hardware and software inventory
-- **Port Analysis**: Detailed service discovery and version detection
-- **Security Metrics**: Host-specific vulnerability counts and risk scores
-- **Historical Data**: Scan history and security trend analysis
-- **Remediation Tracking**: Fix validation and security improvement monitoring
-
-### 💻 Terminal Interface
-
-![Terminal Interface](/documentation/terminal.jpg)
-
-Advanced operations console:
-
-- **PowerShell Environment**: Full scripting capabilities for automation
-- **Agent Management**: Remote agent deployment and configuration
-- **Custom Scripts**: Execute custom security testing scripts
-- **Batch Operations**: Bulk scanning and management operations
-- **System Diagnostics**: Real-time system health and performance monitoring
-
-## 🛠️ Standard Setup
-
-Perfect for security professionals and penetration testers:
+Sirius exposes REST endpoints on port 9001, protected by `SIRIUS_API_KEY`.
 
 ```bash
-git clone https://github.com/SiriusScan/Sirius.git
-cd Sirius
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer
-docker compose up -d
+curl http://localhost:9001/health -H "X-API-Key: $SIRIUS_API_KEY"
+curl http://localhost:9001/api/v1/scan/get/all -H "X-API-Key: $SIRIUS_API_KEY"
 ```
 
-This configuration provides:
+Full API docs: [REST API Reference](https://sirius.opensecurity.com/docs/api/rest/authentication)
 
-- ✅ Complete scanning capabilities out-of-the-box
-- ✅ Pre-configured vulnerability databases
-- ✅ No additional setup required
-- ✅ Production-ready security scanning
+## Security Recommendations
 
-## 🤝 Contributing
+For production deployments:
 
-Want to contribute to Sirius? We welcome contributions from the community!
+1. **Rotate secrets** -- run the installer with `--force` to regenerate all credentials
+2. **Restrict ports** -- only expose port 3000 (UI); keep 5432, 6379, 5672 internal
+3. **Use a reverse proxy** -- put nginx or Traefik in front with TLS
+4. **Keep images updated** -- `docker compose pull && docker compose up -d`
 
-**For Developers**: Check out our comprehensive [Contributing Guide](./documentation/contributing.md) for:
+## Troubleshooting
 
-- 🔧 Development environment setup
-- 🔄 Development workflow and best practices
-- 🧪 Testing and quality assurance
-- 📝 Code standards and Git workflow
-- 🚀 Submitting pull requests
+Quick fixes for common problems:
 
-**Quick Links**:
-- [Development Setup](./documentation/contributing.md#development-environment-setup)
-- [Testing Guide](./documentation/contributing.md#testing--quality-assurance)
-- [Code Standards](./documentation/contributing.md#code-standards)
-- [GitHub Issues](https://github.com/SiriusScan/Sirius/issues)
+| Problem | Fix |
+|---------|-----|
+| Services won't start | `docker compose logs <service>` to find the error |
+| Dev overlay missing infra | Use both files: `-f docker-compose.yaml -f docker-compose.dev.yaml` |
+| Port conflict | `lsof -i :3000` to find the conflicting process |
+| Database connection error | `docker exec sirius-postgres pg_isready` |
+| Stale secrets after reset | Re-run the installer, then `docker compose up -d --force-recreate` |
 
-Join our community and help make security scanning accessible to everyone!
+For detailed operational runbooks, verification procedures, and emergency recovery, see [Operations & Troubleshooting](./documentation/OPERATIONS.md).
 
-## 🔌 API & Integration
+## Contributing
 
-Sirius provides comprehensive APIs for integration with existing security workflows:
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, coding standards, and PR guidelines.
 
-### REST API Endpoints
+**Quick links:** [Issues](https://github.com/SiriusScan/Sirius/issues) | [Discussions](https://github.com/SiriusScan/Sirius/discussions) | [Discord](https://sirius.opensecurity.com/community)
 
-- Sirius exposes REST endpoints on `http://localhost:9001`.
-- The API is protected by `SIRIUS_API_KEY` middleware.
-- Include the API key in requests with `X-API-Key: <your key>`.
+## Further Reading
 
-### WebSocket APIs
+- [Installation Guide](https://sirius.opensecurity.com/docs/getting-started/installation)
+- [Interface Tour](https://sirius.opensecurity.com/docs/getting-started/interface-tour)
+- [Scanning Guide](https://sirius.opensecurity.com/docs/guides/scanning)
+- [Docker Architecture](./documentation/dev/architecture/README.docker-architecture.md)
+- [System Architecture](./documentation/dev/architecture/README.architecture.md)
+- [CI/CD Guide](./documentation/dev/architecture/README.cicd.md)
+- [Operations & Troubleshooting](./documentation/OPERATIONS.md)
 
-- **Real-time Updates**: Live scan progress and vulnerability notifications
-- **Agent Communication**: Bidirectional agent management
-- **System Monitoring**: Live system metrics and health status
+## License
 
-### Integration Examples
-
-```bash
-# Health endpoint
-curl http://localhost:9001/health \
-  -H "X-API-Key: $SIRIUS_API_KEY"
-
-# Example authenticated request
-curl http://localhost:9001/api/v1/scan/get/all \
-  -H "X-API-Key: $SIRIUS_API_KEY"
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues & Solutions
-
-#### 🐳 Container Issues
-
-**Problem**: Services fail to start
-
-```bash
-# Diagnosis
-docker compose ps              # Check service status
-docker compose logs <service>  # View service logs
-docker system df              # Check disk space
-
-# Solutions
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer  # Ensure required secrets exist in .env
-docker compose down && docker compose up -d --build  # Fresh restart
-docker system prune -f                               # Clean up space
-```
-
-**Problem**: Infrastructure services (PostgreSQL, RabbitMQ, Valkey) don't start
-
-```bash
-# This occurs when using only docker-compose.dev.yaml
-# The dev file is an OVERRIDE file, not standalone
-
-# ❌ Wrong (only starts 3 services):
-docker compose -f docker-compose.dev.yaml up -d
-
-# ✅ Correct (starts all 6 services):
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
-```
-
-**Problem**: "Port already in use" errors
-
-```bash
-# Find process using port
-netstat -tuln | grep 3000
-lsof -i :3000
-
-# Solution: Stop conflicting service or change port
-docker compose down
-# Edit docker-compose.yaml to use different ports if needed
-```
-
-#### 🔍 Scanner Issues
-
-**Problem**: Nmap errors or scanning failures
-
-```bash
-# Check scanner logs
-docker logs sirius-engine | grep -i nmap
-
-# Test Nmap directly
-docker exec sirius-engine nmap --version
-docker exec sirius-engine nmap -p 80 127.0.0.1
-
-# Common fixes
-docker restart sirius-engine
-docker exec sirius-engine which nmap  # Verify Nmap installation
-```
-
-**Problem**: "Duplicate port specification" warnings
-
-```bash
-# This is resolved in current version, but if you see it:
-docker exec sirius-engine grep -r "port.*specification" /app-scanner-src/
-# Should show corrected port ranges like "1-1000,3389"
-```
-
-#### 🗄️ Database Issues
-
-**Problem**: Database connection failures
-
-```bash
-# Check PostgreSQL status
-docker exec sirius-postgres pg_isready
-docker logs sirius-postgres
-
-# Test connection
-docker exec sirius-postgres psql -U postgres -d sirius -c "SELECT version();"
-
-# Reset database if needed
-docker compose down
-docker volume rm sirius_postgres_data
-docker compose up -d
-```
-
-#### 🐰 Message Queue Issues
-
-**Problem**: RabbitMQ connectivity issues
-
-```bash
-# Check RabbitMQ status
-docker exec sirius-rabbitmq rabbitmqctl status
-
-# View queue status
-docker exec sirius-rabbitmq rabbitmqctl list_queues
-
-# Access management interface
-open http://localhost:15672
-```
-
-**Problem**: RabbitMQ schema integrity check failed
-
-```bash
-# This occurs when RabbitMQ has old data from an incompatible version
-# Solution: Remove old volumes and restart fresh
-
-docker compose down -v  # For standard setup
-# Or for development:
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
-```
-
-#### 🌐 Network & Connectivity
-
-**Problem**: Services can't communicate
-
-```bash
-# Test internal network
-docker exec sirius-ui ping sirius-api
-docker exec sirius-api ping sirius-postgres
-
-# Check network configuration
-docker network ls
-docker network inspect sirius
-```
-
-**Problem**: External access issues
-
-```bash
-# Verify port mapping
-docker port sirius-ui
-docker port sirius-api
-
-# Check firewall (Linux)
-sudo ufw status
-sudo iptables -L
-
-# Check firewall (macOS)
-sudo pfctl -s all
-```
-
-### 🚨 Emergency Recovery
-
-**Complete System Reset**:
-
-```bash
-# Stop all services
-docker compose down
-
-# Remove all data (⚠️ This deletes all scan data!)
-docker compose down -v
-
-# Clean Docker system
-docker system prune -a -f
-
-# Recreate .env using installer (required after reset)
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
-
-# Fresh start without shell variable shadowing
-env -u SIRIUS_API_KEY -u POSTGRES_PASSWORD -u NEXTAUTH_SECRET -u INITIAL_ADMIN_PASSWORD \
-SIRIUS_IMAGE_PULL_POLICY=never docker compose up -d --build
-
-# Verify auth contract before interacting with UI
-bash scripts/verify-runtime-auth-contract.sh
-```
-
-**Backup Current Data**:
-
-```bash
-# Backup database
-docker exec sirius-postgres pg_dump -U postgres sirius > backup.sql
-
-# Backup scan results directory
-docker cp sirius-engine:/opt/sirius/ ./sirius-backup/
-```
-
-## 🔒 Security Best Practices
-
-### 🏭 Production Deployment
-
-**Essential Security Steps**:
-
-1. **Change Default Credentials**:
-
-```bash
-# Generate secure values with the installer
-docker compose -f docker-compose.installer.yaml run --rm sirius-installer --force
-
-# Or set explicit values in .env if needed
-# POSTGRES_PASSWORD=your_secure_password
-# NEXTAUTH_SECRET=your_long_random_secret
-# SIRIUS_API_KEY=your_long_random_api_key
-# INITIAL_ADMIN_PASSWORD=your_strong_admin_password
-```
-
-2. **Network Security**:
-
-```bash
-# Use internal networks for service communication
-# Expose only necessary ports (3000 for UI)
-# Configure firewall rules
-sudo ufw allow 3000/tcp
-sudo ufw deny 5432/tcp  # Don't expose database
-```
-
-3. **SSL/TLS Configuration**:
-
-```bash
-# Use reverse proxy with SSL (nginx/traefik)
-# Enable HTTPS for web interface
-# Secure API endpoints with proper certificates
-```
-
-4. **Data Protection**:
-
-```bash
-# Encrypt database backups
-# Secure volume mounts
-# Regular security updates
-docker compose pull  # Update images regularly
-```
-
-### 🛡️ Security Scanning Best Practices
-
-- **Network Isolation**: Run scans from isolated networks when possible
-- **Permission Management**: Use least-privilege principles for scan accounts
-- **Scan Scheduling**: Perform intensive scans during maintenance windows
-- **Data Retention**: Implement appropriate data lifecycle policies
-- **Audit Logging**: Enable comprehensive logging for compliance
-
-## 📚 Documentation & Resources
-
-### 📖 Essential Documentation
-
-- [📘 Installation Guide](https://sirius.opensecurity.com/docs/getting-started/installation) - Detailed setup instructions
-- [🎯 Quick Start Guide](https://sirius.opensecurity.com/docs/getting-started/quick-start) - Get scanning in 5 minutes
-- [🎪 Interface Tour](https://sirius.opensecurity.com/docs/getting-started/interface-tour) - Complete UI walkthrough
-- [🔧 Configuration Guide](https://sirius.opensecurity.com/docs/guides/configuration) - Advanced configuration options
-- [🛡️ Security Guide](https://sirius.opensecurity.com/docs/guides/security) - Production security best practices
-
-### 🔌 Technical Documentation
-
-- [🚀 API Reference](https://sirius.opensecurity.com/docs/api/rest/authentication) - Complete API documentation
-- [📦 Go SDK](https://sirius.opensecurity.com/docs/api/sdk/go) - Go integration library
-- [🐳 Docker Guide](./documentation/dev/architecture/README.docker-architecture.md) - Comprehensive Docker documentation
-- [🏗️ Architecture Guide](./documentation/dev/architecture/README.architecture.md) - System architecture deep-dive
-- [🔄 CI/CD Guide](./documentation/dev/architecture/README.cicd.md) - Deployment automation
-
-### 🎓 User Guides
-
-- [🔍 Scanning Guide](https://sirius.opensecurity.com/docs/guides/scanning) - Advanced scanning techniques
-- [🎯 Vulnerability Management](https://sirius.opensecurity.com/docs/guides/vulnerabilities) - Managing discovered vulnerabilities
-- [🌐 Environment Management](https://sirius.opensecurity.com/docs/guides/environment) - Infrastructure assessment
-- [🖥️ Host Management](https://sirius.opensecurity.com/docs/guides/hosts) - Individual host analysis
-- [💻 Terminal Guide](https://sirius.opensecurity.com/docs/guides/terminal) - Advanced PowerShell operations
-
-### 🤝 Community & Support
-
-- [❓ FAQ](https://sirius.opensecurity.com/docs/community/faq) - Frequently asked questions
-- [🐛 GitHub Issues](https://github.com/SiriusScan/Sirius/issues) - Bug reports and feature requests
-- [💬 Discord Community](https://sirius.opensecurity.com/community) - Real-time community support
-- [🤝 Contributing Guide](./documentation/contributing.md) - How to contribute to Sirius
-- [📧 Support Contact](mailto:support@opensecurity.com) - Direct technical support
-
-## 📊 Performance & Scaling
-
-### 📈 System Requirements by Use Case
-
-| Use Case            | CPU       | RAM   | Storage | Network    |
-| ------------------- | --------- | ----- | ------- | ---------- |
-| **Personal Lab**    | 2 cores   | 4GB   | 20GB    | Basic      |
-| **Small Business**  | 4 cores   | 8GB   | 100GB   | Dedicated  |
-| **Enterprise**      | 8+ cores  | 16GB+ | 500GB+  | High-speed |
-| **MSP/Large Scale** | 16+ cores | 32GB+ | 1TB+    | Enterprise |
-
-### ⚡ Performance Optimization
-
-```bash
-# Monitor resource usage
-docker stats
-
-# Optimize for large environments
-# Edit docker-compose.yaml and add:
-services:
-  sirius-engine:
-    deploy:
-      resources:
-        limits:
-          cpus: '4.0'
-          memory: 8G
-        reservations:
-          cpus: '2.0'
-          memory: 4G
-```
-
-## 🆕 What's New
-
-### Recent Updates
-
-- ✅ **Fixed Nmap Configuration**: Resolved duplicate port specification warnings
-- ✅ **Enhanced Development Mode**: Improved volume mounting for local development
-- ✅ **Better Error Handling**: Enhanced debugging and logging capabilities
-- ✅ **Performance Improvements**: Optimized container startup and resource usage
-- ✅ **Security Enhancements**: Updated default configurations and security practices
-
-### Upcoming Features
-
-- 🔄 **Advanced Reporting**: Enhanced PDF and dashboard reporting
-- 🎯 **AI-Powered Analysis**: Automated vulnerability risk assessment
-- 📱 **Mobile Support**: Mobile-responsive interface improvements
-- 🔌 **Plugin System**: Extensible scanning module architecture
-- ☁️ **Cloud Integration**: Native cloud platform scanning support
-
-## 📄 License
-
-This project is licensed under the terms specified in the [LICENSE](./LICENSE) file.
-
----
-
-**🚀 Ready to start scanning?** Follow our [Quick Start Guide](https://sirius.opensecurity.com/docs/getting-started/quick-start) and have Sirius running in under 5 minutes!
-
-**💡 Need help?** Join our [Discord community](https://sirius.opensecurity.com/community) for real-time support and discussion.
-
-**🐛 Found a bug?** Report it on [GitHub Issues](https://github.com/SiriusScan/Sirius/issues) - we respond quickly!
-
----
-
-_For production deployments, always change default credentials and review our [Security Guide](https://sirius.opensecurity.com/docs/guides/security) for best practices._
+[MIT](./LICENSE)

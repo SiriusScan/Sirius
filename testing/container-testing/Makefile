@@ -21,7 +21,7 @@ help:
 	@echo "  test-runtime-contract Verify runtime auth/binary contracts"
 	@echo "  test-release-gates Run release-blocking validation checks"
 	@echo "  test-security  Run security/auth penetration tests"
-	@echo "  test-all       Run all tests"
+	@echo "  test-all       Run all tests (build, health, integration, runtime auth contract)"
 	@echo "  validate-ci-overhaul  Validate base images and CI pipeline changes"
 	@echo ""
 	@echo "Development Commands:"
@@ -82,12 +82,14 @@ test-integration:
 
 test-runtime-contract:
 	@echo "🧷 Verifying runtime auth/binary contracts..."
+	@cd ../.. && \
 	SIRIUS_API_KEY=$${SIRIUS_API_KEY:-test-api-key} \
 	POSTGRES_PASSWORD=$${POSTGRES_PASSWORD:-test-postgres-password} \
 	NEXTAUTH_SECRET=$${NEXTAUTH_SECRET:-test-nextauth-secret} \
 	INITIAL_ADMIN_PASSWORD=$${INITIAL_ADMIN_PASSWORD:-test-admin-password} \
-	docker compose up -d
-	bash ../../scripts/verify-runtime-auth-contract.sh
+	DATABASE_URL=$${DATABASE_URL:-postgresql://postgres:test-postgres-password@sirius-postgres:5432/sirius} \
+	docker compose up -d && \
+	bash scripts/verify-runtime-auth-contract.sh && \
 	docker compose down
 
 test-release-gates: test-build test-integration test-runtime-contract
@@ -98,8 +100,8 @@ test-security:
 	cd ../security && go run .
 	@echo "✅ Security tests completed!"
 
-test-all: test-build test-health test-integration
-	@echo "🎉 All tests completed!"
+test-all: test-build test-health test-integration test-runtime-contract
+	@echo "🎉 All tests completed (including runtime auth contract)!"
 
 # Development commands
 dev:

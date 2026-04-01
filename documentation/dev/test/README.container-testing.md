@@ -44,13 +44,15 @@ This document describes the comprehensive container testing system for SiriusSca
 # Navigate to container testing directory
 cd testing/container-testing
 
-# Run complete test suite
+# Run complete test suite (includes runtime auth contract — see below)
 make test-all
 
 # Run specific test types
 make test-build    # Build validation only
 make test-health   # Health checks only
 make test-integration  # Integration tests only
+make test-runtime-contract  # SIRIUS_API_KEY parity, engine preflight script, API HTTP contract
+make test-release-gates  # test-build + test-integration + test-runtime-contract (release bar)
 
 # Test specific environment
 make test-dev      # Development environment
@@ -80,7 +82,8 @@ make test-prod     # Production environment
 2. **Run build tests**: `make test-build` to validate all containers build successfully
 3. **Run health tests**: `make test-health` to verify services start and respond correctly
 4. **Run integration tests**: `make test-integration` to test service interactions
-5. **Review results**: Check test output and logs in `testing/logs/` directory
+5. **`make test-all` also runs `test-runtime-contract`**, which starts the stack from the repo root and runs `scripts/verify-runtime-auth-contract.sh` (shared `SIRIUS_API_KEY`, postgres parity, authenticated `GET /host/`).
+6. **Review results**: Check test output and logs in `testing/logs/` directory
 
 **Alternative approach** (from project root):
 
@@ -92,11 +95,12 @@ make test-prod     # Production environment
 
 ### Architecture Overview
 
-The container testing system consists of three main components:
+The container testing system consists of these main components:
 
 - **Build Validation**: Tests individual container builds and Docker Compose configurations
 - **Health Checks**: Validates service startup, connectivity, and basic functionality
 - **Integration Tests**: Verifies inter-service communication and data flow
+- **Runtime Auth Contract** (`make test-runtime-contract`): Runs [`scripts/verify-runtime-auth-contract.sh`](../../../scripts/verify-runtime-auth-contract.sh) against a running stack. Default container names match `container_name` in `docker-compose.yaml` (`sirius-ui`, `sirius-api`, etc.). For a non-default Compose project (e.g. `name: sirius-test`), set `SIRIUS_CONTRACT_CONTAINER_UI`, `SIRIUS_CONTRACT_CONTAINER_API`, `SIRIUS_CONTRACT_CONTAINER_ENGINE`, and `SIRIUS_CONTRACT_CONTAINER_POSTGRES` before running the script. Use `SIRIUS_API_PUBLIC_URL` if the API is not on `http://localhost:9001`.
 
 ### Technical Details
 

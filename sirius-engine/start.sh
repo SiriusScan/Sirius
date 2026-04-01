@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# Legacy development helper: starts scanner/terminal only.
+# Production and standard images use ENTRYPOINT /start-enhanced.sh (see sirius-engine/Dockerfile).
 
 # Function to cleanup child processes
 cleanup() {

@@ -3,7 +3,7 @@ title: "Startup & Secrets Redesign - Project Plan"
 description: "Detailed implementation strategy for installer-first startup, secure secret defaults, and stateless infrastructure API key validation."
 template: "TEMPLATE.documentation-standard"
 version: "1.0.0"
-last_updated: "2026-02-22"
+last_updated: "2026-04-01"
 author: "Development Team"
 tags: ["project-plan", "startup", "secrets", "installer", "auth", "docker"]
 categories: ["development", "planning", "security", "operations"]
@@ -90,6 +90,10 @@ search_keywords:
 ### Milestone E: Optional Hardening + Release
 - Add secrets overlay files.
 - Execute release verification matrix and migration notes.
+
+## Progress (snapshot)
+
+- Compose/runtime contract: `SIRIUS_API_URL` is canonical for server-side API base URL; `API_BASE_URL` on `sirius-engine` is derived from the same value to avoid URL drift. `sirius-engine` depends on `sirius-api` health in base compose. Engine startup preflight requires HTTP 2xx on authenticated `GET /host/`. `scripts/verify-runtime-auth-contract.sh` supports alternate container names via `SIRIUS_CONTRACT_CONTAINER_*`. `make test-all` includes `test-runtime-contract`.
 
 ## Success Criteria
 

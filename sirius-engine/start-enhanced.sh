@@ -98,29 +98,57 @@ validate_postgres_connection() {
 validate_api_key_contract() {
     local max_attempts=30
     local attempt=0
+    local probe_url="${SIRIUS_API_URL%/}/host/"
 
-    echo "Validating API key contract with sirius-api..."
+    echo "Validating API key contract with sirius-api at ${probe_url} ..."
+
     while [ "$attempt" -lt "$max_attempts" ]; do
-        http_status=$(curl -sS -o /tmp/sirius-api-auth-probe.out -w "%{http_code}" \
+        http_status=$(curl -sS --max-time 15 -o /tmp/sirius-api-auth-probe.out -w "%{http_code}" \
             -H "X-API-Key: $SIRIUS_API_KEY" \
-            "${SIRIUS_API_URL%/}/host/" || true)
+            "$probe_url" || true)
+
+        # 000 = connection/DNS failure — API not reachable yet or wrong SIRIUS_API_URL
+        if [ "$http_status" = "000" ]; then
+            echo "  ... waiting for sirius-api (attempt $((attempt + 1))/${max_attempts}, no TCP/HTTP response)"
+            attempt=$((attempt + 1))
+            sleep 2
+            continue
+        fi
 
         if [ "$http_status" = "401" ] || [ "$http_status" = "403" ]; then
-            echo "Error: sirius-engine API key was rejected by sirius-api (status $http_status)."
-            echo "This usually means SIRIUS_API_KEY is mismatched across containers due to shell overrides."
+            echo "Error: sirius-engine API key was rejected by sirius-api (HTTP $http_status on GET /host/)."
+            echo "Check: SIRIUS_API_KEY matches sirius-api container; avoid per-service shell overrides (use .env + recreate)."
+            if [ -s /tmp/sirius-api-auth-probe.out ]; then
+                echo "Response body (first 512 bytes):"
+                head -c 512 /tmp/sirius-api-auth-probe.out | tr -d '\0' || true
+                echo ""
+            fi
             exit 1
         fi
 
-        if [ "$http_status" != "000" ] && [ "$http_status" != "502" ] && [ "$http_status" != "503" ] && [ "$http_status" != "504" ]; then
-            echo "API key contract validated (status $http_status)."
+        # Success: authenticated GET /host/ must return 2xx (not 404 from wrong service)
+        if [ "$http_status" -ge 200 ] && [ "$http_status" -lt 300 ]; then
+            echo "API key contract validated (HTTP $http_status)."
             return 0
         fi
 
-        attempt=$((attempt + 1))
-        sleep 2
+        # Transient proxy/gateway — retry
+        if [ "$http_status" = "502" ] || [ "$http_status" = "503" ] || [ "$http_status" = "504" ]; then
+            echo "  ... waiting for sirius-api (HTTP $http_status)"
+            attempt=$((attempt + 1))
+            sleep 2
+            continue
+        fi
+
+        echo "Error: unexpected HTTP $http_status from ${probe_url} (expected 2xx after auth)."
+        if [ -s /tmp/sirius-api-auth-probe.out ]; then
+            head -c 512 /tmp/sirius-api-auth-probe.out | tr -d '\0' || true
+            echo ""
+        fi
+        exit 1
     done
 
-    echo "Error: unable to validate API key contract with sirius-api."
+    echo "Error: unable to reach sirius-api at ${probe_url} after ${max_attempts} attempts (connection/DNS or wrong URL)."
     exit 1
 }
 
@@ -130,6 +158,13 @@ validate_required_env "POSTGRES_PASSWORD"
 validate_required_env "POSTGRES_DB"
 validate_required_env "SIRIUS_API_KEY"
 validate_required_env "SIRIUS_API_URL"
+# API_BASE_URL must match SIRIUS_API_URL when both are set (compose mirrors them; manual drift breaks agent/scanner)
+if [ -n "${API_BASE_URL:-}" ]; then
+    if [ "${API_BASE_URL%/}" != "${SIRIUS_API_URL%/}" ]; then
+        echo "Error: API_BASE_URL must equal SIRIUS_API_URL (got API_BASE_URL=${API_BASE_URL} SIRIUS_API_URL=${SIRIUS_API_URL})."
+        exit 1
+    fi
+fi
 validate_required_binary "psql" "This release image is missing PostgreSQL client tooling. Pull a corrected sirius-engine image for the active release tag and restart."
 validate_postgres_connection
 validate_api_key_contract

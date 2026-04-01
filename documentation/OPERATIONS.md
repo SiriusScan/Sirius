@@ -61,6 +61,13 @@ Use this check any time you run `reset`, switch between source/release mode, or 
 bash scripts/verify-runtime-auth-contract.sh
 ```
 
+The script assumes default Docker Compose container names (`sirius-ui`, `sirius-api`, `sirius-engine`, `sirius-postgres`) and curls the API at `http://localhost:9001`. For a different Compose project name (non-default `container_name` pattern), set:
+
+- `SIRIUS_CONTRACT_CONTAINER_UI`, `SIRIUS_CONTRACT_CONTAINER_API`, `SIRIUS_CONTRACT_CONTAINER_ENGINE`, `SIRIUS_CONTRACT_CONTAINER_POSTGRES`
+- `SIRIUS_API_PUBLIC_URL` if the published API port differs
+
+See the header comment in `scripts/verify-runtime-auth-contract.sh`.
+
 If this script fails, do not start new scans until the mismatch is corrected.
 
 If `sirius-engine` is still restarting after this passes, verify runtime preflight tooling:

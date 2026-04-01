@@ -708,6 +708,7 @@ jobs:
                 - LOG_LEVEL=info
                 - SIRIUS_API_KEY=ci-placeholder-api-key
                 - SIRIUS_API_URL=http://sirius-api:9001
+                - API_BASE_URL=http://sirius-api:9001
               depends_on:
                 sirius-postgres:
                   condition: service_healthy

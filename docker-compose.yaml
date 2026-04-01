@@ -4,6 +4,13 @@
 # during image build so standard startup is resilient if GHCR base images
 # are unavailable.
 # Use with: docker compose up -d
+#
+# Runtime API URL contract (single source of truth in .env):
+# - SIRIUS_API_URL: server-side base URL for sirius-api (Docker DNS, e.g. http://sirius-api:9001).
+#   Used by sirius-ui (server), sirius-engine preflight, and app-scanner persistence.
+# - NEXT_PUBLIC_SIRIUS_API_URL: browser-facing API URL (host port, e.g. http://localhost:9001).
+# - API_BASE_URL on sirius-engine: must match SIRIUS_API_URL (set from the same compose value below).
+# - SIRIUS_API_KEY: identical across sirius-ui, sirius-api, and sirius-engine (installer-generated).
 
 name: sirius
 
@@ -219,7 +226,8 @@ services:
       - VALKEY_PORT=${VALKEY_PORT:-6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
       - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
-      - API_BASE_URL=${API_BASE_URL:-http://sirius-api:9001}
+      # Agent/scanner legacy name; always mirror SIRIUS_API_URL to avoid URL/key drift
+      - API_BASE_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
       - AGENT_ID=${AGENT_ID:-sirius-engine}
       - HOST_ID=${HOST_ID:-sirius-engine}
       - ENABLE_SCRIPTING=${ENABLE_SCRIPTING:-true}
@@ -232,6 +240,8 @@ services:
       sirius-postgres:
         condition: service_healthy
       sirius-valkey:
+        condition: service_healthy
+      sirius-api:
         condition: service_healthy
     healthcheck:
       test:

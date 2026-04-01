@@ -2,9 +2,21 @@ import React from "react";
 import { Button } from "~/components/lib/ui/button";
 import ProfileSelector from "~/components/scanner/ProfileSelector";
 import ChipTargetInput from "~/components/scanner/target-patterns/ChipTargetInput";
-import { Play, Square, AlertTriangle, Download, ExternalLink, Zap, RotateCcw } from "lucide-react";
+import {
+  Play,
+  Square,
+  AlertTriangle,
+  Download,
+  ExternalLink,
+  Zap,
+  RotateCcw,
+} from "lucide-react";
 import type { ParsedTarget } from "~/utils/targetParser";
-import type { ScanProfile, ScanResult, AgentScanConfig } from "~/types/scanTypes";
+import type {
+  ScanProfile,
+  ScanResult,
+  AgentScanConfig,
+} from "~/types/scanTypes";
 import type { StopStage } from "~/hooks/useStopScan";
 
 export interface ScanControlsProps {
@@ -81,7 +93,9 @@ export function ScanControls({
             className="h-12 bg-gradient-to-r from-red-700 to-red-900 px-8 text-base font-semibold text-white shadow-lg shadow-red-900/30 hover:from-red-600 hover:to-red-800 disabled:opacity-50"
           >
             <Zap className="mr-2 h-5 w-5" />
-            {stopStage === "force_stopping" ? "Force Stopping..." : "Force Stop"}
+            {stopStage === "force_stopping"
+              ? "Force Stopping..."
+              : "Force Stop"}
           </Button>
           <p className="text-center text-xs text-amber-400/80">
             Graceful stop timed out. Force stop will kill processes immediately.
@@ -113,9 +127,7 @@ export function ScanControls({
     return (
       <Button
         onClick={handleStopScan}
-        disabled={
-          isStopping || scanResult?.status === "cancelling"
-        }
+        disabled={isStopping || scanResult?.status === "cancelling"}
         className="h-12 bg-gradient-to-r from-red-600 to-rose-600 px-8 text-base font-semibold text-white shadow-lg hover:from-red-500 hover:to-rose-500 disabled:opacity-50"
       >
         <Square className="mr-2 h-5 w-5 fill-current" />
@@ -147,7 +159,10 @@ export function ScanControls({
             <label className="mb-2 block text-sm font-medium text-violet-200">
               Scan Profile
             </label>
-            <ProfileSelector value={selectedProfile} onChange={onProfileChange} />
+            <ProfileSelector
+              value={selectedProfile}
+              onChange={onProfileChange}
+            />
           </div>
           {isScanActive ? (
             renderStopButton()
@@ -184,9 +199,9 @@ export function ScanControls({
               size="sm"
               onClick={() =>
                 window.open(
-                  "https://sirius.opensecurity.com/get-started/agent",
+                  "https://sirius.opensecurity.com/get-started/downloads",
                   "_blank",
-                  "noopener,noreferrer"
+                  "noopener,noreferrer",
                 )
               }
               className="shrink-0 text-xs"
@@ -204,9 +219,7 @@ export function ScanControls({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-red-400">
               <AlertTriangle className="h-4 w-4" />
-              <span className="text-sm">
-                Failed to stop scan: {stopError}
-              </span>
+              <span className="text-sm">Failed to stop scan: {stopError}</span>
             </div>
             {/* Show Reset button inline when there's a stop error */}
             {handleResetScan && (

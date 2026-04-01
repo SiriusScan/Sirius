@@ -56,11 +56,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "PGPASSWORD=\"$${POSTGRES_PASSWORD}\" psql -h 127.0.0.1 -U \"$${POSTGRES_USER:-postgres}\" -d \"$${POSTGRES_DB:-sirius}\" -c 'SELECT 1;' >/dev/null 2>&1",
-        ]
+      test: ["CMD", "/usr/local/bin/pg-healthcheck.sh"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -118,7 +114,7 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - SKIP_ENV_VALIDATION=${SKIP_ENV_VALIDATION:-1}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}@sirius-postgres:5432/sirius}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
       # UI auth settings
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required for sirius-ui. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}

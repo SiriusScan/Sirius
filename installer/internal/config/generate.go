@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -85,7 +86,41 @@ func EnsureRequired(values map[string]string, opts Options) (map[string]string, 
 		return nil, nil, fmt.Errorf("INITIAL_ADMIN_PASSWORD is required")
 	}
 
+	// Rebuild DATABASE_URL when it is missing/placeholder or when the
+	// password was just generated (so the URL always matches the password).
+	dbURL := strings.TrimSpace(values["DATABASE_URL"])
+	_, pwRegenerated := generated["POSTGRES_PASSWORD"]
+	if dbURL == "" || pwRegenerated {
+		values["DATABASE_URL"] = BuildDatabaseURL(values)
+	}
+
 	return values, generated, nil
+}
+
+// BuildDatabaseURL assembles a PostgreSQL connection URL from individual
+// POSTGRES_* values. It uses net/url to properly encode the userinfo so
+// passwords containing @, :, /, spaces, etc. are safe.
+func BuildDatabaseURL(values map[string]string) string {
+	user := valueOr(values, "POSTGRES_USER", "postgres")
+	pass := values["POSTGRES_PASSWORD"]
+	host := valueOr(values, "POSTGRES_HOST", "sirius-postgres")
+	port := valueOr(values, "POSTGRES_PORT", "5432")
+	db := valueOr(values, "POSTGRES_DB", "sirius")
+
+	u := &url.URL{
+		Scheme: "postgresql",
+		User:   url.UserPassword(user, pass),
+		Host:   fmt.Sprintf("%s:%s", host, port),
+		Path:   "/" + db,
+	}
+	return u.String()
+}
+
+func valueOr(m map[string]string, key, fallback string) string {
+	if v := strings.TrimSpace(m[key]); v != "" {
+		return v
+	}
+	return fallback
 }
 
 func IsPlaceholder(v string) bool {

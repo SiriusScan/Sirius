@@ -11,6 +11,9 @@
   - `POSTGRES_PASSWORD`
   - `NEXTAUTH_SECRET`
   - `INITIAL_ADMIN_PASSWORD`
+- Builds `DATABASE_URL` from `POSTGRES_*` values (with proper URL-encoding)
+  - Automatically refreshed whenever `POSTGRES_PASSWORD` is generated
+  - Preserved as-is if you set it manually and the password is unchanged
 - Supports interactive and non-interactive modes
 - Supports `--force` regeneration and secret-safe output flags
 

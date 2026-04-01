@@ -78,6 +78,14 @@ RUN sed -i 's/\r$//' /usr/local/bin/start-with-monitor.sh && \
     chmod +x /usr/local/bin/start-with-monitor.sh
 RUN test -x /usr/local/bin/start-with-monitor.sh && /bin/sh -n /usr/local/bin/start-with-monitor.sh
 
+# Healthcheck script — uses pg_isready which needs no password and avoids
+# Docker Compose $$ escaping issues across platforms.
+RUN cat <<'EOF' > /usr/local/bin/pg-healthcheck.sh
+#!/bin/sh
+exec pg_isready -h 127.0.0.1 -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-sirius}"
+EOF
+RUN chmod +x /usr/local/bin/pg-healthcheck.sh
+
 ENV VALKEY_HOST=sirius-valkey
 ENV VALKEY_PORT=6379
 ENV CONTAINER_NAME=sirius-postgres

@@ -31,7 +31,7 @@ export function useScanDataMapping(): {
   );
 
   return useMemo(() => {
-    if (hosts.length === 0) {
+    if (hosts.length === 0 && vulnerabilities.length === 0) {
       return { hostList: [], vulnerabilityList: [] };
     }
 
@@ -97,21 +97,39 @@ export function useScanDataMapping(): {
       }
     }
 
-    const mappedHosts: EnvironmentTableData[] = hosts.map(
-      (host: HostEntry) => ({
+    let mappedHosts: EnvironmentTableData[];
+
+    if (hosts.length > 0) {
+      mappedHosts = hosts.map((host: HostEntry) => ({
         hostname: host.hostname || host.ip,
         ip: host.ip,
         os: osLookup[host.ip] || osLookup[host.id] || "unknown",
-        // Vulnerability counts are keyed by host_id from the backend, which may be
-        // the IP or a separate identifier. Check both to stay resilient.
         vulnerabilityCount:
           perHostVulnCount[host.ip] ?? perHostVulnCount[host.id] ?? 0,
         maxCvss: perHostMaxCvss[host.ip] ?? perHostMaxCvss[host.id] ?? 0,
         groups: [],
         tags: [],
         scan_sources: host.sources || [],
-      })
-    );
+      }));
+    } else {
+      // Hosts not decoded yet but agent vulns present — show rows from host_id so findings don't vanish.
+      const hostKeys = new Set<string>();
+      for (const v of vulnerabilities) {
+        if (v.host_id) {
+          hostKeys.add(v.host_id);
+        }
+      }
+      mappedHosts = Array.from(hostKeys).map((hid) => ({
+        hostname: hid,
+        ip: hid,
+        os: osLookup[hid] || "unknown",
+        vulnerabilityCount: perHostVulnCount[hid] ?? 0,
+        maxCvss: perHostMaxCvss[hid] ?? 0,
+        groups: [],
+        tags: [],
+        scan_sources: ["agent"],
+      }));
+    }
 
     return {
       hostList: mappedHosts,

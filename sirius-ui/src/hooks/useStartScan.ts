@@ -187,27 +187,46 @@ export const useStartScan = () => {
                 }
               }
             } catch (readErr) {
-              // Fallback: write with local scan object if read fails
-              if (scan.sub_scans?.agent) {
-                scan.sub_scans.agent.progress.total = agentResult.totalDispatched;
-                scan.sub_scans.agent.status = "running";
-                scan.sub_scans.agent.metadata = {
-                  mode: agentScanConfig.mode,
-                  dispatched_agents: agentResult.dispatchedAgents,
-                  agent_statuses: agentResult.dispatchedAgents.map(
-                    (id: string) => ({
-                      agent_id: id,
-                      status: "running",
-                      hosts_found: 0,
-                      vulnerabilities_found: 0,
-                    })
-                  ),
-                };
+              // Never overwrite currentScan with the stale local `scan` snapshot (drops network hosts/vulns).
+              console.error(
+                "[useStartScan] Failed to merge agent dispatch into currentScan; leaving Valkey state unchanged",
+                readErr
+              );
+              try {
+                const retry = await utils.store.getValue.fetch({
+                  key: "currentScan",
+                });
+                if (retry) {
+                  const rd = b64Decode(retry);
+                  if (rd?.id === scanId && rd.sub_scans?.agent) {
+                    const agentSS = rd.sub_scans.agent;
+                    const meta = (agentSS.metadata ?? {}) as Record<string, unknown>;
+                    meta.dispatched_agents = agentResult.dispatchedAgents;
+                    meta.agent_statuses = agentResult.dispatchedAgents.map(
+                      (id: string) => ({
+                        agent_id: id,
+                        status: "running",
+                        hosts_found: 0,
+                        vulnerabilities_found: 0,
+                      })
+                    );
+                    agentSS.metadata = meta;
+                    agentSS.progress.total = agentResult.totalDispatched;
+                    if (agentSS.status === "dispatching") {
+                      agentSS.status = "running";
+                    }
+                    await updateScan.mutateAsync({
+                      key: "currentScan",
+                      value: btoa(JSON.stringify(rd)),
+                    });
+                  }
+                }
+              } catch (retryErr) {
+                console.error(
+                  "[useStartScan] Retry merge after read failure also failed",
+                  retryErr
+                );
               }
-              await updateScan.mutateAsync({
-                key: "currentScan",
-                value: btoa(JSON.stringify(scan)),
-              });
             }
           }
         } catch (agentErr) {

@@ -39,12 +39,13 @@ export function useScanResults() {
       (h: HostEntry) => h.ip && h.ip.trim() !== ""
     );
 
-    if (validHosts.length === 0) {
-      setHosts([]);
-      setVulnerabilities([]);
-    } else {
-      setHosts(validHosts);
-      setVulnerabilities(decoded.vulnerabilities);
+    // Keep vulnerabilities even when host normalization is temporarily empty (e.g. decode/merge glitches).
+    setHosts(validHosts);
+    setVulnerabilities(decoded.vulnerabilities ?? []);
+    if (validHosts.length === 0 && (decoded.vulnerabilities?.length ?? 0) > 0) {
+      console.warn(
+        "[useScanResults] No valid hosts in currentScan but vulnerabilities present; showing vulns anyway"
+      );
     }
   }, [scanStatusQuery.data]);
 

@@ -27,14 +27,25 @@ type Template struct {
 	UpdatedAt      time.Time       `json:"updated_at"`
 }
 
+// AgentScanConfig matches sirius-ui scan_options.agent_scan (template scans via connected agents).
+type AgentScanConfig struct {
+	Enabled        bool     `json:"enabled"`
+	Mode           string   `json:"mode"` // comprehensive | templates-only | scripts-only
+	AgentIDs       []string `json:"agent_ids"`
+	Timeout        int      `json:"timeout"`
+	Concurrency    int      `json:"concurrency"`
+	TemplateFilter []string `json:"template_filter,omitempty"`
+}
+
 // TemplateOptions defines the scan configuration for a template
 type TemplateOptions struct {
-	ScanTypes    []string `json:"scan_types"`
-	PortRange    string   `json:"port_range"`
-	Aggressive   bool     `json:"aggressive"`
-	MaxRetries   int      `json:"max_retries"`
-	Parallel     bool     `json:"parallel"`
-	ExcludePorts []string `json:"exclude_ports,omitempty"`
+	ScanTypes    []string         `json:"scan_types"`
+	PortRange    string           `json:"port_range"`
+	Aggressive   bool             `json:"aggressive"`
+	MaxRetries   int              `json:"max_retries"`
+	Parallel     bool             `json:"parallel"`
+	ExcludePorts []string         `json:"exclude_ports,omitempty"`
+	AgentScan    *AgentScanConfig `json:"agent_scan,omitempty"`
 }
 
 // TemplateList represents a list of template IDs
@@ -65,10 +76,10 @@ func GetTemplates(c *fiber.Ctx) error {
 	resp, err := kvStore.GetValue(ctx, templateListKey)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			// No templates yet
 			slog.Warn("Template list is missing in store", "key", templateListKey)
 			c.Set("X-Sirius-Template-State", "missing")
-			return c.JSON([]Template{})
+			now := time.Now()
+			return c.JSON(mergeMissingCoreScanProfiles(nil, now))
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to get template list",
@@ -97,6 +108,8 @@ func GetTemplates(c *fiber.Ctx) error {
 		slog.Warn("Template list resolved to empty set", "template_ids", len(templateList.Templates))
 		c.Set("X-Sirius-Template-State", "empty")
 	}
+
+	templates = mergeMissingCoreScanProfiles(templates, time.Now())
 
 	return c.JSON(templates)
 }

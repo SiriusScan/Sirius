@@ -54,10 +54,7 @@ export class LogService {
   private retries: number;
 
   constructor(options: LogServiceOptions = {}) {
-    this.baseUrl =
-      options.baseUrl ||
-      process.env.NEXT_PUBLIC_SIRIUS_API_URL ||
-      "http://localhost:9001";
+    this.baseUrl = options.baseUrl || "/api/monitor/proxy";
     this.timeout = options.timeout || 10000;
     this.retries = options.retries || 3;
   }

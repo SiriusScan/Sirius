@@ -30,8 +30,7 @@ class HealthCheckService {
   };
 
   constructor(
-    baseUrl: string = process.env.NEXT_PUBLIC_SIRIUS_API_URL ||
-      "http://localhost:9001"
+    baseUrl: string = "/api/monitor/proxy"
   ) {
     this.baseUrl = baseUrl;
   }

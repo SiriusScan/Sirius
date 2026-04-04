@@ -229,11 +229,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
       setError(null);
 
       // Fetch real system resource data from API
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/resources`
-      );
+      const response = await fetch("/api/monitor/proxy/api/v1/system/resources");
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -303,9 +299,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
   const loadContainerLogs = async (containerName: string) => {
     try {
       const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/logs?container=${containerName}&lines=3`
+        `/api/monitor/proxy/api/v1/system/logs?container=${containerName}&lines=3`
       );
       if (response.ok) {
         const data = await response.json();
@@ -656,10 +650,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                                   );
 
                                   const response = await fetch(
-                                    `${
-                                      process.env.NEXT_PUBLIC_SIRIUS_API_URL ||
-                                      "http://localhost:9001"
-                                    }/api/v1/admin/command`,
+                                    "/api/monitor/proxy/api/v1/admin/command",
                                     {
                                       method: "POST",
                                       headers: {

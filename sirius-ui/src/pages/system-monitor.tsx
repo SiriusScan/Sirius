@@ -198,11 +198,7 @@ const SystemMonitor: NextPage = () => {
   const loadResourceData = async () => {
     try {
       setResourceLoading(true);
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/resources`,
-      );
+      const response = await fetch("/api/monitor/proxy/api/v1/system/resources");
       if (response.ok) {
         const data = await response.json();
         setResourceData(data);

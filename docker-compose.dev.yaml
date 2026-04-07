@@ -1,8 +1,32 @@
 # SiriusScan Development Docker Compose Override
-# Use with: docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
-# This configuration enables development features like hot reloading and volume mounts
+# Use with: docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up --build
+#
+# Builds Postgres, Valkey, and RabbitMQ from ./sirius-* Dockerfiles (no GHCR pull).
+# sirius-ui / sirius-api / sirius-engine use local dev images with pull_policy: never.
+# For registry-based infra instead, use docker-compose.yaml alone or add IMAGE_TAG + ghcr login.
 
 services:
+  sirius-rabbitmq:
+    build:
+      context: ./sirius-rabbitmq
+      dockerfile: Dockerfile
+    image: sirius-sirius-rabbitmq:source
+    pull_policy: never
+
+  sirius-postgres:
+    build:
+      context: ./sirius-postgres
+      dockerfile: Dockerfile
+    image: sirius-sirius-postgres:source
+    pull_policy: never
+
+  sirius-valkey:
+    build:
+      context: ./sirius-valkey
+      dockerfile: Dockerfile
+    image: sirius-sirius-valkey:source
+    pull_policy: never
+
   sirius-ui:
     build:
       context: ./sirius-ui/

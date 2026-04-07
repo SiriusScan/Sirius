@@ -131,8 +131,9 @@ jobs:
         run: |
           set -e
           TARGETS=".github/workflows docker-compose.yaml docker-stack.swarm.yaml scripts sirius-api sirius-engine sirius-postgres sirius-rabbitmq sirius-ui sirius-valkey"
-          if grep -R --line-number "ghcr.io/siriuscam/" $TARGETS; then
-            echo "::error::Found typoed GHCR namespace 'siriuscam'. Use '${{ env.IMAGE_NAMESPACE }}'."
+          BAD_NAMESPACE="${{ env.REGISTRY }}/sirius""cam/"
+          if grep -R --line-number "$BAD_NAMESPACE" $TARGETS; then
+            echo "::error::Found typoed GHCR namespace '${BAD_NAMESPACE}'. Use '${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/'."
             exit 1
           fi
           echo "Registry namespace guard passed."

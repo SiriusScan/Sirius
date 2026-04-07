@@ -35,8 +35,8 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Build arguments for submodule commit SHAs
-ARG GO_API_COMMIT_SHA=v0.0.16
-ARG APP_SCANNER_COMMIT_SHA=4a47f73
+ARG GO_API_COMMIT_SHA=v0.0.17
+ARG APP_SCANNER_COMMIT_SHA=5213ec4
 ARG APP_TERMINAL_COMMIT_SHA=main
 ARG SIRIUS_NSE_COMMIT_SHA=main
 ARG APP_AGENT_COMMIT_SHA=50b405a
@@ -44,14 +44,10 @@ ARG PINGPP_COMMIT_SHA=master
 
 WORKDIR /repos
 
-# Patch for internal API auth (SIRIUS_API_KEY_FILE + SIRIUS_API_KEY) applied until a tagged go-api release includes it.
-COPY patches/go-api-v0.0.16-internal-auth.patch /tmp/go-api-internal-auth.patch
-
 # Clone go-api (needed as a dependency by other components)
 RUN git clone https://github.com/SiriusScan/go-api.git && \
     cd go-api && \
     git checkout ${GO_API_COMMIT_SHA} && \
-    git apply /tmp/go-api-internal-auth.patch && \
     go mod tidy
 
 # Clone ping++ (fingerprinting engine, needed by app-scanner)

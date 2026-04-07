@@ -107,7 +107,7 @@ main() {
     run_test "sirius-api Runner Build" "docker build -t sirius-api:test ./sirius-api/ --target runner"
 
     # Test 7: logging clients include API key auth on protected logs routes (file/env loader + engine patch)
-    run_test "Logging API Key Contract" "python3 -c \"from pathlib import Path; api_handler = Path('sirius-api/handlers/log_handler.go').read_text(); engine_dockerfile = Path('sirius-engine/Dockerfile').read_text(); assert 'infraauth.LoadSiriusAPIKey' in api_handler; assert 'go-api-v0.0.16-internal-auth.patch' in engine_dockerfile; assert 'git apply' in engine_dockerfile; assert 'X-API-Key' in engine_dockerfile\""
+    run_test "Logging API Key Contract" "python3 -c \"from pathlib import Path; api_handler = Path('sirius-api/handlers/log_handler.go').read_text(); engine_dockerfile = Path('sirius-engine/Dockerfile').read_text(); assert 'infraauth.LoadSiriusAPIKey' in api_handler; assert 'GO_API_COMMIT_SHA=v0.0.17' in engine_dockerfile; assert 'git apply' not in engine_dockerfile\""
 
     # Test 7b: internal API key _FILE + env loader (Go)
     run_test "Internal API Key Loader Unit Tests" "cd sirius-api && go test ./internal/infraauth/... -count=1"

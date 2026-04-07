@@ -108,3 +108,23 @@ jobs:
           verify_digest sirius-postgres
           verify_digest sirius-rabbitmq
           verify_digest sirius-valkey
+
+      - name: Ensure GHCR packages stay public (anonymous pull)
+        env:
+          PUSH_TOKEN: ${{ secrets.GHCR_PUSH_TOKEN }}
+          ADMIN_TOKEN: ${{ secrets.GHCR_PACKAGE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          TOKEN="${ADMIN_TOKEN:-${PUSH_TOKEN:-}}"
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::Skipping public visibility step: no GHCR_PUSH_TOKEN or GHCR_PACKAGE_ADMIN_TOKEN"
+            exit 0
+          fi
+          export GH_TOKEN="$TOKEN"
+          for pkg in sirius-ui sirius-api sirius-engine sirius-postgres sirius-rabbitmq sirius-valkey; do
+            gh api --method PATCH \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/orgs/${{ env.IMAGE_NAMESPACE }}/packages/container/${pkg}" \
+              -f visibility=public
+          done

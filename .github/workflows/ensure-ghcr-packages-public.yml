@@ -1,0 +1,55 @@
+# Open-source expectation: anyone can `docker pull ghcr.io/siriusscan/...` without logging in.
+# Org-scoped images pushed via PAT are often private by default; this workflow sets them public.
+#
+# Token: prefers GHCR_PACKAGE_ADMIN_TOKEN (org owner / package admin) if set; otherwise GHCR_PUSH_TOKEN.
+# The push token must be allowed to change package visibility (classic: write:packages + org role;
+# fine-grained: Organization "Packages" administration). If this job fails with 403, add GHCR_PACKAGE_ADMIN_TOKEN.
+#
+# Run workflow_dispatch once after merging to fix existing private packages immediately.
+# Weekly schedule catches visibility drift if someone sets a package private again.
+
+name: Ensure GHCR packages are public
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "18 5 * * 1"
+
+env:
+  IMAGE_NAMESPACE: siriusscan
+
+jobs:
+  publicize:
+    if: github.repository == 'SiriusScan/Sirius'
+    runs-on: ubuntu-latest
+    steps:
+      - name: PATCH each container package to public visibility
+        env:
+          PUSH_TOKEN: ${{ secrets.GHCR_PUSH_TOKEN }}
+          ADMIN_TOKEN: ${{ secrets.GHCR_PACKAGE_ADMIN_TOKEN }}
+        run: |
+          set -euo pipefail
+          TOKEN="${ADMIN_TOKEN:-${PUSH_TOKEN:-}}"
+          if [ -z "$TOKEN" ]; then
+            echo "::error::Set repository secrets GHCR_PUSH_TOKEN or GHCR_PACKAGE_ADMIN_TOKEN."
+            exit 1
+          fi
+          export GH_TOKEN="$TOKEN"
+          PACKAGES=(
+            sirius-ui
+            sirius-api
+            sirius-engine
+            sirius-postgres
+            sirius-rabbitmq
+            sirius-valkey
+          )
+          for pkg in "${PACKAGES[@]}"; do
+            echo "Setting org/${{ env.IMAGE_NAMESPACE }} package container/${pkg} → public"
+            gh api \
+              --method PATCH \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/orgs/${{ env.IMAGE_NAMESPACE }}/packages/container/${pkg}" \
+              -f visibility=public
+          done
+          echo "All Sirius GHCR packages are set to public (anonymous pull OK)."

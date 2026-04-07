@@ -1,25 +1,144 @@
 # Multi-stage Dockerfile for sirius-engine
 #
-# Stage 1 (builder): Compiles all engine-specific Go services.
-#   Uses golang:1.24-bullseye because app-scanner requires CGO + libpcap.
-#   Pulls pre-built system-monitor and administrator from the shared base image
-#   so they never need to be compiled here.
+# No external GHCR base images: utility Go binaries and engine runtime tools
+# (Nmap from source, RustScan, PowerShell) are built in this file.
 #
-# Stage 2 (development): Hot-reload dev environment.
-#   Based on sirius-base-engine-tools which already contains Nmap 7.95,
-#   RustScan, and PowerShell -- nothing heavy needs to be installed here.
-#
-# Stage 3 (runtime): Production container.
-#   Based on sirius-base-engine-tools for the same reason.
-
-ARG BASE_ENGINE_TOOLS_IMAGE=ghcr.io/siriusscan/sirius-base-engine-tools:latest
-ARG BASE_GO_BUILDER_IMAGE=ghcr.io/siriusscan/sirius-base-go-builder:latest
-
-FROM ${BASE_ENGINE_TOOLS_IMAGE} AS base-engine-tools
-FROM ${BASE_GO_BUILDER_IMAGE} AS base-go-builder
+# Stages: utility-go-binaries, nmap-builder, engine-runtime-base, builder,
+#         development, runtime.
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 1: Builder
+# Utility binaries: system-monitor + administrator
+# ─────────────────────────────────────────────────────────────────────────────
+FROM golang:1.24-alpine AS utility-go-binaries
+
+RUN apk add --no-cache git ca-certificates tzdata
+
+RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
+    cd /tmp/system-monitor && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/system-monitor main.go && \
+    rm -rf /tmp/system-monitor
+
+RUN git clone https://github.com/SiriusScan/app-administrator.git /tmp/administrator && \
+    cd /tmp/administrator && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/administrator main.go && \
+    rm -rf /tmp/administrator
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Nmap compiled from source (build stage only; not shipped in final layers)
+# ─────────────────────────────────────────────────────────────────────────────
+FROM ubuntu:22.04 AS nmap-builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        libpcap-dev \
+        libssl-dev \
+        libssh-dev \
+        libicu-dev \
+        automake \
+        autoconf \
+        libtool \
+        perl \
+        wget \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN cd /tmp && \
+    wget -q https://nmap.org/dist/nmap-7.95.tar.bz2 && \
+    tar xjf nmap-7.95.tar.bz2 && \
+    cd nmap-7.95 && \
+    touch aclocal.m4 configure Makefile.in config.h.in && \
+    find . -name Makefile.in -exec touch {} \; && \
+    ./configure --without-zenmap --without-nmap-update --without-ndiff && \
+    make -j$(nproc) && \
+    make install && \
+    cd / && \
+    rm -rf /tmp/nmap-7.95 /tmp/nmap-7.95.tar.bz2
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Engine runtime base: Nmap binaries + RustScan + PowerShell + runtime packages
+# ─────────────────────────────────────────────────────────────────────────────
+FROM ubuntu:22.04 AS engine-runtime-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        git \
+        ca-certificates \
+        tzdata \
+        libpcap0.8 \
+        libpcap-dev \
+        postgresql-client \
+        libicu70 \
+        libssl3 \
+        libssh-4 \
+        curl \
+        wget \
+        bash \
+        dos2unix \
+        unzip \
+        procps \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=nmap-builder /usr/local/bin/nmap /usr/local/bin/nmap
+COPY --from=nmap-builder /usr/local/share/nmap /usr/local/share/nmap
+
+RUN ARCH=$(uname -m) && \
+    case "$ARCH" in \
+        "aarch64") \
+            wget -q https://github.com/bee-san/RustScan/releases/latest/download/aarch64-linux-rustscan.zip && \
+            unzip aarch64-linux-rustscan.zip && \
+            mv rustscan /usr/local/bin/ && \
+            chmod +x /usr/local/bin/rustscan && \
+            rm aarch64-linux-rustscan.zip \
+            ;; \
+        "x86_64") \
+            wget -q https://github.com/bee-san/RustScan/releases/latest/download/x86_64-linux-rustscan.tar.gz.zip && \
+            unzip x86_64-linux-rustscan.tar.gz.zip && \
+            tar -xzf x86_64-linux-rustscan.tar.gz && \
+            mv rustscan /usr/local/bin/ && \
+            chmod +x /usr/local/bin/rustscan && \
+            rm x86_64-linux-rustscan.tar.gz.zip x86_64-linux-rustscan.tar.gz \
+            ;; \
+        *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+    esac
+
+RUN mkdir -p /opt/microsoft/powershell && \
+    cd /opt/microsoft/powershell && \
+    ARCH=$(uname -m) && \
+    case "$ARCH" in \
+        "aarch64") \
+            wget -q https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-arm64.tar.gz && \
+            tar -xf powershell-7.4.6-linux-arm64.tar.gz && \
+            rm powershell-7.4.6-linux-arm64.tar.gz \
+            ;; \
+        "x86_64") \
+            wget -q https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz && \
+            tar -xf powershell-7.4.6-linux-x64.tar.gz && \
+            rm powershell-7.4.6-linux-x64.tar.gz \
+            ;; \
+        *) echo "Unsupported architecture: $ARCH" && exit 1 ;; \
+    esac && \
+    chmod +x /opt/microsoft/powershell/pwsh && \
+    ln -s /opt/microsoft/powershell/pwsh /usr/bin/pwsh
+
+ENV PATH="/usr/local/bin:${PATH}"
+
+RUN command -v bash     >/dev/null && \
+    command -v curl     >/dev/null && \
+    command -v nmap     >/dev/null && \
+    command -v rustscan >/dev/null && \
+    command -v pwsh     >/dev/null && \
+    command -v psql     >/dev/null && \
+    command -v pkill    >/dev/null
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Builder: engine Go services (CGO + libpcap for app-scanner)
 # ─────────────────────────────────────────────────────────────────────────────
 FROM golang:1.24-bullseye AS builder
 
@@ -92,11 +211,9 @@ RUN git clone https://github.com/SiriusScan/sirius-nse.git && \
     git checkout ${SIRIUS_NSE_COMMIT_SHA}
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 2: Development
-# Based on sirius-base-engine-tools which already contains:
-#   Nmap 7.95, RustScan, PowerShell, all required system packages
+# Development: hot-reload on engine-runtime-base
 # ─────────────────────────────────────────────────────────────────────────────
-FROM base-engine-tools AS development
+FROM engine-runtime-base AS development
 
 WORKDIR /engine
 
@@ -124,9 +241,8 @@ RUN mkdir -p /opt/sirius/nse && chmod -R 755 /opt/sirius
 # Create application directories
 RUN mkdir -p /app-scanner /app-terminal /app-agent /go-api /sirius-nse /system-monitor /app-administrator
 
-# Copy pre-built system-monitor and administrator from shared base
-COPY --from=base-go-builder /usr/local/bin/system-monitor /system-monitor/system-monitor
-COPY --from=base-go-builder /usr/local/bin/administrator /app-administrator/administrator
+COPY --from=utility-go-binaries /usr/local/bin/system-monitor /system-monitor/system-monitor
+COPY --from=utility-go-binaries /usr/local/bin/administrator /app-administrator/administrator
 RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 
 # Copy built applications and repositories from builder stage (used as fallback sources)
@@ -161,11 +277,9 @@ EXPOSE 5174 50051
 ENTRYPOINT ["/start-enhanced.sh"]
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 3: Runtime (production)
-# Based on sirius-base-engine-tools which already contains:
-#   Nmap 7.95, RustScan, PowerShell, all required system packages
+# Runtime (production)
 # ─────────────────────────────────────────────────────────────────────────────
-FROM base-engine-tools AS runtime
+FROM engine-runtime-base AS runtime
 
 WORKDIR /engine
 
@@ -175,9 +289,8 @@ RUN mkdir -p /opt/sirius/nse && chmod -R 755 /opt/sirius
 # Create application directories
 RUN mkdir -p /app-scanner /app-terminal /app-agent /go-api /sirius-nse /system-monitor /app-administrator
 
-# Copy pre-built system-monitor and administrator from shared base
-COPY --from=base-go-builder /usr/local/bin/system-monitor /system-monitor/system-monitor
-COPY --from=base-go-builder /usr/local/bin/administrator /app-administrator/administrator
+COPY --from=utility-go-binaries /usr/local/bin/system-monitor /system-monitor/system-monitor
+COPY --from=utility-go-binaries /usr/local/bin/administrator /app-administrator/administrator
 RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 
 # Copy compiled binaries from builder stage

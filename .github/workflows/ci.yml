@@ -139,51 +139,13 @@ jobs:
           echo "Registry namespace guard passed."
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Verify base images exist in GHCR before any application build starts.
-  # This catches the race condition where Build Base Images and CI both trigger
-  # on the same push (e.g. when base-images/ and Dockerfile change together),
-  # giving a clear error message instead of a cryptic buildkit stack trace.
-  # ─────────────────────────────────────────────────────────────────────────────
-  verify-base-images:
-    name: "Verify Base Images"
-    needs: [detect-changes, guard-registry-namespace]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    steps:
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.GHCR_PUSH_USER }}
-          password: ${{ secrets.GHCR_PUSH_TOKEN }}
-
-      - name: Verify base images exist
-        run: |
-          set -e
-          BASE_GO_BUILDER="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-go-builder:latest"
-          BASE_ENGINE_TOOLS="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-base-engine-tools:latest"
-
-          echo "Checking ${BASE_GO_BUILDER} ..."
-          docker manifest inspect "${BASE_GO_BUILDER}" > /dev/null || {
-            echo "::error::Base image sirius-base-go-builder:latest not found in GHCR."
-            echo "::error::Run the 'Build Base Images' workflow first (Actions → Build Base Images → Run workflow)."
-            exit 1
-          }
-          echo "Checking ${BASE_ENGINE_TOOLS} ..."
-          docker manifest inspect "${BASE_ENGINE_TOOLS}" > /dev/null || {
-            echo "::error::Base image sirius-base-engine-tools:latest not found in GHCR."
-            echo "::error::Run the 'Build Base Images' workflow first (Actions → Build Base Images → Run workflow)."
-            exit 1
-          }
-          echo "All base images verified."
-
-  # ─────────────────────────────────────────────────────────────────────────────
   # Build sirius-ui
   # Native runners per architecture avoid QEMU emulation of npm/Next.js builds.
   # PRs build amd64 only; main/dispatch builds both arches.
   # ─────────────────────────────────────────────────────────────────────────────
   build-ui:
     name: "Build UI (${{ matrix.platform }})"
-    needs: [detect-changes, verify-base-images]
+    needs: [detect-changes, guard-registry-namespace]
     if: needs.detect-changes.outputs.sirius_ui_changes == 'true'
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -296,7 +258,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-api:
     name: "Build API (${{ matrix.platform }})"
-    needs: [detect-changes, verify-base-images]
+    needs: [detect-changes, guard-registry-namespace]
     if: needs.detect-changes.outputs.sirius_api_changes == 'true'
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -425,7 +387,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-engine:
     name: "Build Engine (${{ matrix.platform }})"
-    needs: [detect-changes, verify-base-images]
+    needs: [detect-changes, guard-registry-namespace]
     if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
     runs-on: ${{ matrix.runner }}
     strategy:

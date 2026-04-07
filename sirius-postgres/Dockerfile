@@ -1,8 +1,6 @@
 # Custom PostgreSQL image with system monitoring
 #
-# Local fallback stage for quick-start reliability:
-# build system-monitor directly so compose up works even if GHCR base images
-# are temporarily unavailable.
+# Build system-monitor in-image so the postgres container is self-contained.
 FROM golang:1.24-alpine AS go-binaries
 RUN apk add --no-cache git ca-certificates tzdata && \
     git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \

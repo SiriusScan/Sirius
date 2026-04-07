@@ -1,6 +1,25 @@
 # Multi-stage Dockerfile for sirius-ui with development and production stages
+#
+# system-monitor and administrator are built in this file (no external GHCR base image).
 
-ARG BASE_GO_BUILDER_IMAGE=ghcr.io/siriusscan/sirius-base-go-builder:latest
+# ─────────────────────────────────────────────────────────────────────────────
+# Utility binaries: system-monitor + administrator
+# ─────────────────────────────────────────────────────────────────────────────
+FROM golang:1.24-alpine AS utility-go-binaries
+
+RUN apk add --no-cache git ca-certificates tzdata
+
+RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
+    cd /tmp/system-monitor && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/system-monitor main.go && \
+    rm -rf /tmp/system-monitor
+
+RUN git clone https://github.com/SiriusScan/app-administrator.git /tmp/administrator && \
+    cd /tmp/administrator && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/administrator main.go && \
+    rm -rf /tmp/administrator
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Base stage: common Node.js dependencies
@@ -97,12 +116,8 @@ RUN cp next.config.mjs next.config.mjs.bak && \
     node -e "const fs=require('fs');const p='next.config.mjs';let c=fs.readFileSync(p,'utf8');c=c.replace('  swcMinify: true,','  swcMinify: true,\n  typescript: { ignoreBuildErrors: true },\n  eslint: { ignoreDuringBuilds: true },');fs.writeFileSync(p,c);" && \
     npx next build
 
-FROM ${BASE_GO_BUILDER_IMAGE} AS base-go-builder
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Production runtime stage
-# Pre-built system-monitor and administrator are pulled from the shared
-# sirius-base-go-builder image, eliminating the need to install Go here.
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:18-alpine AS production
 
@@ -120,9 +135,8 @@ WORKDIR /app
 # Create system-monitor directory
 RUN mkdir -p /system-monitor
 
-# Copy pre-built binaries from shared base image (no Go compiler needed here)
-COPY --from=base-go-builder /usr/local/bin/system-monitor /system-monitor/system-monitor
-COPY --from=base-go-builder /usr/local/bin/administrator /app/administrator
+COPY --from=utility-go-binaries /usr/local/bin/system-monitor /system-monitor/system-monitor
+COPY --from=utility-go-binaries /usr/local/bin/administrator /app/administrator
 RUN chmod +x /system-monitor/system-monitor /app/administrator
 
 # Copy built Next.js application from builder stage

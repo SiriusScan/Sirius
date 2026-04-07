@@ -1,10 +1,25 @@
 # Multi-stage Dockerfile for sirius-api
 #
-# Pre-built system-monitor and administrator are sourced from the shared
-# sirius-base-go-builder image so the builder stage only needs to compile
-# the API binary itself.
+# system-monitor and administrator are built in this file (no external GHCR base image).
 
-ARG BASE_GO_BUILDER_IMAGE=ghcr.io/siriusscan/sirius-base-go-builder:latest
+# ─────────────────────────────────────────────────────────────────────────────
+# Utility binaries: system-monitor + administrator
+# ─────────────────────────────────────────────────────────────────────────────
+FROM golang:1.24-alpine AS utility-go-binaries
+
+RUN apk add --no-cache git ca-certificates tzdata
+
+RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
+    cd /tmp/system-monitor && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/system-monitor main.go && \
+    rm -rf /tmp/system-monitor
+
+RUN git clone https://github.com/SiriusScan/app-administrator.git /tmp/administrator && \
+    cd /tmp/administrator && \
+    go mod download && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/administrator main.go && \
+    rm -rf /tmp/administrator
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Development stage: for local development with volume mounts
@@ -54,12 +69,8 @@ RUN go mod download
 
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o sirius-api main.go
 
-FROM ${BASE_GO_BUILDER_IMAGE} AS base-go-builder
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Runtime stage
-# system-monitor and administrator are copied from the shared base image,
-# so this stage does not need to clone or compile any external Go repos.
 # ─────────────────────────────────────────────────────────────────────────────
 FROM alpine:latest AS runner
 
@@ -78,9 +89,8 @@ RUN mkdir -p /system-monitor
 # Copy API binary from builder stage
 COPY --from=builder /app/sirius-api /app/sirius-api
 
-# Copy pre-built binaries from shared base image (no extra git clones needed)
-COPY --from=base-go-builder /usr/local/bin/system-monitor /system-monitor/system-monitor
-COPY --from=base-go-builder /usr/local/bin/administrator /app/administrator
+COPY --from=utility-go-binaries /usr/local/bin/system-monitor /system-monitor/system-monitor
+COPY --from=utility-go-binaries /usr/local/bin/administrator /app/administrator
 
 RUN chmod +x /system-monitor/system-monitor /app/administrator /app/sirius-api
 

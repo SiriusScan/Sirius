@@ -1,4 +1,25 @@
 services:
+  sirius-rabbitmq:
+    build:
+      context: ./sirius-rabbitmq
+      dockerfile: Dockerfile
+    image: sirius-sirius-rabbitmq:source
+    pull_policy: never
+
+  sirius-postgres:
+    build:
+      context: ./sirius-postgres
+      dockerfile: Dockerfile
+    image: sirius-sirius-postgres:source
+    pull_policy: never
+
+  sirius-valkey:
+    build:
+      context: ./sirius-valkey
+      dockerfile: Dockerfile
+    image: sirius-sirius-valkey:source
+    pull_policy: never
+
   sirius-ui:
     build:
       context: ./sirius-ui

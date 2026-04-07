@@ -51,11 +51,32 @@ jobs:
             -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ github.event.inputs.target_tag }}" \
             "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ github.event.inputs.source_tag }}"
 
+      - name: Publish sirius-postgres release tag
+        run: |
+          docker buildx imagetools create \
+            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-postgres:${{ github.event.inputs.target_tag }}" \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-postgres:${{ github.event.inputs.source_tag }}"
+
+      - name: Publish sirius-rabbitmq release tag
+        run: |
+          docker buildx imagetools create \
+            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-rabbitmq:${{ github.event.inputs.target_tag }}" \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-rabbitmq:${{ github.event.inputs.source_tag }}"
+
+      - name: Publish sirius-valkey release tag
+        run: |
+          docker buildx imagetools create \
+            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-valkey:${{ github.event.inputs.target_tag }}" \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-valkey:${{ github.event.inputs.source_tag }}"
+
       - name: Verify published manifests
         run: |
           docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ github.event.inputs.target_tag }}" > /dev/null
           docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ github.event.inputs.target_tag }}" > /dev/null
           docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ github.event.inputs.target_tag }}" > /dev/null
+          docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-postgres:${{ github.event.inputs.target_tag }}" > /dev/null
+          docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-rabbitmq:${{ github.event.inputs.target_tag }}" > /dev/null
+          docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-valkey:${{ github.event.inputs.target_tag }}" > /dev/null
           echo "Published release image tags: ${{ github.event.inputs.target_tag }}"
 
       - name: Verify source and release digest parity
@@ -84,3 +105,6 @@ jobs:
           verify_digest sirius-ui
           verify_digest sirius-api
           verify_digest sirius-engine
+          verify_digest sirius-postgres
+          verify_digest sirius-rabbitmq
+          verify_digest sirius-valkey

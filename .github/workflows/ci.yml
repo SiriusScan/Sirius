@@ -31,6 +31,7 @@ jobs:
       sirius_ui_changes: ${{ steps.changes.outputs.sirius_ui_changes }}
       sirius_api_changes: ${{ steps.changes.outputs.sirius_api_changes }}
       sirius_engine_changes: ${{ steps.changes.outputs.sirius_engine_changes }}
+      sirius_infra_changes: ${{ steps.changes.outputs.sirius_infra_changes }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -62,6 +63,7 @@ jobs:
                 echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
                 echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
                 echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
+                echo "sirius_infra_changes=true" >> $GITHUB_OUTPUT
                 ;;
             esac
           else
@@ -90,12 +92,18 @@ jobs:
               echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
             fi
 
+            if grep -q -E "^(sirius-postgres/|sirius-rabbitmq/|sirius-valkey/|rabbitmq/)" changed_files.txt; then
+              echo "Infrastructure changes detected"
+              echo "sirius_infra_changes=true" >> $GITHUB_OUTPUT
+            fi
+
             # Dockerfile or CI changes trigger a full rebuild
             if grep -q -E "(Dockerfile|\.github/|docker-compose)" changed_files.txt; then
               echo "Docker or CI changes detected, rebuilding everything"
               echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
               echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
               echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
+              echo "sirius_infra_changes=true" >> $GITHUB_OUTPUT
             fi
 
             # No specific changes but something did change: full rebuild
@@ -104,6 +112,7 @@ jobs:
               echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
               echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
               echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
+              echo "sirius_infra_changes=true" >> $GITHUB_OUTPUT
             fi
           fi
 
@@ -529,6 +538,110 @@ jobs:
         run: |
           TAG="${{ steps.meta.outputs.image_tag }}"
           BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine"
+
+          docker buildx imagetools create -t ${BASE}:${TAG} \
+            ${BASE}:${TAG}-amd64 \
+            ${BASE}:${TAG}-arm64
+
+          if [ "${{ steps.meta.outputs.also_tag_beta }}" == "true" ]; then
+            docker buildx imagetools create -t ${BASE}:beta \
+              ${BASE}:${TAG}-amd64 \
+              ${BASE}:${TAG}-arm64
+          fi
+
+          echo "Published ${BASE}:${TAG} (amd64 + arm64)"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Build infrastructure images used by the default public stack.
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-infra:
+    name: "Build Infra (${{ matrix.service }}, ${{ matrix.platform }})"
+    needs: [detect-changes, guard-registry-namespace]
+    if: needs.detect-changes.outputs.sirius_infra_changes == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [sirius-postgres, sirius-rabbitmq, sirius-valkey]
+        platform: ${{ github.event_name == 'pull_request' && fromJSON('["amd64"]') || fromJSON('["amd64","arm64"]') }}
+        include:
+          - platform: amd64
+            runner: blacksmith-4vcpu-ubuntu-2404
+          - platform: arm64
+            runner: blacksmith-4vcpu-ubuntu-2404-arm
+
+    steps:
+      - name: Checkout Sirius repository
+        uses: actions/checkout@v4
+
+      - name: Generate image tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            TAG="pr-${{ github.event.number }}"
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            TAG="latest"
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            TAG="latest"
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          else
+            TAG="dev"
+          fi
+          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Build and push infra image (${{ matrix.service }}, ${{ matrix.platform }})
+        uses: useblacksmith/build-push-action@v2
+        with:
+          context: ./${{ matrix.service }}
+          platforms: linux/${{ matrix.platform }}
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.service }}:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
+
+  merge-infra:
+    name: "Merge Infra Manifest (${{ matrix.service }})"
+    needs: [detect-changes, build-infra]
+    if: needs.detect-changes.outputs.sirius_infra_changes == 'true' && github.event_name != 'pull_request'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [sirius-postgres, sirius-rabbitmq, sirius-valkey]
+    steps:
+      - name: Generate image tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            echo "image_tag=latest" >> $GITHUB_OUTPUT
+            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Create and push multi-arch manifest for infra image
+        run: |
+          TAG="${{ steps.meta.outputs.image_tag }}"
+          BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.service }}"
 
           docker buildx imagetools create -t ${BASE}:${TAG} \
             ${BASE}:${TAG}-amd64 \

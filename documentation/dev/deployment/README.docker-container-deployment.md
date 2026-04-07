@@ -83,6 +83,9 @@ Sirius images are automatically built and pushed to GitHub Container Registry on
 - **UI**: `ghcr.io/siriusscan/sirius-ui:{tag}`
 - **API**: `ghcr.io/siriusscan/sirius-api:{tag}`
 - **Engine**: `ghcr.io/siriusscan/sirius-engine:{tag}`
+- **Postgres**: `ghcr.io/siriusscan/sirius-postgres:{tag}`
+- **RabbitMQ**: `ghcr.io/siriusscan/sirius-rabbitmq:{tag}`
+- **Valkey**: `ghcr.io/siriusscan/sirius-valkey:{tag}`
 
 ### Image Tagging Strategy
 

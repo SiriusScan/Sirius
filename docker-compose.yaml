@@ -1,8 +1,6 @@
 # SiriusScan Base Docker Compose Configuration
 # This is the base configuration that works for most environments.
-# Infra services (postgres/rabbitmq/valkey) build system-monitor locally
-# during image build so standard startup is resilient if GHCR base images
-# are unavailable.
+# Standard startup pulls published images for the full stack.
 # Use with: docker compose up -d
 #
 # Runtime API URL contract (single source of truth in .env):
@@ -16,9 +14,8 @@ name: sirius
 
 services:
   sirius-rabbitmq:
-    build:
-      context: ./sirius-rabbitmq
-      dockerfile: Dockerfile
+    image: ghcr.io/siriusscan/sirius-rabbitmq:${IMAGE_TAG:-latest}
+    pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
     restart: unless-stopped
     container_name: sirius-rabbitmq
     hostname: sirius-rabbitmq
@@ -46,9 +43,8 @@ services:
           cpus: "0.25"
 
   sirius-postgres:
-    build:
-      context: ./sirius-postgres
-      dockerfile: Dockerfile
+    image: ghcr.io/siriusscan/sirius-postgres:${IMAGE_TAG:-latest}
+    pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
     restart: unless-stopped
     container_name: sirius-postgres
     hostname: sirius-postgres
@@ -77,9 +73,8 @@ services:
           cpus: "0.25"
 
   sirius-valkey:
-    build:
-      context: ./sirius-valkey
-      dockerfile: Dockerfile
+    image: ghcr.io/siriusscan/sirius-valkey:${IMAGE_TAG:-latest}
+    pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
     restart: unless-stopped
     container_name: sirius-valkey
     hostname: sirius-valkey

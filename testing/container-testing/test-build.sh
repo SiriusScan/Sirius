@@ -87,31 +87,34 @@ main() {
     # Test 2: Development Docker Compose Configuration
     run_test "Development Docker Compose Config" "docker compose -f docker-compose.yaml -f docker-compose.dev.yaml config --quiet"
 
-    # Test 3: sirius-postgres entrypoint contract
+    # Test 3: Source Build Docker Compose Configuration
+    run_test "Source Build Docker Compose Config" "docker compose -f docker-compose.yaml -f docker-compose.build.yaml config --quiet"
+
+    # Test 4: sirius-postgres entrypoint contract
     run_test "sirius-postgres Entrypoint Contract" "docker build -t sirius-postgres:test ./sirius-postgres/ && docker run --rm --entrypoint /bin/sh sirius-postgres:test -lc 'test -x /usr/local/bin/start-with-monitor.sh && /bin/sh -n /usr/local/bin/start-with-monitor.sh'"
     
-    # Test 4: sirius-ui Production Build (base docker-compose.yaml is production-ready)
+    # Test 5: sirius-ui Production Build (base docker-compose.yaml is production-ready)
     run_test "sirius-ui Production Build" "docker build -t sirius-ui:test ./sirius-ui/ --target production"
     
-    # Test 5: sirius-api Runner Build
+    # Test 6: sirius-api Runner Build
     run_test "sirius-api Runner Build" "docker build -t sirius-api:test ./sirius-api/ --target runner"
     
-    # Test 6: sirius-engine Development Build
+    # Test 7: sirius-engine Development Build
     run_test "sirius-engine Development Build" "docker build -t sirius-engine:dev ./sirius-engine/ --target development"
     
-    # Test 7: sirius-engine Runtime Build
+    # Test 8: sirius-engine Runtime Build
     run_test "sirius-engine Runtime Build" "docker build -t sirius-engine:runtime ./sirius-engine/ --target runtime"
 
-    # Test 8: sirius-engine runtime startup contract binaries
+    # Test 9: sirius-engine runtime startup contract binaries
     run_test "sirius-engine Runtime Binary Contract" "docker run --rm --entrypoint /bin/bash sirius-engine:runtime -lc 'command -v bash >/dev/null && command -v curl >/dev/null && command -v psql >/dev/null && command -v pkill >/dev/null && command -v nmap >/dev/null && command -v rustscan >/dev/null && command -v pwsh >/dev/null'"
 
-    # Test 9: sirius-engine entrypoint syntax contract
+    # Test 10: sirius-engine entrypoint syntax contract
     run_test "sirius-engine Entrypoint Syntax Contract" "docker run --rm --entrypoint /bin/bash sirius-engine:runtime -lc '/bin/bash -n /start-enhanced.sh && grep -q \"validate_required_binary \\\"psql\\\"\" /start-enhanced.sh'"
     
-    # Test 10: sirius-ui Development Build
+    # Test 11: sirius-ui Development Build
     run_test "sirius-ui Development Build" "docker build -t sirius-ui:dev ./sirius-ui/ --target development"
     
-    # Test 11: sirius-api Development Build
+    # Test 12: sirius-api Development Build
     run_test "sirius-api Development Build" "docker build -t sirius-api:dev ./sirius-api/ --target development"
     
     # Cleanup test images

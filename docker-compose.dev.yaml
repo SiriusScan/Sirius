@@ -4,6 +4,12 @@
 # Builds Postgres, Valkey, and RabbitMQ from ./sirius-* Dockerfiles (no GHCR pull).
 # sirius-ui / sirius-api / sirius-engine use local dev images with pull_policy: never.
 # For registry-based infra instead, use docker-compose.yaml alone or add IMAGE_TAG + ghcr login.
+#
+# Linux "Permission denied" on bind mounts: sirius-ui and sirius-api run as UID/GID 1001 by
+# default. If the repo is owned by root (e.g. /opt/Sirius), webpack/go cannot write into mounts.
+# Fix either:
+#   • chown -R 1001:1001 sirius-ui sirius-api (and optional minor-projects paths you mount), or
+#   • Add to .env: SIRIUS_DEV_CONTAINER_UID=0 SIRIUS_DEV_CONTAINER_GID=0 (dev-only; runs as root in those containers).
 
 services:
   sirius-rabbitmq:
@@ -37,6 +43,7 @@ services:
     # Override registry image with local dev build
     image: sirius-sirius-ui:dev
     pull_policy: never
+    user: "${SIRIUS_DEV_CONTAINER_UID:-1001}:${SIRIUS_DEV_CONTAINER_GID:-1001}"
     volumes:
       # Mount source code for live reloading
       - ./sirius-ui/src:/app/src
@@ -100,6 +107,7 @@ services:
     # Override image for dev builds
     image: sirius-sirius-api:dev
     pull_policy: never
+    user: "${SIRIUS_DEV_CONTAINER_UID:-1001}:${SIRIUS_DEV_CONTAINER_GID:-1001}"
     volumes:
       - ./sirius-api:/api
       # Enable for local go-api development with source-aware functionality:

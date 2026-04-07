@@ -3,7 +3,7 @@ title: "Sirius Development Setup"
 description: "Comprehensive guide for setting up and using the Sirius development environment, including standard and extended development modes with local repository integration."
 template: "TEMPLATE.documentation-standard"
 version: "1.0.0"
-last_updated: "2025-01-03"
+last_updated: "2026-04-07"
 author: "Development Team"
 tags: ["development", "setup", "docker", "workflow"]
 categories: ["development", "setup"]
@@ -126,6 +126,27 @@ Sirius/
 ```
 
 ## Troubleshooting
+
+### Permission denied (Linux, Docker dev bind mounts)
+
+`docker-compose.dev.yaml` runs **sirius-ui** and **sirius-api** as UID/GID **1001** (matching the image users). If you cloned the repo as **root** or files under `sirius-ui/` / `sirius-api/` are root-owned, processes inside the container get **EACCES** when Next.js or `go build` writes into mounted directories.
+
+**Preferred:** fix ownership on the host (adjust path to your checkout):
+
+```bash
+sudo chown -R 1001:1001 sirius-ui sirius-api
+# If you mount minor-projects into those containers:
+sudo chown -R 1001:1001 ../minor-projects/go-api ../minor-projects/app-system-monitor ../minor-projects/app-administrator
+```
+
+**Quick dev-only workaround:** in `.env` set:
+
+```bash
+SIRIUS_DEV_CONTAINER_UID=0
+SIRIUS_DEV_CONTAINER_GID=0
+```
+
+Then recreate containers: `docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up --build -d --force-recreate`. This runs those two services as root inside the container (acceptable for a local lab, not for production images).
 
 ### Volume Mounts Not Working
 

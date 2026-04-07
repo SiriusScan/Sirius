@@ -12,6 +12,12 @@
 # Stage 3 (runtime): Production container.
 #   Based on sirius-base-engine-tools for the same reason.
 
+ARG BASE_ENGINE_TOOLS_IMAGE=ghcr.io/siriusscan/sirius-base-engine-tools:latest
+ARG BASE_GO_BUILDER_IMAGE=ghcr.io/siriusscan/sirius-base-go-builder:latest
+
+FROM ${BASE_ENGINE_TOOLS_IMAGE} AS base-engine-tools
+FROM ${BASE_GO_BUILDER_IMAGE} AS base-go-builder
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 1: Builder
 # ─────────────────────────────────────────────────────────────────────────────
@@ -90,7 +96,7 @@ RUN git clone https://github.com/SiriusScan/sirius-nse.git && \
 # Based on sirius-base-engine-tools which already contains:
 #   Nmap 7.95, RustScan, PowerShell, all required system packages
 # ─────────────────────────────────────────────────────────────────────────────
-FROM ghcr.io/siriusscan/sirius-base-engine-tools:latest AS development
+FROM base-engine-tools AS development
 
 WORKDIR /engine
 
@@ -119,8 +125,8 @@ RUN mkdir -p /opt/sirius/nse && chmod -R 755 /opt/sirius
 RUN mkdir -p /app-scanner /app-terminal /app-agent /go-api /sirius-nse /system-monitor /app-administrator
 
 # Copy pre-built system-monitor and administrator from shared base
-COPY --from=ghcr.io/siriusscan/sirius-base-go-builder:latest /usr/local/bin/system-monitor /system-monitor/system-monitor
-COPY --from=ghcr.io/siriusscan/sirius-base-go-builder:latest /usr/local/bin/administrator /app-administrator/administrator
+COPY --from=base-go-builder /usr/local/bin/system-monitor /system-monitor/system-monitor
+COPY --from=base-go-builder /usr/local/bin/administrator /app-administrator/administrator
 RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 
 # Copy built applications and repositories from builder stage (used as fallback sources)
@@ -159,7 +165,7 @@ ENTRYPOINT ["/start-enhanced.sh"]
 # Based on sirius-base-engine-tools which already contains:
 #   Nmap 7.95, RustScan, PowerShell, all required system packages
 # ─────────────────────────────────────────────────────────────────────────────
-FROM ghcr.io/siriusscan/sirius-base-engine-tools:latest AS runtime
+FROM base-engine-tools AS runtime
 
 WORKDIR /engine
 
@@ -170,8 +176,8 @@ RUN mkdir -p /opt/sirius/nse && chmod -R 755 /opt/sirius
 RUN mkdir -p /app-scanner /app-terminal /app-agent /go-api /sirius-nse /system-monitor /app-administrator
 
 # Copy pre-built system-monitor and administrator from shared base
-COPY --from=ghcr.io/siriusscan/sirius-base-go-builder:latest /usr/local/bin/system-monitor /system-monitor/system-monitor
-COPY --from=ghcr.io/siriusscan/sirius-base-go-builder:latest /usr/local/bin/administrator /app-administrator/administrator
+COPY --from=base-go-builder /usr/local/bin/system-monitor /system-monitor/system-monitor
+COPY --from=base-go-builder /usr/local/bin/administrator /app-administrator/administrator
 RUN chmod +x /system-monitor/system-monitor /app-administrator/administrator
 
 # Copy compiled binaries from builder stage

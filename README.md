@@ -47,6 +47,7 @@ The installer step is always the same. Only the `docker compose up` command chan
 |------|---------|----------|
 | **Standard** | `docker compose up -d` | Most users -- pulls release images from GHCR |
 | **Development** | `docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d` | Live-reload for local code work |
+| **Source Build** | `docker compose -f docker-compose.yaml -f docker-compose.build.yaml up -d --build` | Explicit local application builds |
 | **Production** | `docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d` | Hardened settings, `pull_policy: always` |
 
 ### Non-interactive setup (CI / Terraform / automation)

@@ -120,7 +120,7 @@ docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build
 
 # Or for a clean start
 docker compose -f docker-compose.yaml -f docker-compose.dev.yaml down -v
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build
 ```
 
 **⚠️ Important**: The `docker-compose.dev.yaml` file is an override file, not a standalone configuration. You must specify both the base configuration (`docker-compose.yaml`) and the development overrides (`docker-compose.dev.yaml`) when starting services in development mode.

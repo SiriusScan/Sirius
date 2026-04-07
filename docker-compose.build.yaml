@@ -1,0 +1,31 @@
+services:
+  sirius-ui:
+    build:
+      context: ./sirius-ui
+      dockerfile: Dockerfile
+      target: production
+      args:
+        BASE_GO_BUILDER_IMAGE: ${SIRIUS_BASE_GO_BUILDER_IMAGE:-ghcr.io/siriusscan/sirius-base-go-builder:latest}
+    image: sirius-sirius-ui:source
+    pull_policy: never
+
+  sirius-api:
+    build:
+      context: ./sirius-api
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        BASE_GO_BUILDER_IMAGE: ${SIRIUS_BASE_GO_BUILDER_IMAGE:-ghcr.io/siriusscan/sirius-base-go-builder:latest}
+    image: sirius-sirius-api:source
+    pull_policy: never
+
+  sirius-engine:
+    build:
+      context: ./sirius-engine
+      dockerfile: Dockerfile
+      target: runtime
+      args:
+        BASE_GO_BUILDER_IMAGE: ${SIRIUS_BASE_GO_BUILDER_IMAGE:-ghcr.io/siriusscan/sirius-base-go-builder:latest}
+        BASE_ENGINE_TOOLS_IMAGE: ${SIRIUS_BASE_ENGINE_TOOLS_IMAGE:-ghcr.io/siriusscan/sirius-base-engine-tools:latest}
+    image: sirius-sirius-engine:source
+    pull_policy: never

@@ -539,7 +539,7 @@ export IMAGE_TAG="${sirius_branch:-latest}"
 
 ### Fallback to Local Builds
 
-If registry images are unavailable, you can fall back to local builds by modifying the bootstrap script to use `docker compose up -d --build` instead of `docker compose up -d`.
+If registry images are unavailable, you can fall back to local builds by using `docker compose -f docker-compose.yaml -f docker-compose.build.yaml up -d --build` instead of `docker compose up -d`.
 
 For more details, see [Docker Container Deployment Guide](../deployment/README.docker-container-deployment.md).
 

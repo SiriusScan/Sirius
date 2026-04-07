@@ -33,7 +33,19 @@ docker compose -f docker-compose.installer.yaml run --rm sirius-installer
 docker compose up -d
 ```
 
-For advanced local development, follow [`documentation/contributing.md`](./documentation/contributing.md).
+For advanced local development or explicit source builds:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.build.yaml up -d --build
+```
+
+For live development:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build
+```
+
+For more setup options, follow [`documentation/contributing.md`](./documentation/contributing.md).
 
 ### Windows Development
 

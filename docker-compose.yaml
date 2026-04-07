@@ -105,12 +105,9 @@ services:
           cpus: "0.1"
 
   sirius-ui:
-    build:
-      context: ./sirius-ui
-      dockerfile: Dockerfile
     # Runtime contract:
     # - release mode: IMAGE_TAG=<tag> + SIRIUS_IMAGE_PULL_POLICY=always
-    # - source mode: SIRIUS_IMAGE_PULL_POLICY=never + docker compose up --build
+    # - source mode: add docker-compose.build.yaml with --build
     image: ghcr.io/siriusscan/sirius-ui:${IMAGE_TAG:-latest}
     pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
     container_name: sirius-ui
@@ -154,9 +151,6 @@ services:
           cpus: "0.5"
 
   sirius-api:
-    build:
-      context: ./sirius-api
-      dockerfile: Dockerfile
     image: ghcr.io/siriusscan/sirius-api:${IMAGE_TAG:-latest}
     pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
     container_name: sirius-api
@@ -200,9 +194,6 @@ services:
       retries: 3
 
   sirius-engine:
-    build:
-      context: ./sirius-engine
-      dockerfile: Dockerfile
     image: ghcr.io/siriusscan/sirius-engine:${IMAGE_TAG:-latest}
     pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
     container_name: sirius-engine

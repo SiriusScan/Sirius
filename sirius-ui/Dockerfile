@@ -1,5 +1,7 @@
 # Multi-stage Dockerfile for sirius-ui with development and production stages
 
+ARG BASE_GO_BUILDER_IMAGE=ghcr.io/siriusscan/sirius-base-go-builder:latest
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Base stage: common Node.js dependencies
 # ─────────────────────────────────────────────────────────────────────────────
@@ -95,6 +97,8 @@ RUN cp next.config.mjs next.config.mjs.bak && \
     node -e "const fs=require('fs');const p='next.config.mjs';let c=fs.readFileSync(p,'utf8');c=c.replace('  swcMinify: true,','  swcMinify: true,\n  typescript: { ignoreBuildErrors: true },\n  eslint: { ignoreDuringBuilds: true },');fs.writeFileSync(p,c);" && \
     npx next build
 
+FROM ${BASE_GO_BUILDER_IMAGE} AS base-go-builder
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Production runtime stage
 # Pre-built system-monitor and administrator are pulled from the shared
@@ -117,8 +121,8 @@ WORKDIR /app
 RUN mkdir -p /system-monitor
 
 # Copy pre-built binaries from shared base image (no Go compiler needed here)
-COPY --from=ghcr.io/siriusscan/sirius-base-go-builder:latest /usr/local/bin/system-monitor /system-monitor/system-monitor
-COPY --from=ghcr.io/siriusscan/sirius-base-go-builder:latest /usr/local/bin/administrator /app/administrator
+COPY --from=base-go-builder /usr/local/bin/system-monitor /system-monitor/system-monitor
+COPY --from=base-go-builder /usr/local/bin/administrator /app/administrator
 RUN chmod +x /system-monitor/system-monitor /app/administrator
 
 # Copy built Next.js application from builder stage

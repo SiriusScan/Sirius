@@ -112,7 +112,7 @@ start_dev() {
         docker compose -f docker-compose.yaml -f docker-compose.override.yaml -f docker-compose.local.yaml up -d
     else
         echo "🔧 Starting standard development environment..."
-        docker compose up -d
+        docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
     fi
     
     echo ""

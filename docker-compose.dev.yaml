@@ -9,6 +9,7 @@ services:
       dockerfile: Dockerfile
       target: development # Use development stage
       args:
+        BASE_GO_BUILDER_IMAGE: ${SIRIUS_BASE_GO_BUILDER_IMAGE:-ghcr.io/siriusscan/sirius-base-go-builder:latest}
         NEXT_PUBLIC_CLIENTVAR: "clientvar"
     # Override registry image with local dev build
     image: sirius-sirius-ui:dev
@@ -72,6 +73,8 @@ services:
     build:
       context: ./sirius-api/
       target: development # Use development stage
+      args:
+        BASE_GO_BUILDER_IMAGE: ${SIRIUS_BASE_GO_BUILDER_IMAGE:-ghcr.io/siriusscan/sirius-base-go-builder:latest}
     # Override image for dev builds
     image: sirius-sirius-api:dev
     pull_policy: never
@@ -105,6 +108,9 @@ services:
     build:
       context: ./sirius-engine/
       target: development # Use development stage
+      args:
+        BASE_GO_BUILDER_IMAGE: ${SIRIUS_BASE_GO_BUILDER_IMAGE:-ghcr.io/siriusscan/sirius-base-go-builder:latest}
+        BASE_ENGINE_TOOLS_IMAGE: ${SIRIUS_BASE_ENGINE_TOOLS_IMAGE:-ghcr.io/siriusscan/sirius-base-engine-tools:latest}
     # Override image for dev builds
     image: sirius-sirius-engine:dev
     pull_policy: never

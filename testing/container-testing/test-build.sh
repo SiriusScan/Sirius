@@ -80,7 +80,7 @@ main() {
     log ""
     
     cd "$PROJECT_ROOT"
-    
+
     # Test 1: Base Docker Compose Configuration
     run_test "Base Docker Compose Config" "docker compose config --quiet"
     

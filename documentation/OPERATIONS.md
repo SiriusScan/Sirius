@@ -13,9 +13,8 @@ docker compose down -v --remove-orphans
 # 2) Generate runtime secrets/config
 docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
 
-# 3) Build from local source deterministically (no registry pulls)
-env -u SIRIUS_API_KEY -u POSTGRES_PASSWORD -u NEXTAUTH_SECRET -u INITIAL_ADMIN_PASSWORD \
-SIRIUS_IMAGE_PULL_POLICY=never docker compose up -d --build
+# 3) Build from local source deterministically
+docker compose -f docker-compose.yaml -f docker-compose.build.yaml up -d --build
 
 # 4) Confirm all services are healthy
 docker compose ps
@@ -150,9 +149,8 @@ docker system prune -a -f
 # Recreate .env using installer (required after reset)
 docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
 
-# Fresh start without shell variable shadowing
-env -u SIRIUS_API_KEY -u POSTGRES_PASSWORD -u NEXTAUTH_SECRET -u INITIAL_ADMIN_PASSWORD \
-SIRIUS_IMAGE_PULL_POLICY=never docker compose up -d --build
+# Fresh source rebuild
+docker compose -f docker-compose.yaml -f docker-compose.build.yaml up -d --build
 
 # Verify auth contract before interacting with UI
 bash scripts/verify-runtime-auth-contract.sh

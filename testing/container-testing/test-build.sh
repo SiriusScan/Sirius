@@ -110,7 +110,7 @@ main() {
     run_test "Logging API Key Contract" "python3 -c \"from pathlib import Path; api_handler = Path('sirius-api/handlers/log_handler.go').read_text(); engine_dockerfile = Path('sirius-engine/Dockerfile').read_text(); assert 'infraauth.LoadSiriusAPIKey' in api_handler; assert 'GO_API_COMMIT_SHA=v0.0.17' in engine_dockerfile; assert 'git apply' not in engine_dockerfile\""
 
     # Test 7b: internal API key _FILE + env loader (Go)
-    run_test "Internal API Key Loader Unit Tests" "cd sirius-api && go test ./internal/infraauth/... -count=1"
+    run_test "Internal API Key Loader Unit Tests" "( cd sirius-api && go test ./internal/infraauth/... -count=1 )"
     
     # Test 8: sirius-engine Development Build
     run_test "sirius-engine Development Build" "docker build -t sirius-engine:dev ./sirius-engine/ --target development"

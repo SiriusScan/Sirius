@@ -46,3 +46,26 @@ func TestLoadSiriusAPIKey_Missing(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestLoadSiriusAPIKey_MissingFileUsesEnv(t *testing.T) {
+	t.Setenv("SIRIUS_API_KEY_FILE", filepath.Join(t.TempDir(), "nonexistent-secret"))
+	t.Setenv("SIRIUS_API_KEY", "env-when-file-missing")
+
+	got, err := LoadSiriusAPIKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "env-when-file-missing" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestLoadSiriusAPIKey_MissingFileNoEnv(t *testing.T) {
+	t.Setenv("SIRIUS_API_KEY_FILE", filepath.Join(t.TempDir(), "nonexistent-secret"))
+	t.Setenv("SIRIUS_API_KEY", "")
+
+	_, err := LoadSiriusAPIKey()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}

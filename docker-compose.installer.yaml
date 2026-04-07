@@ -1,3 +1,4 @@
+# Installer writes .env and secrets/sirius_api_key.txt (internal API key) into the repo root via the workspace mount.
 services:
   sirius-installer:
     image: sirius-installer:local

@@ -94,6 +94,11 @@ func EnsureRequired(values map[string]string, opts Options) (map[string]string, 
 		values["DATABASE_URL"] = BuildDatabaseURL(values)
 	}
 
+	// Default in-container path for Docker Compose secret mount (see docker-compose.yaml).
+	if strings.TrimSpace(values["SIRIUS_API_KEY"]) != "" && strings.TrimSpace(values["SIRIUS_API_KEY_FILE"]) == "" {
+		values["SIRIUS_API_KEY_FILE"] = "/run/secrets/sirius_api_key"
+	}
+
 	return values, generated, nil
 }
 

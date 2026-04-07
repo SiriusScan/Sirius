@@ -97,6 +97,10 @@ func run(opts cliOptions) error {
 		return err
 	}
 
+	if err := writeSiriusAPISecretFile(opts.OutputPath, finalVals["SIRIUS_API_KEY"]); err != nil {
+		return fmt.Errorf("write internal API secret file: %w", err)
+	}
+
 	if !opts.Quiet {
 		fmt.Printf("Sirius installer wrote %s\n", opts.OutputPath)
 		fmt.Println("Required startup secrets are configured.")
@@ -159,6 +163,29 @@ func loadOrEmpty(path string, allowMissing bool) (*config.EnvFile, error) {
 		return config.NewEmptyEnvFile(), nil
 	}
 	return nil, err
+}
+
+// writeSiriusAPISecretFile writes secrets/sirius_api_key.txt next to the .env file
+// so docker compose can mount it as the sirius_api_key secret.
+func writeSiriusAPISecretFile(envOutputPath, apiKey string) error {
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey == "" {
+		return fmt.Errorf("SIRIUS_API_KEY is empty; cannot write secrets/sirius_api_key.txt")
+	}
+	rootDir := filepath.Dir(envOutputPath)
+	if rootDir == "" || rootDir == "." {
+		rootDir = "."
+	}
+	secDir := filepath.Join(rootDir, "secrets")
+	if err := os.MkdirAll(secDir, 0o700); err != nil {
+		return fmt.Errorf("create secrets directory: %w", err)
+	}
+	path := filepath.Join(secDir, "sirius_api_key.txt")
+	content := apiKey + "\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		return err
+	}
+	return nil
 }
 
 func writeSecure(path, content string) error {

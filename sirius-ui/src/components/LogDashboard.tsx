@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -19,17 +19,13 @@ import {
 } from '~/components/lib/ui/select';
 import { RefreshCw, Search, Filter, AlertTriangle, Info, Bug, AlertCircle } from 'lucide-react';
 import { logService, LogEntry, LogRetrievalRequest, LogStatsResponse } from '~/services/logService';
+import { api } from '~/utils/api';
 
 interface LogDashboardProps {
   className?: string;
 }
 
 export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [stats, setStats] = useState<LogStatsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [limit] = useState(50);
 
@@ -65,69 +61,35 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
     return req;
   }, [serviceFilter, levelFilter, searchQuery, limit, offset]);
 
-  // Load logs
-  const loadLogs = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await logService.getLogsWithRetry(request);
-      setLogs(response.logs);
-      setTotal(response.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load logs');
-      console.error('Failed to load logs:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const trpcListInput = useMemo(
+    () => ({
+      limit: request.limit,
+      offset: request.offset,
+      service: request.service,
+      level: request.level,
+      subcomponent: request.subcomponent,
+      search: request.search,
+    }),
+    [request],
+  );
 
-  // Load stats
-  const loadStats = async () => {
-    try {
-      const statsData = await logService.getLogStatsWithRetry();
-      setStats(statsData);
-    } catch (err) {
-      console.error('Failed to load log stats:', err);
-    }
-  };
+  const {
+    data: logsData,
+    isLoading: logsLoading,
+    error: logsQueryError,
+    refetch: refetchLogs,
+  } = api.logs.list.useQuery(trpcListInput, { refetchInterval: 10000 });
 
-  // Initial load
-  useEffect(() => {
-    loadLogs();
-    loadStats();
-  }, [request]);
+  const {
+    data: stats,
+    refetch: refetchStats,
+  } = api.logs.stats.useQuery(undefined, { refetchInterval: 30000 });
 
-  // Auto-refresh
-  useEffect(() => {
-    const stopPolling = logService.startLogPolling(
-      (response) => {
-        setLogs(response.logs);
-        setTotal(response.total);
-        setError(null);
-      },
-      (err) => {
-        setError(err.message);
-        console.error('Log polling error:', err);
-      },
-      request,
-      { interval: 10000 } // 10 seconds
-    );
-
-    const stopStatsPolling = logService.startStatsPolling(
-      (statsData) => {
-        setStats(statsData);
-      },
-      (err) => {
-        console.error('Stats polling error:', err);
-      },
-      { interval: 30000 } // 30 seconds
-    );
-
-    return () => {
-      stopPolling();
-      stopStatsPolling();
-    };
-  }, [request]);
+  const logs = (logsData?.logs ?? []) as LogEntry[];
+  const total = logsData?.total ?? 0;
+  const loading = logsLoading;
+  const error = logsQueryError?.message ?? null;
+  const statsTyped = stats as LogStatsResponse | null | undefined;
 
   // Handle pagination
   const handlePreviousPage = () => {
@@ -144,8 +106,8 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
 
   // Handle refresh
   const handleRefresh = () => {
-    loadLogs();
-    loadStats();
+    void refetchLogs();
+    void refetchStats();
   };
 
   // Clear filters
@@ -189,14 +151,14 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
       </div>
 
       {/* Stats Cards */}
-      {stats && (
+      {statsTyped && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="scanner-section">
             <div className="p-4 md:p-6 pb-0">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Total Logs</h3>
             </div>
             <div className="p-4 md:p-6">
-              <div className="text-2xl font-bold">{stats.total_logs}</div>
+              <div className="text-2xl font-bold">{statsTyped.total_logs}</div>
             </div>
           </div>
           
@@ -205,7 +167,7 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
               <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Services</h3>
             </div>
             <div className="p-4 md:p-6">
-              <div className="text-2xl font-bold">{Object.keys(stats.service_stats).length}</div>
+              <div className="text-2xl font-bold">{Object.keys(statsTyped.service_stats).length}</div>
             </div>
           </div>
 
@@ -215,7 +177,7 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
             </div>
             <div className="p-4 md:p-6">
               <div className="text-2xl font-bold text-red-500">
-                {stats.level_stats.error || 0}
+                {statsTyped.level_stats?.error || 0}
               </div>
             </div>
           </div>
@@ -226,7 +188,7 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
             </div>
             <div className="p-4 md:p-6">
               <div className="text-2xl font-bold text-yellow-500">
-                {stats.level_stats.warn || 0}
+                {statsTyped.level_stats?.warn || 0}
               </div>
             </div>
           </div>

@@ -8,7 +8,8 @@
 #   Used by sirius-ui (server), sirius-engine preflight, and app-scanner persistence.
 # - NEXT_PUBLIC_SIRIUS_API_URL: browser-facing API URL (host port, e.g. http://localhost:9001).
 # - API_BASE_URL on sirius-engine: must match SIRIUS_API_URL (set from the same compose value below).
-# - SIRIUS_API_KEY: identical across sirius-ui, sirius-api, and sirius-engine (installer-generated).
+# - SIRIUS_API_KEY_FILE: preferred; compose mounts ./secrets/sirius_api_key.txt at /run/secrets/sirius_api_key.
+# - SIRIUS_API_KEY: optional fallback (installer still sets it for migration); services accept either.
 
 name: sirius
 
@@ -122,8 +123,11 @@ services:
       - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-http://localhost:9001}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-dummy_client_id}
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-dummy_client_secret}
-      # API key for authenticated requests to sirius-api (set via root key bootstrap or .env)
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for sirius-ui. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
+      # Internal API auth: secret file (preferred) plus env fallback for migration
+      - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
+    secrets:
+      - sirius_api_key
     depends_on:
       sirius-postgres:
         condition: service_healthy
@@ -166,7 +170,10 @@ services:
       - VALKEY_PORT=${VALKEY_PORT:-6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
       - LOG_LEVEL=${LOG_LEVEL:-error}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for sirius-api. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
+      - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
+    secrets:
+      - sirius_api_key
     deploy:
       resources:
         limits:
@@ -218,8 +225,10 @@ services:
       - HOST_ID=${HOST_ID:-sirius-engine}
       - ENABLE_SCRIPTING=${ENABLE_SCRIPTING:-true}
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      # API key for authenticated requests to sirius-api
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:?SIRIUS_API_KEY is required for sirius-engine. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
+      - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
+    secrets:
+      - sirius_api_key
     depends_on:
       sirius-rabbitmq:
         condition: service_healthy
@@ -235,7 +244,7 @@ services:
           "CMD",
           "bash",
           "-lc",
-          "command -v psql >/dev/null && command -v curl >/dev/null && [ -n \"$SIRIUS_API_KEY\" ] && echo > /dev/tcp/127.0.0.1/50051",
+          "command -v psql >/dev/null && command -v curl >/dev/null && { [ -n \"$SIRIUS_API_KEY\" ] || [ -r \"${SIRIUS_API_KEY_FILE:-}\" ]; } && echo > /dev/tcp/127.0.0.1/50051",
         ]
       interval: 30s
       timeout: 10s
@@ -256,6 +265,10 @@ volumes:
     driver: local
   rabbitmq_data:
     driver: local
+
+secrets:
+  sirius_api_key:
+    file: ./secrets/sirius_api_key.txt
 
 networks:
   default:

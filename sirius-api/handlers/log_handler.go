@@ -13,6 +13,7 @@ import (
 
 	"github.com/SiriusScan/go-api/sirius/logging"
 	"github.com/SiriusScan/go-api/sirius/store"
+	"github.com/SiriusScan/sirius-api/internal/infraauth"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -185,7 +186,7 @@ func LogClearHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"message": "Logs cleared successfully",
+		"message":       "Logs cleared successfully",
 		"deleted_count": deletedCount,
 	})
 }
@@ -391,21 +392,24 @@ func LogBusinessEvent(service, subcomponent, level, message string, metadata map
 			"type": "business_event",
 		},
 	}
-	
+
 	// Submit asynchronously
 	go func() {
 		body, err := json.Marshal(logEntry)
 		if err != nil {
 			return
 		}
-		
+
 		client := &http.Client{Timeout: 2 * time.Second}
 		req, err := http.NewRequest("POST", "http://localhost:9001/api/v1/logs", bytes.NewBuffer(body))
 		if err != nil {
 			return
 		}
-		
+
 		req.Header.Set("Content-Type", "application/json")
+		if apiKey, err := infraauth.LoadSiriusAPIKey(); err == nil && apiKey != "" {
+			req.Header.Set("X-API-Key", apiKey)
+		}
 		client.Do(req)
 	}()
 }
@@ -415,7 +419,7 @@ func maintainLogCount(ctx context.Context, kvStore store.KVStore) error {
 	// Use a longer timeout for log maintenance
 	maintenanceCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	// Get all log keys
 	keys, err := kvStore.ListKeys(maintenanceCtx, LOG_PREFIX+":*")
 	if err != nil {

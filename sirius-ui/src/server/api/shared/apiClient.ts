@@ -1,4 +1,5 @@
 import axios from "axios";
+import { existsSync, readFileSync } from "fs";
 import { env } from "~/env.mjs";
 
 /** Shared Go API base URL used by all TRPC routers. */
@@ -6,16 +7,25 @@ export const API_BASE_URL = env.SIRIUS_API_URL || "http://localhost:9001";
 
 function getRequiredApiKey(): string {
   const key = env.SIRIUS_API_KEY?.trim();
-  if (!key) {
-    throw new Error("SIRIUS_API_KEY is missing; outbound API requests are blocked");
+  if (key) {
+    return key;
   }
-  return key;
+  const filePath = process.env.SIRIUS_API_KEY_FILE?.trim();
+  if (filePath && existsSync(filePath)) {
+    const fromFile = readFileSync(filePath, "utf8").trim();
+    if (fromFile) {
+      return fromFile;
+    }
+  }
+  throw new Error(
+    "SIRIUS_API_KEY_FILE or SIRIUS_API_KEY is missing; outbound API requests are blocked",
+  );
 }
 
 /**
  * Shared, authenticated axios instance for server-side (TRPC router) calls to
  * the Go API.  The X-API-Key header is injected automatically from the
- * SIRIUS_API_KEY environment variable so every outbound request is authorised.
+ * internal secret (file preferred, then env).
  *
  * Import this instead of creating per-router axios instances.
  */

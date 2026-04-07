@@ -44,10 +44,14 @@ ARG PINGPP_COMMIT_SHA=master
 
 WORKDIR /repos
 
+# Patch for internal API auth (SIRIUS_API_KEY_FILE + SIRIUS_API_KEY) applied until a tagged go-api release includes it.
+COPY patches/go-api-v0.0.16-internal-auth.patch /tmp/go-api-internal-auth.patch
+
 # Clone go-api (needed as a dependency by other components)
 RUN git clone https://github.com/SiriusScan/go-api.git && \
     cd go-api && \
     git checkout ${GO_API_COMMIT_SHA} && \
+    git apply /tmp/go-api-internal-auth.patch && \
     go mod tidy
 
 # Clone ping++ (fingerprinting engine, needed by app-scanner)

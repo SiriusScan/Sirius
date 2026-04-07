@@ -27,14 +27,16 @@ services:
   sirius-api:
     image: ghcr.io/siriusscan/sirius-api:${IMAGE_TAG:-latest}
     environment:
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY}
+      - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
     networks:
       - sirius
 
   sirius-ui:
     image: ghcr.io/siriusscan/sirius-ui:${IMAGE_TAG:-latest}
     environment:
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY}
+      - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - INITIAL_ADMIN_PASSWORD=${INITIAL_ADMIN_PASSWORD}
     ports:
@@ -47,7 +49,8 @@ services:
     cap_add:
       - NET_RAW
     environment:
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY}
+      - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-}
+      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
     networks:
       - sirius
 

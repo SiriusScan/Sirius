@@ -125,7 +125,7 @@ graph TD
 
 ## API
 
-Sirius exposes REST endpoints on port 9001, protected by `SIRIUS_API_KEY`.
+Sirius exposes REST endpoints on port 9001, protected by the **internal service API key**. Prefer the Docker secret file (`SIRIUS_API_KEY_FILE`, default `/run/secrets/sirius_api_key`); `SIRIUS_API_KEY` remains a supported env fallback. The installer writes `./secrets/sirius_api_key.txt` and configures both.
 
 ```bash
 curl http://localhost:9001/health -H "X-API-Key: $SIRIUS_API_KEY"

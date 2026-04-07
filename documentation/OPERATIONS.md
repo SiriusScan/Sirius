@@ -21,7 +21,8 @@ docker compose ps
 
 # 5) Validate API auth behavior
 curl -i http://localhost:9001/host/            # expect 401 (no key)
-RUNTIME_KEY=$(docker inspect sirius-api --format '{{range .Config.Env}}{{println .}}{{end}}' | rg '^SIRIUS_API_KEY=' | sed 's/^SIRIUS_API_KEY=//')
+# Internal key: prefer the mounted secret file path inside the container, else env.
+RUNTIME_KEY=$(docker exec sirius-api sh -lc 'if [ -n "${SIRIUS_API_KEY:-}" ]; then printf %s "$SIRIUS_API_KEY"; elif [ -r "${SIRIUS_API_KEY_FILE:-}" ]; then tr -d "\r\n" < "$SIRIUS_API_KEY_FILE"; fi')
 curl -i -H "X-API-Key: ${RUNTIME_KEY}" http://localhost:9001/host/   # expect 200
 
 # 6) Ensure startup regressions are absent
@@ -29,6 +30,18 @@ docker compose logs --no-color sirius-ui sirius-engine | rg -i "ENOTFOUND|permis
 ```
 
 If step 6 returns any lines, capture full logs and investigate before rollout.
+
+### Migrating existing `.env` deployments to file-based internal key
+
+If `docker compose up` errors on the `sirius_api_key` secret file, create it once from your current key (same value as `SIRIUS_API_KEY` in `.env`):
+
+```bash
+mkdir -p secrets
+printf '%s\n' "$SIRIUS_API_KEY" > secrets/sirius_api_key.txt
+chmod 600 secrets/sirius_api_key.txt
+```
+
+Re-run the installer to add `SIRIUS_API_KEY_FILE=/run/secrets/sirius_api_key` to `.env` if it is missing. Services accept **either** the file or `SIRIUS_API_KEY` during transition.
 
 ## Release Image Propagation Verification
 

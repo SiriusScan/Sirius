@@ -13,6 +13,7 @@ import (
 	"github.com/SiriusScan/go-api/sirius/logging"
 	"github.com/SiriusScan/go-api/sirius/slogger"
 	"github.com/SiriusScan/go-api/sirius/store"
+	"github.com/SiriusScan/sirius-api/internal/infraauth"
 	"github.com/SiriusScan/sirius-api/middleware"
 	"github.com/SiriusScan/sirius-api/routes"
 	"github.com/gofiber/fiber/v2"
@@ -111,11 +112,11 @@ func main() {
 	// Initialize structured logging (reads LOG_LEVEL env var)
 	slogger.Init()
 
-	// Root service key is validated statelessly in middleware against env config.
+	// Root service key is validated statelessly in middleware (file or env).
 	// Valkey remains authoritative only for user-generated API keys.
-	serviceAPIKey := strings.TrimSpace(os.Getenv("SIRIUS_API_KEY"))
-	if serviceAPIKey == "" {
-		slog.Error("SIRIUS_API_KEY is required for sirius-api startup")
+	serviceAPIKey, err := infraauth.LoadSiriusAPIKey()
+	if err != nil || strings.TrimSpace(serviceAPIKey) == "" {
+		slog.Error("internal API key is required for sirius-api startup (SIRIUS_API_KEY_FILE or SIRIUS_API_KEY)", "error", err)
 		os.Exit(1)
 	}
 
@@ -156,7 +157,7 @@ func main() {
 	app.Use(requestLoggerMiddleware())
 
 	// Add API key authentication middleware
-	app.Use(middleware.APIKeyMiddleware(kvStore))
+	app.Use(middleware.APIKeyMiddleware(kvStore, serviceAPIKey))
 
 	// Add SDK-based logging middlewares
 	app.Use(middleware.SDKLoggingMiddleware())

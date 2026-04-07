@@ -29,6 +29,13 @@ export SIRIUS_API_KEY="${SIRIUS_API_KEY:-test-api-key}"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-test-postgres-password}"
 export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-test-nextauth-secret}"
 export INITIAL_ADMIN_PASSWORD="${INITIAL_ADMIN_PASSWORD:-test-admin-password}"
+export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-test-postgres-password}@sirius-postgres:5432/sirius}"
+
+# Base compose mounts ./secrets/sirius_api_key.txt — ensure a placeholder exists for `docker compose config` in CI/local runs.
+if [ ! -f "$PROJECT_ROOT/secrets/sirius_api_key.txt" ]; then
+    mkdir -p "$PROJECT_ROOT/secrets"
+    printf '%s\n' "$SIRIUS_API_KEY" > "$PROJECT_ROOT/secrets/sirius_api_key.txt"
+fi
 
 # Create logs directory
 mkdir -p "$LOG_DIR"
@@ -98,23 +105,29 @@ main() {
     
     # Test 6: sirius-api Runner Build
     run_test "sirius-api Runner Build" "docker build -t sirius-api:test ./sirius-api/ --target runner"
+
+    # Test 7: logging clients include API key auth on protected logs routes (file/env loader + engine patch)
+    run_test "Logging API Key Contract" "python3 -c \"from pathlib import Path; api_handler = Path('sirius-api/handlers/log_handler.go').read_text(); engine_dockerfile = Path('sirius-engine/Dockerfile').read_text(); assert 'infraauth.LoadSiriusAPIKey' in api_handler; assert 'go-api-v0.0.16-internal-auth.patch' in engine_dockerfile; assert 'git apply' in engine_dockerfile; assert 'X-API-Key' in engine_dockerfile\""
+
+    # Test 7b: internal API key _FILE + env loader (Go)
+    run_test "Internal API Key Loader Unit Tests" "cd sirius-api && go test ./internal/infraauth/... -count=1"
     
-    # Test 7: sirius-engine Development Build
+    # Test 8: sirius-engine Development Build
     run_test "sirius-engine Development Build" "docker build -t sirius-engine:dev ./sirius-engine/ --target development"
     
-    # Test 8: sirius-engine Runtime Build
+    # Test 9: sirius-engine Runtime Build
     run_test "sirius-engine Runtime Build" "docker build -t sirius-engine:runtime ./sirius-engine/ --target runtime"
 
-    # Test 9: sirius-engine runtime startup contract binaries
+    # Test 10: sirius-engine runtime startup contract binaries
     run_test "sirius-engine Runtime Binary Contract" "docker run --rm --entrypoint /bin/bash sirius-engine:runtime -lc 'command -v bash >/dev/null && command -v curl >/dev/null && command -v psql >/dev/null && command -v pkill >/dev/null && command -v nmap >/dev/null && command -v rustscan >/dev/null && command -v pwsh >/dev/null'"
 
-    # Test 10: sirius-engine entrypoint syntax contract
+    # Test 11: sirius-engine entrypoint syntax contract
     run_test "sirius-engine Entrypoint Syntax Contract" "docker run --rm --entrypoint /bin/bash sirius-engine:runtime -lc '/bin/bash -n /start-enhanced.sh && grep -q \"validate_required_binary \\\"psql\\\"\" /start-enhanced.sh'"
     
-    # Test 11: sirius-ui Development Build
+    # Test 12: sirius-ui Development Build
     run_test "sirius-ui Development Build" "docker build -t sirius-ui:dev ./sirius-ui/ --target development"
     
-    # Test 12: sirius-api Development Build
+    # Test 13: sirius-api Development Build
     run_test "sirius-api Development Build" "docker build -t sirius-api:dev ./sirius-api/ --target development"
     
     # Cleanup test images

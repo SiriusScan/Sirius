@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runtime auth contract: SIRIUS_API_KEY / POSTGRES_PASSWORD parity, engine env, API HTTP behavior.
+# Runtime auth contract: internal API key (SIRIUS_API_KEY_FILE or SIRIUS_API_KEY), POSTGRES_PASSWORD parity, engine env, API HTTP behavior.
 #
 # Container names default to docker-compose.yaml `container_name` values (project: sirius).
 # Override for other projects, e.g. CI:
@@ -40,6 +40,13 @@ extract_env() {
     | rg "^${key}=" | sed "s/^${key}=//"
 }
 
+# Effective key inside the container (env or trimmed file contents).
+resolve_internal_api_key() {
+  local container="$1"
+  docker exec "$container" sh -lc \
+    'if [ -n "${SIRIUS_API_KEY:-}" ]; then printf %s "$SIRIUS_API_KEY"; elif [ -r "${SIRIUS_API_KEY_FILE:-}" ]; then tr -d "\r\n" < "$SIRIUS_API_KEY_FILE"; fi'
+}
+
 mask_value() {
   local value="$1"
   if [ -z "$value" ]; then
@@ -54,9 +61,9 @@ mask_value() {
   echo "${value:0:6}...${value: -4}"
 }
 
-ui_key="$(extract_env "$CTR_UI" SIRIUS_API_KEY)"
-api_key="$(extract_env "$CTR_API" SIRIUS_API_KEY)"
-engine_key="$(extract_env "$CTR_ENGINE" SIRIUS_API_KEY)"
+ui_key="$(resolve_internal_api_key "$CTR_UI")"
+api_key="$(resolve_internal_api_key "$CTR_API")"
+engine_key="$(resolve_internal_api_key "$CTR_ENGINE")"
 
 postgres_db_pw="$(extract_env "$CTR_POSTGRES" POSTGRES_PASSWORD)"
 api_db_pw="$(extract_env "$CTR_API" POSTGRES_PASSWORD)"
@@ -72,15 +79,15 @@ echo "  api ($CTR_API):    $(mask_value "$api_key")"
 echo "  engine ($CTR_ENGINE): $(mask_value "$engine_key")"
 
 if [ -z "$ui_key" ] || [ -z "$api_key" ] || [ -z "$engine_key" ]; then
-  echo "❌ One or more services are missing SIRIUS_API_KEY"
+  echo "❌ One or more services are missing internal API key (SIRIUS_API_KEY or readable SIRIUS_API_KEY_FILE)"
   exit 1
 fi
 
 if [ "$ui_key" != "$api_key" ] || [ "$api_key" != "$engine_key" ]; then
-  echo "❌ SIRIUS_API_KEY mismatch across services (key split-brain detected)"
+  echo "❌ Internal API key mismatch across services (key split-brain detected)"
   exit 1
 fi
-echo "✅ SIRIUS_API_KEY parity check passed"
+echo "✅ Internal API key parity check passed"
 
 if [ -z "$postgres_db_pw" ] || [ -z "$api_db_pw" ] || [ -z "$engine_db_pw" ]; then
   echo "❌ One or more services are missing POSTGRES_PASSWORD"

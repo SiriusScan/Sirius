@@ -72,6 +72,7 @@ Each row captures backend target and operation class.
 | `repositories` | `list`, `add`, `update`, `delete`, `sync`, `getSyncStatus` | Go API `/api/agent-templates/repositories*` | Read/Write/Delete | Session + API key |
 | `events` | `getEvents`, `getEventStats`, `getRecentEvents`, `getEventsBySeverity` | Go API `/api/v1/events*` | Read | Session + API key |
 | `statistics` | `createSnapshot`, `getVulnerabilityTrends`, `listSnapshots`, `getMostVulnerableHosts` | Go API `/api/v1/statistics*` | Read/Write | Session + API key |
+| `logs` | `list`, `stats` | Go API `/api/v1/logs*` via `apiFetch` | Read | Session + internal API key (server-side only) |
 | `store` | `initializeNseScripts`, `getValue`, `setValue`, `getNseScripts`, `getNseScript`, `updateNseScript`, `createNseScript`, `deleteNseScript`, `getNseRepositories`, `addNseRepository`, `removeNseRepository`, `initializeNseRepositories` | Direct Valkey | Read/Write/Delete | Session |
 | `queue` | `sendMsg` | Direct RabbitMQ | Write/Exec | Session |
 | `agent` | `listAgentsWithHosts`, `getAgentDetails`, `getTemplates`, `discoverTemplates`, `getTemplatesFromValKey`, `discoverTemplatesFromValKey`, `getTemplateContent`, `getScriptsFromValKey`, `discoverScriptsFromValKey`, `getScriptContent` | RabbitMQ + Go API + Valkey | Read/Exec | Session |
@@ -89,7 +90,7 @@ All routes are under API key middleware except explicit health bypass.
 | health | `/health` | Read | Public (intentional) |
 | system | `/api/v1/system/health`, `/api/v1/system/logs`, `/api/v1/system/resources` | Read | API key |
 | admin | `/api/v1/admin/command` | Exec | API key |
-| logs | `/api/v1/logs`, `/api/v1/logs/stats`, `/api/v1/logs/clear`, `/api/v1/logs/:logId` | Read/Write/Delete | API key |
+| logs | `/api/v1/logs`, `/api/v1/logs/stats`, `/api/v1/logs/clear`, `/api/v1/logs/:logId` | Read/Write/Delete | Internal service API key (`SIRIUS_API_KEY_FILE` preferred, `SIRIUS_API_KEY` fallback). Browser UI uses tRPC `logs` router (session), not direct calls. |
 | host | `/host/*`, `/vulnerability/:id/sources` | Read/Write/Delete | API key |
 | vulnerability | `/vulnerability/:id`, `/vulnerability/`, `/vulnerability/delete` | Read/Write/Delete | API key |
 | template | `/templates/*` | Read/Write/Delete | API key |
@@ -106,7 +107,7 @@ All routes are under API key middleware except explicit health bypass.
 | Boundary | Identity Mechanism | Current State | Required Control |
 |---|---|---|---|
 | Agent -> Engine (gRPC) | Agent token in stream messages | implemented | keep enforced |
-| Engine/Agent -> Go API (HTTP) | Service API key | partially inconsistent across clients | normalize header injection everywhere |
+| Engine/Agent -> Go API (HTTP) | Internal service key (file or env) | normalized via shared loader / logging client patch | keep `X-API-Key` on all internal HTTP clients |
 | UI admin -> Agent dispatch | Session-gated tRPC + queue payloads | implemented but trust of client-supplied agent IDs needs hardening | validate agent existence/state on dispatch |
 | Agent metadata ingestion | host source metadata | accepted from clients | validate schema and origin coupling |
 

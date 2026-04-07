@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"log/slog"
-	"os"
 	"strings"
 
 	"github.com/SiriusScan/go-api/sirius/store"
@@ -19,7 +18,9 @@ var skipPaths = []string{
 // APIKeyMiddleware returns a Fiber middleware that validates the X-API-Key
 // header against keys stored in Valkey. Requests to health-check endpoints
 // are allowed through without authentication.
-func APIKeyMiddleware(kvStore store.KVStore) fiber.Handler {
+// rootKey is the installer/internal service key (from SIRIUS_API_KEY_FILE or SIRIUS_API_KEY).
+func APIKeyMiddleware(kvStore store.KVStore, rootKey string) fiber.Handler {
+	rootKey = strings.TrimSpace(rootKey)
 	return func(c *fiber.Ctx) error {
 		// Skip authentication for health and other excluded paths.
 		for _, p := range skipPaths {
@@ -35,7 +36,6 @@ func APIKeyMiddleware(kvStore store.KVStore) fiber.Handler {
 			})
 		}
 
-		rootKey := strings.TrimSpace(os.Getenv("SIRIUS_API_KEY"))
 		if rootKey != "" && subtle.ConstantTimeCompare([]byte(apiKey), []byte(rootKey)) == 1 {
 			c.Locals("auth_mode", "infra_env")
 			c.Locals("apikey_label", "Infrastructure Key")

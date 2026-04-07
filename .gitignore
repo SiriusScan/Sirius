@@ -53,7 +53,9 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
-secrets/
+# Local installer-generated secrets (keep directory, ignore contents)
+secrets/*
+!secrets/.gitkeep
 *.secrets
 
 # Database files

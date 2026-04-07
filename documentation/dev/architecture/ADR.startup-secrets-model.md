@@ -24,7 +24,7 @@ Sirius startup historically depended on manual environment setup and a bootstrap
 ## Decision
 
 1. **Installer-first startup**: a first-run installer is the canonical setup path for generating and merging required secrets/config.
-2. **Stateless infrastructure key path**: `SIRIUS_API_KEY` from runtime environment is the authority for service-to-service root authentication.
+2. **Internal service key path**: `SIRIUS_API_KEY_FILE` (Docker secret file mount, preferred) with `SIRIUS_API_KEY` as a migration fallback — both resolve to the same installer-generated internal key for service-to-service root authentication.
 3. **Dynamic key lifecycle in Valkey**: user-generated API keys continue to be managed in Valkey.
 4. **Secure fail-fast runtime**: production startup and seeding flows must fail when required secrets are missing.
 
@@ -45,5 +45,6 @@ Sirius startup historically depended on manual environment setup and a bootstrap
 ## Implementation Notes
 
 - Use `docker-compose.installer.yaml` as the canonical installer entrypoint.
-- Ensure compose contracts explicitly require auth-critical variables.
+- Installer writes `secrets/sirius_api_key.txt` and sets `SIRIUS_API_KEY_FILE=/run/secrets/sirius_api_key` in `.env` alongside `SIRIUS_API_KEY` for compatibility.
+- Ensure compose contracts explicitly require auth-critical variables (file and/or env).
 - Update runbooks and deployment documentation in lockstep with runtime changes.

@@ -1,4 +1,4 @@
-# Custom Valkey image with system monitoring
+# Custom Valkey image with system monitoring and health checks
 #
 # Local fallback stage for quick-start reliability:
 # build system-monitor directly so compose up works even if GHCR base images

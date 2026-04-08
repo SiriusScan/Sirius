@@ -52,6 +52,7 @@ make test-build    # Build validation only
 make test-health   # Health checks only
 make test-integration  # Integration tests only
 make test-runtime-contract  # SIRIUS_API_KEY parity, engine preflight script, API HTTP contract
+make test-public-ghcr  # anonymous GHCR access for the compose-rendered IMAGE_TAG
 make test-release-gates  # test-build + test-integration + test-runtime-contract (release bar)
 
 # Test specific environment
@@ -101,6 +102,7 @@ The container testing system consists of these main components:
 - **Health Checks**: Validates service startup, connectivity, and basic functionality
 - **Integration Tests**: Verifies inter-service communication and data flow
 - **Runtime Auth Contract** (`make test-runtime-contract`): Runs [`scripts/verify-runtime-auth-contract.sh`](../../../scripts/verify-runtime-auth-contract.sh) against a running stack. Default container names match `container_name` in `docker-compose.yaml` (`sirius-ui`, `sirius-api`, etc.). For a non-default Compose project (e.g. `name: sirius-test`), set `SIRIUS_CONTRACT_CONTAINER_UI`, `SIRIUS_CONTRACT_CONTAINER_API`, `SIRIUS_CONTRACT_CONTAINER_ENGINE`, and `SIRIUS_CONTRACT_CONTAINER_POSTGRES` before running the script. Use `SIRIUS_API_PUBLIC_URL` if the API is not on `http://localhost:9001`.
+- **Public GHCR Contract** (`make test-public-ghcr`): Runs [`scripts/verify-ghcr-public-access.sh`](../../../scripts/verify-ghcr-public-access.sh) with the selected `IMAGE_TAG` and checks the exact image refs rendered by `docker-compose.yaml`. Failures distinguish `unauthorized` (visibility/token problem) from `manifest unknown` (tag publication problem).
 
 ### Technical Details
 
@@ -344,6 +346,7 @@ make test-all
 make test-build
 make test-health
 make test-integration
+make test-public-ghcr
 make test-dev
 make test-prod
 

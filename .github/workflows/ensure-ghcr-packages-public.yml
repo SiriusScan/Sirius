@@ -16,40 +16,22 @@ on:
     - cron: "18 5 * * 1"
 
 env:
+  GHCR_OWNER: SiriusScan
   IMAGE_NAMESPACE: siriusscan
 
 jobs:
   publicize:
     if: github.repository == 'SiriusScan/Sirius'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: PATCH each container package to public visibility
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Enforce public GHCR visibility
         env:
           PUSH_TOKEN: ${{ secrets.GHCR_PUSH_TOKEN }}
           ADMIN_TOKEN: ${{ secrets.GHCR_PACKAGE_ADMIN_TOKEN }}
         run: |
-          set -euo pipefail
-          TOKEN="${ADMIN_TOKEN:-${PUSH_TOKEN:-}}"
-          if [ -z "$TOKEN" ]; then
-            echo "::error::Set repository secrets GHCR_PUSH_TOKEN or GHCR_PACKAGE_ADMIN_TOKEN."
-            exit 1
-          fi
-          export GH_TOKEN="$TOKEN"
-          PACKAGES=(
-            sirius-ui
-            sirius-api
-            sirius-engine
-            sirius-postgres
-            sirius-rabbitmq
-            sirius-valkey
-          )
-          for pkg in "${PACKAGES[@]}"; do
-            echo "Setting org/${{ env.IMAGE_NAMESPACE }} package container/${pkg} → public"
-            gh api \
-              --method PATCH \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "/orgs/${{ env.IMAGE_NAMESPACE }}/packages/container/${pkg}" \
-              -f visibility=public
-          done
-          echo "All Sirius GHCR packages are set to public (anonymous pull OK)."
+          bash scripts/ensure-ghcr-packages-public.sh

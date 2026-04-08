@@ -57,13 +57,20 @@ docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-
 # 3) Pull and run release images for the selected tag
 export IMAGE_TAG=v1.0.0
 export SIRIUS_IMAGE_PULL_POLICY=always
+
+# 4) Confirm the compose-rendered GHCR refs are anonymously readable
+bash scripts/verify-ghcr-public-access.sh "$IMAGE_TAG"
+
+# 5) Pull and start the public release images
 docker compose up -d
 
-# 4) Verify running container image IDs match pulled release images
+# 6) Verify running container image IDs match pulled release images
 bash scripts/verify-release-images.sh
 ```
 
 Expected result: all checks print a pass and no service is running an unexpected local image.
+
+If `verify-ghcr-public-access.sh` reports `Anonymous access denied`, treat it as a registry visibility failure and stop before rollout. If it reports `Manifest missing`, the selected release tag was not published successfully.
 
 ## Runtime Auth Contract Verification
 
@@ -246,3 +253,21 @@ docker compose down -v && docker compose up -d
 docker exec sirius-ui ping sirius-api
 docker network inspect sirius
 ```
+
+### GHCR Pull Issues
+
+**`docker compose pull` returns `unauthorized`:**
+
+```bash
+bash scripts/verify-ghcr-public-access.sh "${IMAGE_TAG:-latest}"
+```
+
+Expected result: all compose-rendered GHCR refs pass anonymously. If the script reports `Anonymous access denied`, the package visibility contract is broken and the GHCR publicization workflow or token scope needs maintenance.
+
+**`docker compose pull` returns `manifest unknown` or `not found`:**
+
+```bash
+bash scripts/verify-ghcr-public-access.sh "${IMAGE_TAG:-latest}"
+```
+
+Expected result: the script identifies the missing tag explicitly. Re-run the publishing workflow for the missing release tag before retrying deployment.

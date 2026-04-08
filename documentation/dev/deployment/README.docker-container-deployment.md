@@ -3,7 +3,7 @@ title: "Docker Container Deployment Guide"
 description: "Complete guide for deploying Sirius using prebuilt container images from GitHub Container Registry"
 template: "TEMPLATE.guide"
 version: "1.0.0"
-last_updated: "2025-11-13"
+last_updated: "2026-04-08"
 author: "Development Team"
 tags: ["docker", "deployment", "containers", "ghcr", "registry", "production"]
 categories: ["deployment", "infrastructure"]
@@ -65,6 +65,9 @@ docker compose up -d
 
 # Or specify a version tag
 IMAGE_TAG=v0.4.1 docker compose up -d
+
+# Optional: verify the public GHCR contract before pulling
+bash scripts/verify-ghcr-public-access.sh "${IMAGE_TAG:-latest}"
 ```
 
 ### Prerequisites
@@ -87,6 +90,8 @@ Sirius images are automatically built and pushed to GitHub Container Registry on
 - **RabbitMQ**: `ghcr.io/siriusscan/sirius-rabbitmq:{tag}`
 - **Valkey**: `ghcr.io/siriusscan/sirius-valkey:{tag}`
 
+`docker-compose.yaml` is the public-image deployment path for Sirius. If an unauthenticated `docker pull` against one of the image refs above returns `unauthorized`, the GHCR public-visibility contract is broken and operators should stop before rollout.
+
 ### Image Tagging Strategy
 
 Images are tagged with the following strategy:
@@ -95,7 +100,7 @@ Images are tagged with the following strategy:
 | -------- | ------------------------ | ----------------------- |
 | `latest` | Latest main branch build | On every push to main   |
 | `beta`   | Beta release candidate   | On main branch pushes   |
-| `v0.4.1` | Version-specific tag     | On version tag creation |
+| `v0.4.1` | Version-specific tag     | After the `Publish Release Image Tags` workflow succeeds |
 | `dev`    | Development builds       | On other branch pushes  |
 | `pr-123` | Pull request builds      | On PR creation/updates  |
 
@@ -104,6 +109,7 @@ Images are tagged with the following strategy:
 - **Public images**: No authentication required
 - **Multi-architecture**: Images support `linux/amd64` and `linux/arm64`
 - **Automatic updates**: Latest images are built automatically by CI/CD
+- **Release contract**: A release tag is only valid for operators after the release-tag workflow publishes it and the anonymous GHCR verification step passes
 
 ## Docker Compose Configuration
 
@@ -142,6 +148,9 @@ IMAGE_TAG=v0.4.1 docker compose up -d
 
 # Use beta release
 IMAGE_TAG=beta docker compose up -d
+
+# Validate that the selected tag is publicly readable before rollout
+bash scripts/verify-ghcr-public-access.sh "${IMAGE_TAG:-latest}"
 ```
 
 ### Development Override
@@ -206,6 +215,9 @@ Deploy a specific version:
 # Set version tag
 export IMAGE_TAG=v0.4.1
 
+# Confirm the compose-rendered GHCR images are public and readable
+bash scripts/verify-ghcr-public-access.sh "$IMAGE_TAG"
+
 # Pull and start services
 docker compose pull
 docker compose up -d
@@ -267,6 +279,9 @@ docker compose -f docker-compose.yaml -f docker-compose.secrets.yaml up -d
 - Verify internet connectivity: `curl -I https://ghcr.io`
 - Check image exists: Visit `https://github.com/SiriusScan/Sirius/pkgs/container/sirius-ui`
 - Try pulling manually: `docker pull ghcr.io/siriusscan/sirius-ui:latest`
+- Run the contract check: `bash scripts/verify-ghcr-public-access.sh "${IMAGE_TAG:-latest}"`
+- If the script reports `Anonymous access denied`, the package is not publicly readable and the GHCR visibility workflow or token scope needs attention
+- If the script reports `Manifest missing`, the requested tag was not published and you should verify the release-tag workflow completed successfully
 - Use fallback build strategy (see above)
 
 ### Wrong Version Deployed
@@ -350,7 +365,7 @@ docker compose -f docker-compose.yaml -f docker-compose.secrets.yaml up -d
 Images are automatically built and pushed by GitHub Actions on:
 
 - Push to `main` branch → `latest` and `beta` tags
-- Version tag creation → version-specific tag (e.g., `v0.4.1`)
+- Manual `Publish Release Image Tags` run → version-specific tag (e.g., `v0.4.1`)
 - Pull requests → `pr-{number}` tags
 
 ### Deployment Automation

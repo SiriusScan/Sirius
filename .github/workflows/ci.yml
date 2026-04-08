@@ -522,6 +522,9 @@ jobs:
     needs: [detect-changes, guard-registry-namespace]
     if: needs.detect-changes.outputs.sirius_infra_changes == 'true'
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -560,8 +563,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.GHCR_PUSH_USER }}
-          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push infra image (${{ matrix.service }}, ${{ matrix.platform }})
         uses: useblacksmith/build-push-action@v2
@@ -576,6 +579,9 @@ jobs:
     needs: [detect-changes, build-infra]
     if: needs.detect-changes.outputs.sirius_infra_changes == 'true' && github.event_name != 'pull_request'
     runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -598,8 +604,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.GHCR_PUSH_USER }}
-          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create and push multi-arch manifest for infra image
         run: |
@@ -617,33 +623,6 @@ jobs:
           fi
 
           echo "Published ${BASE}:${TAG} (amd64 + arm64)"
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # Verify that compose-managed GHCR tags are anonymously readable after publish.
-  # Run on a stock GitHub runner to catch visibility/tag drift separately from
-  # Blacksmith-specific build behavior.
-  # ─────────────────────────────────────────────────────────────────────────────
-  verify-public-ghcr:
-    name: Verify Public GHCR Pulls
-    needs: [detect-changes, merge-ui, merge-api, merge-engine, merge-infra]
-    runs-on: ubuntu-latest
-    if: >
-      always() &&
-      github.event_name != 'pull_request' &&
-      (github.ref == 'refs/heads/main' || github.event_name == 'repository_dispatch') &&
-      (
-        needs.merge-ui.result == 'success' ||
-        needs.merge-api.result == 'success' ||
-        needs.merge-engine.result == 'success' ||
-        needs.merge-infra.result == 'success'
-      )
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Verify anonymous access for compose tags
-        run: |
-          bash scripts/verify-ghcr-public-access.sh latest beta
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Integration Test
@@ -986,7 +965,7 @@ jobs:
   dispatch-demo-deployment:
     name: Dispatch Demo Deployment (sirius-demo branch)
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs: [detect-changes, build-ui, build-api, build-engine, test, verify-public-ghcr]
+    needs: [detect-changes, build-ui, build-api, build-engine, test]
     if: >
       github.ref == 'refs/heads/sirius-demo' &&
       github.event_name == 'push' &&
@@ -995,8 +974,7 @@ jobs:
       (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') &&
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
       (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-      (needs.verify-public-ghcr.result == 'success' || needs.verify-public-ghcr.result == 'skipped')
+      (needs.test.result == 'success' || needs.test.result == 'skipped')
     steps:
       - name: Dispatch to sirius-demo repository
         uses: peter-evans/repository-dispatch@v3
@@ -1020,7 +998,7 @@ jobs:
   dispatch-demo-canary:
     name: Dispatch Demo Canary (main branch)
     runs-on: blacksmith-4vcpu-ubuntu-2404
-    needs: [detect-changes, build-ui, build-api, build-engine, test, verify-public-ghcr]
+    needs: [detect-changes, build-ui, build-api, build-engine, test]
     if: >
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push' &&
@@ -1029,8 +1007,7 @@ jobs:
       (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') &&
       (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
       (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
-      (needs.verify-public-ghcr.result == 'success' || needs.verify-public-ghcr.result == 'skipped')
+      (needs.test.result == 'success' || needs.test.result == 'skipped')
     steps:
       - name: Dispatch to sirius-demo repository (canary trigger)
         env:

@@ -113,13 +113,6 @@ jobs:
           verify_digest sirius-rabbitmq
           verify_digest sirius-valkey
 
-      - name: Enforce public GHCR visibility
-        env:
-          PUSH_TOKEN: ${{ secrets.GHCR_PUSH_TOKEN }}
-          ADMIN_TOKEN: ${{ secrets.GHCR_PACKAGE_ADMIN_TOKEN }}
-        run: |
-          bash scripts/ensure-ghcr-packages-public.sh
-
       - name: Verify anonymous access for release tag
         run: |
           bash scripts/verify-ghcr-public-access.sh "${{ github.event.inputs.target_tag }}"

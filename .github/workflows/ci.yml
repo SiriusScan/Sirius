@@ -3,10 +3,9 @@ name: Sirius CI/CD Pipeline
 # Canonical CI pipeline. Handles all builds, tests, and canary dispatch.
 # deploy.yml is now deployment-only (workflow_dispatch) and does not build images.
 #
-# Multi-arch strategy: each container is built separately on native amd64 and
-# arm64 runners (via Blacksmith) to avoid slow QEMU cross-compilation.
-# After both arch builds succeed, arch-specific tags are merged into a single
-# multi-arch manifest.
+# Multi-arch strategy: each container is built per-platform (amd64 native,
+# arm64 via QEMU) on GitHub-hosted runners. After both arch builds succeed,
+# arch-specific tags are merged into a single multi-arch manifest.
 
 on:
   push:
@@ -26,7 +25,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   detect-changes:
     name: Detect Changes
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     outputs:
       sirius_ui_changes: ${{ steps.changes.outputs.sirius_ui_changes }}
       sirius_api_changes: ${{ steps.changes.outputs.sirius_api_changes }}
@@ -122,7 +121,7 @@ jobs:
   guard-registry-namespace:
     name: "Guard Registry Namespace"
     needs: detect-changes
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -140,23 +139,17 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Build sirius-ui
-  # Native runners per architecture avoid QEMU emulation of npm/Next.js builds.
-  # PRs build amd64 only; main/dispatch builds both arches.
+  # PRs build amd64 only; main/dispatch builds both arches (arm64 via QEMU).
   # ─────────────────────────────────────────────────────────────────────────────
   build-ui:
     name: "Build UI (${{ matrix.platform }})"
     needs: [detect-changes, guard-registry-namespace]
     if: needs.detect-changes.outputs.sirius_ui_changes == 'true'
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         platform: ${{ github.event_name == 'pull_request' && fromJSON('["amd64"]') || fromJSON('["amd64","arm64"]') }}
-        include:
-          - platform: amd64
-            runner: blacksmith-4vcpu-ubuntu-2404
-          - platform: arm64
-            runner: blacksmith-4vcpu-ubuntu-2404-arm
 
     steps:
       - name: Checkout Sirius repository
@@ -187,8 +180,11 @@ jobs:
         run: npm run lint
         working-directory: sirius-ui
 
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -198,7 +194,7 @@ jobs:
           password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
       - name: Build and push sirius-ui (${{ matrix.platform }})
-        uses: useblacksmith/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: ./sirius-ui
           platforms: linux/${{ matrix.platform }}
@@ -210,7 +206,7 @@ jobs:
     name: "Merge UI Manifest"
     needs: build-ui
     if: needs.detect-changes.outputs.sirius_ui_changes == 'true' && github.event_name != 'pull_request'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
     steps:
@@ -239,8 +235,6 @@ jobs:
           TAG="${{ steps.meta.outputs.image_tag }}"
           BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui"
 
-          # buildx imagetools handles Blacksmith manifest lists (provenance-enabled);
-          # docker manifest create cannot nest manifest lists.
           docker buildx imagetools create -t ${BASE}:${TAG} \
             ${BASE}:${TAG}-amd64 \
             ${BASE}:${TAG}-arm64
@@ -260,16 +254,11 @@ jobs:
     name: "Build API (${{ matrix.platform }})"
     needs: [detect-changes, guard-registry-namespace]
     if: needs.detect-changes.outputs.sirius_api_changes == 'true'
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         platform: ${{ github.event_name == 'pull_request' && fromJSON('["amd64"]') || fromJSON('["amd64","arm64"]') }}
-        include:
-          - platform: amd64
-            runner: blacksmith-4vcpu-ubuntu-2404
-          - platform: arm64
-            runner: blacksmith-4vcpu-ubuntu-2404-arm
 
     steps:
       - name: Checkout Sirius repository
@@ -316,8 +305,11 @@ jobs:
         run: go test ./... -short -count=1
         working-directory: sirius-api
 
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -327,7 +319,7 @@ jobs:
           password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
       - name: Build and push sirius-api (${{ matrix.platform }})
-        uses: useblacksmith/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: ./sirius-api
           platforms: linux/${{ matrix.platform }}
@@ -341,7 +333,7 @@ jobs:
     name: "Merge API Manifest"
     needs: build-api
     if: needs.detect-changes.outputs.sirius_api_changes == 'true' && github.event_name != 'pull_request'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
     steps:
@@ -389,16 +381,11 @@ jobs:
     name: "Build Engine (${{ matrix.platform }})"
     needs: [detect-changes, guard-registry-namespace]
     if: needs.detect-changes.outputs.sirius_engine_changes == 'true'
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         platform: ${{ github.event_name == 'pull_request' && fromJSON('["amd64"]') || fromJSON('["amd64","arm64"]') }}
-        include:
-          - platform: amd64
-            runner: blacksmith-4vcpu-ubuntu-2404
-          - platform: arm64
-            runner: blacksmith-4vcpu-ubuntu-2404-arm
 
     steps:
       - name: Checkout Sirius repository
@@ -444,8 +431,11 @@ jobs:
         run: go test ./... -short -count=1
         working-directory: sirius-engine
 
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -455,7 +445,7 @@ jobs:
           password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
       - name: Build and push sirius-engine (${{ matrix.platform }})
-        uses: useblacksmith/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: ./sirius-engine
           platforms: linux/${{ matrix.platform }}
@@ -473,7 +463,7 @@ jobs:
     name: "Merge Engine Manifest"
     needs: build-engine
     if: needs.detect-changes.outputs.sirius_engine_changes == 'true' && github.event_name != 'pull_request'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
     steps:
@@ -521,7 +511,7 @@ jobs:
     name: "Build Infra (${{ matrix.service }}, ${{ matrix.platform }})"
     needs: [detect-changes, guard-registry-namespace]
     if: needs.detect-changes.outputs.sirius_infra_changes == 'true'
-    runs-on: ${{ matrix.runner }}
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -530,11 +520,6 @@ jobs:
       matrix:
         service: [sirius-postgres, sirius-rabbitmq, sirius-valkey]
         platform: ${{ github.event_name == 'pull_request' && fromJSON('["amd64"]') || fromJSON('["amd64","arm64"]') }}
-        include:
-          - platform: amd64
-            runner: blacksmith-4vcpu-ubuntu-2404
-          - platform: arm64
-            runner: blacksmith-4vcpu-ubuntu-2404-arm
 
     steps:
       - name: Checkout Sirius repository
@@ -556,8 +541,11 @@ jobs:
           fi
           echo "image_tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -567,7 +555,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push infra image (${{ matrix.service }}, ${{ matrix.platform }})
-        uses: useblacksmith/build-push-action@v2
+        uses: docker/build-push-action@v6
         with:
           context: ./${{ matrix.service }}
           platforms: linux/${{ matrix.platform }}
@@ -578,7 +566,7 @@ jobs:
     name: "Merge Infra Manifest (${{ matrix.service }})"
     needs: [detect-changes, build-infra]
     if: needs.detect-changes.outputs.sirius_infra_changes == 'true' && github.event_name != 'pull_request'
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
@@ -641,7 +629,7 @@ jobs:
       - build-ui
       - build-api
       - build-engine
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     if: >
       always() &&
       (
@@ -653,8 +641,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Blacksmith Builder
-        uses: useblacksmith/setup-docker-builder@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -964,7 +952,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   dispatch-demo-deployment:
     name: Dispatch Demo Deployment (sirius-demo branch)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     needs: [detect-changes, build-ui, build-api, build-engine, test]
     if: >
       github.ref == 'refs/heads/sirius-demo' &&
@@ -997,7 +985,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   dispatch-demo-canary:
     name: Dispatch Demo Canary (main branch)
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     needs: [detect-changes, build-ui, build-api, build-engine, test]
     if: >
       github.ref == 'refs/heads/main' &&

@@ -38,7 +38,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   deploy-manual:
     name: "Deploy to ${{ github.event.inputs.environment }}"
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
 
     steps:
@@ -153,7 +153,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   security-scan:
     name: Security Scan
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     if: github.event.inputs.environment == 'production'
     needs: deploy-manual
 
@@ -171,7 +171,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   rollback:
     name: Rollback
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     if: failure()
     needs: [deploy-manual]
     environment: ${{ github.event.inputs.environment }}

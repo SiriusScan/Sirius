@@ -8,8 +8,7 @@
 #   Used by sirius-ui (server), sirius-engine preflight, and app-scanner persistence.
 # - NEXT_PUBLIC_SIRIUS_API_URL: browser-facing API URL (host port, e.g. http://localhost:9001).
 # - API_BASE_URL on sirius-engine: must match SIRIUS_API_URL (set from the same compose value below).
-# - SIRIUS_API_KEY_FILE: preferred; compose mounts ./secrets/sirius_api_key.txt at /run/secrets/sirius_api_key.
-# - SIRIUS_API_KEY: optional fallback (installer still sets it for migration); services accept either.
+# - SIRIUS_API_KEY_FILE: compose mounts ./secrets/sirius_api_key.txt at /run/secrets/sirius_api_key.
 
 name: sirius
 
@@ -123,7 +122,8 @@ services:
       - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-http://localhost:9001}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-dummy_client_id}
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-dummy_client_secret}
-      # Internal API auth: secret file (preferred) plus env fallback for migration
+      # Internal API auth: prefer file mount; keep SIRIUS_API_KEY for older UI images (e.g. v1.0.0)
+      # whose entrypoint still requires the env var even when the secret file is present.
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
       - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
     secrets:
@@ -171,7 +171,6 @@ services:
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
       - LOG_LEVEL=${LOG_LEVEL:-error}
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
     secrets:
       - sirius_api_key
     deploy:
@@ -226,7 +225,6 @@ services:
       - ENABLE_SCRIPTING=${ENABLE_SCRIPTING:-true}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
     secrets:
       - sirius_api_key
     depends_on:
@@ -244,7 +242,7 @@ services:
           "CMD",
           "bash",
           "-lc",
-          "command -v psql >/dev/null && command -v curl >/dev/null && { [ -n \"$SIRIUS_API_KEY\" ] || [ -r \"${SIRIUS_API_KEY_FILE:-}\" ]; } && echo > /dev/tcp/127.0.0.1/50051",
+          "command -v psql >/dev/null && command -v curl >/dev/null && [ -r \"${SIRIUS_API_KEY_FILE:-}\" ] && echo > /dev/tcp/127.0.0.1/50051",
         ]
       interval: 30s
       timeout: 10s

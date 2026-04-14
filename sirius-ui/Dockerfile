@@ -63,26 +63,32 @@ RUN mkdir -p /sirius-nse && \
 # ─────────────────────────────────────────────────────────────────────────────
 FROM base AS development
 
-# Install all dependencies (including dev dependencies)
-RUN npm install
+# Non-root user: chown /app while it is still small (package files only from base).
+# Avoids chown -R over node_modules after npm install (very slow on Docker Desktop).
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs && \
+    chown -R nextjs:nodejs /app
 
-# Copy source code
-COPY . .
-
-# Generate Prisma client
-RUN npx prisma generate
+ENV NPM_CONFIG_CACHE=/app/.npm-cache
 
 EXPOSE 3000
 
 ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY start-dev.sh /app/start-dev.sh
-RUN sed -i 's/\r$//' /app/start-dev.sh && chmod +x /app/start-dev.sh
+USER nextjs
 
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs && \
-    chown -R nextjs:nodejs /app
+RUN npm install
+
+COPY --chown=nextjs:nodejs . .
+
+RUN npx prisma generate
+
+# Ensure image start-dev.sh wins over build context and has unix line endings.
+USER root
+COPY start-dev.sh /app/start-dev.sh
+RUN sed -i 's/\r$//' /app/start-dev.sh && chmod +x /app/start-dev.sh && \
+    chown nextjs:nodejs /app/start-dev.sh
 
 USER nextjs
 
@@ -135,23 +141,21 @@ WORKDIR /app
 # Create system-monitor directory
 RUN mkdir -p /system-monitor
 
-COPY --from=utility-go-binaries /usr/local/bin/system-monitor /system-monitor/system-monitor
-COPY --from=utility-go-binaries /usr/local/bin/administrator /app/administrator
+COPY --chown=nextjs:nodejs --from=utility-go-binaries /usr/local/bin/system-monitor /system-monitor/system-monitor
+COPY --chown=nextjs:nodejs --from=utility-go-binaries /usr/local/bin/administrator /app/administrator
 RUN chmod +x /system-monitor/system-monitor /app/administrator
 
-# Copy built Next.js application from builder stage
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/next.config.mjs ./next.config.mjs
+# Copy built Next.js application from builder stage (ownership set during copy — no full-tree chown)
+COPY --chown=nextjs:nodejs --from=builder /app/public ./public
+COPY --chown=nextjs:nodejs --from=builder /app/.next ./.next
+COPY --chown=nextjs:nodejs --from=builder /app/node_modules ./node_modules
+COPY --chown=nextjs:nodejs --from=builder /app/src ./src
+COPY --chown=nextjs:nodejs --from=builder /app/prisma ./prisma
+COPY --chown=nextjs:nodejs --from=builder /app/package.json ./package.json
+COPY --chown=nextjs:nodejs --from=builder /app/next.config.mjs ./next.config.mjs
 
-COPY start-prod.sh /app/start-prod.sh
+COPY --chown=nextjs:nodejs start-prod.sh /app/start-prod.sh
 RUN sed -i 's/\r$//' /app/start-prod.sh && chmod +x /app/start-prod.sh
-
-RUN chown -R nextjs:nodejs /app /system-monitor
 
 USER nextjs
 

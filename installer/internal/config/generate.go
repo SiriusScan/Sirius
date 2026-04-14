@@ -42,15 +42,6 @@ func Merge(templateVals, existingVals map[string]string, opts Options) map[strin
 func EnsureRequired(values map[string]string, opts Options) (map[string]string, map[string]string, error) {
 	generated := map[string]string{}
 
-	if shouldGenerate(values["SIRIUS_API_KEY"], opts.Force) {
-		s, err := randomHex(32)
-		if err != nil {
-			return nil, nil, err
-		}
-		values["SIRIUS_API_KEY"] = s
-		generated["SIRIUS_API_KEY"] = s
-	}
-
 	if shouldGenerate(values["POSTGRES_PASSWORD"], opts.Force) {
 		s, err := randomHex(16)
 		if err != nil {
@@ -95,7 +86,7 @@ func EnsureRequired(values map[string]string, opts Options) (map[string]string, 
 	}
 
 	// Default in-container path for Docker Compose secret mount (see docker-compose.yaml).
-	if strings.TrimSpace(values["SIRIUS_API_KEY"]) != "" && strings.TrimSpace(values["SIRIUS_API_KEY_FILE"]) == "" {
+	if strings.TrimSpace(values["SIRIUS_API_KEY_FILE"]) == "" {
 		values["SIRIUS_API_KEY_FILE"] = "/run/secrets/sirius_api_key"
 	}
 

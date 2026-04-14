@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Anonymous registry checks use a temporary DOCKER_CONFIG inside this script.
+# Do not wrap the entire shell in DOCKER_CONFIG=... when invoking this script:
+# `docker compose config` needs your normal Docker config to resolve the compose file.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -13,12 +16,16 @@ else
   TAGS=("latest")
 fi
 
-export SIRIUS_API_KEY="${SIRIUS_API_KEY:-test-api-key}"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-test-postgres-password}"
 export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-test-nextauth-secret}"
 export INITIAL_ADMIN_PASSWORD="${INITIAL_ADMIN_PASSWORD:-test-admin-password}"
 export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:test-postgres-password@sirius-postgres:5432/sirius}"
 export SIRIUS_IMAGE_PULL_POLICY="${SIRIUS_IMAGE_PULL_POLICY:-always}"
+
+if [ ! -f "${PROJECT_ROOT}/secrets/sirius_api_key.txt" ]; then
+  mkdir -p "${PROJECT_ROOT}/secrets"
+  printf '%s\n' "${SIRIUS_INTERNAL_API_KEY_TEST_VALUE:-test-api-key}" > "${PROJECT_ROOT}/secrets/sirius_api_key.txt"
+fi
 
 anonymous_manifest_check() {
   local image_ref="$1"

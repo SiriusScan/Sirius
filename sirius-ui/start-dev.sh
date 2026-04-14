@@ -11,9 +11,29 @@ require_env() {
     fi
 }
 
+require_readable_file() {
+    VAR_NAME="$1"
+    eval "FILE_PATH=\${$VAR_NAME}"
+    if [ -z "$FILE_PATH" ]; then
+        echo "❌ Missing required environment variable: $VAR_NAME"
+        exit 1
+    fi
+    if [ ! -r "$FILE_PATH" ]; then
+        echo "❌ Required secret file is not readable: $FILE_PATH"
+        exit 1
+    fi
+}
+
 require_env "NEXTAUTH_SECRET"
 require_env "INITIAL_ADMIN_PASSWORD"
-require_env "SIRIUS_API_KEY"
+require_readable_file "SIRIUS_API_KEY_FILE"
+
+SIRIUS_API_KEY="$(tr -d '\r\n' < "$SIRIUS_API_KEY_FILE")"
+if [ -z "$SIRIUS_API_KEY" ]; then
+    echo "❌ Internal API key file is empty: $SIRIUS_API_KEY_FILE"
+    exit 1
+fi
+export SIRIUS_API_KEY
 
 # Keep container node_modules in sync with package manifests.
 # Dev uses a persistent named volume for /app/node_modules, which can drift when deps change.

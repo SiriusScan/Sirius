@@ -57,10 +57,23 @@ trap cleanup SIGTERM SIGINT
 echo "Starting Sirius Engine services..."
 echo "Environment: ${GO_ENV:-production}"
 
-# When Compose mounts the internal key as a file, mirror it into SIRIUS_API_KEY for scripts and child processes.
-if [ -z "${SIRIUS_API_KEY:-}" ] && [ -n "${SIRIUS_API_KEY_FILE:-}" ] && [ -r "$SIRIUS_API_KEY_FILE" ]; then
-    export SIRIUS_API_KEY="$(tr -d '\r\n' < "$SIRIUS_API_KEY_FILE")"
+# The mounted secret file is the single runtime source of truth for the
+# internal API key. Export it for child processes that still expect env access.
+if [ -z "${SIRIUS_API_KEY_FILE:-}" ]; then
+    echo "Error: SIRIUS_API_KEY_FILE is required and must point to a readable secret file."
+    exit 1
 fi
+if [ ! -r "$SIRIUS_API_KEY_FILE" ]; then
+    echo "Error: internal API key file is not readable: $SIRIUS_API_KEY_FILE"
+    exit 1
+fi
+
+SIRIUS_API_KEY="$(tr -d '\r\n' < "$SIRIUS_API_KEY_FILE")"
+if [ -z "$SIRIUS_API_KEY" ]; then
+    echo "Error: internal API key file is empty: $SIRIUS_API_KEY_FILE"
+    exit 1
+fi
+export SIRIUS_API_KEY
 
 validate_required_env() {
     local var_name=$1
@@ -122,7 +135,7 @@ validate_api_key_contract() {
 
         if [ "$http_status" = "401" ] || [ "$http_status" = "403" ]; then
             echo "Error: sirius-engine API key was rejected by sirius-api (HTTP $http_status on GET /host/)."
-            echo "Check: SIRIUS_API_KEY matches sirius-api container; avoid per-service shell overrides (use .env + recreate)."
+            echo "Check: the mounted sirius_api_key secret matches across services; avoid per-service shell overrides (use installer + recreate)."
             if [ -s /tmp/sirius-api-auth-probe.out ]; then
                 echo "Response body (first 512 bytes):"
                 head -c 512 /tmp/sirius-api-auth-probe.out | tr -d '\0' || true
@@ -161,10 +174,6 @@ validate_required_env "POSTGRES_HOST"
 validate_required_env "POSTGRES_USER"
 validate_required_env "POSTGRES_PASSWORD"
 validate_required_env "POSTGRES_DB"
-if [ -z "${SIRIUS_API_KEY:-}" ]; then
-    echo "Error: internal API key missing — set SIRIUS_API_KEY or mount a readable SIRIUS_API_KEY_FILE (see docker-compose.yaml)."
-    exit 1
-fi
 validate_required_env "SIRIUS_API_URL"
 # API_BASE_URL must match SIRIUS_API_URL when both are set (compose mirrors them; manual drift breaks agent/scanner)
 if [ -n "${API_BASE_URL:-}" ]; then

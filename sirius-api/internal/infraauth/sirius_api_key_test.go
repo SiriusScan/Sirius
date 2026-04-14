@@ -13,7 +13,6 @@ func TestLoadSiriusAPIKey_FilePreferred(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("SIRIUS_API_KEY_FILE", p)
-	t.Setenv("SIRIUS_API_KEY", "env-key-should-not-win")
 
 	got, err := LoadSiriusAPIKey()
 	if err != nil {
@@ -24,22 +23,8 @@ func TestLoadSiriusAPIKey_FilePreferred(t *testing.T) {
 	}
 }
 
-func TestLoadSiriusAPIKey_EnvFallback(t *testing.T) {
+func TestLoadSiriusAPIKey_EmptyPathFails(t *testing.T) {
 	t.Setenv("SIRIUS_API_KEY_FILE", "")
-	t.Setenv("SIRIUS_API_KEY", "  env-fallback  ")
-
-	got, err := LoadSiriusAPIKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "env-fallback" {
-		t.Fatalf("got %q", got)
-	}
-}
-
-func TestLoadSiriusAPIKey_Missing(t *testing.T) {
-	t.Setenv("SIRIUS_API_KEY_FILE", "")
-	t.Setenv("SIRIUS_API_KEY", "")
 
 	_, err := LoadSiriusAPIKey()
 	if err == nil {
@@ -47,25 +32,44 @@ func TestLoadSiriusAPIKey_Missing(t *testing.T) {
 	}
 }
 
-func TestLoadSiriusAPIKey_MissingFileUsesEnv(t *testing.T) {
+func TestLoadSiriusAPIKey_MissingFileFails(t *testing.T) {
 	t.Setenv("SIRIUS_API_KEY_FILE", filepath.Join(t.TempDir(), "nonexistent-secret"))
-	t.Setenv("SIRIUS_API_KEY", "env-when-file-missing")
-
-	got, err := LoadSiriusAPIKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "env-when-file-missing" {
-		t.Fatalf("got %q", got)
-	}
-}
-
-func TestLoadSiriusAPIKey_MissingFileNoEnv(t *testing.T) {
-	t.Setenv("SIRIUS_API_KEY_FILE", filepath.Join(t.TempDir(), "nonexistent-secret"))
-	t.Setenv("SIRIUS_API_KEY", "")
 
 	_, err := LoadSiriusAPIKey()
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestLoadSiriusAPIKey_UnreadableFileFails(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "key.txt")
+	if err := os.WriteFile(p, []byte("secret-in-file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(p, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(p, 0o600) })
+
+	t.Setenv("SIRIUS_API_KEY_FILE", p)
+
+	_, err := LoadSiriusAPIKey()
+	if err == nil {
+		t.Fatal("expected error when file unreadable")
+	}
+}
+
+func TestLoadSiriusAPIKey_EmptyFileFails(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "key.txt")
+	if err := os.WriteFile(p, []byte("\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SIRIUS_API_KEY_FILE", p)
+
+	_, err := LoadSiriusAPIKey()
+	if err == nil {
+		t.Fatal("expected error when file empty")
 	}
 }

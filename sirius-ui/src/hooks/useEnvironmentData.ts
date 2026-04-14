@@ -169,30 +169,51 @@ export function useEnvironmentData(): UseEnvironmentDataReturn {
       (h) => (h as any).status !== "offline",
     ).length;
 
-    // Vuln counts — prefer the dedicated vulnerability endpoint,
-    // fall back to aggregating from embedded host data
+    // Vuln counts — prefer the dedicated vulnerability endpoint when it returns a non-zero
+    // catalog; otherwise aggregate from embedded host data (avoids "0 vulns" in the header
+    // when the aggregate endpoint is empty but hosts still list findings).
     const vulnData = vulnerabilityQuery.data as any;
-    const vulnCounts = vulnData?.counts
-      ? {
-          total: vulnData.counts.total || 0,
-          critical: vulnData.counts.critical || 0,
-          high: vulnData.counts.high || 0,
-          medium: vulnData.counts.medium || 0,
-          low: vulnData.counts.low || 0,
-          informational: vulnData.counts.informational || 0,
-        }
-      : // Fallback: aggregate from per-host map
-        Object.values(hostSeverityMap).reduce(
-          (acc, c) => ({
-            total: acc.total + c.total,
-            critical: acc.critical + c.critical,
-            high: acc.high + c.high,
-            medium: acc.medium + c.medium,
-            low: acc.low + c.low,
-            informational: acc.informational + c.informational,
-          }),
-          { total: 0, critical: 0, high: 0, medium: 0, low: 0, informational: 0 },
-        );
+    const fromHosts = Object.values(hostSeverityMap).reduce(
+      (acc, c) => ({
+        total: acc.total + c.total,
+        critical: acc.critical + c.critical,
+        high: acc.high + c.high,
+        medium: acc.medium + c.medium,
+        low: acc.low + c.low,
+        informational: acc.informational + c.informational,
+      }),
+      {
+        total: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        informational: 0,
+      },
+    );
+    const api = vulnData?.counts;
+    const vulnCounts =
+      api && (api.total ?? 0) > 0
+        ? {
+            total: api.total || 0,
+            critical: api.critical || 0,
+            high: api.high || 0,
+            medium: api.medium || 0,
+            low: api.low || 0,
+            informational: api.informational || 0,
+          }
+        : fromHosts.total > 0
+          ? fromHosts
+          : api
+            ? {
+                total: api.total || 0,
+                critical: api.critical || 0,
+                high: api.high || 0,
+                medium: api.medium || 0,
+                low: api.low || 0,
+                informational: api.informational || 0,
+              }
+            : fromHosts;
 
     // Software stats
     const sw = softwareStatsQuery.data as any;

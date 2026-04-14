@@ -37,6 +37,24 @@ jobs:
           username: ${{ secrets.GHCR_PUSH_USER }}
           password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
+      - name: Verify source manifests exist for all components
+        run: |
+          set -euo pipefail
+
+          verify_source_manifest() {
+            local component="$1"
+            local source_ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${component}:${{ github.event.inputs.source_tag }}"
+            echo "Checking source manifest: ${source_ref}"
+            docker buildx imagetools inspect "${source_ref}" > /dev/null
+          }
+
+          verify_source_manifest sirius-ui
+          verify_source_manifest sirius-api
+          verify_source_manifest sirius-engine
+          verify_source_manifest sirius-postgres
+          verify_source_manifest sirius-rabbitmq
+          verify_source_manifest sirius-valkey
+
       - name: Publish sirius-ui release tag
         run: |
           docker buildx imagetools create \
@@ -94,8 +112,9 @@ jobs:
             local source_digest
             local target_digest
 
-            source_digest=$(docker buildx imagetools inspect "$source_ref" | awk '/^Digest:/ {print $2; exit}')
-            target_digest=$(docker buildx imagetools inspect "$target_ref" | awk '/^Digest:/ {print $2; exit}')
+            # Human-readable output no longer has a stable "^Digest:" line; use JSON index digest.
+            source_digest=$(docker buildx imagetools inspect "$source_ref" --format '{{json .}}' | jq -r '.manifest.digest')
+            target_digest=$(docker buildx imagetools inspect "$target_ref" --format '{{json .}}' | jq -r '.manifest.digest')
 
             echo "${component} source digest: ${source_digest}"
             echo "${component} target digest: ${target_digest}"
@@ -116,3 +135,16 @@ jobs:
       - name: Verify anonymous access for release tag
         run: |
           bash scripts/verify-ghcr-public-access.sh "${{ github.event.inputs.target_tag }}"
+
+  validate-public-release-stack:
+    needs: retag-and-publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Smoke-test published public compose path
+        run: |
+          bash scripts/validate-public-compose-path.sh "${{ github.event.inputs.target_tag }}"

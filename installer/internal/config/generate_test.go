@@ -88,7 +88,6 @@ func TestBuildDatabaseURL(t *testing.T) {
 
 func TestEnsureRequired_SetsDatabaseURL(t *testing.T) {
 	values := map[string]string{
-		"SIRIUS_API_KEY":         "abcdef1234567890abcdef1234567890",
 		"POSTGRES_PASSWORD":      "abcdef1234567890abcdef1234567890",
 		"NEXTAUTH_SECRET":        "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd",
 		"INITIAL_ADMIN_PASSWORD": "SomeStr0ng!Pass",
@@ -112,7 +111,6 @@ func TestEnsureRequired_SetsDatabaseURL(t *testing.T) {
 func TestEnsureRequired_PreservesManualDatabaseURL(t *testing.T) {
 	manual := "postgresql://custom:pass@remote:5432/otherdb"
 	values := map[string]string{
-		"SIRIUS_API_KEY":         "abcdef1234567890abcdef1234567890",
 		"POSTGRES_PASSWORD":      "abcdef1234567890abcdef1234567890",
 		"NEXTAUTH_SECRET":        "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd",
 		"INITIAL_ADMIN_PASSWORD": "SomeStr0ng!Pass",
@@ -126,5 +124,22 @@ func TestEnsureRequired_PreservesManualDatabaseURL(t *testing.T) {
 
 	if result["DATABASE_URL"] != manual {
 		t.Errorf("DATABASE_URL = %q, want %q (should be preserved)", result["DATABASE_URL"], manual)
+	}
+}
+
+func TestEnsureRequired_SetsInternalAPIKeyFileDefault(t *testing.T) {
+	values := map[string]string{
+		"POSTGRES_PASSWORD":      "abcdef1234567890abcdef1234567890",
+		"NEXTAUTH_SECRET":        "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd",
+		"INITIAL_ADMIN_PASSWORD": "SomeStr0ng!Pass",
+	}
+
+	result, _, err := EnsureRequired(values, Options{})
+	if err != nil {
+		t.Fatalf("EnsureRequired() error = %v", err)
+	}
+
+	if result["SIRIUS_API_KEY_FILE"] != "/run/secrets/sirius_api_key" {
+		t.Fatalf("SIRIUS_API_KEY_FILE = %q", result["SIRIUS_API_KEY_FILE"])
 	}
 }

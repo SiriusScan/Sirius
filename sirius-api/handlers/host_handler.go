@@ -10,6 +10,7 @@ import (
 	"github.com/SiriusScan/go-api/nvd"
 	"github.com/SiriusScan/go-api/sirius"
 	"github.com/SiriusScan/go-api/sirius/host"
+	"github.com/SiriusScan/go-api/sirius/postgres"
 	"github.com/SiriusScan/go-api/sirius/postgres/models"
 	"github.com/SiriusScan/go-api/sirius/vulnerability"
 	"github.com/gofiber/fiber/v2"
@@ -150,9 +151,20 @@ func GetHostVulnerabilitySeverityCounts(c *fiber.Ctx) error {
 	return c.JSON(stats)
 }
 
-// GetAllVulnerabilities handles the GET /host/vulnerabilities route
+// GetAllVulnerabilities handles GET /host/vulnerabilities/all.
+//
+// Implemented here (not host.GetAllVulnerabilities in go-api) because older SDK versions
+// post-processed SQL results and only retained rows where host_count == 1, which hid CVEs
+// affecting multiple hosts and could yield an empty list while host views still showed vulns.
 func GetAllVulnerabilities(c *fiber.Ctx) error {
-	vulnerabilities, err := host.GetAllVulnerabilities()
+	db := postgres.GetDB()
+	var rows []host.VulnerabilitySummary
+	err := db.Model(&models.Vulnerability{}).
+		Select("vulnerabilities.v_id, vulnerabilities.title, vulnerabilities.description, vulnerabilities.risk_score, count(host_vulnerabilities.host_id) as host_count").
+		Joins("LEFT JOIN host_vulnerabilities ON host_vulnerabilities.vulnerability_id = vulnerabilities.id").
+		Group("vulnerabilities.id").
+		Having("count(host_vulnerabilities.host_id) > 0").
+		Scan(&rows).Error
 	if err != nil {
 		slog.Error("GetAllVulnerabilities failed", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -160,7 +172,12 @@ func GetAllVulnerabilities(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(vulnerabilities)
+	// Avoid JSON `null` when there are no rows (nil slice); clients expect an array.
+	if rows == nil {
+		rows = []host.VulnerabilitySummary{}
+	}
+
+	return c.JSON(rows)
 }
 
 // AddHost handles the POST /host route

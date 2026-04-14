@@ -25,16 +25,16 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="$LOG_DIR/build_test_$TIMESTAMP.log"
 
 # Required compose variables for strict startup contract.
-export SIRIUS_API_KEY="${SIRIUS_API_KEY:-test-api-key}"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-test-postgres-password}"
 export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-test-nextauth-secret}"
 export INITIAL_ADMIN_PASSWORD="${INITIAL_ADMIN_PASSWORD:-test-admin-password}"
 export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD:-test-postgres-password}@sirius-postgres:5432/sirius}"
+INTERNAL_API_KEY_TEST_VALUE="${SIRIUS_INTERNAL_API_KEY_TEST_VALUE:-test-api-key}"
 
 # Base compose mounts ./secrets/sirius_api_key.txt — ensure a placeholder exists for `docker compose config` in CI/local runs.
 if [ ! -f "$PROJECT_ROOT/secrets/sirius_api_key.txt" ]; then
     mkdir -p "$PROJECT_ROOT/secrets"
-    printf '%s\n' "$SIRIUS_API_KEY" > "$PROJECT_ROOT/secrets/sirius_api_key.txt"
+    printf '%s\n' "$INTERNAL_API_KEY_TEST_VALUE" > "$PROJECT_ROOT/secrets/sirius_api_key.txt"
 fi
 
 # Create logs directory
@@ -123,9 +123,15 @@ main() {
 
     # Test 11: sirius-engine entrypoint syntax contract
     run_test "sirius-engine Entrypoint Syntax Contract" "docker run --rm --entrypoint /bin/bash sirius-engine:runtime -lc '/bin/bash -n /start-enhanced.sh && grep -q \"validate_required_binary \\\"psql\\\"\" /start-enhanced.sh'"
+
+    # Test 11b: sirius-engine internal API key contract is file-backed only
+    run_test "sirius-engine Internal API Key File Contract" "python3 -c \"from pathlib import Path; data = Path('sirius-engine/start-enhanced.sh').read_text(); assert 'SIRIUS_API_KEY_FILE is required' in data; assert 'SIRIUS_API_KEY differs from mounted sirius_api_key secret' not in data\""
     
     # Test 12: sirius-ui Development Build
     run_test "sirius-ui Development Build" "docker build -t sirius-ui:dev ./sirius-ui/ --target development"
+
+    # Test 12b: sirius-ui startup scripts require readable secret files
+    run_test "sirius-ui Internal API Key File Contract" "python3 -c \"from pathlib import Path; prod = Path('sirius-ui/start-prod.sh').read_text(); dev = Path('sirius-ui/start-dev.sh').read_text(); assert 'require_readable_file \\\"SIRIUS_API_KEY_FILE\\\"' in prod; assert 'require_readable_file \\\"SIRIUS_API_KEY_FILE\\\"' in dev; assert 'require_env \\\"SIRIUS_API_KEY\\\"' not in prod + dev\""
     
     # Test 13: sirius-api Development Build
     run_test "sirius-api Development Build" "docker build -t sirius-api:dev ./sirius-api/ --target development"

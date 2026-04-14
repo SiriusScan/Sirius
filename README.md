@@ -28,6 +28,8 @@ Open **http://localhost:3000** and log in:
 
 That's it. All six services start automatically. The installer generates secure secrets on first run and is safe to re-run.
 
+By default the installer leaves `IMAGE_TAG` unset, so Compose pulls **`latest`** from GHCR. To pin a release (for example `v1.0.0` in `.env`), only do so after that tag exists for **all six** container images; verify with `bash scripts/verify-ghcr-public-access.sh v1.0.0` from a shell that is not logged in to `ghcr.io`.
+
 > **Requirements:** Docker Engine 20.10+ with Compose V2, 4 GB RAM, 10 GB disk. Works on Linux, macOS, and Windows (WSL2).
 
 ## What Sirius Does
@@ -125,7 +127,7 @@ graph TD
 
 ## API
 
-Sirius exposes REST endpoints on port 9001, protected by the **internal service API key**. Prefer the Docker secret file (`SIRIUS_API_KEY_FILE`, default `/run/secrets/sirius_api_key`); `SIRIUS_API_KEY` remains a supported env fallback. The installer writes `./secrets/sirius_api_key.txt` and configures both.
+Sirius exposes REST endpoints on port 9001, protected by the **internal service API key**. Prefer the Docker secret file (`SIRIUS_API_KEY_FILE`, default `/run/secrets/sirius_api_key`); `SIRIUS_API_KEY` remains a supported env fallback. The installer writes `./secrets/sirius_api_key.txt` (mode **0644** so non-root app UIDs can read the bind-mounted secret) and configures both.
 
 ```bash
 curl http://localhost:9001/health -H "X-API-Key: $SIRIUS_API_KEY"

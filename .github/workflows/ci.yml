@@ -510,7 +510,10 @@ jobs:
   build-infra:
     name: "Build Infra (${{ matrix.service }}, ${{ matrix.platform }})"
     needs: [detect-changes, guard-registry-namespace]
-    if: needs.detect-changes.outputs.sirius_infra_changes == 'true'
+    if: >
+      needs.detect-changes.outputs.sirius_infra_changes == 'true' ||
+      github.event_name == 'repository_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -551,8 +554,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
       - name: Build and push infra image (${{ matrix.service }}, ${{ matrix.platform }})
         uses: docker/build-push-action@v6
@@ -565,7 +568,13 @@ jobs:
   merge-infra:
     name: "Merge Infra Manifest (${{ matrix.service }})"
     needs: [detect-changes, build-infra]
-    if: needs.detect-changes.outputs.sirius_infra_changes == 'true' && github.event_name != 'pull_request'
+    if: >
+      github.event_name != 'pull_request' &&
+      (
+        needs.detect-changes.outputs.sirius_infra_changes == 'true' ||
+        github.event_name == 'repository_dispatch' ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -592,8 +601,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
       - name: Create and push multi-arch manifest for infra image
         run: |
@@ -722,7 +731,6 @@ jobs:
                 - SIRIUS_API_URL=http://sirius-api:9001
                 - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
                 - SIRIUS_API_KEY_FILE=/run/secrets/sirius_api_key
-                - SIRIUS_API_KEY=ci-placeholder-api-key
               secrets:
                 - sirius_api_key
               depends_on:
@@ -750,7 +758,6 @@ jobs:
                 - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
                 - LOG_LEVEL=info
                 - SIRIUS_API_KEY_FILE=/run/secrets/sirius_api_key
-                - SIRIUS_API_KEY=ci-placeholder-api-key
               secrets:
                 - sirius_api_key
               depends_on:
@@ -761,7 +768,7 @@ jobs:
                 sirius-valkey:
                   condition: service_healthy
               healthcheck:
-                test: ["CMD-SHELL", "STATUS=$(curl -s -o /dev/null -w '%{http_code}' -H 'X-API-Key: ci-placeholder-api-key' http://127.0.0.1:9001/host/); echo \"API health probe: $$STATUS\"; [ -n \"$$STATUS\" ] && [ \"$$STATUS\" != '000' ] && echo \"$$STATUS\" | grep -qvE '^5'"]
+                test: ["CMD-SHELL", "KEY=$(tr -d '\\r\\n' < /run/secrets/sirius_api_key); STATUS=$(curl -s -o /dev/null -w '%{http_code}' -H \"X-API-Key: $$KEY\" http://127.0.0.1:9001/host/); echo \"API health probe: $$STATUS\"; [ -n \"$$STATUS\" ] && [ \"$$STATUS\" != '000' ] && echo \"$$STATUS\" | grep -qvE '^5'"]
                 interval: 10s
                 timeout: 10s
                 retries: 24
@@ -783,7 +790,6 @@ jobs:
                 - RABBITMQ_URL=amqp://guest:guest@sirius-rabbitmq:5672/
                 - LOG_LEVEL=info
                 - SIRIUS_API_KEY_FILE=/run/secrets/sirius_api_key
-                - SIRIUS_API_KEY=ci-placeholder-api-key
                 - SIRIUS_API_URL=http://sirius-api:9001
                 - API_BASE_URL=http://sirius-api:9001
               secrets:
@@ -811,6 +817,7 @@ jobs:
 
           mkdir -p secrets
           printf '%s\n' 'ci-placeholder-api-key' > secrets/sirius_api_key.txt
+          chmod 644 secrets/sirius_api_key.txt
 
           IMAGE_TAG="${{ steps.tag.outputs.image_tag }}"
           export SIRIUS_UI_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${IMAGE_TAG}"
@@ -946,6 +953,42 @@ jobs:
         if: always()
         run: |
           docker compose -f docker-compose.test.yml down --volumes --remove-orphans 2>/dev/null || true
+
+  public-stack-contract:
+    name: Public Stack Contract
+    needs:
+      - build-ui
+      - build-api
+      - build-engine
+      - build-infra
+      - merge-ui
+      - merge-api
+      - merge-engine
+      - merge-infra
+      - test
+    runs-on: ubuntu-latest
+    if: >
+      always() &&
+      (
+        github.event_name == 'repository_dispatch' ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      ) &&
+      (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') &&
+      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
+      (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') &&
+      (needs.build-infra.result == 'success' || needs.build-infra.result == 'skipped') &&
+      (needs.merge-ui.result == 'success' || needs.merge-ui.result == 'skipped') &&
+      (needs.merge-api.result == 'success' || needs.merge-api.result == 'skipped') &&
+      (needs.merge-engine.result == 'success' || needs.merge-engine.result == 'skipped') &&
+      (needs.merge-infra.result == 'success' || needs.merge-infra.result == 'skipped') &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate public latest compose path
+        run: |
+          bash scripts/validate-public-compose-path.sh latest
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Dispatch to sirius-demo when sirius-demo branch is pushed

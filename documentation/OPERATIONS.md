@@ -22,7 +22,7 @@ docker compose ps
 # 5) Validate API auth behavior
 curl -i http://localhost:9001/host/            # expect 401 (no key)
 # Internal key: prefer the mounted secret file path inside the container, else env.
-RUNTIME_KEY=$(docker exec sirius-api sh -lc 'if [ -n "${SIRIUS_API_KEY:-}" ]; then printf %s "$SIRIUS_API_KEY"; elif [ -r "${SIRIUS_API_KEY_FILE:-}" ]; then tr -d "\r\n" < "$SIRIUS_API_KEY_FILE"; fi')
+RUNTIME_KEY=$(docker exec sirius-api sh -lc 'if [ -r "${SIRIUS_API_KEY_FILE:-}" ]; then tr -d "\r\n" < "$SIRIUS_API_KEY_FILE"; elif [ -n "${SIRIUS_API_KEY:-}" ]; then printf %s "$SIRIUS_API_KEY"; fi')
 curl -i -H "X-API-Key: ${RUNTIME_KEY}" http://localhost:9001/host/   # expect 200
 
 # 6) Ensure startup regressions are absent
@@ -38,8 +38,10 @@ If `docker compose up` errors on the `sirius_api_key` secret file, create it onc
 ```bash
 mkdir -p secrets
 printf '%s\n' "$SIRIUS_API_KEY" > secrets/sirius_api_key.txt
-chmod 600 secrets/sirius_api_key.txt
+chmod 644 secrets/sirius_api_key.txt
 ```
+
+Use **`644` (owner read/write, world read)** on `secrets/sirius_api_key.txt`, not `600`. Compose bind-mounts that file into the container as `/run/secrets/sirius_api_key`; **sirius-api** runs as a non-root UID (1001) and must be able to open it. `600` keeps “other” from reading, so you get `permission denied` on `/run/secrets/sirius_api_key` even when `SIRIUS_API_KEY` is set in `.env` (older API builds failed before env fallback; current **sirius-api** falls back to `SIRIUS_API_KEY` if the file is unreadable when the env is set). The installer writes this file as `644` by default.
 
 Re-run the installer to add `SIRIUS_API_KEY_FILE=/run/secrets/sirius_api_key` to `.env` if it is missing. Services accept **either** the file or `SIRIUS_API_KEY` during transition.
 
@@ -54,23 +56,17 @@ docker compose down -v --remove-orphans
 # 2) Generate runtime secrets/config
 docker compose -f docker-compose.installer.yaml run --rm sirius-installer --non-interactive --no-print-secrets
 
-# 3) Pull and run release images for the selected tag
-export IMAGE_TAG=v1.0.0
-export SIRIUS_IMAGE_PULL_POLICY=always
+# 3) Validate the public release path for a published tag
+export IMAGE_TAG=v0.4.1
+bash scripts/validate-public-compose-path.sh "$IMAGE_TAG"
 
-# 4) Confirm the compose-rendered GHCR refs are anonymously readable
-bash scripts/verify-ghcr-public-access.sh "$IMAGE_TAG"
-
-# 5) Pull and start the public release images
-docker compose up -d
-
-# 6) Verify running container image IDs match pulled release images
+# 4) Verify running container image IDs match pulled release images
 bash scripts/verify-release-images.sh
 ```
 
-Expected result: all checks print a pass and no service is running an unexpected local image.
+Expected result: the public-stack validator passes, all checks print a pass, and no service is running an unexpected local image.
 
-If `verify-ghcr-public-access.sh` reports `Anonymous access denied`, treat it as a registry visibility failure and stop before rollout. If it reports `Manifest missing`, the selected release tag was not published successfully.
+If `verify-ghcr-public-access.sh` reports `Anonymous access denied`, treat it as a registry visibility failure and stop before rollout. If it reports `Manifest missing`, the selected release tag was not published successfully. If `validate-public-compose-path.sh` fails after pull succeeds, investigate runtime contract drift before rollout.
 
 ## Runtime Auth Contract Verification
 
@@ -271,3 +267,17 @@ bash scripts/verify-ghcr-public-access.sh "${IMAGE_TAG:-latest}"
 ```
 
 Expected result: the script identifies the missing tag explicitly. Re-run the publishing workflow for the missing release tag before retrying deployment.
+
+### Maintainer: GHCR distribution checklist (public operators)
+
+A Git tag and GitHub Release do **not** create container tags on GHCR. Third parties need **all six** images (`sirius-ui`, `sirius-api`, `sirius-engine`, `sirius-postgres`, `sirius-rabbitmq`, `sirius-valkey`) published under the **same** semver tag, and each package must be **public** for anonymous `docker pull`.
+
+1. **Package visibility (per package)** — In [SiriusScan org packages](https://github.com/orgs/SiriusScan/packages), open each container image, set **Package settings** to **Public**, and link the package to this repository if needed. Partial visibility explains “works when logged in” vs failures for everyone else (see [issue #119](https://github.com/SiriusScan/Sirius/issues/119)).
+2. **Publish semver tags** — Run [Publish Release Image Tags](https://github.com/SiriusScan/Sirius/actions/workflows/publish-release-image-tags.yml) with `source_tag` = the tag that exists on GHCR for all six (usually `latest`) and `target_tag` = the release (e.g. `v1.0.0`). Confirm the workflow run succeeds end-to-end.
+3. **Verify anonymously** — From a machine **not** logged in to `ghcr.io`:
+
+```bash
+bash scripts/verify-ghcr-public-access.sh v1.0.0
+```
+
+CI runs the same check on every published release and weekly via [.github/workflows/verify-ghcr-release-tag.yml](.github/workflows/verify-ghcr-release-tag.yml).

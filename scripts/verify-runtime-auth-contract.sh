@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Runtime auth contract: internal API key (SIRIUS_API_KEY_FILE or SIRIUS_API_KEY), POSTGRES_PASSWORD parity, engine env, API HTTP behavior.
+# Runtime auth contract: internal API key comes from the mounted
+# SIRIUS_API_KEY_FILE secret, POSTGRES_PASSWORD parity, engine env, API HTTP
+# behavior.
 #
 # Container names default to docker-compose.yaml `container_name` values (project: sirius).
 # Override for other projects, e.g. CI:
@@ -37,14 +39,14 @@ extract_env() {
   local container="$1"
   local key="$2"
   docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}' \
-    | rg "^${key}=" | sed "s/^${key}=//"
+    | rg "^${key}=" | sed "s/^${key}=//" || true
 }
 
-# Effective key inside the container (env or trimmed file contents).
-resolve_internal_api_key() {
+# Effective key inside the container (trimmed file contents only).
+resolve_file_backed_api_key() {
   local container="$1"
   docker exec "$container" sh -lc \
-    'if [ -n "${SIRIUS_API_KEY:-}" ]; then printf %s "$SIRIUS_API_KEY"; elif [ -r "${SIRIUS_API_KEY_FILE:-}" ]; then tr -d "\r\n" < "$SIRIUS_API_KEY_FILE"; fi'
+    'if [ -r "${SIRIUS_API_KEY_FILE:-}" ]; then tr -d "\r\n" < "$SIRIUS_API_KEY_FILE"; fi'
 }
 
 mask_value() {
@@ -61,9 +63,33 @@ mask_value() {
   echo "${value:0:6}...${value: -4}"
 }
 
-ui_key="$(resolve_internal_api_key "$CTR_UI")"
-api_key="$(resolve_internal_api_key "$CTR_API")"
-engine_key="$(resolve_internal_api_key "$CTR_ENGINE")"
+assert_file_only_api_key_contract() {
+  local container="$1"
+  local label="$2"
+  local file_key
+  local configured_env_key
+
+  file_key="$(resolve_file_backed_api_key "$container")"
+  configured_env_key="$(extract_env "$container" SIRIUS_API_KEY)"
+
+  if [ -n "$configured_env_key" ]; then
+    echo "❌ ${label} still has legacy SIRIUS_API_KEY configured in container env"
+    exit 1
+  fi
+
+  if [ -z "$file_key" ]; then
+    echo "❌ ${label} is missing a readable file-backed internal API key"
+    exit 1
+  fi
+}
+
+assert_file_only_api_key_contract "$CTR_UI" "sirius-ui"
+assert_file_only_api_key_contract "$CTR_API" "sirius-api"
+assert_file_only_api_key_contract "$CTR_ENGINE" "sirius-engine"
+
+ui_key="$(resolve_file_backed_api_key "$CTR_UI")"
+api_key="$(resolve_file_backed_api_key "$CTR_API")"
+engine_key="$(resolve_file_backed_api_key "$CTR_ENGINE")"
 
 postgres_db_pw="$(extract_env "$CTR_POSTGRES" POSTGRES_PASSWORD)"
 api_db_pw="$(extract_env "$CTR_API" POSTGRES_PASSWORD)"
@@ -79,9 +105,11 @@ echo "  api ($CTR_API):    $(mask_value "$api_key")"
 echo "  engine ($CTR_ENGINE): $(mask_value "$engine_key")"
 
 if [ -z "$ui_key" ] || [ -z "$api_key" ] || [ -z "$engine_key" ]; then
-  echo "❌ One or more services are missing internal API key (SIRIUS_API_KEY or readable SIRIUS_API_KEY_FILE)"
+  echo "❌ One or more services are missing readable SIRIUS_API_KEY_FILE secret data"
   exit 1
 fi
+
+echo "✅ File-only internal API key contract check passed"
 
 if [ "$ui_key" != "$api_key" ] || [ "$api_key" != "$engine_key" ]; then
   echo "❌ Internal API key mismatch across services (key split-brain detected)"

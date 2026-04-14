@@ -109,7 +109,7 @@ Images are tagged with the following strategy:
 - **Public images**: No authentication required
 - **Multi-architecture**: Images support `linux/amd64` and `linux/arm64`
 - **Automatic updates**: Latest images are built automatically by CI/CD
-- **Release contract**: A release tag is only valid for operators after the release-tag workflow publishes it and the anonymous GHCR verification step passes
+- **Release contract**: A release tag is only valid for operators after the release-tag workflow publishes it, the anonymous GHCR verification step passes, and the public Compose smoke test succeeds. CI validates **`latest`** on every main push (`public-stack-contract` in `ci.yml`); **semver** tags are additionally checked when a GitHub Release is published and on a weekly schedule ([`verify-ghcr-release-tag.yml`](../../../.github/workflows/verify-ghcr-release-tag.yml)).
 
 ## Docker Compose Configuration
 
@@ -152,6 +152,8 @@ IMAGE_TAG=beta docker compose up -d
 # Validate that the selected tag is publicly readable before rollout
 bash scripts/verify-ghcr-public-access.sh "${IMAGE_TAG:-latest}"
 ```
+
+`.env.production.example` leaves `IMAGE_TAG` blank so fresh installer runs inherit the Compose default (`latest`). Pin a release tag only after the publish workflow has validated that all six Sirius images exist for that tag.
 
 ### Development Override
 
@@ -206,6 +208,18 @@ The `docker-compose.dev.yaml` file overrides the registry images with local buil
    curl http://localhost:9001/health  # API
    curl http://localhost:3000/api/health  # UI
    ```
+
+### Maintainer Validation Path
+
+Use the shared validation script to exercise the same public Compose path that operators use:
+
+```bash
+# Validate the default public stack (latest)
+bash scripts/validate-public-compose-path.sh latest
+
+# Validate a published release tag
+bash scripts/validate-public-compose-path.sh v0.4.1
+```
 
 ### Version-Specific Deployment
 
@@ -262,11 +276,14 @@ Example:
 mkdir -p secrets
 printf '%s' "your-postgres-password" > secrets/postgres_password.txt
 printf '%s' "your-service-key" > secrets/sirius_api_key.txt
+chmod 644 secrets/sirius_api_key.txt
 printf '%s' "your-nextauth-secret" > secrets/nextauth_secret.txt
 printf '%s' "your-admin-password" > secrets/initial_admin_password.txt
 
 docker compose -f docker-compose.yaml -f docker-compose.secrets.yaml up -d
 ```
+
+`sirius_api_key.txt` should stay **world-readable** (`644`) so bind-mounted `/run/secrets/sirius_api_key` is readable inside **sirius-api** / **sirius-ui** / **sirius-engine** (non-root UIDs).
 
 ## Troubleshooting
 
@@ -282,6 +299,7 @@ docker compose -f docker-compose.yaml -f docker-compose.secrets.yaml up -d
 - Run the contract check: `bash scripts/verify-ghcr-public-access.sh "${IMAGE_TAG:-latest}"`
 - If the script reports `Anonymous access denied`, the package is not publicly readable and the GHCR visibility workflow or token scope needs attention
 - If the script reports `Manifest missing`, the requested tag was not published and you should verify the release-tag workflow completed successfully
+- If the public Compose smoke test fails after pull succeeds, run `bash scripts/validate-public-compose-path.sh "${IMAGE_TAG:-latest}"` to reproduce the operator path and inspect the runtime contract failure
 - Use fallback build strategy (see above)
 
 ### Wrong Version Deployed

@@ -19,7 +19,6 @@ services:
       - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
       - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-http://localhost:9001}
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
     restart: unless-stopped
 
   sirius-api:
@@ -36,7 +35,6 @@ services:
       - VALKEY_PORT=${VALKEY_PORT:-6379}
       - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
     restart: unless-stopped
 
   sirius-engine:
@@ -54,5 +52,4 @@ services:
       - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
       - API_BASE_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
     restart: unless-stopped

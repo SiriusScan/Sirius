@@ -1,0 +1,56 @@
+# Verifies that the GitHub Release tag has matching, anonymously pullable images
+# for all six GHCR packages used by docker-compose.yaml. Complements ci.yml, which
+# only validates the public compose path for `latest` on main pushes.
+name: Verify GHCR Release Tag
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to verify (e.g. v1.0.0). Leave empty to resolve the latest GitHub release tag."
+        required: false
+        default: ""
+  schedule:
+    # Weekly: catch drift between GitHub Releases and GHCR semver tags
+    - cron: "0 12 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-anonymous-ghcr:
+    name: Anonymous GHCR manifest check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            MANUAL="${{ inputs.image_tag }}"
+            if [ -n "${MANUAL}" ]; then
+              echo "tag=${MANUAL}" >> "$GITHUB_OUTPUT"
+              echo "Resolved tag (manual): ${MANUAL}"
+              exit 0
+            fi
+          fi
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "Resolved tag (release event): ${TAG}"
+            exit 0
+          fi
+          TAG=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag (latest GitHub release): ${TAG}"
+
+      - name: Verify anonymous GHCR access (compose-rendered refs)
+        run: |
+          bash scripts/verify-ghcr-public-access.sh "${{ steps.tag.outputs.tag }}"

@@ -10,6 +10,7 @@ related_docs:
   - "README.workflows.md"
   - "README.docker-container-deployment.md"
   - "README.api-key-operations.md"
+  - "../../OPERATIONS.md"
 ---
 
 # Sirius v1.0.0 Release Closeout
@@ -38,11 +39,17 @@ This document records final push/merge completion evidence for the Sirius v1.0.0
 - `ghcr.io/siriusscan/sirius-ui:latest` available
 - `ghcr.io/siriusscan/sirius-api:latest` available
 - `ghcr.io/siriusscan/sirius-engine:latest` available
-- `ghcr.io/siriusscan/sirius-ui:v1.0.0` missing (`manifest unknown`)
-- `ghcr.io/siriusscan/sirius-api:v1.0.0` missing (`manifest unknown`)
-- `ghcr.io/siriusscan/sirius-engine:v1.0.0` missing (`manifest unknown`)
+- At initial closeout, `v1.0.0` semver tags were not yet consistently published on GHCR for all stack images (historical `manifest unknown` on some application images; infrastructure images require the same [Publish Release Image Tags](../../../.github/workflows/publish-release-image-tags.yml) step as the app trio).
 
-Note: direct retag-and-push attempt from local environment was blocked by GHCR token scope restrictions. Track follow-up in stabilization backlog if versioned image tags are required for rollout policy.
+Note: direct retag-and-push attempt from local environment was blocked by GHCR token scope restrictions. Versioned tags for operators are published via the **Publish Release Image Tags** workflow using CI credentials.
+
+### Post-closeout: third-party pulls and issue #119
+
+External operators who set `IMAGE_TAG=v1.0.0` (or any semver) need **six** matching tags on GHCR and **public** package visibility. If any image lacks the tag or a package remains private, `docker compose pull` fails with `not found` / `manifest unknown` while maintainer machines may still succeed when authenticated to GHCR ([issue #119](https://github.com/SiriusScan/Sirius/issues/119)).
+
+**Remediation (maintainers):** follow the [GHCR distribution checklist](../../../OPERATIONS.md#maintainer-ghcr-distribution-checklist-public-operators): set each org package to Public, run **Publish Release Image Tags** with `source_tag=latest` and `target_tag=v1.0.0`, then confirm anonymously with `bash scripts/verify-ghcr-public-access.sh v1.0.0`. The **Verify GHCR Release Tag** workflow ([verify-ghcr-release-tag.yml](../../../.github/workflows/verify-ghcr-release-tag.yml)) runs the same check on every published release and weekly.
+
+**Suggested reply for issue #119 (after tags and visibility are fixed):** confirm all six anonymous pulls for `v1.0.0`, link the successful workflow run, and recommend leaving `IMAGE_TAG` blank for `latest` unless pinning.
 
 ### Runtime smoke validation
 

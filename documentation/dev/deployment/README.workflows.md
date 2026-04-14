@@ -65,6 +65,11 @@ gh workflow run ci.yml --ref main
 
 The Sirius CI/CD pipeline is implemented in `.github/workflows/ci.yml` and follows a **parallel build architecture** that significantly reduces build times compared to sequential builds.
 
+**Other workflows** (not shown in the diagram below):
+
+- [`.github/workflows/publish-release-image-tags.yml`](../../../.github/workflows/publish-release-image-tags.yml) — manual retag of all six GHCR images from a source tag (e.g. `latest`) to a release tag (e.g. `v1.0.0`).
+- [`.github/workflows/verify-ghcr-release-tag.yml`](../../../.github/workflows/verify-ghcr-release-tag.yml) — on each **published** GitHub Release, on a **weekly** schedule, and via **workflow_dispatch**, runs `scripts/verify-ghcr-public-access.sh` so the release tag cannot drift from what anonymous operators can pull (see [OPERATIONS.md](../../../OPERATIONS.md) GHCR checklist).
+
 **Key characteristics:**
 
 - **Parallel execution**: UI, API, and Engine containers build simultaneously

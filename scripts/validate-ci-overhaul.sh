@@ -102,10 +102,11 @@ log ""
 log "${YELLOW}Phase 4: Docker Compose Validation${NC}"
 log ""
 
-export SIRIUS_API_KEY="${SIRIUS_API_KEY:-test-api-key}"
 export POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-test-postgres-password}"
 export NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-test-nextauth-secret}"
 export INITIAL_ADMIN_PASSWORD="${INITIAL_ADMIN_PASSWORD:-test-admin-password}"
+mkdir -p secrets
+printf '%s\n' "${SIRIUS_INTERNAL_API_KEY_TEST_VALUE:-test-api-key}" > secrets/sirius_api_key.txt
 
 run_step "Base docker-compose config" \
   "docker compose config --quiet" || exit 1

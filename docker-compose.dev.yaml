@@ -77,9 +77,8 @@ services:
       - SIRIUS_API_URL=http://sirius-api:9001
       - NEXT_PUBLIC_SIRIUS_API_URL=http://localhost:9001
       - CONTAINER_NAME=sirius-ui
-      # Internal API auth (file mount from base compose + env fallback)
+      # Internal API auth (file mount from base compose)
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
       # Performance: increase Node.js heap for faster webpack compilation
       - NODE_OPTIONS=--max-old-space-size=4096
       # Performance: enable filesystem polling for reliable hot reload on Docker bind mounts
@@ -132,7 +131,6 @@ services:
       - LOG_LEVEL=info
       - CONTAINER_NAME=sirius-api
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
 
   sirius-engine:
     build:
@@ -187,7 +185,6 @@ services:
       - ENABLE_SCRIPTING=true
       - CONTAINER_NAME=sirius-engine
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
 
 networks:
   default:

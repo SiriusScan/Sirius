@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -92,13 +94,25 @@ func run(opts cliOptions) error {
 		return err
 	}
 
+	apiKey, wasGenerated, err := resolveInternalAPIKey(opts.OutputPath, finalVals["SIRIUS_API_KEY"], opts.Force)
+	if err != nil {
+		return err
+	}
+	if wasGenerated {
+		generated["SIRIUS_API_KEY"] = apiKey
+	}
+	delete(finalVals, "SIRIUS_API_KEY")
+
 	rendered := config.Render(templateFile, finalVals)
 	if err := writeSecure(opts.OutputPath, rendered); err != nil {
 		return err
 	}
 
-	if err := writeSiriusAPISecretFile(opts.OutputPath, finalVals["SIRIUS_API_KEY"]); err != nil {
+	if err := writeSiriusAPISecretFile(opts.OutputPath, apiKey); err != nil {
 		return fmt.Errorf("write internal API secret file: %w", err)
+	}
+	if err := verifySiriusAPISecretFile(opts.OutputPath, apiKey); err != nil {
+		return fmt.Errorf("verify internal API secret file: %w", err)
 	}
 
 	if !opts.Quiet {
@@ -154,6 +168,27 @@ func gatherInteractive(in config.Options) (config.Options, error) {
 	return in, nil
 }
 
+func resolveInternalAPIKey(envOutputPath, legacyEnvValue string, force bool) (string, bool, error) {
+	if !force {
+		if existing, err := readSiriusAPISecretFile(envOutputPath); err == nil {
+			if existing != "" {
+				return existing, false, nil
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", false, fmt.Errorf("read existing secrets/sirius_api_key.txt: %w", err)
+		}
+		if trimmed := strings.TrimSpace(legacyEnvValue); trimmed != "" && !config.IsPlaceholder(trimmed) {
+			return trimmed, false, nil
+		}
+	}
+
+	generated, err := randomHex(32)
+	if err != nil {
+		return "", false, err
+	}
+	return generated, true, nil
+}
+
 func loadOrEmpty(path string, allowMissing bool) (*config.EnvFile, error) {
 	f, err := config.ParseEnvFile(path)
 	if err == nil {
@@ -163,6 +198,19 @@ func loadOrEmpty(path string, allowMissing bool) (*config.EnvFile, error) {
 		return config.NewEmptyEnvFile(), nil
 	}
 	return nil, err
+}
+
+func readSiriusAPISecretFile(envOutputPath string) (string, error) {
+	rootDir := filepath.Dir(envOutputPath)
+	if rootDir == "" || rootDir == "." {
+		rootDir = "."
+	}
+	path := filepath.Join(rootDir, "secrets", "sirius_api_key.txt")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(raw)), nil
 }
 
 // writeSiriusAPISecretFile writes secrets/sirius_api_key.txt next to the .env file
@@ -182,10 +230,37 @@ func writeSiriusAPISecretFile(envOutputPath, apiKey string) error {
 	}
 	path := filepath.Join(secDir, "sirius_api_key.txt")
 	content := apiKey + "\n"
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+	// 0644 so non-root service UIDs (e.g. 1001 in sirius-api) can read the host
+	// file when Docker Compose bind-mounts it as /run/secrets/sirius_api_key.
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		return err
 	}
 	return nil
+}
+
+func verifySiriusAPISecretFile(envOutputPath, apiKey string) error {
+	apiKey = strings.TrimSpace(apiKey)
+	rootDir := filepath.Dir(envOutputPath)
+	if rootDir == "" || rootDir == "." {
+		rootDir = "."
+	}
+	path := filepath.Join(rootDir, "secrets", "sirius_api_key.txt")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(string(raw)) != apiKey {
+		return fmt.Errorf("%s does not match generated internal API key", path)
+	}
+	return nil
+}
+
+func randomHex(numBytes int) (string, error) {
+	buf := make([]byte, numBytes)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("failed to read random bytes: %w", err)
+	}
+	return hex.EncodeToString(buf), nil
 }
 
 func writeSecure(path, content string) error {

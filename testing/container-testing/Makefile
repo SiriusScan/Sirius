@@ -84,11 +84,12 @@ test-integration:
 test-runtime-contract:
 	@echo "🧷 Verifying runtime auth/binary contracts..."
 	@cd ../.. && \
-	SIRIUS_API_KEY=$${SIRIUS_API_KEY:-test-api-key} \
 	POSTGRES_PASSWORD=$${POSTGRES_PASSWORD:-test-postgres-password} \
 	NEXTAUTH_SECRET=$${NEXTAUTH_SECRET:-test-nextauth-secret} \
 	INITIAL_ADMIN_PASSWORD=$${INITIAL_ADMIN_PASSWORD:-test-admin-password} \
 	DATABASE_URL=$${DATABASE_URL:-postgresql://postgres:test-postgres-password@sirius-postgres:5432/sirius} \
+	mkdir -p secrets && \
+	printf '%s\n' "$${SIRIUS_INTERNAL_API_KEY_TEST_VALUE:-test-api-key}" > secrets/sirius_api_key.txt && \
 	docker compose up -d && \
 	bash scripts/verify-runtime-auth-contract.sh && \
 	docker compose down

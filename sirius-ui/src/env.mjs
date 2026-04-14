@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "fs";
 
-/** Prefer SIRIUS_API_KEY_FILE (Docker secret mount), then SIRIUS_API_KEY. */
+/** Read the internal API key from the mounted Docker secret only. */
 function resolveInternalSiriusAPIKey() {
   const file = process.env.SIRIUS_API_KEY_FILE?.trim();
   if (file && existsSync(file)) {
@@ -8,10 +8,10 @@ function resolveInternalSiriusAPIKey() {
       const k = readFileSync(file, "utf8").trim();
       if (k) return k;
     } catch {
-      /* fall through */
+      return "";
     }
   }
-  return (process.env.SIRIUS_API_KEY || "").trim();
+  return "";
 }
 
 // Simple environment object - no validation needed for Docker compose setup
@@ -23,7 +23,7 @@ export const env = {
   DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET || "dummy_client_secret",
   SIRIUS_API_URL: process.env.SIRIUS_API_URL || "http://localhost:9001",
   NEXT_PUBLIC_SIRIUS_API_URL: process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001",
-  // Internal service credential for TRPC → Go API (file mount preferred).
+  // Internal service credential for TRPC → Go API (file mount required).
   SIRIUS_API_KEY: resolveInternalSiriusAPIKey(),
   SIRIUS_API_KEY_FILE: process.env.SIRIUS_API_KEY_FILE || "",
 };
@@ -39,7 +39,7 @@ if (
   !env.SIRIUS_API_KEY.trim()
 ) {
   throw new Error(
-    "Internal API key required at runtime: set SIRIUS_API_KEY_FILE to a readable secret file and/or SIRIUS_API_KEY",
+    "Internal API key required at runtime: set SIRIUS_API_KEY_FILE to a readable secret file",
   );
 }
 

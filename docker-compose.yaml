@@ -122,10 +122,8 @@ services:
       - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-http://localhost:9001}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-dummy_client_id}
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-dummy_client_secret}
-      # Internal API auth: prefer file mount; keep SIRIUS_API_KEY for older UI images (e.g. v1.0.0)
-      # whose entrypoint still requires the env var even when the secret file is present.
+      # Internal API auth: file-backed secret mount only
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
-      - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
     secrets:
       - sirius_api_key
     depends_on:

@@ -29,21 +29,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/lib/ui/select";
-import { type AgentScanMode, DEFAULT_AGENT_SCAN_CONFIG } from "~/types/scanTypes";
+import { type AgentScanMode } from "~/types/scanTypes";
 import { toast } from "sonner";
+import {
+  ALL_NSE_SCRIPTS,
+  canonicalizeScriptId,
+  canonicalizeScriptIds,
+} from "~/utils/nseScriptIds";
 
 interface TemplateEditorTabProps {
   templateId?: string;
   onClose: () => void;
 }
-
-const canonicalizeScriptId = (value: string): string =>
-  value
-    .trim()
-    .split("/")
-    .filter(Boolean)
-    .pop()
-    ?.replace(/\.nse$/i, "") ?? "";
 
 const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
   templateId,
@@ -99,19 +96,29 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
     refetchOnWindowFocus: false,
   });
 
-  const availableScripts = useMemo(() => scripts || [], [scripts]);
-  const availableCanonicalIds = useMemo(
-    () => new Set(availableScripts.map((s) => canonicalizeScriptId(s.id))),
+  const availableScripts = useMemo(() => scripts ?? [], [scripts]);
+  const availableCanonicalScriptIds = useMemo(
+    () => canonicalizeScriptIds(availableScripts.map((script) => script.id)),
     [availableScripts]
+  );
+  const availableCanonicalIds = useMemo(
+    () => new Set(availableCanonicalScriptIds),
+    [availableCanonicalScriptIds]
+  );
+  const hasWildcardSelection = useMemo(
+    () => selectedScripts.some((id) => canonicalizeScriptId(id) === ALL_NSE_SCRIPTS),
+    [selectedScripts]
   );
   const selectedCanonicalIds = useMemo(
     () =>
       new Set(
-        selectedScripts
-          .map((id) => canonicalizeScriptId(id))
-          .filter((id) => id.length > 0)
+        hasWildcardSelection
+          ? availableCanonicalScriptIds
+          : canonicalizeScriptIds(selectedScripts).filter(
+              (id) => id !== ALL_NSE_SCRIPTS
+            )
       ),
-    [selectedScripts]
+    [availableCanonicalScriptIds, hasWildcardSelection, selectedScripts]
   );
   const isScriptSelected = (scriptId: string) =>
     selectedCanonicalIds.has(canonicalizeScriptId(scriptId));
@@ -120,19 +127,19 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
   useEffect(() => {
     if (existingTemplate) {
       setName(existingTemplate.name);
-      setDescription(existingTemplate.description || "");
-      setSelectedScripts(existingTemplate.enabled_scripts || []);
+      setDescription(existingTemplate.description ?? "");
+      setSelectedScripts(existingTemplate.enabled_scripts ?? []);
       // Initialize scan options from existing template
       const opts = existingTemplate.scan_options;
       if (opts) {
         setScanTypes(
-          opts.scan_types || ["fingerprint", "enumeration", "vulnerability"]
+          opts.scan_types ?? ["fingerprint", "enumeration", "vulnerability"]
         );
-        setPortRange(opts.port_range || "");
+        setPortRange(opts.port_range ?? "");
         setAggressive(opts.aggressive || false);
         setMaxRetries(opts.max_retries || 2);
         setParallel(opts.parallel ?? true);
-        setExcludePorts(opts.exclude_ports?.join(", ") || "");
+        setExcludePorts(opts.exclude_ports?.join(", ") ?? "");
         // Load agent scan config
         if (opts.agent_scan) {
           setAgentScanEnabled(opts.agent_scan.enabled ?? false);
@@ -147,34 +154,37 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
 
   // Check for missing scripts (scripts in profile but not in available list)
   const missingScripts = useMemo(() => {
-    if (selectedScripts.length === 0 || availableScripts.length === 0)
-      return [];
-    return selectedScripts.filter((id) => {
-      const canonical = canonicalizeScriptId(id);
-      return canonical.length === 0 || !availableCanonicalIds.has(canonical);
-    });
-  }, [selectedScripts, availableScripts.length, availableCanonicalIds]);
+    return canonicalizeScriptIds(selectedScripts).filter(
+      (id) => id !== ALL_NSE_SCRIPTS && !availableCanonicalIds.has(id)
+    );
+  }, [availableCanonicalIds, selectedScripts]);
 
   // Valid selected scripts (only those that exist)
   const validSelectedScripts = useMemo(() => {
-    if (selectedScripts.length === 0 || availableScripts.length === 0)
-      return selectedScripts;
-    return selectedScripts.filter((id) => {
-      const canonical = canonicalizeScriptId(id);
-      return canonical.length > 0 && availableCanonicalIds.has(canonical);
-    });
-  }, [selectedScripts, availableScripts.length, availableCanonicalIds]);
+    if (hasWildcardSelection) {
+      return availableCanonicalScriptIds;
+    }
+
+    return canonicalizeScriptIds(selectedScripts).filter((id) =>
+      availableCanonicalIds.has(id)
+    );
+  }, [
+    availableCanonicalIds,
+    availableCanonicalScriptIds,
+    hasWildcardSelection,
+    selectedScripts,
+  ]);
 
   const createMutation = api.templates.createTemplate.useMutation({
     onSuccess: () => {
-      utils.templates.getTemplates.invalidate();
+      void utils.templates.getTemplates.invalidate();
       onClose();
     },
   });
 
   const updateMutation = api.templates.updateTemplate.useMutation({
     onSuccess: () => {
-      utils.templates.getTemplates.invalidate();
+      void utils.templates.getTemplates.invalidate();
       onClose();
     },
   });
@@ -335,7 +345,7 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
         .toString(36)
         .substr(2, 9)}`;
       const baseData = {
-        name: `${existingTemplate?.name || name} (Copy)`,
+        name: `${existingTemplate?.name ?? name} (Copy)`,
         description: description.trim(),
         enabled_scripts: validSelectedScripts,
         type: "custom" as const,
@@ -386,9 +396,13 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
 
     // Apply filter mode
     if (filterMode === "selected") {
-      filtered = filtered.filter((script) => isScriptSelected(script.id));
+      filtered = filtered.filter((script) =>
+        selectedCanonicalIds.has(canonicalizeScriptId(script.id))
+      );
     } else if (filterMode === "unselected") {
-      filtered = filtered.filter((script) => !isScriptSelected(script.id));
+      filtered = filtered.filter(
+        (script) => !selectedCanonicalIds.has(canonicalizeScriptId(script.id))
+      );
     }
 
     return filtered;
@@ -812,7 +826,7 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => utils.store.getNseScripts.invalidate()}
+                onClick={() => void utils.store.getNseScripts.invalidate()}
                 className="mt-3 border-red-500/30 text-red-300 hover:bg-red-500/10"
               >
                 Retry

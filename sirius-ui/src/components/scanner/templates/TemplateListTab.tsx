@@ -11,6 +11,7 @@ import {
 } from "~/components/lib/ui/dialog";
 import { Edit, Trash2, Plus } from "lucide-react";
 import { api } from "~/utils/api";
+import { summarizeScriptRefs } from "~/utils/nseScriptIds";
 
 interface TemplateListTabProps {
   onEdit: (templateId: string) => void;
@@ -27,11 +28,11 @@ const TemplateListTab: React.FC<TemplateListTabProps> = ({
   const utils = api.useContext();
   const { data: templates, isLoading } = api.templates.getTemplates.useQuery();
   const { data: scripts } = api.store.getNseScripts.useQuery();
-  const availableScriptIds = new Set((scripts || []).map((script) => script.id));
+  const availableScriptIds = new Set((scripts ?? []).map((script) => script.id));
 
   const deleteMutation = api.templates.deleteTemplate.useMutation({
     onSuccess: () => {
-      utils.templates.getTemplates.invalidate();
+      void utils.templates.getTemplates.invalidate();
       setDeleteDialogOpen(false);
       setTemplateToDelete(null);
     },
@@ -84,12 +85,8 @@ const TemplateListTab: React.FC<TemplateListTabProps> = ({
             {templates && templates.length > 0 ? (
               templates.map((template) => {
                 const isSystem = template.type === "system";
-                const linkedScriptCount =
-                  template.enabled_scripts?.filter((scriptId) =>
-                    availableScriptIds.has(scriptId)
-                  ).length || 0;
-                const totalScriptRefs = template.enabled_scripts?.length || 0;
-                const missingScriptRefs = totalScriptRefs - linkedScriptCount;
+                const { linkedScriptCount, missingScriptRefs, hasWildcard } =
+                  summarizeScriptRefs(template.enabled_scripts, availableScriptIds);
 
                 return (
                   <tr
@@ -108,6 +105,11 @@ const TemplateListTab: React.FC<TemplateListTabProps> = ({
                         {linkedScriptCount}{" "}
                         {linkedScriptCount === 1 ? "script" : "scripts"}
                       </Badge>
+                      {hasWildcard && (
+                        <span className="ml-2 text-xs text-violet-300">
+                          all available
+                        </span>
+                      )}
                       {missingScriptRefs > 0 && (
                         <span className="ml-2 text-xs text-yellow-400">
                           +{missingScriptRefs} missing

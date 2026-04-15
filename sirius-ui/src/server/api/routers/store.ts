@@ -1,6 +1,7 @@
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { z } from "zod";
 import { valkey } from "~/server/valkey";
+import { canonicalizeScriptId as normalizeScriptId } from "~/utils/nseScriptIds";
 
 // Key constants to match backend
 const NSE_MANIFEST_KEY = "nse:manifest";
@@ -10,14 +11,6 @@ const ALLOWED_KEY_PREFIXES = ["nse:", "currentScan", "agent_scan:"] as const;
 
 function isAllowedKey(key: string): boolean {
   return ALLOWED_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
-}
-
-function normalizeScriptId(value: string | undefined): string {
-  if (!value) return "";
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  const lastSegment = trimmed.split("/").filter(Boolean).pop() ?? trimmed;
-  return lastSegment.replace(/\.nse$/i, "");
 }
 
 type ManifestScriptInfo = {

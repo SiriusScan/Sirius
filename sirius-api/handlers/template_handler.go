@@ -57,7 +57,62 @@ const (
 	templateKeyPrefix      = "scan:template:"
 	templateListKey        = "scan:template:list"
 	systemTemplatesListKey = "scan:system-templates"
+	allScriptsMarker       = "*"
 )
+
+func canonicalizeEnabledScriptRef(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	if trimmed == allScriptsMarker {
+		return allScriptsMarker
+	}
+
+	segments := strings.Split(trimmed, "/")
+	lastSegment := trimmed
+	for i := len(segments) - 1; i >= 0; i-- {
+		if segments[i] != "" {
+			lastSegment = segments[i]
+			break
+		}
+	}
+
+	if strings.HasSuffix(strings.ToLower(lastSegment), ".nse") {
+		return lastSegment[:len(lastSegment)-4]
+	}
+
+	return lastSegment
+}
+
+func normalizeTemplateEnabledScripts(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	normalized := make([]string, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		canonical := canonicalizeEnabledScriptRef(value)
+		if canonical == "" {
+			continue
+		}
+		if canonical == allScriptsMarker {
+			return []string{allScriptsMarker}
+		}
+		if _, exists := seen[canonical]; exists {
+			continue
+		}
+		seen[canonical] = struct{}{}
+		normalized = append(normalized, canonical)
+	}
+
+	return normalized
+}
+
+func normalizeTemplate(template *Template) {
+	template.EnabledScripts = normalizeTemplateEnabledScripts(template.EnabledScripts)
+}
 
 // GetTemplates returns all templates
 func GetTemplates(c *fiber.Ctx) error {
@@ -158,6 +213,7 @@ func CreateTemplate(c *fiber.Ctx) error {
 			"error": "Invalid request body",
 		})
 	}
+	normalizeTemplate(&template)
 
 	// Validate template
 	if err := validateTemplate(&template); err != nil {
@@ -227,6 +283,7 @@ func UpdateTemplate(c *fiber.Ctx) error {
 
 	// Ensure ID matches
 	template.ID = templateID
+	normalizeTemplate(&template)
 
 	// Validate template
 	if err := validateTemplate(&template); err != nil {
@@ -341,11 +398,13 @@ func getTemplateByID(ctx context.Context, kvStore store.KVStore, id string) (*Te
 	if err := json.Unmarshal([]byte(resp.Message.Value), &template); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal template: %w", err)
 	}
+	normalizeTemplate(&template)
 
 	return &template, nil
 }
 
 func storeTemplate(ctx context.Context, kvStore store.KVStore, template *Template) error {
+	normalizeTemplate(template)
 	templateJSON, err := json.Marshal(template)
 	if err != nil {
 		return fmt.Errorf("failed to marshal template: %w", err)

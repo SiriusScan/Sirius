@@ -7,6 +7,11 @@ services:
       context: .
       dockerfile: installer/Dockerfile
     working_dir: /workspace
+    # Default to root so the README's `docker compose ... run sirius-installer`
+    # quickstart keeps working unchanged. CI (and Linux users who want host-
+    # owned files) can override by exporting SIRIUS_INSTALLER_UID/GID before
+    # invoking compose. See scripts/validate-public-compose-path.sh.
+    user: "${SIRIUS_INSTALLER_UID:-0}:${SIRIUS_INSTALLER_GID:-0}"
     volumes:
       - ./:/workspace
     command: ["--template", ".env.production.example", "--output", ".env"]

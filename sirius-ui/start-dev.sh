@@ -2,6 +2,10 @@
 
 echo "🚀 Starting Sirius UI Development Server..."
 
+# Same default as start-prod — keeps dev parity when SIRIUS_API_KEY_FILE is empty in env.
+: "${SIRIUS_API_KEY_FILE:=/run/secrets/sirius_api_key}"
+export SIRIUS_API_KEY_FILE
+
 require_env() {
     VAR_NAME="$1"
     eval "VAR_VALUE=\${$VAR_NAME}"
@@ -15,11 +19,11 @@ require_readable_file() {
     VAR_NAME="$1"
     eval "FILE_PATH=\${$VAR_NAME}"
     if [ -z "$FILE_PATH" ]; then
-        echo "❌ Missing required environment variable: $VAR_NAME"
+        echo "❌ $VAR_NAME is not set. Run: docker compose -f docker-compose.installer.yaml run --rm sirius-installer"
         exit 1
     fi
     if [ ! -r "$FILE_PATH" ]; then
-        echo "❌ Required secret file is not readable: $FILE_PATH"
+        echo "❌ Internal API key is not readable at: $FILE_PATH (check ./secrets/sirius_api_key.txt and compose secrets:)"
         exit 1
     fi
 }

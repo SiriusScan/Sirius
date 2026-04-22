@@ -2,6 +2,13 @@
 
 echo "🚀 Starting Sirius UI Production Server..."
 
+# File-backed internal API key (see docker-compose.yaml secrets). If the host .env
+# contains an empty SIRIUS_API_KEY_FILE=, Compose may pass through an empty
+# value and skip the default — normalize here. Do not set SIRIUS_API_KEY in
+# .env; use secrets/sirius_api_key.txt via the installer.
+: "${SIRIUS_API_KEY_FILE:=/run/secrets/sirius_api_key}"
+export SIRIUS_API_KEY_FILE
+
 require_env() {
     VAR_NAME="$1"
     eval "VAR_VALUE=\${$VAR_NAME}"
@@ -15,11 +22,11 @@ require_readable_file() {
     VAR_NAME="$1"
     eval "FILE_PATH=\${$VAR_NAME}"
     if [ -z "$FILE_PATH" ]; then
-        echo "❌ Missing required environment variable: $VAR_NAME"
+        echo "❌ $VAR_NAME is not set. Run: docker compose -f docker-compose.installer.yaml run --rm sirius-installer"
         exit 1
     fi
     if [ ! -r "$FILE_PATH" ]; then
-        echo "❌ Required secret file is not readable: $FILE_PATH"
+        echo "❌ Internal API key is not readable at: $FILE_PATH (check ./secrets/sirius_api_key.txt and compose secrets:)"
         exit 1
     fi
 }

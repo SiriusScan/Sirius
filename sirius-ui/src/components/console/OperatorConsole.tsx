@@ -192,7 +192,6 @@ export default function OperatorConsole() {
     refetchInterval: 10000,
     refetchOnWindowFocus: false,
   });
-
   const agentDetailsQuery = api.agent.getAgentDetails.useQuery(
     { agentId: selectedAgentId || "" },
     { enabled: !!selectedAgentId, refetchInterval: 10000 }

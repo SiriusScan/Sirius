@@ -6,6 +6,7 @@ import {
 import { TRPCError } from "@trpc/server";
 import { handleSendMsg, waitForResponse } from "./queue";
 import { apiClient as httpClient } from "~/server/api/shared/apiClient";
+import { valkey } from "~/server/valkey";
 
 // Agent with host information
 export type AgentWithHost = {
@@ -25,25 +26,39 @@ export const agentRouter = createTRPCRouter({
   // Get list of agents with their associated host information
   listAgentsWithHosts: protectedProcedure.query(async ({ ctx }) => {
     try {
-      // First get the list of connected agents from the terminal service
-      const message = JSON.stringify({
-        action: "list_agents",
-        userId: ctx.session.user.id,
-        timestamp: new Date().toISOString(),
-      });
-
-      await handleSendMsg("agent_commands", message);
-      const response = await waitForResponse("agent_response");
-
       let connectedAgentIds: string[] = [];
       try {
-        connectedAgentIds = JSON.parse(response);
-        if (!Array.isArray(connectedAgentIds)) {
-          console.error(
-            "[Agent] Invalid agent list response format:",
-            response
-          );
-          connectedAgentIds = [];
+        let shouldFallbackToRabbitMq = true;
+
+        // Primary path: Valkey connected_agents written by the Sirius engine.
+        const valkeyResult = await valkey.get("connected_agents");
+        if (valkeyResult !== null) {
+          const parsed = JSON.parse(valkeyResult);
+          if (Array.isArray(parsed)) {
+            connectedAgentIds = parsed as string[];
+            shouldFallbackToRabbitMq = false;
+          }
+        }
+
+        // Fallback: RabbitMQ legacy list_agents path when Valkey state is missing.
+        if (shouldFallbackToRabbitMq) {
+          const message = JSON.stringify({
+            action: "list_agents",
+            userId: ctx.session.user.id,
+            timestamp: new Date().toISOString(),
+          });
+
+          await handleSendMsg("agent_commands", message);
+          const response = await waitForResponse("agent_response");
+
+          connectedAgentIds = JSON.parse(response);
+          if (!Array.isArray(connectedAgentIds)) {
+            console.error(
+              "[Agent] Invalid agent list response format:",
+              response
+            );
+            connectedAgentIds = [];
+          }
         }
       } catch (error) {
         console.error("[Agent] Failed to parse agent list response:", error);

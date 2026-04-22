@@ -40,33 +40,40 @@ interface AgentScanStatusResult {
  */
 async function getConnectedAgents(): Promise<string[]> {
   try {
+    let shouldFallbackToRabbitMq = true;
+
     // Primary: read from ValKey (avoids shared RabbitMQ queue race conditions)
     const valkeyResult = await valkey.get("connected_agents");
-    if (valkeyResult) {
+    if (valkeyResult !== null) {
       const agents = JSON.parse(valkeyResult);
       if (Array.isArray(agents)) {
+        shouldFallbackToRabbitMq = false;
         console.log(`[AgentScan] Got ${agents.length} connected agents from ValKey`);
         return agents as string[];
       }
     }
 
-    // Fallback: use RabbitMQ (legacy path)
-    console.log("[AgentScan] ValKey connected_agents not found, falling back to RabbitMQ");
-    const message = JSON.stringify({
-      action: "list_agents",
-      userId: "system",
-      timestamp: new Date().toISOString(),
-    });
+    // Fallback: use RabbitMQ only when ValKey state is missing.
+    if (shouldFallbackToRabbitMq) {
+      console.log("[AgentScan] ValKey connected_agents not found, falling back to RabbitMQ");
+      const message = JSON.stringify({
+        action: "list_agents",
+        userId: "system",
+        timestamp: new Date().toISOString(),
+      });
 
-    await handleSendMsg(AGENT_COMMAND_QUEUE, message);
-    const response = await waitForResponse(AGENT_RESPONSE_QUEUE);
+      await handleSendMsg(AGENT_COMMAND_QUEUE, message);
+      const response = await waitForResponse(AGENT_RESPONSE_QUEUE);
 
-    const agents = JSON.parse(response);
-    if (!Array.isArray(agents)) {
-      console.error("[AgentScan] Invalid agent list response format:", response);
-      return [];
+      const agents = JSON.parse(response);
+      if (!Array.isArray(agents)) {
+        console.error("[AgentScan] Invalid agent list response format:", response);
+        return [];
+      }
+      return agents as string[];
     }
-    return agents as string[];
+
+    return [];
   } catch (error) {
     console.error("[AgentScan] Failed to list agents:", error);
     return [];

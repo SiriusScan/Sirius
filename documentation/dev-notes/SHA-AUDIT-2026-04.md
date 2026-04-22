@@ -209,6 +209,19 @@ contract, runtime, bootstrap) is preserved and is what `cmd/agent` and
 `.air.toml` hot-reload config + the slog logging refactor that the engine
 dev-mode workflow already assumed.
 
+**Published:** 2026-04-22. The combined engine GHCR push landed in Sirius
+commit `37235a4` (CI run `24793795066`). The multi-arch
+`ghcr.io/siriusscan/sirius-engine:latest` manifest now resolves to digest
+`sha256:682a81f8…dfdc99` and embeds `app-agent@7a22039` plus
+`app-terminal@5745e43`. The pre-existing `Public Stack Contract` job
+failure (`open .env: permission denied`) is unrelated to engine pinning
+and tracked separately; it has failed on the last four `main` pushes
+without affecting the engine/UI/API/infra image publish steps.
+
+With procyon out of `app-agent/go.mod`, the upstream CI blocker that
+forced the `replace` directive workaround is gone. Future `app-agent`
+SHA bumps no longer require the local `procyon/` working tree to exist.
+
 > The `app-scanner` pin landed at `cd3943c` rather than the earlier
 > `ca1ef2f` (Phase 2 sed→source rewrite) because Phase 4's
 > dev-mode overhaul required a follow-up commit to its `.air.toml`

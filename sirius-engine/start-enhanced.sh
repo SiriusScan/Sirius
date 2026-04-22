@@ -27,6 +27,24 @@ has_binary() {
     [ -f "$service_path/$binary_name" ] && [ -x "$service_path/$binary_name" ]
 }
 
+# Function to check if `air` (live-reload tool) is available on PATH.
+# Older sirius-engine images installed air to /root/go/bin without
+# adding that directory to PATH. The current Dockerfile fixes this,
+# but we keep the fallback so a dev volume-mounted into an older image
+# still gets live reload via the absolute path.
+has_air() {
+    command -v air >/dev/null 2>&1 || [ -x /root/go/bin/air ]
+}
+
+# Run `air` regardless of whether it is on PATH.
+run_air() {
+    if command -v air >/dev/null 2>&1; then
+        air "$@"
+    else
+        /root/go/bin/air "$@"
+    fi
+}
+
 # Function to determine the correct path for a service
 get_service_path() {
     local service_name=$1
@@ -255,12 +273,15 @@ if [ -n "$SCANNER_PATH" ]; then
     cd "$SCANNER_PATH"
     echo "Starting scanner service from $SCANNER_PATH..."
     if [ "$GO_ENV" = "development" ]; then
-        # Use air for hot reload if .air.toml exists
-        if [ -f ".air.toml" ]; then
+        # Use air for hot reload if .air.toml exists AND air is installed
+        if [ -f ".air.toml" ] && has_air; then
             echo "Running scanner with air (hot reload enabled)"
-            air &
+            run_air &
+        elif [ -f ".air.toml" ]; then
+            echo "Warning: scanner has .air.toml but 'air' is not installed; falling back to go run"
+            go run main.go &
         else
-            echo "Running scanner with go run (development mode)"
+            echo "Running scanner with go run (development mode, no .air.toml)"
             go run main.go &
         fi
     elif has_binary "$SCANNER_PATH" "scanner"; then
@@ -286,8 +307,17 @@ if [ -n "$TERMINAL_PATH" ]; then
     cd "$TERMINAL_PATH"
     echo "Starting terminal service from $TERMINAL_PATH..."
     if [ "$GO_ENV" = "development" ]; then
-        echo "Running terminal with go run (development mode)"
-        go run cmd/main.go &
+        # Use air for hot reload if .air.toml exists AND air is installed
+        if [ -f ".air.toml" ] && has_air; then
+            echo "Running terminal with air (hot reload enabled)"
+            run_air &
+        elif [ -f ".air.toml" ]; then
+            echo "Warning: terminal has .air.toml but 'air' is not installed; falling back to go run"
+            go run cmd/main.go &
+        else
+            echo "Running terminal with go run (development mode, no .air.toml)"
+            go run cmd/main.go &
+        fi
     elif has_binary "$TERMINAL_PATH" "terminal"; then
         echo "Running production terminal binary"
         ./terminal &
@@ -307,9 +337,20 @@ if [ -d "$AGENT_PATH" ] && [ -f "$AGENT_PATH/go.mod" ]; then
     cd "$AGENT_PATH"
     echo "Starting agent server from $AGENT_PATH..."
     if [ "$GO_ENV" = "development" ]; then
-        echo "Starting agent server (development mode)..."
-        go run cmd/server/main.go < /dev/null &
-        AGENT_SERVER_PID=$!
+        # Use air for hot reload if .air.toml exists AND air is installed
+        if [ -f ".air.toml" ] && has_air; then
+            echo "Starting agent server with air (hot reload enabled, development mode)"
+            run_air < /dev/null &
+            AGENT_SERVER_PID=$!
+        elif [ -f ".air.toml" ]; then
+            echo "Warning: agent has .air.toml but 'air' is not installed; falling back to go run"
+            go run cmd/server/main.go < /dev/null &
+            AGENT_SERVER_PID=$!
+        else
+            echo "Starting agent server with go run (development mode, no .air.toml)"
+            go run cmd/server/main.go < /dev/null &
+            AGENT_SERVER_PID=$!
+        fi
     else
         # Keep runtime artifacts (e.g., command logs) in a writable location.
         cd /engine

@@ -81,11 +81,42 @@ nano docker-compose.local.yaml
 ./scripts/dev-setup.sh start-extended
 ```
 
-**Hot Reloading in Extended Mode:**
-- Changes to minor-projects code are automatically reflected in containers
-- Engine services use `go run` for hot reloading with Air
-- No need to rebuild containers when modifying scanner/terminal/agent code
-- Changes are not tracked by the main Sirius repository (volume mounts)
+**Hot reloading in extended mode (engine services):**
+
+Each minor-project ships its own `.air.toml` (`app-agent/.air.toml`, `app-terminal/.air.toml`, `app-scanner/.air.toml`). When `GO_ENV=development` (the default for `docker-compose.dev.yaml`), `start-enhanced.sh` checks for `.air.toml` in the bind-mounted source and uses [Air](https://github.com/air-verse/air) for live rebuilds; if `.air.toml` is absent (or `air` is missing from the image) it falls back to plain `go run`. The matrix:
+
+| Service | Bind mount path in container | Live-reload tool | Entry point |
+| --- | --- | --- | --- |
+| `app-agent` | `/app-agent` | `air` | `cmd/server/main.go` |
+| `app-terminal` | `/app-terminal` | `air` | `cmd/main.go` |
+| `app-scanner` | `/app-scanner` | `air` (`CGO_ENABLED=1`) | `main.go` |
+
+Notes:
+
+- Changes to bind-mounted source are picked up automatically by Air; you should see a rebuild log line in `docker logs sirius-engine` within ~1s of saving.
+- `app-scanner` requires CGO and `libpcap`; the container ships both, so the in-container Air build works out of the box.
+- The orphan `sirius-engine/.air.toml` that previously lived in the engine image was removed in the April 2026 dev-mode overhaul; per-service `.air.toml` is the only supported configuration.
+- Changes are not tracked by the main Sirius repository (the bind mounts are git-ignored).
+
+**When Air isn't enough — hot-swap from local source:**
+
+Sometimes you want to validate a change against a *production-mode* engine without waiting for a full container rebuild (e.g. you're testing a binary against `docker-compose.prod.yaml`, or you want to confirm a release-style build before bumping a pin). Use the root `Makefile` targets:
+
+```bash
+make engine-mode                # show whether the running engine is dev or prod
+make agent-hot-swap-from-local
+make terminal-hot-swap-from-local
+make scanner-hot-swap-from-local      # CGO; fails cleanly if host lacks libpcap
+make engine-rebuild-from-local        # all three, best-effort
+```
+
+What they do: cross-compile the binary on the host (`linux/$(uname -m)` by default; override with `HOST_GOARCH=amd64`), `docker cp` it into the engine container at the production binary path (e.g. `/app-agent-src/server`), and restart the engine.
+
+Important guard rails:
+
+- **The targets refuse to run in dev mode** (`GO_ENV=development`). In dev, `/app-terminal` and `/app-scanner` are bind-mounted, so `docker cp` would write through to your host repo; and Air owns the live binary at `./tmp/main`, so the swapped production-path binary wouldn't even be executed. The right loop in dev is *edit source → Air rebuilds*. Override with `FORCE_HOT_SWAP=1` only if you know what you want.
+- **Scanner cross-compile may fail on macOS hosts**. The scanner uses `cgo` + `libpcap`; the macOS toolchain can't satisfy linux cgo headers. The target prints the actual `cgo` error and a copy-pasteable in-container build command. This is expected and not a Makefile bug.
+- **These targets are an inner-loop convenience, not a release path.** Once the change is good, push it to the relevant minor-project and bump the engine pin per [README.engine-component-pinning.md](architecture/README.engine-component-pinning.md). The CI pipeline is the single source of truth for shipped images.
 
 ## File Structure
 

@@ -2077,7 +2077,7 @@ ValKey (Redis-compatible) is used for live scan state. Key structure:
 ## Profile vs Template System
 
 - **Scan Profiles:** High-level presets that control overall scan behavior (e.g., "quick-scan", "full-scan", "agent-only"). Stored as `ScanProfile` type. They determine which scan methods are enabled and how they are configured.
-- **Agent Templates:** Specific detection templates used by the agent scanner (e.g., checks for a specific CVE). Stored in the template system. They define detection steps such as `file_content`, `file_hash`, and `version_cmd`.
+- **Agent Templates:** Specific detection templates used by the agent scanner (e.g., checks for a specific CVE). Stored in the template system. They define detection steps such as `file_content`, `file_hash`, `file_search`, and `version_cmd`. The authoritative set is `KnownDetectionTypes` in `app-agent/internal/modules/detection_types.go` (drift-checked against the runtime registry by `detection_types_registry_test.go`).
 - Profiles may reference templates but are not the same thing: profiles define *what* to run and *how*; templates define the concrete detection logic.
 
 ---

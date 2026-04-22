@@ -324,8 +324,10 @@ jobs:
           context: ./sirius-api
           platforms: linux/${{ matrix.platform }}
           push: true
+          # Fallback SHAs MUST match sirius-engine/Dockerfile ARG defaults.
+          # Enforced by .github/workflows/check-pin-consistency.yml.
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.15' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.17' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
   # Merge arch-specific API images into a single multi-arch manifest
@@ -450,12 +452,17 @@ jobs:
           context: ./sirius-engine
           platforms: linux/${{ matrix.platform }}
           push: true
+          # Fallback SHAs MUST match sirius-engine/Dockerfile ARG defaults.
+          # Floating refs (main/master) are forbidden; use a full SHA or a tag.
+          # Enforced by .github/workflows/check-pin-consistency.yml.
+          # See documentation/dev/architecture/README.engine-component-pinning.md.
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.14' }}
-            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || '4a47f73' }}
-            APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || 'main' }}
-            SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'main' }}
-            APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '50b405a' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.17' }}
+            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'cd3943c71dd4d9a7419c63386780c65b559bf039' }}
+            APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || '5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1' }}
+            SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9' }}
+            APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '7a2203979152dcc2a86dc32d4d44a6fa990b11e9' }}
+            PINGPP_COMMIT_SHA=${{ env.PINGPP_COMMIT_SHA || '9508a16c40a49746feb7cab4b8c1c358246169b0' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
   # Merge arch-specific Engine images into a single multi-arch manifest

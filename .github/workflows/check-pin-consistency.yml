@@ -1,0 +1,108 @@
+name: Check engine pin consistency
+
+# Fails any PR that lets the sirius-engine submodule pins drift between
+# Dockerfile defaults and the CI fallback build-args, or that introduces
+# a floating ref (main / master / branch name) instead of a full SHA or
+# version tag.
+#
+# See:
+#   - sirius-engine/Dockerfile  (ARG ..._COMMIT_SHA defaults)
+#   - .github/workflows/ci.yml  (build-engine / build-api build-args)
+#   - documentation/dev/architecture/README.engine-component-pinning.md
+
+on:
+  pull_request:
+    paths:
+      - "sirius-engine/Dockerfile"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/check-pin-consistency.yml"
+  push:
+    branches: [main]
+    paths:
+      - "sirius-engine/Dockerfile"
+      - ".github/workflows/ci.yml"
+      - ".github/workflows/check-pin-consistency.yml"
+  workflow_dispatch:
+
+jobs:
+  check-pins:
+    name: Dockerfile / CI pin consistency
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify pins agree and are not floating
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DOCKERFILE=sirius-engine/Dockerfile
+          CI=.github/workflows/ci.yml
+
+          # Components managed by the engine pin policy. Each entry is the
+          # ARG/env-var prefix as it appears in both files.
+          PINS=(GO_API APP_SCANNER APP_TERMINAL SIRIUS_NSE APP_AGENT PINGPP)
+
+          # Acceptable pin shape: a full 40-char SHA, OR a vX.Y.Z[-suffix] tag.
+          # Floating refs (main, master, HEAD, branch names) are rejected.
+          shape_ok() {
+            local v="$1"
+            if [[ "$v" =~ ^[0-9a-f]{40}$ ]]; then return 0; fi
+            if [[ "$v" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][A-Za-z0-9.-]+)?$ ]]; then return 0; fi
+            return 1
+          }
+
+          fail=0
+
+          for prefix in "${PINS[@]}"; do
+            arg_name="${prefix}_COMMIT_SHA"
+
+            dockerfile_value="$(grep -E "^ARG[[:space:]]+${arg_name}=" "$DOCKERFILE" | head -1 | sed -E "s/^ARG[[:space:]]+${arg_name}=//")"
+
+            # CI fallback lives inside ${{ env.X || 'literal' }}. Pull the literal.
+            ci_value="$(grep -E "${arg_name}=\\\$\\{\\{[[:space:]]*env\\.${arg_name}" "$CI" | head -1 | sed -E "s/.*\\|\\|[[:space:]]*'([^']+)'.*/\\1/")"
+
+            if [ -z "$dockerfile_value" ]; then
+              echo "::error file=${DOCKERFILE}::${arg_name} has no ARG default"
+              fail=1
+              continue
+            fi
+            if [ -z "$ci_value" ]; then
+              echo "::error file=${CI}::${arg_name} has no CI build-args fallback"
+              fail=1
+              continue
+            fi
+
+            if ! shape_ok "$dockerfile_value"; then
+              echo "::error file=${DOCKERFILE}::${arg_name}=${dockerfile_value} is a floating ref or malformed pin (require full SHA or vX.Y.Z tag)"
+              fail=1
+            fi
+            if ! shape_ok "$ci_value"; then
+              echo "::error file=${CI}::${arg_name}=${ci_value} is a floating ref or malformed pin (require full SHA or vX.Y.Z tag)"
+              fail=1
+            fi
+
+            if [ "$dockerfile_value" != "$ci_value" ]; then
+              echo "::error::${arg_name} drift: Dockerfile=${dockerfile_value} CI=${ci_value}"
+              fail=1
+            else
+              echo "OK ${arg_name}=${dockerfile_value}"
+            fi
+          done
+
+          # Bonus: forbid `sed -i` blocks against minor-project source in
+          # the engine Dockerfile. Patches must be upstreamed.
+          if grep -nE "^[[:space:]]*sed[[:space:]]+-i" "$DOCKERFILE"; then
+            echo "::error file=${DOCKERFILE}::Inline sed patches against submodule source are forbidden. Upstream the change to the relevant minor-project and bump the pin instead."
+            fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo ""
+            echo "Pin consistency check failed. See documentation/dev/architecture/README.engine-component-pinning.md for the policy."
+            exit 1
+          fi
+
+          echo ""
+          echo "All engine pins are consistent and well-formed."

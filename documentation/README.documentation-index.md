@@ -51,6 +51,7 @@ This document provides a complete index of all documentation files in the Sirius
 - [ADR.startup-secrets-model.md](dev/architecture/ADR.startup-secrets-model.md) - Architectural decision record for installer-first startup and secrets model
 - [ARCHITECTURE.nse-repository-management.md](dev/architecture/ARCHITECTURE.nse-repository-management.md) - NSE repository management architecture
 - [README.docker-architecture.md](dev/architecture/README.docker-architecture.md) - Comprehensive Docker setup and container architecture
+- [README.engine-component-pinning.md](dev/architecture/README.engine-component-pinning.md) - Authoritative model for pinning engine submodules and CI build-arg overrides
 
 ## Application Documentation
 

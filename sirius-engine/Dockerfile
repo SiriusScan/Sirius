@@ -153,13 +153,22 @@ RUN apt-get update && \
         libpcap-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Build arguments for submodule commit SHAs
+# Build arguments for submodule commit SHAs.
+#
+# Pin policy (enforced by .github/workflows/check-pin-consistency.yml):
+#   - These ARG defaults are the canonical pins. CI fallbacks in
+#     .github/workflows/ci.yml (build-engine, build-api) MUST match.
+#   - Floating refs (main/master) are forbidden; use a full SHA or a tag.
+#   - When a minor-project is bumped, update the ARG default here, the
+#     CI fallback, and SHA-AUDIT-2026-04.md (or its successor) in one PR.
+#
+# Audit doc: documentation/dev-notes/SHA-AUDIT-2026-04.md
 ARG GO_API_COMMIT_SHA=v0.0.17
-ARG APP_SCANNER_COMMIT_SHA=5213ec4
-ARG APP_TERMINAL_COMMIT_SHA=main
-ARG SIRIUS_NSE_COMMIT_SHA=main
-ARG APP_AGENT_COMMIT_SHA=50b405a
-ARG PINGPP_COMMIT_SHA=master
+ARG APP_SCANNER_COMMIT_SHA=cd3943c71dd4d9a7419c63386780c65b559bf039
+ARG APP_TERMINAL_COMMIT_SHA=5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1
+ARG SIRIUS_NSE_COMMIT_SHA=a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9
+ARG APP_AGENT_COMMIT_SHA=7a2203979152dcc2a86dc32d4d44a6fa990b11e9
+ARG PINGPP_COMMIT_SHA=9508a16c40a49746feb7cab4b8c1c358246169b0
 
 WORKDIR /repos
 
@@ -174,19 +183,12 @@ RUN git clone https://github.com/SiriusScan/pingpp.git "ping++" && \
     cd "ping++" && \
     git checkout ${PINGPP_COMMIT_SHA}
 
-# Clone and build app-scanner (CGO_ENABLED=1, requires libpcap)
+# Clone and build app-scanner (CGO_ENABLED=1, requires libpcap).
+# All previous inline sed patches against internal/scan/manager.go have been
+# upstreamed in app-scanner@ca1ef2f. See documentation/dev-notes/SHA-AUDIT-2026-04.md.
 RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     cd app-scanner && \
     git checkout ${APP_SCANNER_COMMIT_SHA} && \
-    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            }' internal/scan/manager.go && \
-    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                slog.Error("Failed to mark scan as failed", "error", updateErr)' internal/scan/manager.go && \
-    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            }); updateErr != nil {' internal/scan/manager.go && \
-    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                return nil' internal/scan/manager.go && \
-    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                scan.EndTime = time.Now().Format(time.RFC3339)' internal/scan/manager.go && \
-    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\                scan.Status = "failed"' internal/scan/manager.go && \
-    sed -i '/sm\.logger\.LogScanError(scanMsg\.ID, "template_resolution", "template_not_found", "Failed to resolve template", err)/a\            if updateErr := sm.scanUpdater.Update(context.Background(), func(scan *store.ScanResult) error {' internal/scan/manager.go && \
-    sed -i '0,/if ctx.Err() != nil {/s//if false \&\& ctx.Err() != nil {/' internal/scan/manager.go && \
-    sed -i 's|return fmt.Errorf("failed to submit host data with source attribution: %w", err)|slog.Warn("Will continue scan without source-attributed persistence", "error", err)|' internal/scan/manager.go && \
     go mod download && \
     CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o scanner main.go
 
@@ -232,8 +234,23 @@ RUN ARCH=$(uname -m) && \
 
 ENV PATH="/usr/local/go/bin:${PATH}"
 
-# Install air for live reloading
+# Install a C toolchain so Air can rebuild app-scanner in-container.
+# app-scanner pulls libpcap via cgo (CGO_ENABLED=1 in app-scanner/.air.toml);
+# the runtime stage only ships libpcap.so, but the dev stage needs the
+# full compiler + headers so `go build` succeeds on every save. Keeping
+# this in the dev stage only avoids bloating the production runtime.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        libpcap-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install air for live reloading. go install drops the binary in
+# $GOPATH/bin (default /root/go/bin) which is not on PATH unless we add
+# it explicitly. Without this, start-enhanced.sh's `air &` invocations
+# silently fall back to broken behavior in dev mode.
 RUN go install github.com/air-verse/air@v1.52.3
+ENV PATH="/root/go/bin:${PATH}"
 
 # Set up NSE directory structure
 RUN mkdir -p /opt/sirius/nse && chmod -R 755 /opt/sirius
@@ -259,8 +276,9 @@ RUN chmod -R 755 /sirius-nse
 RUN rm -rf /usr/local/share/nmap/scripts && \
     ln -sf /sirius-nse/scripts /usr/local/share/nmap/scripts
 
-# Copy configuration and startup scripts
-COPY .air.toml .air.toml
+# Copy startup scripts. Per-service .air.toml lives inside each minor-
+# project (app-agent, app-terminal, app-scanner) and is consumed via the
+# dev-mode bind mount; the engine no longer ships its own orphan copy.
 COPY start.sh /start.sh
 COPY start-enhanced.sh /start-enhanced.sh
 
@@ -320,8 +338,10 @@ RUN command -v bash    >/dev/null && \
     command -v rustscan >/dev/null && \
     command -v pwsh    >/dev/null
 
-# Copy configuration and startup scripts
-COPY .air.toml .air.toml
+# Copy startup scripts. The runtime image does not ship a top-level
+# .air.toml; production builds run pre-compiled binaries (see
+# start-enhanced.sh), and dev-mode hot reload uses the per-service
+# .air.toml provided by each bind-mounted minor-project.
 COPY start.sh /start.sh
 COPY start-enhanced.sh /start-enhanced.sh
 

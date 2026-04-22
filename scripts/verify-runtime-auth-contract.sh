@@ -38,8 +38,12 @@ done
 extract_env() {
   local container="$1"
   local key="$2"
+  # NOTE: use grep, not rg — ripgrep is not preinstalled on GitHub-hosted
+  # ubuntu-latest runners. The trailing `|| true` previously masked the
+  # `rg: command not found` failure, silently returning empty for every
+  # key and tripping the POSTGRES_PASSWORD parity check downstream.
   docker inspect "$container" --format '{{range .Config.Env}}{{println .}}{{end}}' \
-    | rg "^${key}=" | sed "s/^${key}=//" || true
+    | grep "^${key}=" | sed "s/^${key}=//" || true
 }
 
 # Effective key inside the container (trimmed file contents only).

@@ -19,12 +19,32 @@ type Options struct {
 	CORSAllowedOrigin string
 }
 
+// templateAuthoritativeKeys are keys whose template definition always wins,
+// even when the user's existing .env has a non-empty value. This exists so
+// that intentional template changes (e.g. clearing IMAGE_TAG so compose can
+// resolve the default `latest` tag) propagate to upgraders. Without this,
+// stale values written by older template versions become permanently sticky
+// because Merge otherwise prefers any non-empty existing value.
+//
+// Only add a key here when the template is the source of truth for it AND
+// shipping a stale legacy value would break upgrades. IMAGE_TAG is the
+// canonical case: v1.0.0's template hard-coded IMAGE_TAG=v1.0.0, which
+// pinned every upgrader to that release until manually edited.
+var templateAuthoritativeKeys = map[string]struct{}{
+	"IMAGE_TAG": {},
+}
+
 func Merge(templateVals, existingVals map[string]string, opts Options) map[string]string {
 	out := make(map[string]string, len(templateVals)+len(existingVals)+8)
 	for k, v := range templateVals {
 		out[k] = v
 	}
 	for k, v := range existingVals {
+		if _, authoritative := templateAuthoritativeKeys[k]; authoritative {
+			if _, definedInTemplate := templateVals[k]; definedInTemplate {
+				continue
+			}
+		}
 		if strings.TrimSpace(v) != "" {
 			out[k] = v
 		}

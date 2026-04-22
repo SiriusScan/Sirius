@@ -127,6 +127,45 @@ func TestEnsureRequired_PreservesManualDatabaseURL(t *testing.T) {
 	}
 }
 
+func TestMerge_ClearsLegacyImageTagFromExistingEnv(t *testing.T) {
+	// Regression: v1.0.0's template hard-coded IMAGE_TAG=v1.0.0. The current
+	// template ships IMAGE_TAG= (empty) so docker-compose.yaml's `:-latest`
+	// fallback wins. Without IMAGE_TAG being template-authoritative the old
+	// value stays sticky and pins upgraders to v1.0.0 forever.
+	template := map[string]string{
+		"IMAGE_TAG":         "",
+		"POSTGRES_PASSWORD": "change-me-strong-db-password",
+	}
+	existing := map[string]string{
+		"IMAGE_TAG":         "v1.0.0",
+		"POSTGRES_PASSWORD": "user-set-password",
+	}
+
+	out := Merge(template, existing, Options{})
+	if got := out["IMAGE_TAG"]; got != "" {
+		t.Errorf("IMAGE_TAG = %q, want empty (template-authoritative)", got)
+	}
+	if got := out["POSTGRES_PASSWORD"]; got != "user-set-password" {
+		t.Errorf("POSTGRES_PASSWORD = %q, want user-set value preserved", got)
+	}
+}
+
+func TestMerge_PreservesImageTagWhenTemplateOmits(t *testing.T) {
+	// If a future template drops IMAGE_TAG entirely, an explicit pin in the
+	// user's .env should still survive (no template intent to clear).
+	template := map[string]string{
+		"POSTGRES_PASSWORD": "change-me",
+	}
+	existing := map[string]string{
+		"IMAGE_TAG": "v1.2.3",
+	}
+
+	out := Merge(template, existing, Options{})
+	if got := out["IMAGE_TAG"]; got != "v1.2.3" {
+		t.Errorf("IMAGE_TAG = %q, want v1.2.3 preserved", got)
+	}
+}
+
 func TestEnsureRequired_SetsInternalAPIKeyFileDefault(t *testing.T) {
 	values := map[string]string{
 		"POSTGRES_PASSWORD":      "abcdef1234567890abcdef1234567890",

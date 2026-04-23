@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -12,6 +14,7 @@ import (
 	"github.com/SiriusScan/go-api/sirius/queue"
 	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 )
 
@@ -110,7 +113,130 @@ func (t *AgentTemplateYAML) GetVersion() string {
 const (
 	agentTemplateKeyPrefix = "template:"
 	agentTemplateManifest  = "template:manifest"
+	agentTemplateMetaKey   = "template:meta:"
+	agentTemplateSyncQueue = "agent.template.sync.jobs"
 )
+
+// templateInfoRecord mirrors app-agent's
+// internal/template/valkey.TemplateInfo so a record written here can be
+// decoded by the agent-side reader without translation. Keep field names
+// and JSON tags in lock-step with that struct; PR 6 will replace this
+// duplication with a shared go-api package.
+type templateInfoRecord struct {
+	ID               string            `json:"id"`
+	Version          string            `json:"version"`
+	Checksum         string            `json:"checksum"`
+	Size             int64             `json:"size"`
+	Severity         string            `json:"severity"`
+	Platforms        []string          `json:"platforms"`
+	DetectionType    string            `json:"detection_type"`
+	Author           string            `json:"author"`
+	Created          time.Time         `json:"created"`
+	Updated          time.Time         `json:"updated"`
+	VulnerabilityIDs []string          `json:"vulnerability_ids"`
+	IsCustom         bool              `json:"is_custom"`
+	Content          []byte            `json:"content,omitempty"`
+	Metadata         map[string]string `json:"metadata,omitempty"`
+}
+
+// templateSyncJobMessage mirrors app-agent's server.SyncJobMessage. Used
+// to publish notify_agents requests on agent.template.sync.jobs.
+type templateSyncJobMessage struct {
+	Action      string `json:"action"`
+	TemplateID  string `json:"template_id,omitempty"`
+	TriggeredBy string `json:"triggered_by"`
+	Timestamp   string `json:"timestamp"`
+	JobID       string `json:"job_id"`
+}
+
+// detectionTypeFromYAML extracts the first detection step's "type" field.
+// Mirrors app-agent's getDetectionType helper closely enough that meta
+// records written here look like ones the agent-side sync writer emits.
+func detectionTypeFromYAML(t *AgentTemplateYAML) string {
+	for _, step := range t.Detection.Steps {
+		if v, ok := step["type"].(string); ok && v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// platformsFromYAML mirrors the platform extraction used elsewhere in
+// this handler. Returns the first non-empty platforms list it finds in
+// detection steps; defaults to ["linux"] for parity with the read path.
+func platformsFromYAML(t *AgentTemplateYAML) []string {
+	for _, step := range t.Detection.Steps {
+		if p, ok := step["platforms"].([]interface{}); ok && len(p) > 0 {
+			out := make([]string, len(p))
+			for i, v := range p {
+				out[i] = fmt.Sprintf("%v", v)
+			}
+			return out
+		}
+	}
+	return []string{"linux"}
+}
+
+// buildTemplateRecord builds the envelope + meta records (and their JSON
+// bytes) for a custom template upload/update. Returned as a pair so PR 4
+// can reuse this for UpdateAgentTemplate.
+func buildTemplateRecord(yamlTemplate *AgentTemplateYAML, rawYAML []byte, isCustom bool, createdAt time.Time) (envelopeJSON, metaJSON []byte, checksum string, err error) {
+	sum := sha256.Sum256(rawYAML)
+	checksum = hex.EncodeToString(sum[:])
+
+	now := time.Now().UTC()
+	if createdAt.IsZero() {
+		createdAt = now
+	}
+
+	envelope := templateInfoRecord{
+		ID:               yamlTemplate.ID,
+		Version:          yamlTemplate.GetVersion(),
+		Checksum:         checksum,
+		Size:             int64(len(rawYAML)),
+		Severity:         yamlTemplate.GetSeverity(),
+		Platforms:        platformsFromYAML(yamlTemplate),
+		DetectionType:    detectionTypeFromYAML(yamlTemplate),
+		Author:           yamlTemplate.GetAuthor(),
+		Created:          createdAt,
+		Updated:          now,
+		VulnerabilityIDs: nil,
+		IsCustom:         isCustom,
+		Content:          rawYAML,
+		Metadata:         map[string]string{"source": "sirius-api-upload"},
+	}
+
+	envelopeJSON, err = json.Marshal(envelope)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("marshal envelope: %w", err)
+	}
+
+	metaCopy := envelope
+	metaCopy.Content = nil
+	metaJSON, err = json.Marshal(metaCopy)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("marshal meta: %w", err)
+	}
+	return envelopeJSON, metaJSON, checksum, nil
+}
+
+// publishNotifyAgents publishes a notify_agents sync job so connected
+// agents re-pull the template inventory. Best-effort: returns the
+// underlying error but the caller decides whether to fail the request.
+func publishNotifyAgents(templateID, triggeredBy string) error {
+	msg := templateSyncJobMessage{
+		Action:      "notify_agents",
+		TemplateID:  templateID,
+		TriggeredBy: triggeredBy,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339),
+		JobID:       uuid.New().String(),
+	}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("marshal sync message: %w", err)
+	}
+	return queue.Send(agentTemplateSyncQueue, string(data))
+}
 
 // GetAgentTemplates returns all agent templates from Valkey
 func GetAgentTemplates(c *fiber.Ctx) error {
@@ -345,15 +471,23 @@ func UploadAgentTemplate(c *fiber.Ctx) error {
 		})
 	}
 
-	// Override author if provided
 	if request.Author != "" {
 		yamlTemplate.Info.Author = request.Author
-		// Re-marshal with updated author
-		updatedYAML, _ := yaml.Marshal(yamlTemplate)
-		request.Content = string(updatedYAML)
+		updatedYAML, mErr := yaml.Marshal(yamlTemplate)
+		if mErr == nil {
+			request.Content = string(updatedYAML)
+		}
+	}
+	rawYAML := []byte(request.Content)
+
+	envelopeJSON, metaJSON, checksum, err := buildTemplateRecord(&yamlTemplate, rawYAML, true, time.Time{})
+	if err != nil {
+		slog.Error("Failed to build template record", "id", yamlTemplate.ID, "error", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to encode template",
+		})
 	}
 
-	// Store in Valkey
 	kvStore, err := store.NewValkeyStore()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -363,24 +497,38 @@ func UploadAgentTemplate(c *fiber.Ctx) error {
 	defer kvStore.Close()
 
 	templateKey := agentTemplateKeyPrefix + "custom:" + yamlTemplate.ID
-	if err := kvStore.SetValue(ctx, templateKey, request.Content); err != nil {
+	metaKey := agentTemplateMetaKey + yamlTemplate.ID
+
+	if err := kvStore.SetValue(ctx, templateKey, string(envelopeJSON)); err != nil {
+		slog.Error("Failed to store template envelope", "id", yamlTemplate.ID, "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to store template",
 		})
 	}
 
-	// Notify engine of new template
-	message := map[string]interface{}{
-		"command":     "internal:template upload",
-		"template_id": yamlTemplate.ID,
-		"timestamp":   time.Now().Format(time.RFC3339),
+	if err := kvStore.SetValue(ctx, metaKey, string(metaJSON)); err != nil {
+		// Roll back envelope so we never leave a custom record without a
+		// matching meta entry (which would render the template invisible
+		// to agent enumeration).
+		if delErr := kvStore.DeleteValue(ctx, templateKey); delErr != nil {
+			slog.Warn("Rollback failed after meta-write error", "id", yamlTemplate.ID, "error", delErr)
+		}
+		slog.Error("Failed to store template meta", "id", yamlTemplate.ID, "error", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to store template metadata",
+		})
 	}
-	msgBytes, _ := json.Marshal(message)
-	_ = queue.Send("engine.commands", string(msgBytes))
+
+	if err := publishNotifyAgents(yamlTemplate.ID, "sirius-api"); err != nil {
+		// Don't fail the request: the records are persisted and agents
+		// will pick them up on their next periodic sync. Log loudly.
+		slog.Warn("Failed to publish notify_agents", "id", yamlTemplate.ID, "error", err)
+	}
 
 	return c.JSON(fiber.Map{
-		"id":      yamlTemplate.ID,
-		"message": "Template uploaded successfully",
+		"id":       yamlTemplate.ID,
+		"checksum": checksum,
+		"message":  "Template uploaded successfully",
 	})
 }
 

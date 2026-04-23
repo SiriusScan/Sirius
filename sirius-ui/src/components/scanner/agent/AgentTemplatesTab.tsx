@@ -35,39 +35,41 @@ const AgentTemplatesTab: React.FC = () => {
     setCurrentView("builder");
   };
 
+  // Both flows go through the authenticated tRPC procedure so the
+  // X-API-Key header is injected by apiFetch. A raw fetch() against
+  // /api/agent-templates/<id> bypasses that and is rejected 401 by the
+  // global APIKeyMiddleware in sirius-api.
   const handleView = async (template: AgentTemplate) => {
     try {
-      // Fetch full template with YAML content using manual fetch
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"}/api/agent-templates/${template.id}`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch template");
+      const fullTemplate = await utils.agentTemplates.getTemplate.fetch({
+        id: template.id,
+      });
+      if (!fullTemplate) {
+        throw new Error(`Template ${template.id} not found`);
       }
-      const fullTemplate = (await response.json()) as AgentTemplate;
       setViewingTemplate(fullTemplate);
       setCurrentView("viewer");
     } catch (error) {
       console.error("Failed to fetch template:", error);
-      alert("Failed to load template");
+      const detail = error instanceof Error ? error.message : String(error);
+      alert(`Failed to load template: ${detail}`);
     }
   };
 
   const handleEdit = async (template: AgentTemplate) => {
     try {
-      // Fetch full template with YAML content for editing
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"}/api/agent-templates/${template.id}`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch template");
+      const fullTemplate = await utils.agentTemplates.getTemplate.fetch({
+        id: template.id,
+      });
+      if (!fullTemplate) {
+        throw new Error(`Template ${template.id} not found`);
       }
-      const fullTemplate = (await response.json()) as AgentTemplate;
       setEditingTemplate(fullTemplate);
       setCurrentView("builder");
     } catch (error) {
       console.error("Failed to fetch template for editing:", error);
-      alert("Failed to load template for editing");
+      const detail = error instanceof Error ? error.message : String(error);
+      alert(`Failed to load template for editing: ${detail}`);
     }
   };
 

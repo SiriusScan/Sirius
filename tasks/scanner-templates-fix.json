@@ -136,7 +136,7 @@
     "title": "PR 7: Migrate Consumers to Shared Package",
     "description": "sirius-api, app-scanner, app-agent all use the shared helpers; retire dual-format heuristics.",
     "details": "Bump go-api dep in each module; delete the JSON-or-YAML fork in agent_template_handler.go; replace ad-hoc encoding with shared Read/Write helpers.",
-    "status": "in_progress",
+    "status": "done",
     "priority": "high",
     "dependencies": ["6"],
     "subtasks": []
@@ -146,7 +146,7 @@
     "title": "PR 8: Contract Tests + Architecture Doc",
     "description": "Valkey-backed integration test covering writer-A -> reader-B for every component pair; new scanner-storage README.",
     "details": "Test under Sirius/testing/; doc at documentation/dev/architecture/README.scanner-storage.md with llm_context: high so future sessions auto-load the contract.",
-    "status": "pending",
+    "status": "done",
     "priority": "medium",
     "dependencies": ["7"],
     "subtasks": []

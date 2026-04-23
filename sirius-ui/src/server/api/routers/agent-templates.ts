@@ -26,6 +26,8 @@ const validateTemplateSchema = z.object({
 const updateTemplateSchema = z.object({
   id: z.string(),
   content: z.string(),
+  filename: z.string().optional(),
+  author: z.string().optional(),
 });
 
 const testTemplateSchema = z.object({
@@ -150,7 +152,11 @@ export const agentTemplatesRouter = createTRPCRouter({
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ content: input.content }),
+            body: JSON.stringify({
+              content: input.content,
+              filename: input.filename,
+              author: input.author,
+            }),
           }
         );
 

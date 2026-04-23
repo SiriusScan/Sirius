@@ -26,6 +26,7 @@ const AgentTemplatesTab: React.FC = () => {
   const { data: templates, isLoading } =
     api.agentTemplates.getTemplates.useQuery();
   const uploadMutation = api.agentTemplates.uploadTemplate.useMutation();
+  const updateMutation = api.agentTemplates.updateTemplate.useMutation();
   const deleteMutation = api.agentTemplates.deleteTemplate.useMutation();
   const testMutation = api.agentTemplates.testTemplate.useMutation();
   const utils = api.useContext();
@@ -113,17 +114,26 @@ const AgentTemplatesTab: React.FC = () => {
       console.log("🔍 Form Data:", template);
       console.log("📄 Generated YAML:\n", yamlContent);
 
-      // Upload template to backend
-      await uploadMutation.mutateAsync({
-        content: yamlContent,
-        filename: filename,
-        author: template.author,
-      });
+      if (editingTemplate) {
+        await updateMutation.mutateAsync({
+          id: editingTemplate.id,
+          content: yamlContent,
+          filename: filename,
+          author: template.author,
+        });
+      } else {
+        await uploadMutation.mutateAsync({
+          content: yamlContent,
+          filename: filename,
+          author: template.author,
+        });
+      }
 
-      // Refresh the template list
       await utils.agentTemplates.getTemplates.invalidate();
 
-      // Navigate back to library
+      // Clear edit target so the next Save Changes doesn't accidentally
+      // re-target an old id when the operator opens a different template.
+      setEditingTemplate(null);
       setCurrentView("library");
     } catch (error) {
       console.error("Failed to save template:", error);

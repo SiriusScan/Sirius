@@ -85,8 +85,8 @@
     "id": "2",
     "title": "PR 2: Agent Template View/Edit Auth Fix",
     "description": "Replace unauthenticated browser fetch in AgentTemplatesTab with tRPC route.",
-    "details": "handleView and handleEdit currently bypass apiFetch and miss the X-API-Key header, returning 401. Switch to api.agentTemplates.getTemplate.fetch (or utils.fetch) and remove NEXT_PUBLIC_SIRIUS_API_URL from this component.",
-    "status": "pending",
+    "details": "handleView and handleEdit currently bypass apiFetch and miss the X-API-Key header, returning 401. Switch to api.agentTemplates.getTemplate.fetch (or utils.fetch) and remove NEXT_PUBLIC_SIRIUS_API_URL from this component. Merged as Sirius#121 (7d96bf5c3) on 2026-04-23.",
+    "status": "done",
     "priority": "high",
     "dependencies": ["1"],
     "subtasks": []

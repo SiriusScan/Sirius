@@ -2,9 +2,6 @@ package handlers
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -13,6 +10,7 @@ import (
 
 	"github.com/SiriusScan/go-api/sirius/queue"
 	"github.com/SiriusScan/go-api/sirius/store"
+	"github.com/SiriusScan/go-api/sirius/store/templates"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
@@ -111,33 +109,8 @@ func (t *AgentTemplateYAML) GetVersion() string {
 }
 
 const (
-	agentTemplateKeyPrefix = "template:"
-	agentTemplateManifest  = "template:manifest"
-	agentTemplateMetaKey   = "template:meta:"
 	agentTemplateSyncQueue = "agent.template.sync.jobs"
 )
-
-// templateInfoRecord mirrors app-agent's
-// internal/template/valkey.TemplateInfo so a record written here can be
-// decoded by the agent-side reader without translation. Keep field names
-// and JSON tags in lock-step with that struct; PR 6 will replace this
-// duplication with a shared go-api package.
-type templateInfoRecord struct {
-	ID               string            `json:"id"`
-	Version          string            `json:"version"`
-	Checksum         string            `json:"checksum"`
-	Size             int64             `json:"size"`
-	Severity         string            `json:"severity"`
-	Platforms        []string          `json:"platforms"`
-	DetectionType    string            `json:"detection_type"`
-	Author           string            `json:"author"`
-	Created          time.Time         `json:"created"`
-	Updated          time.Time         `json:"updated"`
-	VulnerabilityIDs []string          `json:"vulnerability_ids"`
-	IsCustom         bool              `json:"is_custom"`
-	Content          []byte            `json:"content,omitempty"`
-	Metadata         map[string]string `json:"metadata,omitempty"`
-}
 
 // templateSyncJobMessage mirrors app-agent's server.SyncJobMessage. Used
 // to publish notify_agents requests on agent.template.sync.jobs.
@@ -177,19 +150,18 @@ func platformsFromYAML(t *AgentTemplateYAML) []string {
 	return []string{"linux"}
 }
 
-// buildTemplateRecord builds the envelope + meta records (and their JSON
-// bytes) for a custom template upload/update. Returned as a pair so PR 4
-// can reuse this for UpdateAgentTemplate.
-func buildTemplateRecord(yamlTemplate *AgentTemplateYAML, rawYAML []byte, isCustom bool, createdAt time.Time) (envelopeJSON, metaJSON []byte, checksum string, err error) {
-	sum := sha256.Sum256(rawYAML)
-	checksum = hex.EncodeToString(sum[:])
+// buildTemplateRecord builds a templates.TemplateRecord ready to hand
+// to templates.WriteTemplate. Returned alongside the checksum so the
+// HTTP layer can echo it back to the caller for verification.
+func buildTemplateRecord(yamlTemplate *AgentTemplateYAML, rawYAML []byte, isCustom bool, createdAt time.Time) (*templates.TemplateRecord, string, error) {
+	checksum := templates.SHA256Hex(rawYAML)
 
 	now := time.Now().UTC()
 	if createdAt.IsZero() {
 		createdAt = now
 	}
 
-	envelope := templateInfoRecord{
+	rec := &templates.TemplateRecord{
 		ID:               yamlTemplate.ID,
 		Version:          yamlTemplate.GetVersion(),
 		Checksum:         checksum,
@@ -205,54 +177,7 @@ func buildTemplateRecord(yamlTemplate *AgentTemplateYAML, rawYAML []byte, isCust
 		Content:          rawYAML,
 		Metadata:         map[string]string{"source": "sirius-api-upload"},
 	}
-
-	envelopeJSON, err = json.Marshal(envelope)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("marshal envelope: %w", err)
-	}
-
-	metaCopy := envelope
-	metaCopy.Content = nil
-	metaJSON, err = json.Marshal(metaCopy)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("marshal meta: %w", err)
-	}
-	return envelopeJSON, metaJSON, checksum, nil
-}
-
-// persistTemplateRecord stores envelope + meta in Valkey with rollback
-// semantics: if the meta write fails the envelope is removed so an
-// agent enumeration never sees a custom template without a matching
-// meta entry. Shared by Upload and Update flows.
-func persistTemplateRecord(ctx context.Context, kvStore store.KVStore, templateID string, envelopeJSON, metaJSON []byte) error {
-	templateKey := agentTemplateKeyPrefix + "custom:" + templateID
-	metaKey := agentTemplateMetaKey + templateID
-
-	if err := kvStore.SetValue(ctx, templateKey, string(envelopeJSON)); err != nil {
-		return fmt.Errorf("write envelope: %w", err)
-	}
-	if err := kvStore.SetValue(ctx, metaKey, string(metaJSON)); err != nil {
-		if delErr := kvStore.DeleteValue(ctx, templateKey); delErr != nil {
-			slog.Warn("Rollback failed after meta-write error", "id", templateID, "error", delErr)
-		}
-		return fmt.Errorf("write meta: %w", err)
-	}
-	return nil
-}
-
-// readExistingMeta returns the previously stored meta record for the
-// given template id (custom-namespace only). Used by Update to decide
-// whether to preserve `IsCustom` and the original `created` timestamp.
-func readExistingMeta(ctx context.Context, kvStore store.KVStore, templateID string) (*templateInfoRecord, error) {
-	resp, err := kvStore.GetValue(ctx, agentTemplateMetaKey+templateID)
-	if err != nil || resp.Message.Value == "" {
-		return nil, err
-	}
-	var meta templateInfoRecord
-	if uErr := json.Unmarshal([]byte(resp.Message.Value), &meta); uErr != nil {
-		return nil, fmt.Errorf("decode meta: %w", uErr)
-	}
-	return &meta, nil
+	return rec, checksum, nil
 }
 
 // publishNotifyAgents publishes a notify_agents sync job so connected
@@ -285,23 +210,21 @@ func GetAgentTemplates(c *fiber.Ctx) error {
 	}
 	defer kvStore.Close()
 
-	// Get template keys (both standard and custom)
 	// Query both standard and custom template keys separately to avoid metadata/version keys
-	standardKeys, err := kvStore.ListKeys(ctx, agentTemplateKeyPrefix+"standard:*")
+	standardKeys, err := kvStore.ListKeys(ctx, templates.KeyAgentTemplateStandardPrefix+"*")
 	if err != nil {
 		slog.Warn("Failed to retrieve standard templates", "error", err)
 		standardKeys = []string{}
 	}
 
-	customKeys, err := kvStore.ListKeys(ctx, agentTemplateKeyPrefix+"custom:*")
+	customKeys, err := kvStore.ListKeys(ctx, templates.KeyAgentTemplateCustomPrefix+"*")
 	if err != nil {
 		slog.Warn("Failed to retrieve custom templates", "error", err)
 		customKeys = []string{}
 	}
 
-	// Combine keys
 	keys := append(standardKeys, customKeys...)
-	templates := []AgentVulnTemplate{}
+	out := []AgentVulnTemplate{}
 
 	for _, key := range keys {
 		templateResp, err := kvStore.GetValue(ctx, key)
@@ -309,36 +232,20 @@ func GetAgentTemplates(c *fiber.Ctx) error {
 			slog.Warn("Failed to get template", "key", key, "error", err)
 			continue
 		}
-		templateData := templateResp.Message.Value
-
-		// Check if data is JSON-wrapped (standard templates) or raw YAML (custom templates)
-		var yamlTemplate AgentTemplateYAML
-		var yamlContent string
-
-		// Try to parse as JSON first (for standard templates)
-		var jsonData AgentTemplateJSON
-		if err := json.Unmarshal([]byte(templateData), &jsonData); err == nil && jsonData.Content != "" {
-			// Decode base64 content
-			decoded, decErr := base64.StdEncoding.DecodeString(jsonData.Content)
-			if decErr != nil {
-				slog.Warn("Failed to decode base64 content", "key", key, "error", decErr)
-				continue
-			}
-			yamlContent = string(decoded)
-		} else {
-			// Treat as raw YAML (custom templates)
-			yamlContent = templateData
+		rec, decErr := templates.DecodeTemplate([]byte(templateResp.Message.Value))
+		if decErr != nil {
+			slog.Warn("Failed to decode template envelope", "key", key, "error", decErr)
+			continue
 		}
 
-		// Parse YAML
-		if err := yaml.Unmarshal([]byte(yamlContent), &yamlTemplate); err != nil {
+		var yamlTemplate AgentTemplateYAML
+		if err := yaml.Unmarshal(rec.Content, &yamlTemplate); err != nil {
 			slog.Warn("Failed to parse YAML template", "key", key, "error", err)
 			continue
 		}
 
-		// Determine type from key
 		templateType := "repository"
-		if strings.Contains(key, ":custom:") {
+		if rec.IsCustom || strings.Contains(key, ":custom:") {
 			templateType = "custom"
 		}
 
@@ -370,10 +277,10 @@ func GetAgentTemplates(c *fiber.Ctx) error {
 			UpdatedAt:   time.Now(),
 		}
 
-		templates = append(templates, template)
+		out = append(out, template)
 	}
 
-	return c.JSON(templates)
+	return c.JSON(out)
 }
 
 // GetAgentTemplate returns a specific template with full content
@@ -389,58 +296,26 @@ func GetAgentTemplate(c *fiber.Ctx) error {
 	}
 	defer kvStore.Close()
 
-	// Try both standard and custom keys
-	keys := []string{
-		agentTemplateKeyPrefix + "standard:" + templateID,
-		agentTemplateKeyPrefix + "custom:" + templateID,
+	rec, err := templates.ReadTemplate(ctx, kvStore, templateID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to decode template",
+		})
 	}
-
-	var templateData string
-	var foundKey string
-
-	for _, key := range keys {
-		resp, err := kvStore.GetValue(ctx, key)
-		if err == nil && resp.Message.Value != "" {
-			templateData = resp.Message.Value
-			foundKey = key
-			break
-		}
-	}
-
-	if templateData == "" {
+	if rec == nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "Template not found",
 		})
 	}
 
-	// Check if data is JSON-wrapped (standard templates) or raw YAML (custom templates)
+	yamlContent := string(rec.Content)
 	var yamlTemplate AgentTemplateYAML
-	var yamlContent string
-
-	// Try to parse as JSON first (for standard templates)
-	var jsonData AgentTemplateJSON
-	if err := json.Unmarshal([]byte(templateData), &jsonData); err == nil && jsonData.Content != "" {
-		// Decode base64 content
-		decoded, decErr := base64.StdEncoding.DecodeString(jsonData.Content)
-		if decErr != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to decode template content",
-			})
-		}
-		yamlContent = string(decoded)
-	} else {
-		// Treat as raw YAML (custom templates)
-		yamlContent = templateData
-	}
-
-	// Parse YAML
-	if err := yaml.Unmarshal([]byte(yamlContent), &yamlTemplate); err != nil {
+	if err := yaml.Unmarshal(rec.Content, &yamlTemplate); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to parse template",
 		})
 	}
 
-	// Determine platforms
 	platforms := []string{"linux"}
 	for _, step := range yamlTemplate.Detection.Steps {
 		if p, ok := step["platforms"].([]interface{}); ok {
@@ -453,7 +328,7 @@ func GetAgentTemplate(c *fiber.Ctx) error {
 	}
 
 	templateType := "repository"
-	if strings.Contains(foundKey, ":custom:") {
+	if rec.IsCustom {
 		templateType = "custom"
 	}
 
@@ -466,9 +341,9 @@ func GetAgentTemplate(c *fiber.Ctx) error {
 		Author:      yamlTemplate.GetAuthor(),
 		Platforms:   platforms,
 		Version:     yamlTemplate.GetVersion(),
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-		Content:     yamlContent, // Include full YAML (not JSON wrapper)
+		CreatedAt:   rec.Created,
+		UpdatedAt:   rec.Updated,
+		Content:     yamlContent,
 	}
 
 	return c.JSON(template)
@@ -515,7 +390,7 @@ func UploadAgentTemplate(c *fiber.Ctx) error {
 	}
 	rawYAML := []byte(request.Content)
 
-	envelopeJSON, metaJSON, checksum, err := buildTemplateRecord(&yamlTemplate, rawYAML, true, time.Time{})
+	rec, checksum, err := buildTemplateRecord(&yamlTemplate, rawYAML, true, time.Time{})
 	if err != nil {
 		slog.Error("Failed to build template record", "id", yamlTemplate.ID, "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -531,7 +406,7 @@ func UploadAgentTemplate(c *fiber.Ctx) error {
 	}
 	defer kvStore.Close()
 
-	if err := persistTemplateRecord(ctx, kvStore, yamlTemplate.ID, envelopeJSON, metaJSON); err != nil {
+	if err := templates.WriteTemplate(ctx, kvStore, rec); err != nil {
 		slog.Error("Failed to persist template", "id", yamlTemplate.ID, "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to store template",
@@ -539,8 +414,6 @@ func UploadAgentTemplate(c *fiber.Ctx) error {
 	}
 
 	if err := publishNotifyAgents(yamlTemplate.ID, "sirius-api"); err != nil {
-		// Don't fail the request: the records are persisted and agents
-		// will pick them up on their next periodic sync. Log loudly.
 		slog.Warn("Failed to publish notify_agents", "id", yamlTemplate.ID, "error", err)
 	}
 
@@ -609,22 +482,22 @@ func DeleteAgentTemplate(c *fiber.Ctx) error {
 	}
 	defer kvStore.Close()
 
-	// Only allow deleting custom templates
-	templateKey := agentTemplateKeyPrefix + "custom:" + templateID
+	templateKey := templates.AgentTemplateKey(templateID, true)
+	metaKey := templates.AgentTemplateMetaKey(templateID)
 	if err := kvStore.DeleteValue(ctx, templateKey); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to delete template",
 		})
 	}
-
-	// Notify engine
-	message := map[string]interface{}{
-		"command":     "internal:template delete",
-		"template_id": templateID,
-		"timestamp":   time.Now().Format(time.RFC3339),
+	if err := kvStore.DeleteValue(ctx, metaKey); err != nil {
+		// Best-effort: a stale meta entry without the envelope would
+		// surface as a missing template on enumeration; log and move on.
+		slog.Warn("Failed to delete template meta", "id", templateID, "error", err)
 	}
-	msgBytes, _ := json.Marshal(message)
-	_ = queue.Send("engine.commands", string(msgBytes))
+
+	if err := publishNotifyAgents(templateID, "sirius-api"); err != nil {
+		slog.Warn("Failed to publish notify_agents on delete", "id", templateID, "error", err)
+	}
 
 	return c.JSON(fiber.Map{
 		"message": "Template deleted",
@@ -781,7 +654,7 @@ func UpdateAgentTemplate(c *fiber.Ctx) error {
 	}
 	defer kvStore.Close()
 
-	existing, err := readExistingMeta(ctx, kvStore, templateID)
+	existing, err := templates.ReadTemplateMeta(ctx, kvStore, templateID)
 	if err != nil {
 		slog.Warn("Failed to read existing meta", "id", templateID, "error", err)
 	}
@@ -791,7 +664,7 @@ func UpdateAgentTemplate(c *fiber.Ctx) error {
 		})
 	}
 
-	envelopeJSON, metaJSON, checksum, err := buildTemplateRecord(&yamlTemplate, rawYAML, existing.IsCustom, existing.Created)
+	rec, checksum, err := buildTemplateRecord(&yamlTemplate, rawYAML, existing.IsCustom, existing.Created)
 	if err != nil {
 		slog.Error("Failed to build template record", "id", templateID, "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -799,7 +672,7 @@ func UpdateAgentTemplate(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := persistTemplateRecord(ctx, kvStore, templateID, envelopeJSON, metaJSON); err != nil {
+	if err := templates.WriteTemplate(ctx, kvStore, rec); err != nil {
 		slog.Error("Failed to persist template", "id", templateID, "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to store template",

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/SiriusScan/go-api/sirius/store/templates"
 	"gopkg.in/yaml.v3"
 )
 
@@ -41,7 +42,7 @@ func TestBuildTemplateRecord_EnvelopeShape(t *testing.T) {
 	tpl := parseFixture(t)
 	raw := []byte(fixtureYAML)
 
-	envBytes, metaBytes, checksum, err := buildTemplateRecord(tpl, raw, true, time.Time{})
+	rec, checksum, err := buildTemplateRecord(tpl, raw, true, time.Time{})
 	if err != nil {
 		t.Fatalf("buildTemplateRecord returned error: %v", err)
 	}
@@ -49,9 +50,18 @@ func TestBuildTemplateRecord_EnvelopeShape(t *testing.T) {
 		t.Fatal("expected non-empty checksum")
 	}
 
-	var envelope templateInfoRecord
+	envBytes, err := templates.EncodeTemplate(rec)
+	if err != nil {
+		t.Fatalf("EncodeTemplate: %v", err)
+	}
+	metaBytes, err := templates.EncodeMeta(rec)
+	if err != nil {
+		t.Fatalf("EncodeMeta: %v", err)
+	}
+
+	var envelope templates.TemplateRecord
 	if err := json.Unmarshal(envBytes, &envelope); err != nil {
-		t.Fatalf("envelope is not valid JSON of templateInfoRecord: %v", err)
+		t.Fatalf("envelope is not valid JSON of TemplateRecord: %v", err)
 	}
 
 	if envelope.ID != "test-cve-2026-0001" {
@@ -96,8 +106,7 @@ func TestBuildTemplateRecord_EnvelopeShape(t *testing.T) {
 		t.Error("base64-decoded content does not match the original raw YAML")
 	}
 
-	// Meta must NOT carry content.
-	var meta templateInfoRecord
+	var meta templates.TemplateRecord
 	if err := json.Unmarshal(metaBytes, &meta); err != nil {
 		t.Fatalf("meta is not valid JSON: %v", err)
 	}
@@ -124,9 +133,13 @@ detection: {}
 	if err := yaml.Unmarshal([]byte(noStepsYAML), &tpl); err != nil {
 		t.Fatal(err)
 	}
-	envBytes, _, _, err := buildTemplateRecord(&tpl, []byte(noStepsYAML), true, time.Time{})
+	rec, _, err := buildTemplateRecord(&tpl, []byte(noStepsYAML), true, time.Time{})
 	if err != nil {
 		t.Fatal(err)
+	}
+	envBytes, err := templates.EncodeTemplate(rec)
+	if err != nil {
+		t.Fatalf("EncodeTemplate: %v", err)
 	}
 	if !strings.Contains(string(envBytes), `"detection_type":""`) {
 		t.Errorf("expected empty detection_type when no steps; got: %s", envBytes)
@@ -143,12 +156,16 @@ func TestBuildTemplateRecord_PreservesCreated(t *testing.T) {
 	raw := []byte(fixtureYAML)
 	original := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
 
-	envBytes, _, _, err := buildTemplateRecord(tpl, raw, false, original)
+	rec, _, err := buildTemplateRecord(tpl, raw, false, original)
 	if err != nil {
 		t.Fatalf("buildTemplateRecord returned error: %v", err)
 	}
+	envBytes, err := templates.EncodeTemplate(rec)
+	if err != nil {
+		t.Fatalf("EncodeTemplate: %v", err)
+	}
 
-	var envelope templateInfoRecord
+	var envelope templates.TemplateRecord
 	if err := json.Unmarshal(envBytes, &envelope); err != nil {
 		t.Fatalf("envelope decode: %v", err)
 	}

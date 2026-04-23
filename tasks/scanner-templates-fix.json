@@ -105,8 +105,8 @@
     "id": "4",
     "title": "PR 4: UpdateAgentTemplate Handler + UI Wiring",
     "description": "Implement the stub UpdateAgentTemplate; route Save Changes to update vs upload based on editingTemplate.",
-    "details": "Mirror the upload path but require existence; UI handleSaveTemplate calls updateMutation when editingTemplate set. PR opened from feature/scanner-templates-fix-pr4.",
-    "status": "in_progress",
+    "details": "Mirror the upload path but require existence; UI handleSaveTemplate calls updateMutation when editingTemplate set. Merged as Sirius#123 on 2026-04-22.",
+    "status": "done",
     "priority": "medium",
     "dependencies": ["3"],
     "subtasks": []
@@ -115,8 +115,8 @@
     "id": "5",
     "title": "PR 5: engine.commands Listener (defense-in-depth)",
     "description": "Add EngineCommandQueueProcessor in app-agent so legacy notifications stop being silently dropped.",
-    "details": "Routes internal:template upload/delete to the same notify-agents path; redundant after PR 3 but catches future producers.",
-    "status": "pending",
+    "details": "Routes internal:template upload/delete to the same notify-agents path; redundant after PR 3 but catches future producers. Merged as app-agent#3 on 2026-04-22.",
+    "status": "done",
     "priority": "medium",
     "dependencies": ["4"],
     "subtasks": []
@@ -126,7 +126,7 @@
     "title": "PR 6: Shared Schema Package in go-api",
     "description": "Create go-api/sirius/store/templates with TemplateRecord, TemplateMeta, NseScriptRecord, key constants, CanonicalScriptID, and read/write helpers.",
     "details": "Single source of truth for both NSE scripts and agent templates; includes Go unit tests.",
-    "status": "pending",
+    "status": "done",
     "priority": "high",
     "dependencies": ["5"],
     "subtasks": []
@@ -136,7 +136,7 @@
     "title": "PR 7: Migrate Consumers to Shared Package",
     "description": "sirius-api, app-scanner, app-agent all use the shared helpers; retire dual-format heuristics.",
     "details": "Bump go-api dep in each module; delete the JSON-or-YAML fork in agent_template_handler.go; replace ad-hoc encoding with shared Read/Write helpers.",
-    "status": "pending",
+    "status": "in_progress",
     "priority": "high",
     "dependencies": ["6"],
     "subtasks": []

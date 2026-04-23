@@ -327,7 +327,7 @@ jobs:
           # Fallback SHAs MUST match sirius-engine/Dockerfile ARG defaults.
           # Enforced by .github/workflows/check-pin-consistency.yml.
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.17' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.18' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
   # Merge arch-specific API images into a single multi-arch manifest
@@ -457,11 +457,11 @@ jobs:
           # Enforced by .github/workflows/check-pin-consistency.yml.
           # See documentation/dev/architecture/README.engine-component-pinning.md.
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.17' }}
-            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'cd3943c71dd4d9a7419c63386780c65b559bf039' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.18' }}
+            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'a031480cc7e0dc4a1cb09bdcfafedd89fbc61dfd' }}
             APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || '5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1' }}
             SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9' }}
-            APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '7a2203979152dcc2a86dc32d4d44a6fa990b11e9' }}
+            APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '9311f3805db9cc08740f1b588b6f3bff9191c9dd' }}
             PINGPP_COMMIT_SHA=${{ env.PINGPP_COMMIT_SHA || '9508a16c40a49746feb7cab4b8c1c358246169b0' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 

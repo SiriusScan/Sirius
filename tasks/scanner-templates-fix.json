@@ -1,0 +1,154 @@
+[
+  {
+    "id": "0",
+    "title": "PHASE 0: Sprint Setup",
+    "description": "Establish the tracker, plan doc, and working branches for the eight-PR scanner-templates-fix sprint.",
+    "details": "Sprint covers PR1-PR5 (Phase A: surgical bug fixes for NSE script descriptions, agent template view/edit auth, custom template upload propagation) and PR6-PR8 (Phase B: shared schema in go-api, consumer migration, contract tests + docs).",
+    "status": "in_progress",
+    "priority": "high",
+    "dependencies": [],
+    "subtasks": [
+      {
+        "id": "0.1",
+        "title": "Create sprint tracker + plan doc",
+        "description": "Add tasks/scanner-templates-fix.json and documentation/dev-notes/scanner-templates-fix-plan.md.",
+        "details": "Tracker mirrors the master plan in scanner_templates_fix_3be9da41.plan.md.",
+        "status": "in_progress",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Files exist and parse as valid JSON / valid markdown front matter."
+      },
+      {
+        "id": "0.2",
+        "title": "Create feature branches",
+        "description": "feature/scanner-templates-fix on app-scanner and Sirius repos.",
+        "details": "One working branch per repo touched; each PR is squashed to main individually.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["0.1"],
+        "testStrategy": "git branch --show-current returns feature/scanner-templates-fix in both repos."
+      }
+    ]
+  },
+  {
+    "id": "1",
+    "title": "PR 1: NSE Script Key Harmonization",
+    "description": "Scanner writes canonical KV keys (no .nse extension) so UI lookups hit.",
+    "details": "Add canonicalScriptID helper in app-scanner/internal/nse/sync.go and apply at every Valkey boundary; canonicalize manifest map keys; keep Script.Path untouched. Add table tests and integration test. Operator note in PR description for one-time legacy key wipe.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["0"],
+    "subtasks": [
+      {
+        "id": "1.1",
+        "title": "Implement canonicalScriptID and apply at boundaries",
+        "description": "syncScriptContent, getScriptContent, updateValKeyManifest, UpdateScriptFromUI, SyncScriptContent.",
+        "details": "Mirror the TS canonicalizer in sirius-ui/src/utils/nseScriptIds.ts.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["0.2"],
+        "testStrategy": "go vet + go build + new unit tests pass."
+      },
+      {
+        "id": "1.2",
+        "title": "Add sync_test.go",
+        "description": "Table tests for canonicalScriptID + integration test asserting written keys + manifest map keys are canonical.",
+        "details": "Use in-memory mock KV store; verify no key contains .nse suffix.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["1.1"],
+        "testStrategy": "go test ./internal/nse/... passes."
+      },
+      {
+        "id": "1.3",
+        "title": "End-to-end verification",
+        "description": "Wipe legacy keys, rebuild engine, confirm UI Description/Code populate, edit/save round-trips, Full Scan succeeds.",
+        "details": "Operator-wipe approach (chosen over auto-cleanup); verify via valkey-cli + UI + scan.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["1.2"],
+        "testStrategy": "valkey-cli KEYS 'nse:script:*' shows zero .nse-suffixed keys; UI shows real Lua content for smb-vuln-cve2009-3103; Full Scan completes."
+      },
+      {
+        "id": "1.4",
+        "title": "Open and merge PR",
+        "description": "Open PR with operator wipe command in description; merge after CI green.",
+        "details": "Squash to main on app-scanner.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["1.3"],
+        "testStrategy": "PR merged; CI green."
+      }
+    ]
+  },
+  {
+    "id": "2",
+    "title": "PR 2: Agent Template View/Edit Auth Fix",
+    "description": "Replace unauthenticated browser fetch in AgentTemplatesTab with tRPC route.",
+    "details": "handleView and handleEdit currently bypass apiFetch and miss the X-API-Key header, returning 401. Switch to api.agentTemplates.getTemplate.fetch (or utils.fetch) and remove NEXT_PUBLIC_SIRIUS_API_URL from this component.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["1"],
+    "subtasks": []
+  },
+  {
+    "id": "3",
+    "title": "PR 3: Custom Template Upload Writes Envelope + Meta + Triggers Sync",
+    "description": "Make UploadAgentTemplate produce records the agent's sync server understands, and trigger that sync.",
+    "details": "Compute sha256, build the standard JSON envelope with base64 content, write to template:custom:<id>; write template:meta:<id> with is_custom: true; publish to agent.template.sync.jobs to trigger the existing notify-agents path.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["2"],
+    "subtasks": []
+  },
+  {
+    "id": "4",
+    "title": "PR 4: UpdateAgentTemplate Handler + UI Wiring",
+    "description": "Implement the stub UpdateAgentTemplate; route Save Changes to update vs upload based on editingTemplate.",
+    "details": "Mirror the upload path but require existence; UI handleSaveTemplate calls updateMutation when editingTemplate set.",
+    "status": "pending",
+    "priority": "medium",
+    "dependencies": ["3"],
+    "subtasks": []
+  },
+  {
+    "id": "5",
+    "title": "PR 5: engine.commands Listener (defense-in-depth)",
+    "description": "Add EngineCommandQueueProcessor in app-agent so legacy notifications stop being silently dropped.",
+    "details": "Routes internal:template upload/delete to the same notify-agents path; redundant after PR 3 but catches future producers.",
+    "status": "pending",
+    "priority": "medium",
+    "dependencies": ["4"],
+    "subtasks": []
+  },
+  {
+    "id": "6",
+    "title": "PR 6: Shared Schema Package in go-api",
+    "description": "Create go-api/sirius/store/templates with TemplateRecord, TemplateMeta, NseScriptRecord, key constants, CanonicalScriptID, and read/write helpers.",
+    "details": "Single source of truth for both NSE scripts and agent templates; includes Go unit tests.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["5"],
+    "subtasks": []
+  },
+  {
+    "id": "7",
+    "title": "PR 7: Migrate Consumers to Shared Package",
+    "description": "sirius-api, app-scanner, app-agent all use the shared helpers; retire dual-format heuristics.",
+    "details": "Bump go-api dep in each module; delete the JSON-or-YAML fork in agent_template_handler.go; replace ad-hoc encoding with shared Read/Write helpers.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["6"],
+    "subtasks": []
+  },
+  {
+    "id": "8",
+    "title": "PR 8: Contract Tests + Architecture Doc",
+    "description": "Valkey-backed integration test covering writer-A -> reader-B for every component pair; new scanner-storage README.",
+    "details": "Test under Sirius/testing/; doc at documentation/dev/architecture/README.scanner-storage.md with llm_context: high so future sessions auto-load the contract.",
+    "status": "pending",
+    "priority": "medium",
+    "dependencies": ["7"],
+    "subtasks": []
+  }
+]

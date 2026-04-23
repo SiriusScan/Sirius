@@ -95,8 +95,8 @@
     "id": "3",
     "title": "PR 3: Custom Template Upload Writes Envelope + Meta + Triggers Sync",
     "description": "Make UploadAgentTemplate produce records the agent's sync server understands, and trigger that sync.",
-    "details": "Compute sha256, build the standard JSON envelope with base64 content, write to template:custom:<id>; write template:meta:<id> with is_custom: true; publish to agent.template.sync.jobs to trigger the existing notify-agents path.",
-    "status": "pending",
+    "details": "Compute sha256, build the standard JSON envelope with base64 content, write to template:custom:<id>; write template:meta:<id> with is_custom: true; publish to agent.template.sync.jobs to trigger the existing notify-agents path. Merged as Sirius#122 + app-agent#2 on 2026-04-22.",
+    "status": "done",
     "priority": "high",
     "dependencies": ["2"],
     "subtasks": []
@@ -105,8 +105,8 @@
     "id": "4",
     "title": "PR 4: UpdateAgentTemplate Handler + UI Wiring",
     "description": "Implement the stub UpdateAgentTemplate; route Save Changes to update vs upload based on editingTemplate.",
-    "details": "Mirror the upload path but require existence; UI handleSaveTemplate calls updateMutation when editingTemplate set.",
-    "status": "pending",
+    "details": "Mirror the upload path but require existence; UI handleSaveTemplate calls updateMutation when editingTemplate set. PR opened from feature/scanner-templates-fix-pr4.",
+    "status": "in_progress",
     "priority": "medium",
     "dependencies": ["3"],
     "subtasks": []

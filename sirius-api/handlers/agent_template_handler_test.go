@@ -133,6 +133,36 @@ detection: {}
 	}
 }
 
+// TestBuildTemplateRecord_PreservesCreated covers the update path: when
+// UpdateAgentTemplate reads the existing meta and re-builds the record,
+// it passes through the original `created` timestamp and the original
+// `is_custom` flag (so editing a built-in does not silently flip it to
+// custom). The envelope's `updated` field still moves to "now".
+func TestBuildTemplateRecord_PreservesCreated(t *testing.T) {
+	tpl := parseFixture(t)
+	raw := []byte(fixtureYAML)
+	original := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	envBytes, _, _, err := buildTemplateRecord(tpl, raw, false, original)
+	if err != nil {
+		t.Fatalf("buildTemplateRecord returned error: %v", err)
+	}
+
+	var envelope templateInfoRecord
+	if err := json.Unmarshal(envBytes, &envelope); err != nil {
+		t.Fatalf("envelope decode: %v", err)
+	}
+	if !envelope.Created.Equal(original) {
+		t.Errorf("Created should be preserved; got %v want %v", envelope.Created, original)
+	}
+	if envelope.IsCustom {
+		t.Error("IsCustom should remain false when caller passes false (built-in edit)")
+	}
+	if envelope.Updated.Before(original) || envelope.Updated.Equal(original) {
+		t.Errorf("Updated should advance past Created; got Updated=%v Created=%v", envelope.Updated, original)
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

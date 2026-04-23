@@ -47,6 +47,7 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.administrator.md](dev/architecture/README.administrator.md) - Administrator service architecture and design
 - [README.cicd.md](dev/architecture/README.cicd.md) - CI/CD pipeline architecture and workflows
 - [README.go-api-sdk.md](dev/architecture/README.go-api-sdk.md) - Go API SDK architecture, design patterns, and integration guide
+- [README.scanner-storage.md](dev/architecture/README.scanner-storage.md) - Scanner Valkey schema contract for templates and NSE scripts
 - [README.auth-surface-matrix.md](dev/architecture/README.auth-surface-matrix.md) - Authentication and authorization policy matrix across API surfaces
 - [ADR.startup-secrets-model.md](dev/architecture/ADR.startup-secrets-model.md) - Architectural decision record for installer-first startup and secrets model
 - [ARCHITECTURE.nse-repository-management.md](dev/architecture/ARCHITECTURE.nse-repository-management.md) - NSE repository management architecture

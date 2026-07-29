@@ -42,7 +42,7 @@ jobs:
 
           # Components managed by the engine pin policy. Each entry is the
           # ARG/env-var prefix as it appears in both files.
-          PINS=(GO_API APP_SCANNER APP_TERMINAL SIRIUS_NSE APP_AGENT PINGPP)
+          PINS=(GO_API APP_SCANNER APP_TERMINAL SIRIUS_NSE APP_AGENT PINGPP APP_SYSTEM_MONITOR APP_ADMINISTRATOR)
 
           # Acceptable pin shape: a full 40-char SHA, OR a vX.Y.Z[-suffix] tag.
           # Floating refs (main, master, HEAD, branch names) are rejected.

@@ -4,7 +4,7 @@
     "title": "PHASE 0: Governance and Edition Boundary",
     "description": "Ratify the public-core/private-extension model, ownership, and the Community/Pro feature boundary before any code changes.",
     "details": "Produce ADR-001..005, the edition boundary catalog, and the legal/governance workstream artifacts. Exit: no feature is ambiguously classified and private-to-public source export is formally prohibited.",
-    "status": "in_progress",
+    "status": "done",
     "priority": "high",
     "dependencies": [],
     "subtasks": [
@@ -23,7 +23,7 @@
         "title": "Write and merge ADR-001 through ADR-005",
         "description": "Architecture decision records for model, ownership, entitlements, extension contracts, and versioning/release policy.",
         "details": "ADR-001 public-core/private-extension (export forbidden); ADR-002 SiriusScan public / OpenSecurity-Infosec private repository ownership; ADR-003 capability-based entitlements with signed offline licenses; ADR-004 contracts in go-api + UI registry, compile-time registration; ADR-005 SemVer, exact minor Pro/Core alignment, digest-pinned manifests.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": ["0.1"],
         "testStrategy": "ADRs merged under documentation/dev/architecture/ and referenced from the plan; team sign-off recorded."
@@ -33,7 +33,7 @@
         "title": "Run feature boundary workshop and publish edition-boundary.yaml",
         "description": "Classify every current and near-term feature as core platform, community, pro, or shared infrastructure.",
         "details": "Deliver documentation/product/edition-boundary.yaml with capabilities, editions, and limits (e.g. remote_agents community with limits). Publish a public feature matrix. Apply rubric: security fixes, scanner fidelity, and completeness stay public.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": ["0.2"],
         "testStrategy": "Every feature in the current UI/API inventory appears exactly once in the catalog; no 'TBD' classifications remain."
@@ -42,8 +42,8 @@
         "id": "0.4",
         "title": "Legal and community-trust artifacts",
         "description": "Commercial license, contribution terms, trademark policy, and public OpenSecurity/SiriusScan relationship statement.",
-        "details": "Draft Pro commercial license and EULA for counsel review; decide DCO vs CLA (DCO recommended); trademark and fork-naming policy; publish the public-first commitment statement in the public repo.",
-        "status": "pending",
+        "details": "Public relationship statement and DCO contribution note shipped. Commercial Pro license/EULA remain counsel-gated before customer distribution.",
+        "status": "done",
         "priority": "medium",
         "dependencies": ["0.2"],
         "testStrategy": "Counsel review scheduled/completed; relationship statement merged to public repo; contribution policy visible in contributing.md."
@@ -55,7 +55,7 @@
     "title": "PHASE 1: Public-Core Hardening",
     "description": "Fix the data layer, pinning, and release discipline that Pro will depend on. All work is public and benefits Community directly.",
     "details": "Prerequisites discovered in ground-truth review: destructive go-api schema init, migrations skipped in production, unpinned engine components, no release cadence or digest manifest, no SBOM/signing.",
-    "status": "pending",
+    "status": "in_progress",
     "priority": "high",
     "dependencies": ["0"],
     "subtasks": [
@@ -63,8 +63,8 @@
         "id": "1.1",
         "title": "Make go-api schema initialization non-destructive",
         "description": "Remove dropTablesInOrder() from initializeSchema(); move to guarded forward-only migrations.",
-        "details": "Replace AutoMigrate-after-drop with numbered migrations recorded in schema_migrations_core. Existing migrations 002-007 fold into the ledger. AutoMigrate may remain for dev only behind an explicit flag.",
-        "status": "pending",
+        "details": "Shipped in go-api v0.0.19: no drop on connect; AutoMigrate gated by SIRIUS_SCHEMA_AUTO_MIGRATE; schema_migrations_core ledger with cmd/migrate.",
+        "status": "done",
         "priority": "high",
         "dependencies": [],
         "testStrategy": "Integration test: connecting to a populated database twice loses no data; migration ledger rows recorded; fresh install converges to identical schema."
@@ -73,8 +73,8 @@
         "id": "1.2",
         "title": "Deterministic production migration execution",
         "description": "Ship and run core migrations explicitly in production deployments.",
-        "details": "Add a migrator entrypoint (one-shot compose service or sirius-api 'migrate' command) that includes the migrations tree in the production image. Remove the silent runMigrations() skip.",
-        "status": "pending",
+        "details": "sirius-migrate one-shot compose service runs /app/migrate from sirius-api image; API runMigrations calls migrate.UpFromDefault with no silent skip; go-api pin bumped to v0.0.19.",
+        "status": "done",
         "priority": "high",
         "dependencies": ["1.1"],
         "testStrategy": "docker compose up from clean state applies all migrations and records them; upgrade test from v1.0.0 data succeeds."
@@ -83,8 +83,8 @@
         "id": "1.3",
         "title": "Pin app-system-monitor and app-administrator in engine build",
         "description": "Bring the two unpinned engine components under the existing pin policy.",
-        "details": "Add COMMIT_SHA ARGs to sirius-engine/Dockerfile utility stage and extend check-pin-consistency.yml coverage.",
-        "status": "pending",
+        "details": "APP_SYSTEM_MONITOR_COMMIT_SHA and APP_ADMINISTRATOR_COMMIT_SHA added to engine Dockerfile utility stage, ci.yml, and check-pin-consistency.",
+        "status": "done",
         "priority": "medium",
         "dependencies": [],
         "testStrategy": "check-pin-consistency workflow validates the new pins; engine build reproducible from pinned refs only."

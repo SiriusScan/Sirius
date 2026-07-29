@@ -33,6 +33,12 @@ services:
       context: ./sirius-api
       dockerfile: Dockerfile
       target: runner
+      args:
+        GO_API_COMMIT_SHA: v0.0.19
+    image: sirius-sirius-api:source
+    pull_policy: never
+
+  sirius-migrate:
     image: sirius-sirius-api:source
     pull_policy: never
 

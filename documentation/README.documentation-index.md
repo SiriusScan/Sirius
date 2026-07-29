@@ -36,6 +36,11 @@ This document provides a complete index of all documentation files in the Sirius
 ### Contributing
 
 - [contributing.md](contributing.md) - Complete guide for contributing to Sirius Scan, including development setup and workflows
+- [ABOUT.opensecurity-sirius-relationship.md](dev/ABOUT.opensecurity-sirius-relationship.md) - OpenSecurity sponsorship of SiriusScan and public-first commitment
+
+### Product
+
+- [edition-boundary.yaml](product/edition-boundary.yaml) - Community/Pro capability classification and edition boundary catalog
 
 ## Architecture Documentation
 
@@ -50,6 +55,11 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.scanner-storage.md](dev/architecture/README.scanner-storage.md) - Scanner Valkey schema contract for templates and NSE scripts
 - [README.auth-surface-matrix.md](dev/architecture/README.auth-surface-matrix.md) - Authentication and authorization policy matrix across API surfaces
 - [ADR.startup-secrets-model.md](dev/architecture/ADR.startup-secrets-model.md) - Architectural decision record for installer-first startup and secrets model
+- [ADR.001-public-core-private-extension.md](dev/architecture/ADR.001-public-core-private-extension.md) - Community as canonical public core; Pro as private extension consumer
+- [ADR.002-repository-ownership.md](dev/architecture/ADR.002-repository-ownership.md) - SiriusScan public vs OpenSecurity-Infosec private repository ownership
+- [ADR.003-entitlement-model.md](dev/architecture/ADR.003-entitlement-model.md) - Capability-based entitlements and signed offline licenses
+- [ADR.004-extension-contracts.md](dev/architecture/ADR.004-extension-contracts.md) - Public API, UI, event, and engine extension contracts
+- [ADR.005-versioning-and-release-policy.md](dev/architecture/ADR.005-versioning-and-release-policy.md) - SemVer, Pro/Core compatibility, and digest-pinned releases
 - [ARCHITECTURE.nse-repository-management.md](dev/architecture/ARCHITECTURE.nse-repository-management.md) - NSE repository management architecture
 - [README.docker-architecture.md](dev/architecture/README.docker-architecture.md) - Comprehensive Docker setup and container architecture
 - [README.engine-component-pinning.md](dev/architecture/README.engine-component-pinning.md) - Authoritative model for pinning engine submodules and CI build-arg overrides

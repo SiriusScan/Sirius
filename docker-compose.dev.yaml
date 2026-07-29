@@ -99,6 +99,25 @@ services:
           memory: 1G
           cpus: "1"
 
+  # Dev: run migrator from mounted go-api source (development API image has no /app/migrate).
+  sirius-migrate:
+    image: golang:1.24-alpine
+    pull_policy: if_not_present
+    container_name: sirius-migrate
+    working_dir: /go-api
+    entrypoint: ["go", "run", "./cmd/migrate"]
+    volumes:
+      - ../minor-projects/go-api:/go-api
+    environment:
+      - POSTGRES_HOST=sirius-postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for development. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
+      - POSTGRES_DB=sirius
+      - POSTGRES_PORT=5432
+    depends_on:
+      sirius-postgres:
+        condition: service_healthy
+
   sirius-api:
     build:
       context: ./sirius-api/

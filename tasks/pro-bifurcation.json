@@ -1,0 +1,369 @@
+[
+  {
+    "id": "0",
+    "title": "PHASE 0: Governance and Edition Boundary",
+    "description": "Ratify the public-core/private-extension model, ownership, and the Community/Pro feature boundary before any code changes.",
+    "details": "Produce ADR-001..005, the edition boundary catalog, and the legal/governance workstream artifacts. Exit: no feature is ambiguously classified and private-to-public source export is formally prohibited.",
+    "status": "in_progress",
+    "priority": "high",
+    "dependencies": [],
+    "subtasks": [
+      {
+        "id": "0.1",
+        "title": "Create bifurcation implementation plan",
+        "description": "Author the grounded implementation plan and task tracker.",
+        "details": "documentation/dev-notes/pro-bifurcation-plan.md plus this task file, grounded in verified repository state (compose overlays, engine pins, RouteSetter, go-api schema behavior, release state).",
+        "status": "done",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Plan exists, is indexed in README.documentation-index.md, and passes make lint-docs."
+      },
+      {
+        "id": "0.2",
+        "title": "Write and merge ADR-001 through ADR-005",
+        "description": "Architecture decision records for model, ownership, entitlements, extension contracts, and versioning/release policy.",
+        "details": "ADR-001 public-core/private-extension (export forbidden); ADR-002 SiriusScan public / OpenSecurity-Infosec private repository ownership; ADR-003 capability-based entitlements with signed offline licenses; ADR-004 contracts in go-api + UI registry, compile-time registration; ADR-005 SemVer, exact minor Pro/Core alignment, digest-pinned manifests.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["0.1"],
+        "testStrategy": "ADRs merged under documentation/dev/architecture/ and referenced from the plan; team sign-off recorded."
+      },
+      {
+        "id": "0.3",
+        "title": "Run feature boundary workshop and publish edition-boundary.yaml",
+        "description": "Classify every current and near-term feature as core platform, community, pro, or shared infrastructure.",
+        "details": "Deliver documentation/product/edition-boundary.yaml with capabilities, editions, and limits (e.g. remote_agents community with limits). Publish a public feature matrix. Apply rubric: security fixes, scanner fidelity, and completeness stay public.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["0.2"],
+        "testStrategy": "Every feature in the current UI/API inventory appears exactly once in the catalog; no 'TBD' classifications remain."
+      },
+      {
+        "id": "0.4",
+        "title": "Legal and community-trust artifacts",
+        "description": "Commercial license, contribution terms, trademark policy, and public OpenSecurity/SiriusScan relationship statement.",
+        "details": "Draft Pro commercial license and EULA for counsel review; decide DCO vs CLA (DCO recommended); trademark and fork-naming policy; publish the public-first commitment statement in the public repo.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["0.2"],
+        "testStrategy": "Counsel review scheduled/completed; relationship statement merged to public repo; contribution policy visible in contributing.md."
+      }
+    ]
+  },
+  {
+    "id": "1",
+    "title": "PHASE 1: Public-Core Hardening",
+    "description": "Fix the data layer, pinning, and release discipline that Pro will depend on. All work is public and benefits Community directly.",
+    "details": "Prerequisites discovered in ground-truth review: destructive go-api schema init, migrations skipped in production, unpinned engine components, no release cadence or digest manifest, no SBOM/signing.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["0"],
+    "subtasks": [
+      {
+        "id": "1.1",
+        "title": "Make go-api schema initialization non-destructive",
+        "description": "Remove dropTablesInOrder() from initializeSchema(); move to guarded forward-only migrations.",
+        "details": "Replace AutoMigrate-after-drop with numbered migrations recorded in schema_migrations_core. Existing migrations 002-007 fold into the ledger. AutoMigrate may remain for dev only behind an explicit flag.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Integration test: connecting to a populated database twice loses no data; migration ledger rows recorded; fresh install converges to identical schema."
+      },
+      {
+        "id": "1.2",
+        "title": "Deterministic production migration execution",
+        "description": "Ship and run core migrations explicitly in production deployments.",
+        "details": "Add a migrator entrypoint (one-shot compose service or sirius-api 'migrate' command) that includes the migrations tree in the production image. Remove the silent runMigrations() skip.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["1.1"],
+        "testStrategy": "docker compose up from clean state applies all migrations and records them; upgrade test from v1.0.0 data succeeds."
+      },
+      {
+        "id": "1.3",
+        "title": "Pin app-system-monitor and app-administrator in engine build",
+        "description": "Bring the two unpinned engine components under the existing pin policy.",
+        "details": "Add COMMIT_SHA ARGs to sirius-engine/Dockerfile utility stage and extend check-pin-consistency.yml coverage.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": [],
+        "testStrategy": "check-pin-consistency workflow validates the new pins; engine build reproducible from pinned refs only."
+      },
+      {
+        "id": "1.4",
+        "title": "Establish release train and digest manifest",
+        "description": "Cut v1.1.0 and emit core-manifest.yaml with image digests, component pins, and schema version per release.",
+        "details": "Tag v1.1.0 from hardened HEAD; make publish-release-image-tags.yml + verify-ghcr-release-tag.yml a gated release workflow (release blocked unless all six images retag and verify); generate core-manifest.yaml as a release asset.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["1.2", "1.3"],
+        "testStrategy": "v1.1.0 release exists with all six images pullable at the tag, manifest lists sha256 digests matching GHCR, and verify workflow is green."
+      },
+      {
+        "id": "1.5",
+        "title": "SBOM generation and image signing in public CI",
+        "description": "Add Syft SBOMs and Cosign signatures for all six public images.",
+        "details": "Extend ci.yml and the release workflow; publish SBOMs as release assets; sign multi-arch manifests; pin GitHub Action versions.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["1.4"],
+        "testStrategy": "cosign verify succeeds against published images; SBOM asset present for each image in the release."
+      }
+    ]
+  },
+  {
+    "id": "2",
+    "title": "PHASE 2: Private Repositories and Supply-Chain Foundation",
+    "description": "Bootstrap OpenSecurity-Infosec private repos from skeletons with protections, private GHCR, and standing leakage-prevention tests.",
+    "details": "Create sirius-pro, sirius-entitlements, and sirius-release. Never clone the public repo as a starting point. Establish access teams, branch protection, CODEOWNERS, secret scanning, and CI templates.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["0"],
+    "subtasks": [
+      {
+        "id": "2.1",
+        "title": "Create private repositories with governance controls",
+        "description": "sirius-pro, sirius-entitlements, sirius-release under OpenSecurity-Infosec.",
+        "details": "Skeleton layouts per plan (apps/, modules/, migrations/pro/, deployments/, release/). Branch protection, required reviews, CODEOWNERS, protected tags, secret scanning, access teams (core-maintainers, pro-engineering, release-managers, license-administrators, security).",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Force-push and direct-to-main commits rejected; CODEOWNERS enforced on a test PR; anonymous access to repos and packages denied."
+      },
+      {
+        "id": "2.2",
+        "title": "Private GHCR namespace and Pro CI template",
+        "description": "Private image publishing pipeline with SBOM and signing from day one.",
+        "details": "ghcr.io/opensecurity-infosec/* namespace; CI template mirroring public pipeline plus digest verification of upstream Community images.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["2.1"],
+        "testStrategy": "Test image publishes privately, is signed, has an SBOM, and cannot be pulled anonymously."
+      },
+      {
+        "id": "2.3",
+        "title": "Standing community-independence and leakage tests",
+        "description": "Prove the public edition never needs private access, and public artifacts never contain private references.",
+        "details": "Public CI job running with zero credentials builds and boots the full Community stack; scanner job checks public images, SBOMs, and source archives for private module paths, opensecurity-infosec registry refs, or Pro-only strings.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["2.2"],
+        "testStrategy": "Both jobs green on main; deliberately seeded canary string in a private repo is caught by the leakage scanner in a dry run."
+      }
+    ]
+  },
+  {
+    "id": "3",
+    "title": "PHASE 3: Public Extension Contracts",
+    "description": "Create the versioned seams Pro will consume: API module interface, event envelope, OpenAPI, UI extension registry, engine enrichment interfaces.",
+    "details": "All contracts live in public code (go-api for Go, sirius-ui registry for TypeScript). Compile-time registration; no runtime plugins. Community behavior must be unchanged with zero extensions.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["1"],
+    "subtasks": [
+      {
+        "id": "3.1",
+        "title": "API Module interface and registration seam",
+        "description": "Evolve RouteSetter into a Module contract in go-api; move module wiring out of main.go into a replaceable build file.",
+        "details": "Module: ID, Version, RegisterRoutes, RegisterJobs, RegisterEventHandlers, RequiredCapabilities, Health. Community registers core modules in modules_community.go; the Pro API build supplies its own registration file. Add capability-middleware hook point.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Community API starts with zero non-core modules and identical route table (golden-file route inventory diff); a test module adds a route without editing core files."
+      },
+      {
+        "id": "3.2",
+        "title": "Route inventory and published OpenAPI for /api/v1",
+        "description": "Inventory and classify all current routes; publish a versioned OpenAPI spec; reserve /api/pro/v1 and /api/internal/v1 namespaces.",
+        "details": "Classify public/internal/deprecated; consistent error format; request correlation IDs; generated TypeScript client for the UI where practical.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["3.1"],
+        "testStrategy": "OpenAPI spec validates and is diffed in CI against the live route table; breaking-change detection fails a test PR that removes a field."
+      },
+      {
+        "id": "3.3",
+        "title": "Versioned event envelope in go-api queue package",
+        "description": "CloudEvents-compatible envelope with type, schema version, source, correlation ID, and idempotency key; wrap existing queues additively.",
+        "details": "Inventory existing queues (scan, scan_control, terminal, engine.commands, agent_commands, agent.template.sync.jobs, ...); define JSON schemas; validate in CI; reserve pro.* queue namespace; document retry and dead-letter behavior.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Existing producers/consumers pass regression with enveloped messages; schema validation CI rejects an intentionally malformed event."
+      },
+      {
+        "id": "3.4",
+        "title": "UI extension registry and capability provider",
+        "description": "Build-time SiriusUIExtension registry; migrate Sidebar navigation and existing pages into registry declarations; add capability-aware rendering.",
+        "details": "Registry supports routes, navigation, dashboard widgets, settings panels, requiredCapabilities. Capability provider context fed by API entitlement endpoint (Community provider returns community capabilities without any license). Pro UI image builds by cloning public sirius-ui at a pinned SHA and overlaying private extension modules, mirroring the engine pin pattern.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["3.2"],
+        "testStrategy": "Community UI renders identical navigation and pages from the registry (visual/E2E regression); a test extension adds a nav item and page gated by a fake capability."
+      },
+      {
+        "id": "3.5",
+        "title": "Engine enrichment and scoring interfaces",
+        "description": "ResultEnricher, RiskScorer, and scheduling-policy interfaces in go-api with deterministic ordering and health reporting.",
+        "details": "Define interfaces and a registration seam in the engine composition root; no behavior change for Community (empty registries).",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["3.3"],
+        "testStrategy": "Scan pipeline output unchanged with empty registries; a test enricher mutates results in a controlled integration test."
+      },
+      {
+        "id": "3.6",
+        "title": "Contract compatibility test harness",
+        "description": "Tests that detect incompatible changes to API, event, and UI extension contracts.",
+        "details": "Golden contract fixtures + versioned schema diffing runnable from both public CI and (later) the Pro pipeline. Tag a core release (v1.2.0) containing all contracts.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["3.1", "3.3", "3.4", "3.5"],
+        "testStrategy": "Harness fails on a synthetic breaking change and passes on an additive change; v1.2.0 released with contracts documented."
+      }
+    ]
+  },
+  {
+    "id": "4",
+    "title": "PHASE 4: Entitlement Platform",
+    "description": "Implement licensing once, centrally, before building multiple Pro features.",
+    "details": "Capability catalog and Community provider are public (go-api). License issuer, signing infrastructure, and customer tooling are private (sirius-entitlements). Licensing is separate from user authorization; both must pass.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["2", "3"],
+    "subtasks": [
+      {
+        "id": "4.1",
+        "title": "Public capability catalog and Community entitlement provider",
+        "description": "Central capability registry in go-api; Community provider grants community capabilities unconditionally.",
+        "details": "Capabilities from edition-boundary.yaml (scanning.core, reporting.enterprise, identity.sso, workspaces.multiple, ...). Explicit Has(capability) checks only; no edition string comparisons.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Community runs fully with no license present; lint/CI check rejects new code containing edition-string conditionals."
+      },
+      {
+        "id": "4.2",
+        "title": "Signed license format and offline verifier",
+        "description": "Ed25519-signed license claims (customer, edition, capabilities, limits, validity window, key ID) with offline validation.",
+        "details": "Issuer private key in KMS (sirius-entitlements); products embed public verification keys with key-ID rotation; cached verified entitlement state; clock-skew and expiration boundary handling.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["4.1"],
+        "testStrategy": "Validation succeeds air-gapped; tampered payload and wrong-key signatures fail closed; expiration/grace/skew boundary tests pass; no private key material in any product artifact (leakage scan)."
+      },
+      {
+        "id": "4.3",
+        "title": "Enforcement middleware, UI provider, and admin license page",
+        "description": "Authoritative API/worker enforcement with structured errors; informative UI gating; administrator license status page.",
+        "details": "CAPABILITY_NOT_LICENSED structured error; workers verify entitlement before expensive Pro execution; admin page shows license ID, customer, expiration, capabilities, limits usage, grace status; audit events on license changes.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["4.2"],
+        "testStrategy": "Direct API calls to gated routes rejected without entitlement; UI and API report consistent state; expiration leaves core scan data fully accessible."
+      }
+    ]
+  },
+  {
+    "id": "5",
+    "title": "PHASE 5: First Vertical Pro Feature - Enterprise Reporting",
+    "description": "Prove the entire extension model with one feature that crosses UI, API, worker, database, events, licensing, and deployment.",
+    "details": "Capability reporting.enterprise; dedicated 'pro' PostgreSQL schema with schema_migrations_pro; reporting worker consumes versioned scan-completed events; routes under /api/pro/v1/reports; UI extension; docker-compose.pro.yaml overlay with digest-pinned private images.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["4"],
+    "subtasks": [
+      {
+        "id": "5.1",
+        "title": "Pro database schema and migration ownership",
+        "description": "Create the pro schema and schema_migrations_pro ledger with ownership rules.",
+        "details": "Core migrations never depend on pro tables; pro migrations may reference stable core primary keys only; separate least-privilege PostgreSQL roles (sirius_pro_reporting, sirius_migrator_pro).",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "Community boots and operates with the pro schema absent; pro migrations apply cleanly over a populated Community database."
+      },
+      {
+        "id": "5.2",
+        "title": "Reporting module, worker, and API routes",
+        "description": "Report templates, scheduling, executive summary generation, PDF/CSV export, delivery configuration, audit history.",
+        "details": "Registers via the Module interface with RequiredCapabilities [reporting.enterprise]; worker consumes scan.completed envelope events; RBAC permission distinct from entitlement.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["5.1"],
+        "testStrategy": "Unlicensed deployments reject report API calls; report generation E2E from scan completion to PDF artifact; generated reports pass data-leakage review."
+      },
+      {
+        "id": "5.3",
+        "title": "Reporting UI extension",
+        "description": "Navigation, report pages, template management, and schedule configuration via the UI registry.",
+        "details": "Built in the Pro UI overlay build; capability-gated navigation hidden in Community; no reporting code present in public sirius-ui.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["5.2"],
+        "testStrategy": "Public UI bundle and source maps contain no reporting module strings (leakage scan); Pro UI renders reporting pages only when licensed."
+      },
+      {
+        "id": "5.4",
+        "title": "Pro deployment overlay and lifecycle tests",
+        "description": "docker-compose.pro.yaml with digest-pinned images; add/remove and upgrade lifecycle proven.",
+        "details": "Overlay swaps sirius-ui/sirius-api for Pro builds and adds sirius-pro-reporting and license validation; Community engine image reused at pinned digest.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["5.3"],
+        "testStrategy": "Install Pro over clean Community preserving data; remove overlay and return to functional Community; Community regression suite green against the Pro deployment."
+      }
+    ]
+  },
+  {
+    "id": "6",
+    "title": "PHASE 6: Release Integration and Compatibility Automation",
+    "description": "Make the Pro-consumes-Community dependency flow automatic, verifiable, and repeatable.",
+    "details": "core.lock.yaml digest pinning, automated dependency-update PRs, nightly compatibility runs, release manifests, and promotion-by-retag.",
+    "status": "pending",
+    "priority": "high",
+    "dependencies": ["5"],
+    "subtasks": [
+      {
+        "id": "6.1",
+        "title": "core.lock.yaml and automated dependency updates",
+        "description": "Pin Community version, commit, image digests, component pins, and contract versions in sirius-pro; Renovate raises update PRs on public releases.",
+        "details": "Pro CI resolves the lock, verifies signatures and digests before building, and fails on any mutable-tag reference.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": [],
+        "testStrategy": "A new public release produces an automated Pro PR; CI rejects a lock entry using a floating tag."
+      },
+      {
+        "id": "6.2",
+        "title": "Pro pipeline with Community regression and nightly compatibility",
+        "description": "Full Pro pipeline: contract tests, Community regression suite, Pro E2E, entitlement tests, SBOM, signing; nightly run against public main.",
+        "details": "Nightly compatibility failures alert Pro engineering before the next public release; upgrade-path matrix (Community N->N+1, Pro N->N+1, Community->Pro, expired->renewed, Pro->Community-only) runs on release candidates.",
+        "status": "pending",
+        "priority": "high",
+        "dependencies": ["6.1"],
+        "testStrategy": "All pipeline stages green on a release candidate; a deliberate contract break on public main is flagged by the nightly run."
+      },
+      {
+        "id": "6.3",
+        "title": "Release manifests and promotion-by-retag",
+        "description": "Every Pro release ships a manifest tying artifacts to exact public commits; promotion copies tested digests without rebuilding.",
+        "details": "Manifest includes versions, digests, SBOM hashes, signatures, schema versions, supported upgrade sources, and compatibility range (Pro 1.x requires Core >=1.x.0 <1.(x+1).0).",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["6.2"],
+        "testStrategy": "Production digest matches the candidate-tested digest byte-for-byte; manifest validates against its schema in CI."
+      },
+      {
+        "id": "6.4",
+        "title": "Project cleanup and plan reconciliation",
+        "description": "Reconcile plan and tasks with implemented reality; archive completed sprint artifacts; merge feature branch.",
+        "details": "Update documentation index, close out task statuses, record deviations, and merge feature/pro-bifurcation.",
+        "status": "pending",
+        "priority": "medium",
+        "dependencies": ["6.3"],
+        "testStrategy": "make lint-docs and make lint-index pass; all tasks resolved to done or explicitly deferred with rationale."
+      }
+    ]
+  }
+]

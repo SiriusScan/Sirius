@@ -83,6 +83,7 @@ This document provides a complete index of all documentation files in the Sirius
 - [README.new-project.md](dev/operations/README.new-project.md) - New project development workflow and structure
 - [README.tasks.md](dev/operations/README.tasks.md) - Task management system and project tracking
 - [startup-secrets-redesign-plan.md](dev-notes/startup-secrets-redesign-plan.md) - Detailed implementation plan for startup and secrets redesign
+- [pro-bifurcation-plan.md](dev-notes/pro-bifurcation-plan.md) - Implementation plan for the Community/Pro public-core, private-extension bifurcation
 
 ### Deployment
 

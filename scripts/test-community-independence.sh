@@ -203,24 +203,7 @@ printf '%s\n' "${out}" | grep -Eq 'Sirius-1\.1\.0/sirius-engine' \
   && fail "finding must not keep GitHub top directory prefix"
 pass "release-archive top-dir canary"
 
-echo "==> canary: zip bomb / oversize streaming rejection"
-zipbomb="${TMP_DIR}/zipbomb.zip"
-python3 - <<PY
-import zipfile, zlib
-from pathlib import Path
-# Craft a zip that declares a small size but would expand larger than MAX if trusted.
-# Our reader streams with MAX_MEMBER_BYTES+1 and also checks declared vs actual.
-payload = b"A" * (33 * 1024 * 1024)
-path = Path("${zipbomb}")
-with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    # Normal oversized member: declared size is honest and > MAX
-    zf.writestr("big.bin", payload)
-PY
-if python3 "${CI_DIR}/scan_archive.py" --archive "${zipbomb}" --allowlist "${ALLOWLIST}" 2>/dev/null; then
-  fail "expected oversize zip member to fail"
-fi
-# Declared/actual mismatch canary via manual zip header mutation is fragile;
-# exercise nested_content reader with a crafted ZipInfo mismatch using a temp helper.
+echo "==> canary: zip declared/actual size mismatch still fail-closed"
 python3 - <<PY
 import io, sys, zipfile
 sys.path.insert(0, "scripts/community-independence")
@@ -240,7 +223,7 @@ with zipfile.ZipFile(io.BytesIO(raw)) as zf:
     else:
         raise SystemExit("expected mismatch rejection")
 PY
-pass "zip oversize/mismatch canaries"
+pass "zip mismatch canary"
 
 echo "==> canary: NUL binary + nested gzip/tar/zip markers"
 python3 - <<PY
@@ -275,6 +258,114 @@ for rel in nul.bin nested.gz nested.tar nested.zip; do
   fi
 done
 pass "NUL/nested archive canaries"
+
+echo "==> canary: streaming large members / gzip tar / malformed magic / budgets"
+python3 - <<PY
+import gzip, io, sys, tarfile, tempfile
+from pathlib import Path
+
+sys.path.insert(0, "scripts/community-independence")
+import scan_text
+import scan_archive
+import scan_image_layers
+from nested_content import (
+    CHUNK_SIZE,
+    ArchiveSafetyError,
+    _Budget,
+    scan_nested_bytes,
+    scan_stream_chunks,
+)
+
+allow = Path("scripts/community-independence/policy/governance-allowlist.txt")
+allowlist = scan_text.load_allowlist(allow)
+rules = scan_text.compile_rules()
+marker = ("ghcr.io/" + "opensecurity" + "-infosec/").encode() + b"stream"
+tmp = Path("${TMP_DIR}") / "stream"
+tmp.mkdir(parents=True, exist_ok=True)
+
+# 1) Clean >32MiB tar member passes via production scan_archive path.
+big = b"C" * (33 * 1024 * 1024)
+tpath = tmp / "clean-large.tar"
+with tarfile.open(tpath, "w") as tf:
+    info = tarfile.TarInfo("blob.bin")
+    info.size = len(big)
+    tf.addfile(info, io.BytesIO(big))
+findings = scan_archive.scan_archive(tpath, allow)
+assert findings == [], findings
+print("OK clean >32MiB tar member")
+
+# 2) Marker spanning chunk boundary fails (production scan_stream_chunks).
+# Place marker so it crosses the first CHUNK_SIZE boundary.
+left = CHUNK_SIZE - (len(marker) // 2)
+payload = (b"A" * left) + marker + (b"B" * 4096)
+budget = _Budget()
+findings = scan_stream_chunks(io.BytesIO(payload), "span.bin", rules, allowlist, budget)
+assert any("private_registry" in f for f in findings), findings
+print("OK chunk-boundary marker")
+
+# 3) Gzip-compressed tar with >32MiB clean member passes via scan_image_layers.
+inner_tar = io.BytesIO()
+with tarfile.open(fileobj=inner_tar, mode="w") as tf:
+    info = tarfile.TarInfo("opt/big.bin")
+    info.size = len(big)
+    tf.addfile(info, io.BytesIO(big))
+gz_layer = gzip.compress(inner_tar.getvalue())
+save_path = tmp / "gzip-large.docker-save.tar"
+with tarfile.open(save_path, "w") as tf:
+    for name, data in [
+        ("manifest.json", b"[]"),
+        ("config.json", b"{}"),
+        ("layer.tar.gz", gz_layer),
+    ]:
+        info = tarfile.TarInfo(name)
+        info.size = len(data)
+        tf.addfile(info, io.BytesIO(data))
+findings = scan_image_layers.scan_docker_save(save_path, allow, "sirius-ui/linux-amd64")
+assert findings == [], findings
+print("OK gzip tar >32MiB via scan_image_layers")
+
+# 4) Malformed gzip magic in source (strict=False): raw-only, no traceback.
+bad = b"\x1f\x8b" + b"this-is-not-valid-gzip-payload"
+findings = scan_nested_bytes(bad, "weird.bin", rules, allowlist, strict=False)
+assert findings == [], findings
+# With a marker in the malformed payload, still report via raw scan.
+bad_mark = b"\x1f\x8b" + b"xx" + marker + b"yy"
+findings = scan_nested_bytes(bad_mark, "weird2.bin", rules, allowlist, strict=False)
+assert findings, "expected raw marker findings without nest parse"
+print("OK malformed magic source fallback")
+
+# 5) Malformed explicit image/archive fails closed (strict).
+try:
+    scan_nested_bytes(bad, "layer.tar.gz", rules, allowlist, strict=True)
+except ArchiveSafetyError:
+    print("OK malformed explicit nest fail-closed")
+else:
+    raise SystemExit("expected strict malformed gzip to fail")
+
+corrupt_save = tmp / "corrupt.docker-save.tar"
+with tarfile.open(corrupt_save, "w") as tf:
+    data = b"\x1f\x8b" + b"broken"
+    info = tarfile.TarInfo("layer.tar.gz")
+    info.size = len(data)
+    tf.addfile(info, io.BytesIO(data))
+try:
+    scan_image_layers.scan_docker_save(corrupt_save, allow, "sirius-api/linux-amd64")
+except ArchiveSafetyError:
+    print("OK malformed image layer fail-closed")
+else:
+    raise SystemExit("expected corrupt image layer to fail")
+
+# 6) Budget exceed fails cleanly.
+tiny = _Budget(limit=1024)
+try:
+    scan_nested_bytes(b"Z" * 4096, "huge.bin", rules, allowlist, budget=tiny, strict=True)
+except ArchiveSafetyError as exc:
+    assert "budget" in str(exc).lower(), exc
+    print("OK budget exceed")
+else:
+    raise SystemExit("expected budget exceed")
+PY
+pass "streaming/malformed/budget canaries"
 
 echo "==> canary: SBOM wrong-component and duplicate digest"
 sbom_dir="${TMP_DIR}/sboms"
@@ -325,14 +416,14 @@ fi
 pass "SBOM wrong-component + duplicate digest canaries"
 
 echo "==> canary: docker-save fixtures via scan_image_layers.py"
-python3 - <<'PY'
+python3 - <<PY
 import gzip, io, json, tarfile, sys
 from pathlib import Path
 sys.path.insert(0, "scripts/community-independence")
 import scan_image_layers
 from nested_content import ArchiveSafetyError
 
-tmp = Path("""${TMP_DIR}""") / "docker-save"
+tmp = Path("${TMP_DIR}") / "docker-save"
 tmp.mkdir(parents=True, exist_ok=True)
 allow = Path("scripts/community-independence/policy/governance-allowlist.txt")
 marker = ("ghcr.io/" + "opensecurity" + "-infosec/").encode() + b"img"

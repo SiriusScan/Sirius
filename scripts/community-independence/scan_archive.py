@@ -2,6 +2,7 @@
 """Safely inspect source-release archive members and scan for private leakage.
 
 Rejects absolute paths, traversal, symlink escapes, and unreasonable sizes.
+Large members are stream-scanned rather than hard-failed solely for size.
 Uses only the Python standard library.
 """
 
@@ -12,7 +13,7 @@ import sys
 import tarfile
 import zipfile
 from pathlib import Path
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence
 
 _SCAN_DIR = Path(__file__).resolve().parent
 if str(_SCAN_DIR) not in sys.path:
@@ -20,48 +21,100 @@ if str(_SCAN_DIR) not in sys.path:
 
 import scan_text  # noqa: E402
 from nested_content import (  # noqa: E402
-    MAX_MEMBER_BYTES,
+    MAX_BUFFERED_MEMBER,
     MAX_MEMBERS,
-    MAX_TOTAL_BYTES,
     ArchiveSafetyError,
-    _read_zip_member,
+    _Budget,
     _validate_member_name,
+    scan_nested_bytes,
+    scan_stream_chunks,
 )
 
 
-def _open_tar(path: Path) -> tarfile.TarFile:
-    return tarfile.open(path, mode="r:*")
-
-
 def _strip_single_top_dir(name: str) -> str:
-    """GitHub source archives nest files under Repo-tag/; normalize to repo paths."""
     parts = name.replace("\\", "/").split("/")
     if len(parts) >= 2 and parts[0]:
         return "/".join(parts[1:])
     return name.replace("\\", "/")
 
 
-def iter_zip_members(path: Path) -> Iterable[Tuple[str, bytes]]:
-    total = 0
-    count = 0
+def scan_archive(path: Path, allowlist_path: Path) -> List[str]:
+    allowlist = scan_text.load_allowlist(allowlist_path)
+    rules = scan_text.compile_rules()
+    budget = _Budget()
+
+    suffix = path.name.lower()
+    if suffix.endswith(".zip"):
+        return _scan_zip_archive(path, rules, allowlist, budget)
+    if (
+        suffix.endswith(".tar")
+        or suffix.endswith(".tar.gz")
+        or suffix.endswith(".tgz")
+        or suffix.endswith(".tar.bz2")
+        or suffix.endswith(".tar.xz")
+    ):
+        return _scan_tar_archive(path, rules, allowlist, budget)
+    try:
+        return _scan_tar_archive(path, rules, allowlist, budget)
+    except (tarfile.TarError, ArchiveSafetyError):
+        return _scan_zip_archive(path, rules, allowlist, budget)
+
+
+def _scan_zip_archive(
+    path: Path,
+    rules: Sequence[scan_text.Rule],
+    allowlist: Sequence[str],
+    budget: _Budget,
+) -> List[str]:
+    findings: List[str] = []
     with zipfile.ZipFile(path) as zf:
+        count = 0
         for info in zf.infolist():
             if info.is_dir():
                 continue
             count += 1
             if count > MAX_MEMBERS:
                 raise ArchiveSafetyError("too many archive members")
-            data = _read_zip_member(zf, info)
-            total += len(data)
-            if total > MAX_TOTAL_BYTES:
-                raise ArchiveSafetyError("archive uncompressed budget exceeded")
-            yield info.filename, data
+            rel = scan_text.norm_rel(_strip_single_top_dir(info.filename))
+            if not rel:
+                continue
+            _validate_member_name(info.filename)
+            mode = (info.external_attr >> 16) & 0o170000
+            if mode == 0o120000:
+                raise ArchiveSafetyError(f"symlink member forbidden: {info.filename}")
+
+            with zf.open(info, "r") as fh:
+                if info.file_size > MAX_BUFFERED_MEMBER:
+                    budget.add_member(rel)
+                    findings.extend(
+                        scan_stream_chunks(fh, rel, rules, allowlist, budget)
+                    )
+                    continue
+                data = fh.read(MAX_BUFFERED_MEMBER + 1)
+            if len(data) > MAX_BUFFERED_MEMBER:
+                raise ArchiveSafetyError(f"expanded member too large: {info.filename}")
+            if info.file_size != len(data):
+                raise ArchiveSafetyError(
+                    f"declared/actual size mismatch for {info.filename}"
+                )
+            budget.add_member(rel)
+            findings.extend(
+                scan_nested_bytes(
+                    data, rel, rules, allowlist, budget=budget, strict=True
+                )
+            )
+    return findings
 
 
-def iter_tar_members(path: Path) -> Iterable[Tuple[str, bytes]]:
-    total = 0
-    count = 0
-    with _open_tar(path) as tf:
+def _scan_tar_archive(
+    path: Path,
+    rules: Sequence[scan_text.Rule],
+    allowlist: Sequence[str],
+    budget: _Budget,
+) -> List[str]:
+    findings: List[str] = []
+    with tarfile.open(path, mode="r:*") as tf:
+        count = 0
         for member in tf:
             if not member.isfile():
                 if member.issym() or member.islnk():
@@ -70,51 +123,32 @@ def iter_tar_members(path: Path) -> Iterable[Tuple[str, bytes]]:
             count += 1
             if count > MAX_MEMBERS:
                 raise ArchiveSafetyError("too many archive members")
-            name = member.name
-            _validate_member_name(name)
-            if member.size > MAX_MEMBER_BYTES:
-                raise ArchiveSafetyError(f"member too large: {name} ({member.size})")
+            _validate_member_name(member.name)
+            rel = scan_text.norm_rel(_strip_single_top_dir(member.name))
+            if not rel:
+                continue
             extracted = tf.extractfile(member)
             if extracted is None:
                 continue
-            data = extracted.read(MAX_MEMBER_BYTES + 1)
-            if len(data) > MAX_MEMBER_BYTES:
-                raise ArchiveSafetyError(f"expanded member too large: {name}")
-            if member.size != len(data):
-                raise ArchiveSafetyError(f"declared/actual size mismatch for {name}")
-            total += len(data)
-            if total > MAX_TOTAL_BYTES:
-                raise ArchiveSafetyError("archive uncompressed budget exceeded")
-            yield name, data
-
-
-def scan_archive(path: Path, allowlist_path: Path) -> List[str]:
-    allowlist = scan_text.load_allowlist(allowlist_path)
-    rules = scan_text.compile_rules()
-    findings: List[str] = []
-
-    suffix = path.name.lower()
-    if suffix.endswith(".zip"):
-        members = iter_zip_members(path)
-    elif (
-        suffix.endswith(".tar")
-        or suffix.endswith(".tar.gz")
-        or suffix.endswith(".tgz")
-        or suffix.endswith(".tar.bz2")
-        or suffix.endswith(".tar.xz")
-    ):
-        members = iter_tar_members(path)
-    else:
-        try:
-            members = list(iter_tar_members(path))
-        except (tarfile.TarError, ArchiveSafetyError):
-            members = iter_zip_members(path)
-
-    for name, data in members:
-        rel = scan_text.norm_rel(_strip_single_top_dir(name))
-        if not rel:
-            continue
-        findings.extend(scan_text.scan_bytes(data, rel, rules, allowlist))
+            size = int(member.size)
+            budget.add_member(rel)
+            if size > MAX_BUFFERED_MEMBER:
+                findings.extend(
+                    scan_stream_chunks(extracted, rel, rules, allowlist, budget)
+                )
+                continue
+            data = extracted.read(MAX_BUFFERED_MEMBER + 1)
+            if len(data) > MAX_BUFFERED_MEMBER:
+                raise ArchiveSafetyError(f"expanded member too large: {member.name}")
+            if size != len(data):
+                raise ArchiveSafetyError(
+                    f"declared/actual size mismatch for {member.name}"
+                )
+            findings.extend(
+                scan_nested_bytes(
+                    data, rel, rules, allowlist, budget=budget, strict=True
+                )
+            )
     return findings
 
 

@@ -200,8 +200,14 @@ def scan_bytes(
     allowlist: Sequence[str],
     *,
     nest_depth: int = 0,
+    strict: bool = False,
 ) -> List[str]:
-    """Always raw-byte scan (including NUL binaries) and recurse into archives."""
+    """Always raw-byte scan (including NUL binaries) and recurse into archives.
+
+    Default strict=False: opportunistic nested detection for ordinary source/stdin
+    scans — malformed gzip/zip/tar magic keeps raw findings and does not fail the
+    whole scan. Explicit archive/image callers pass strict=True.
+    """
     # Import here to avoid circular import at module load for archive helpers.
     from nested_content import scan_nested_bytes  # noqa: WPS433
 
@@ -211,6 +217,7 @@ def scan_bytes(
         rules,
         allowlist,
         nest_depth=nest_depth,
+        strict=strict,
     )
 
 

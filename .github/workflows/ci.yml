@@ -1009,15 +1009,15 @@ jobs:
       github.event_name == 'push' &&
       github.ref == 'refs/heads/main' &&
       needs.core-manifest-tests.result == 'success' &&
-      (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') &&
-      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
-      (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') &&
-      (needs.build-infra.result == 'success' || needs.build-infra.result == 'skipped') &&
-      (needs.merge-ui.result == 'success' || needs.merge-ui.result == 'skipped') &&
-      (needs.merge-api.result == 'success' || needs.merge-api.result == 'skipped') &&
-      (needs.merge-engine.result == 'success' || needs.merge-engine.result == 'skipped') &&
-      (needs.merge-infra.result == 'success' || needs.merge-infra.result == 'skipped') &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped')
+      needs.build-ui.result == 'success' &&
+      needs.build-api.result == 'success' &&
+      needs.build-engine.result == 'success' &&
+      needs.build-infra.result == 'success' &&
+      needs.merge-ui.result == 'success' &&
+      needs.merge-api.result == 'success' &&
+      needs.merge-engine.result == 'success' &&
+      needs.merge-infra.result == 'success' &&
+      needs.test.result == 'success'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

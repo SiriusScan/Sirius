@@ -63,7 +63,11 @@ if [ "${EMIT_CHANGES}" = "1" ]; then
       echo "sirius_api_changes=true" >> "${GITHUB_OUTPUT}"
       echo "sirius_engine_changes=true" >> "${GITHUB_OUTPUT}"
       ;;
-    app-scanner|app-terminal|sirius-nse|app-agent|pingpp|app-system-monitor|app-administrator)
+    app-system-monitor|app-administrator)
+      echo "sirius_api_changes=true" >> "${GITHUB_OUTPUT}"
+      echo "sirius_engine_changes=true" >> "${GITHUB_OUTPUT}"
+      ;;
+    app-scanner|app-terminal|sirius-nse|app-agent|pingpp)
       echo "sirius_engine_changes=true" >> "${GITHUB_OUTPUT}"
       ;;
     *)

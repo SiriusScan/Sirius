@@ -41,6 +41,20 @@ for job in merge-ui merge-api merge-engine; do
 done
 pass "merge jobs need detect-changes"
 
+echo "==> release inventory requires commit-built images"
+inventory_block="$(awk '
+  /^  core-build-inventory:/ {grab=1; next}
+  grab && /^  [a-zA-Z0-9_-]+:/ {exit}
+  grab {print}
+' .github/workflows/ci.yml)"
+printf '%s\n' "${inventory_block}" | grep -q "result == 'skipped'" \
+  && fail "core-build-inventory must not accept skipped build or merge jobs"
+for dependency in build-ui build-api build-engine build-infra merge-ui merge-api merge-engine merge-infra test; do
+  printf '%s\n' "${inventory_block}" | grep -q "needs.${dependency}.result == 'success'" \
+    || fail "core-build-inventory must require ${dependency} success"
+done
+pass "release inventory requires commit-built images"
+
 echo "==> dispatch allowlist rejects unknown / non-sha payloads"
 if SUBMODULE=evil/repo COMMIT_SHA="${FAKE_COMMIT:-0123456789abcdef0123456789abcdef01234567}" \
   bash scripts/ci-dispatch-allowlist.sh 2>/dev/null; then
@@ -65,6 +79,18 @@ GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" \
 grep -q '^GO_API_COMMIT_SHA=0123456789abcdef0123456789abcdef01234567$' "${TMP_ENV}" \
   || fail "expected exact GO_API_COMMIT_SHA pin mapping"
 grep -q 'sirius_api_changes=true' "${TMP_OUT}" || fail "expected api change flag"
+grep -q 'sirius_engine_changes=true' "${TMP_OUT}" || fail "expected engine change flag"
+
+: > "${TMP_OUT}"
+GITHUB_OUTPUT="${TMP_OUT}" \
+  SUBMODULE=SiriusScan/app-system-monitor \
+  COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
+  EMIT_CHANGES=1 \
+  bash scripts/ci-dispatch-allowlist.sh
+grep -q 'sirius_api_changes=true' "${TMP_OUT}" \
+  || fail "expected system monitor dispatch to rebuild api"
+grep -q 'sirius_engine_changes=true' "${TMP_OUT}" \
+  || fail "expected system monitor dispatch to rebuild engine"
 pass "dispatch allowlist"
 
 

@@ -94,7 +94,7 @@
         "title": "Establish release train and digest manifest",
         "description": "Cut v1.1.0 and emit core-manifest.yaml with image digests, component pins, and schema version per release.",
         "details": "Tag v1.1.0 from hardened HEAD; make publish-release-image-tags.yml + verify-ghcr-release-tag.yml a gated release workflow (release blocked unless all six images retag and verify); generate core-manifest.yaml as a release asset.",
-        "status": "pending",
+        "status": "in_progress",
         "priority": "high",
         "dependencies": ["1.2", "1.3"],
         "testStrategy": "v1.1.0 release exists with all six images pullable at the tag, manifest lists sha256 digests matching GHCR, and verify workflow is green."

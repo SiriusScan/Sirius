@@ -1,7 +1,7 @@
 # SiriusScan Docker Testing Makefile
 # Provides easy commands for testing and development
 
-.PHONY: help build test test-build test-health test-integration test-runtime-contract test-public-ghcr test-release-gates test-all test-security validate-ci-overhaul clean logs lint-docs lint-docs-quick lint-agents lint-agents-quick lint-agent-index regenerate-agents regenerate-agent check-agent-sync
+.PHONY: help build test test-build test-health test-integration test-runtime-contract test-public-ghcr test-core-manifest test-release-gates test-all test-security validate-ci-overhaul clean logs lint-docs lint-docs-quick lint-agents lint-agents-quick lint-agent-index regenerate-agents regenerate-agent check-agent-sync
 
 # Default target
 help:
@@ -20,6 +20,7 @@ help:
 	@echo "  test-integration Test service integration"
 	@echo "  test-runtime-contract Verify runtime auth/binary contracts"
 	@echo "  test-public-ghcr Verify anonymous GHCR access for compose images"
+	@echo "  test-core-manifest Validate core-manifest generate/validate fixtures"
 	@echo "  test-release-gates Run release-blocking validation checks"
 	@echo "  test-security  Run security/auth penetration tests"
 	@echo "  test-all       Run all tests (build, health, integration, runtime auth contract)"
@@ -98,7 +99,11 @@ test-public-ghcr:
 	@echo "🌍 Verifying anonymous GHCR access for compose-rendered images..."
 	@cd ../.. && bash scripts/verify-ghcr-public-access.sh "$${IMAGE_TAG:-latest}"
 
-test-release-gates: test-build test-integration test-runtime-contract
+test-core-manifest:
+	@echo "📦 Validating core-manifest generation/validation (fixture/mock inspect)..."
+	@cd ../.. && bash scripts/test-core-manifest.sh
+
+test-release-gates: test-build test-integration test-runtime-contract test-core-manifest
 	@echo "✅ Release-gating contract checks passed!"
 
 test-security:

@@ -3,7 +3,7 @@ title: "GitHub Actions Workflow Architecture"
 description: "Comprehensive guide to Sirius CI/CD pipeline structure, parallel build jobs, and deployment workflows"
 template: "TEMPLATE.documentation-standard"
 version: "1.0.0"
-last_updated: "2025-11-14"
+last_updated: "2026-07-30"
 author: "Sirius Team"
 tags: ["ci-cd", "github-actions", "docker", "ghcr", "parallel-builds"]
 categories: ["deployment", "automation"]
@@ -67,8 +67,18 @@ The Sirius CI/CD pipeline is implemented in `.github/workflows/ci.yml` and follo
 
 **Other workflows** (not shown in the diagram below):
 
-- [`.github/workflows/publish-release-image-tags.yml`](../../../.github/workflows/publish-release-image-tags.yml) — manual retag of all six GHCR images from a source tag (e.g. `latest`) to a release tag (e.g. `v1.0.0`).
-- [`.github/workflows/verify-ghcr-release-tag.yml`](../../../.github/workflows/verify-ghcr-release-tag.yml) — on each **published** GitHub Release, on a **weekly** schedule, and via **workflow_dispatch**, runs `scripts/verify-ghcr-public-access.sh` so the release tag cannot drift from what anonymous operators can pull (see [OPERATIONS.md](../../../OPERATIONS.md) GHCR checklist).
+- [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) `core-manifest-tests` — PR/main: `bash scripts/test-core-manifest.sh`. `core-build-inventory` — **default-branch push only** (never `repository_dispatch`): write-once `sha-<commit>` snapshot + Compose smoke + inventory artifact. Depends on `core-manifest-tests`.
+- [`.github/workflows/publish-release-image-tags.yml`](../../../.github/workflows/publish-release-image-tags.yml) — **gated Community release train** (manual). Requires an existing Git tag (`vMAJOR.MINOR.PATCH`) and fails early if a non-draft release exists. Resolves inventory from successful default-branch push CI runs, write-once retags from `@sha256` digests, smokes, draft→upload→revalidate→publish, then dispatches verify. Concurrency keyed by target tag (`cancel-in-progress: false`). Final job: `contents:write` + `actions:write`.
+- [`.github/workflows/verify-ghcr-release-tag.yml`](../../../.github/workflows/verify-ghcr-release-tag.yml) — anonymous GHCR checks always; `core-manifest.yaml` digest verification required for **v1.1.0+** (pre-v1.1.0 legacy anonymous-only). Tooling from current checkout; inputs passed via step `env` only.
+
+**Release scripts:**
+
+- `scripts/snapshot-core-build-inventory.sh` / `scripts/ghcr-ensure-write-once-tag.sh` — provenance snapshot + write-once tag helper.
+- `scripts/resolve-core-build-inventory.sh` — select unexpired inventory for an exact commit across push CI runs.
+- `scripts/ci-dispatch-allowlist.sh` — exact submodule allowlist + 40-hex SHA for `repository_dispatch` pins.
+- `scripts/generate-core-manifest.sh` — emit JSON-compatible `core-manifest.yaml` from inventory + Dockerfile pins + `schema_map.json`.
+- `scripts/validate-core-manifest.sh` / `scripts/core-manifest` — strict Go stdlib validator (duplicate keys / unknown fields / types).
+- `scripts/test-core-manifest.sh` — local fixture tests (no GHCR); enforced in CI.
 
 **Key characteristics:**
 

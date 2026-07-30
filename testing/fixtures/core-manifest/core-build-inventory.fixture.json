@@ -1,0 +1,36 @@
+{
+  "apiVersion": "siriusscan.dev/v1",
+  "kind": "CoreBuildInventory",
+  "generated_at": "1970-01-01T00:00:00Z",
+  "source": {
+    "repository": "SiriusScan/Sirius",
+    "commit": "0123456789abcdef0123456789abcdef01234567",
+    "snapshot_tag": "sha-0123456789abcdef0123456789abcdef01234567"
+  },
+  "images": {
+    "sirius-ui": {
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ref": "ghcr.io/siriusscan/sirius-ui@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "sirius-api": {
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "ref": "ghcr.io/siriusscan/sirius-api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "sirius-engine": {
+      "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "ref": "ghcr.io/siriusscan/sirius-engine@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "sirius-postgres": {
+      "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "ref": "ghcr.io/siriusscan/sirius-postgres@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "sirius-rabbitmq": {
+      "digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "ref": "ghcr.io/siriusscan/sirius-rabbitmq@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "sirius-valkey": {
+      "digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "ref": "ghcr.io/siriusscan/sirius-valkey@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  }
+}

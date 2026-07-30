@@ -1,6 +1,8 @@
-# Verifies that the GitHub Release tag has matching, anonymously pullable images
-# for all six GHCR packages used by docker-compose.yaml. Complements ci.yml, which
-# only validates the public compose path for `latest` on main pushes.
+# Verifies anonymously pullable GHCR images for a release tag.
+# For v1.1.0+ also downloads/verifies release asset core-manifest.yaml digests.
+# Pre-v1.1.0 releases are legacy anonymous-only (no core-manifest required).
+# Workflow tooling always comes from the current checkout (default branch on
+# schedule / workflow file ref); release source trees are not required here.
 name: Verify GHCR Release Tag
 
 on:
@@ -9,11 +11,10 @@ on:
   workflow_dispatch:
     inputs:
       image_tag:
-        description: "Image tag to verify (e.g. v1.0.0). Leave empty to resolve the latest GitHub release tag."
+        description: "Image tag to verify (e.g. v1.1.0). Leave empty to resolve the latest GitHub release tag."
         required: false
         default: ""
   schedule:
-    # Weekly: catch drift between GitHub Releases and GHCR semver tags
     - cron: "0 12 * * 1"
 
 permissions:
@@ -21,36 +22,102 @@ permissions:
 
 jobs:
   verify-anonymous-ghcr:
-    name: Anonymous GHCR manifest check
+    name: Anonymous GHCR (+ core-manifest when required)
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout workflow tooling
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Resolve image tag
         id: tag
         env:
           GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          # Prefer github.event.* so schedule/release events never touch inputs context.
+          MANUAL_TAG: ${{ github.event.inputs.image_tag }}
+          RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            MANUAL="${{ inputs.image_tag }}"
-            if [ -n "${MANUAL}" ]; then
-              echo "tag=${MANUAL}" >> "$GITHUB_OUTPUT"
-              echo "Resolved tag (manual): ${MANUAL}"
-              exit 0
-            fi
+          TAG=""
+          case "${EVENT_NAME}" in
+            workflow_dispatch)
+              if [ -n "${MANUAL_TAG}" ]; then
+                TAG="${MANUAL_TAG}"
+                echo "Resolved tag (manual): ${TAG}"
+              fi
+              ;;
+            release)
+              TAG="${RELEASE_TAG_NAME}"
+              echo "Resolved tag (release event): ${TAG}"
+              ;;
+          esac
+          if [ -z "${TAG}" ]; then
+            TAG="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')"
+            echo "Resolved tag (latest GitHub release): ${TAG}"
           fi
-          if [ "${{ github.event_name }}" = "release" ]; then
-            TAG="${{ github.event.release.tag_name }}"
-            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-            echo "Resolved tag (release event): ${TAG}"
-            exit 0
+          if ! printf '%s' "${TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::resolved tag is not vMAJOR.MINOR.PATCH"
+            exit 1
           fi
-          TAG=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name')
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "Resolved tag (latest GitHub release): ${TAG}"
+          # Require core-manifest for v1.1.0 and newer; legacy before that.
+          MAJOR="$(printf '%s' "${TAG}" | sed -E 's/^v([0-9]+)\..*/\1/')"
+          MINOR="$(printf '%s' "${TAG}" | sed -E 's/^v[0-9]+\.([0-9]+)\..*/\1/')"
+          REQUIRE_MANIFEST=0
+          if [ "${MAJOR}" -gt 1 ] || { [ "${MAJOR}" -eq 1 ] && [ "${MINOR}" -ge 1 ]; }; then
+            REQUIRE_MANIFEST=1
+          fi
+          {
+            echo "tag=${TAG}"
+            echo "require_manifest=${REQUIRE_MANIFEST}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Verify anonymous GHCR access (compose-rendered refs)
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          bash scripts/verify-ghcr-public-access.sh "${{ steps.tag.outputs.tag }}"
+          set -euo pipefail
+          bash scripts/verify-ghcr-public-access.sh "${TAG}"
+
+      - name: Download and verify core-manifest.yaml (v1.1.0+)
+        if: steps.tag.outputs.require_manifest == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/core-manifest-verify
+          if ! gh release download "${TAG}" \
+            --pattern 'core-manifest.yaml' \
+            --dir /tmp/core-manifest-verify \
+            --clobber; then
+            echo "::error::Release ${TAG} is missing required asset core-manifest.yaml"
+            exit 1
+          fi
+          MANIFEST="/tmp/core-manifest-verify/core-manifest.yaml"
+          bash scripts/validate-core-manifest.sh \
+            --expect-tag "${TAG}" \
+            --skip-dockerfile-pins \
+            "${MANIFEST}"
+          bash scripts/validate-core-manifest.sh \
+            --expect-tag "${TAG}" \
+            --skip-dockerfile-pins \
+            --verify-digests \
+            "${MANIFEST}"
+
+      - name: Legacy release note (pre-v1.1.0)
+        if: steps.tag.outputs.require_manifest != '1'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          echo "Tag ${TAG} is pre-v1.1.0 legacy: anonymous GHCR checks only (core-manifest not required)."

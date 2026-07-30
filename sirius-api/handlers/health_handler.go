@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/SiriusScan/go-api/sirius/postgres"
@@ -21,12 +23,12 @@ type HealthResponse struct {
 
 // SystemHealthResponse represents the comprehensive system health check response
 type SystemHealthResponse struct {
-	Status    string                 `json:"status"`
-	Timestamp time.Time              `json:"timestamp"`
-	Service   string                 `json:"service"`
-	Version   string                 `json:"version"`
+	Status    string                   `json:"status"`
+	Timestamp time.Time                `json:"timestamp"`
+	Service   string                   `json:"service"`
+	Version   string                   `json:"version"`
 	Services  map[string]ServiceHealth `json:"services"`
-	Overall   string                 `json:"overall"`
+	Overall   string                   `json:"overall"`
 }
 
 // ServiceHealth represents the health status of an individual service
@@ -37,13 +39,21 @@ type ServiceHealth struct {
 	Port      int       `json:"port,omitempty"`
 }
 
+func serviceVersion() string {
+	version := strings.TrimSpace(os.Getenv("SIRIUS_VERSION"))
+	if version == "" {
+		return "dev"
+	}
+	return strings.TrimPrefix(version, "v")
+}
+
 // HealthHandler handles the GET /health route
 func HealthHandler(c *fiber.Ctx) error {
 	response := HealthResponse{
 		Status:    "healthy",
 		Timestamp: time.Now(),
 		Service:   "sirius-api",
-		Version:   "1.0.0",
+		Version:   serviceVersion(),
 	}
 
 	return c.Status(200).JSON(response)
@@ -52,31 +62,31 @@ func HealthHandler(c *fiber.Ctx) error {
 // SystemHealthHandler handles the GET /api/v1/system/health route
 func SystemHealthHandler(c *fiber.Ctx) error {
 	services := make(map[string]ServiceHealth)
-	
+
 	// Check UI service (self-check)
 	uiHealth := checkUIService()
 	services["sirius-ui"] = uiHealth
-	
+
 	// Check API service (self-check)
 	apiHealth := checkAPIService()
 	services["sirius-api"] = apiHealth
-	
+
 	// Check Engine service
 	engineHealth := checkEngineService()
 	services["sirius-engine"] = engineHealth
-	
+
 	// Check PostgreSQL
 	postgresHealth := checkPostgreSQL()
 	services["sirius-postgres"] = postgresHealth
-	
+
 	// Check Valkey
 	valkeyHealth := checkValkey()
 	services["sirius-valkey"] = valkeyHealth
-	
+
 	// Check RabbitMQ
 	rabbitmqHealth := checkRabbitMQ()
 	services["sirius-rabbitmq"] = rabbitmqHealth
-	
+
 	// Determine overall status
 	overallStatus := "healthy"
 	for _, service := range services {
@@ -85,12 +95,12 @@ func SystemHealthHandler(c *fiber.Ctx) error {
 			break
 		}
 	}
-	
+
 	response := SystemHealthResponse{
 		Status:    overallStatus,
 		Timestamp: time.Now(),
 		Service:   "sirius-api",
-		Version:   "1.0.0",
+		Version:   serviceVersion(),
 		Services:  services,
 		Overall:   overallStatus,
 	}
@@ -116,7 +126,7 @@ func checkUIService() ServiceHealth {
 		}
 	}
 	conn.Close()
-	
+
 	return ServiceHealth{
 		Status:    "up",
 		Message:   "UI service is accessible",
@@ -149,7 +159,7 @@ func checkEngineService() ServiceHealth {
 		}
 	}
 	conn.Close()
-	
+
 	return ServiceHealth{
 		Status:    "up",
 		Message:   "Engine gRPC service is accessible",
@@ -175,7 +185,7 @@ func checkPostgreSQL() ServiceHealth {
 					Port:      5432,
 				}
 			}
-			
+
 			return ServiceHealth{
 				Status:    "up",
 				Message:   "PostgreSQL is connected and responding",
@@ -184,14 +194,14 @@ func checkPostgreSQL() ServiceHealth {
 			}
 		}
 	}
-	
+
 	// If we get here, the database is not connected
 	connErr := postgres.GetConnectionError()
 	message := "PostgreSQL is not connected"
 	if connErr != nil {
 		message = fmt.Sprintf("PostgreSQL connection error: %v", connErr)
 	}
-	
+
 	return ServiceHealth{
 		Status:    "down",
 		Message:   message,
@@ -213,15 +223,15 @@ func checkValkey() ServiceHealth {
 		}
 	}
 	defer kvStore.Close()
-	
+
 	// Try a simple ping operation
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	
+
 	// Try to set and get a test value
 	testKey := "health-check-test"
 	testValue := "ping"
-	
+
 	err = kvStore.SetValue(ctx, testKey, testValue)
 	if err != nil {
 		return ServiceHealth{
@@ -231,10 +241,10 @@ func checkValkey() ServiceHealth {
 			Port:      6379,
 		}
 	}
-	
+
 	// Clean up the test key
 	kvStore.DeleteValue(ctx, testKey)
-	
+
 	return ServiceHealth{
 		Status:    "up",
 		Message:   "Valkey is connected and responding",
@@ -256,7 +266,7 @@ func checkRabbitMQ() ServiceHealth {
 		}
 	}
 	conn.Close()
-	
+
 	return ServiceHealth{
 		Status:    "up",
 		Message:   "RabbitMQ is accessible",
@@ -264,4 +274,3 @@ func checkRabbitMQ() ServiceHealth {
 		Port:      5672,
 	}
 }
-

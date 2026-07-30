@@ -116,7 +116,7 @@
     "title": "PHASE 2: Private Repositories and Supply-Chain Foundation",
     "description": "Bootstrap OpenSecurity-Infosec private repos from skeletons with protections, private GHCR, and standing leakage-prevention tests.",
     "details": "Create sirius-pro, sirius-entitlements, and sirius-release. Never clone the public repo as a starting point. Establish access teams, branch protection, CODEOWNERS, secret scanning, and CI templates.",
-    "status": "pending",
+    "status": "in_progress",
     "priority": "high",
     "dependencies": ["0"],
     "subtasks": [
@@ -125,7 +125,7 @@
         "title": "Create private repositories with governance controls",
         "description": "sirius-pro, sirius-entitlements, sirius-release under OpenSecurity-Infosec.",
         "details": "Skeleton layouts per plan (apps/, modules/, migrations/pro/, deployments/, release/). Branch protection, required reviews, CODEOWNERS, protected tags, secret scanning, access teams (core-maintainers, pro-engineering, release-managers, license-administrators, security).",
-        "status": "pending",
+        "status": "in_progress",
         "priority": "high",
         "dependencies": [],
         "testStrategy": "Force-push and direct-to-main commits rejected; CODEOWNERS enforced on a test PR; anonymous access to repos and packages denied."

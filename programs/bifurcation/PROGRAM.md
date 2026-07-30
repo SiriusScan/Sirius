@@ -1,6 +1,6 @@
 ---
 goal: "Bifurcate Sirius into a canonical, independently runnable public Community core and a private, commercially licensed Pro extension layer that consumes immutable public releases without private-to-public source export."
-status: "waiting"
+status: "active"
 acceptance_criteria:
   - "Community builds, tests, scans, upgrades, and runs without private credentials or Pro artifacts."
   - "Every public release publishes six digest-addressed images, a validated core manifest, SBOMs, and verifiable signatures."
@@ -65,7 +65,7 @@ Repository-native validation:
 Dependencies and order:
 
 1. Phase 0 governance and boundary decisions (complete).
-2. Phase 1 public-core hardening (1.1–1.3 complete; 1.4 active; 1.5 follows).
+2. Phase 1 public-core hardening (complete in Community `v1.1.0`).
 3. Phase 2 private repository and supply-chain foundation.
 4. Phase 3 public extension contracts; depends on Phase 1.
 5. Phase 4 entitlements; depends on Phases 2 and 3.
@@ -138,7 +138,7 @@ Tasks:
 - [x] Implement and verify task 1.5 SBOM generation and Cosign signing
 - [x] Update this file with stage outcomes
 
-Current task:
+Final task:
 
 - `task_id`: `bifurcation.s2.t005`
 - `stage`: `2 Core Release Train`
@@ -255,20 +255,55 @@ Cycle 6 evidence:
 ## Current loop state
 
 ```yaml
-current_task_id: bifurcation.s2.t005
-cycle: 6
+current_task_id: bifurcation.s3.t006
+cycle: 7
 attempt: 1
-status: waiting
-verdict: accepted
-loop_decision: human_gate
-next_action: Obtain approval before creating private repositories or infrastructure.
+status: active
+next_action: Build private skeletons and apply repository-scoped governance.
 ```
 
 ## Stage 3: Private Supply Chain
 
+Owned paths:
+
+- `/Users/oz/Projects/Sirius-Project/private/sirius-pro`
+- `/Users/oz/Projects/Sirius-Project/private/sirius-entitlements`
+- `/Users/oz/Projects/Sirius-Project/private/sirius-release`
+- `programs/bifurcation/PROGRAM.md`
+- `programs/bifurcation/evaluations/`
+- `tasks/pro-bifurcation.json`
+
 Tasks:
 
+- [ ] Create leakage-safe skeletons for the three private repositories
+- [ ] Create the private repositories and push only their independent skeleton histories
+- [ ] Establish access teams and least-privilege repository grants
+- [ ] Protect `main` and `v*` tags; enable available security controls
+- [ ] Verify anonymous denial and record governance evidence
 - [ ] Complete Phase 2 and record private repository governance evidence
+
+Current task:
+
+- `task_id`: `bifurcation.s3.t006`
+- `stage`: `3 Private Supply Chain`
+- `cycle`: `7`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `criteria`:
+  - Three independently initialized private skeleton repositories exist under
+    `OpenSecurity-Infosec` without copied Community source or history.
+  - Each repository declares its ownership boundary, CODEOWNERS, security policy,
+    required layout, and leakage-safe CI guardrails.
+  - Repository access, branch/tag protections, and available security controls are
+    configured and evidenced without changing organization-wide defaults.
+  - Anonymous repository access is denied.
+- `validation`:
+  - `gh repo view OpenSecurity-Infosec/<repo> --json visibility,defaultBranchRef`
+  - Repository-native tests and workflow syntax checks in each skeleton
+  - GitHub API inspection of teams, grants, rules, and security settings
+  - Anonymous HTTPS probes with credentials removed
+- `next_action`: Build and validate the three independent local skeletons, then create
+  the approved private repositories and apply repository-scoped governance.
 
 ## Stage 4: Public Contracts
 

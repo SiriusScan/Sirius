@@ -12,7 +12,8 @@ name: Publish Release Image Tags
 #   9) explicitly dispatch verify-ghcr-release-tag.yml for the target tag
 #
 # Does NOT create Git tags. Already-published releases are fail-closed.
-# Publication requires all six SBOM assets and verified Cosign signatures.
+# Publication requires 12 platform SBOMs and verified Cosign signatures.
+# Trust root: SiriusScan/Sirius on refs/heads/main only (canonical, not fork-dynamic).
 
 on:
   workflow_dispatch:
@@ -29,6 +30,9 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAMESPACE: siriusscan
+  # Canonical Cosign trust (must match scripts/release-components.sh).
+  COSIGN_CERTIFICATE_OIDC_ISSUER: https://token.actions.githubusercontent.com
+  COSIGN_CERTIFICATE_IDENTITY_REGEXP: '^https://github\.com/SiriusScan/Sirius/\.github/workflows/publish-release-image-tags\.yml@refs/heads/main$'
 
 jobs:
   validate-inputs:
@@ -50,8 +54,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RAW_TARGET_TAG: ${{ github.event.inputs.target_tag }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          WORKFLOW_REF: ${{ github.ref }}
         run: |
           set -euo pipefail
+          # Fail closed: canonical repo + default-branch dispatch only.
+          if [ "${GITHUB_REPOSITORY}" != "SiriusScan/Sirius" ]; then
+            echo "::error::publish-release-image-tags may only run in SiriusScan/Sirius (got ${GITHUB_REPOSITORY})"
+            exit 1
+          fi
+          if [ "${DEFAULT_BRANCH}" != "main" ]; then
+            echo "::error::canonical Cosign identity requires default_branch=main (got ${DEFAULT_BRANCH})"
+            exit 1
+          fi
+          if [ "${WORKFLOW_REF}" != "refs/heads/main" ]; then
+            echo "::error::workflow_dispatch must run on refs/heads/main (got ${WORKFLOW_REF})"
+            exit 1
+          fi
+
           TARGET_TAG="${RAW_TARGET_TAG}"
           if ! printf '%s' "${TARGET_TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "::error::target_tag must match vMAJOR.MINOR.PATCH"
@@ -78,7 +98,7 @@ jobs:
             echo "target_tag=${TARGET_TAG}"
             echo "source_commit=${SOURCE_COMMIT}"
           } >> "$GITHUB_OUTPUT"
-          echo "Validated target_tag=${TARGET_TAG} -> ${SOURCE_COMMIT}"
+          echo "Validated target_tag=${TARGET_TAG} -> ${SOURCE_COMMIT} (trust root SiriusScan/Sirius@refs/heads/main)"
 
   resolve-inventory:
     needs: validate-inputs
@@ -252,7 +272,10 @@ jobs:
           bash scripts/install-release-attest-tools.sh --dir "${HOME}/.local/bin"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
-      - name: Generate CycloneDX SBOMs from inventory digests
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate platform-scoped CycloneDX SBOMs from inventory indexes
         env:
           TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
           SOURCE_COMMIT: ${{ needs.validate-inputs.outputs.source_commit }}
@@ -268,13 +291,9 @@ jobs:
           bash scripts/assert-release-sbom-assets.sh --tag "${TARGET_TAG}" --dir sboms
 
       - name: Cosign keyless sign and verify inventory digests
-        env:
-          COSIGN_CERTIFICATE_OIDC_ISSUER: https://token.actions.githubusercontent.com
         run: |
           set -euo pipefail
-          # Fulcio subject: this workflow file on a branch ref (workflow_dispatch).
-          # Issuer: https://token.actions.githubusercontent.com (GitHub Actions OIDC).
-          export COSIGN_CERTIFICATE_IDENTITY_REGEXP="^https://github\\.com/${GITHUB_REPOSITORY//\//\\/}/\\.github/workflows/publish-release-image-tags\\.yml@refs/heads/.+$"
+          # Uses workflow env COSIGN_CERTIFICATE_* (canonical SiriusScan/Sirius@main).
           INV="inventory/core-build-inventory.json"
           bash scripts/sign-verify-release-images.sh \
             --inventory "${INV}" \
@@ -293,6 +312,7 @@ jobs:
     permissions:
       contents: write
       actions: write
+      packages: read
     steps:
       - name: Checkout workflow tooling
         uses: actions/checkout@v4
@@ -364,6 +384,12 @@ jobs:
           path: core-manifest.yaml
           if-no-files-found: error
 
+      - name: Install pinned Cosign for final verification
+        run: |
+          set -euo pipefail
+          bash scripts/install-release-attest-tools.sh --dir "${HOME}/.local/bin" --tools cosign
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
       - name: Draft, upload, re-validate, then publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -379,13 +405,13 @@ jobs:
             echo "- Images retagged from CI core-build-inventory digests (write-once)"
             echo "- Public compose smoke test passed"
             echo "- \`core-manifest.yaml\` attached (image digests, engine pins, schema ledger)"
-            echo "- CycloneDX SBOMs attached for all six public images (\`sbom-<component>-${TARGET_TAG}.cdx.json\`)"
-            echo "- Image manifests signed with Cosign (GitHub Actions OIDC / Fulcio keyless)"
+            echo "- CycloneDX SBOMs attached for all six images × linux/amd64 + linux/arm64 (12 assets: \`sbom-<component>-${TARGET_TAG}-linux-amd64|arm64.cdx.json\`)"
+            echo "- Image index manifests signed with Cosign (GitHub Actions OIDC / Fulcio keyless)"
             echo
             echo "### Verify Cosign signatures"
             echo
             echo '```bash'
-            echo "IDENTITY_RE='^https://github\\.com/${GITHUB_REPOSITORY//\//\\/}/\\.github/workflows/publish-release-image-tags\\.yml@refs/heads/.+$'"
+            echo "IDENTITY_RE='^https://github\\.com/SiriusScan/Sirius/\\.github/workflows/publish-release-image-tags\\.yml@refs/heads/main\$'"
             echo "ISSUER='https://token.actions.githubusercontent.com'"
             echo "for c in sirius-ui sirius-api sirius-engine sirius-postgres sirius-rabbitmq sirius-valkey; do"
             echo "  digest=\$(crane digest \"ghcr.io/siriusscan/\${c}:${TARGET_TAG}\")"
@@ -398,9 +424,9 @@ jobs:
           } > "${NOTES_FILE}"
 
           bash scripts/assert-release-sbom-assets.sh --tag "${TARGET_TAG}" --dir sboms
-          mapfile -t SBOM_FILES < <(ls -1 sboms/sbom-*-"${TARGET_TAG}".cdx.json)
-          [ "${#SBOM_FILES[@]}" -eq 6 ] || {
-            echo "::error::expected exactly six SBOM files before upload, got ${#SBOM_FILES[@]}"
+          mapfile -t SBOM_FILES < <(ls -1 sboms/sbom-*-"${TARGET_TAG}"-linux-*.cdx.json | sort)
+          [ "${#SBOM_FILES[@]}" -eq 12 ] || {
+            echo "::error::expected exactly twelve platform SBOM files before upload, got ${#SBOM_FILES[@]}"
             exit 1
           }
 
@@ -441,6 +467,12 @@ jobs:
           bash scripts/assert-release-sbom-assets.sh \
             --tag "${TARGET_TAG}" \
             --dir /tmp/release-asset-check
+
+          # Final fail-closed Cosign verify of inventory index digests (no id-token).
+          INV="inventory/core-build-inventory.json"
+          bash scripts/sign-verify-release-images.sh \
+            --inventory "${INV}" \
+            --mode verify
 
           echo "Publishing GitHub Release ${TARGET_TAG}"
           gh release edit "${TARGET_TAG}" --draft=false

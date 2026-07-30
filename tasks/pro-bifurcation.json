@@ -103,11 +103,11 @@
         "id": "1.5",
         "title": "SBOM generation and image signing in public CI",
         "description": "Add Syft SBOMs and Cosign signatures for all six public images.",
-        "details": "REQUIRED BEFORE v1.1.0 GitHub Release publication. Implement in publish-release-image-tags.yml (attest-release-images job) after write-once retags and public smoke: generate one Syft CycloneDX SBOM per image from inventory @sha256 digests; Cosign keyless sign+verify all six digests via GitHub Actions OIDC (id-token:write, packages:write); upload/re-download/validate all six sbom-<component>-<tag>.cdx.json assets on the draft release before draft=false. Pin Syft/Cosign via checksummed install script. Static contract tests in scripts/test-release-signing-contract.sh (invoked by test-core-manifest.sh). Do not mark done until a real release run proves signatures and SBOM assets.",
+        "details": "REQUIRED BEFORE v1.1.0 GitHub Release publication (parallel with 1.4 release-train wiring; no dependency cycle). Implement in publish-release-image-tags.yml after write-once retags and public smoke: resolve linux/amd64 + linux/arm64 child digests from each inventory OCI index and generate 12 Syft CycloneDX assets (sbom-<component>-<tag>-linux-amd64|arm64.cdx.json); Cosign keyless sign+verify all six inventory index digests via GitHub Actions OIDC with canonical identity https://github.com/SiriusScan/Sirius/.github/workflows/publish-release-image-tags.yml@refs/heads/main (workflow fail-closed to SiriusScan/Sirius@refs/heads/main); re-verify Cosign in publish-github-release before draft=false (packages:read, no id-token). Pin Syft/Cosign via checksummed install script. Contract tests in scripts/test-release-signing-contract.sh. Do not mark done until a real release run proves signatures and the 12 SBOM assets.",
         "status": "in_progress",
         "priority": "high",
-        "dependencies": ["1.4"],
-        "testStrategy": "bash scripts/test-core-manifest.sh (includes signing contract); on a real release: cosign verify succeeds for all six digest refs with the workflow OIDC identity; six CycloneDX SBOM assets present on the GitHub Release."
+        "dependencies": ["1.2", "1.3"],
+        "testStrategy": "bash scripts/test-core-manifest.sh (includes signing contract); on a real release: cosign verify succeeds for all six inventory digest refs with the canonical OIDC identity; twelve platform-scoped CycloneDX SBOM assets present on the GitHub Release."
       }
     ]
   },

@@ -6,14 +6,13 @@
 #     --inventory path/to/core-build-inventory.json \
 #     --mode sign|verify|sign-and-verify
 #
-# Signing identity (GitHub Actions OIDC / Fulcio):
-#   COSIGN_CERTIFICATE_OIDC_ISSUER
-#     default: https://token.actions.githubusercontent.com
-#   COSIGN_CERTIFICATE_IDENTITY_REGEXP
-#     required for verify; must match the publish-release-image-tags workflow
-#     certificate subject (e.g. ^https://github\.com/OWNER/REPO/\.github/workflows/publish-release-image-tags\.yml@refs/heads/.+$)
+# Canonical trust (fail-closed; not fork-dynamic):
+#   Issuer:   https://token.actions.githubusercontent.com
+#   Identity: https://github.com/SiriusScan/Sirius/.github/workflows/publish-release-image-tags.yml@refs/heads/main
+#   Regexp:   ^https://github\.com/SiriusScan/Sirius/\.github/workflows/publish-release-image-tags\.yml@refs/heads/main$
 #
-# Signs exact inventory @sha256 refs only (never :latest).
+# Optional env overrides must equal the canonical values above.
+# Signs/verifies exact inventory @sha256 index refs only (never :latest).
 # Override binary with COSIGN_CMD for tests.
 set -euo pipefail
 
@@ -37,7 +36,7 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     -h|--help)
-      sed -n '2,20p' "$0"
+      sed -n '2,22p' "$0"
       exit 0
       ;;
     *)
@@ -59,11 +58,14 @@ if [ -z "${COSIGN_CMD:-}" ]; then
   command -v cosign >/dev/null 2>&1 || die "cosign not found on PATH (run scripts/install-release-attest-tools.sh)"
 fi
 
-OIDC_ISSUER="${COSIGN_CERTIFICATE_OIDC_ISSUER:-https://token.actions.githubusercontent.com}"
-IDENTITY_REGEXP="${COSIGN_CERTIFICATE_IDENTITY_REGEXP:-}"
+OIDC_ISSUER="${COSIGN_CERTIFICATE_OIDC_ISSUER:-${CANONICAL_COSIGN_OIDC_ISSUER}}"
+IDENTITY_REGEXP="${COSIGN_CERTIFICATE_IDENTITY_REGEXP:-${CANONICAL_COSIGN_CERTIFICATE_IDENTITY_REGEXP}}"
 
 if [ "${MODE}" = "verify" ] || [ "${MODE}" = "sign-and-verify" ]; then
-  [ -n "${IDENTITY_REGEXP}" ] || die "COSIGN_CERTIFICATE_IDENTITY_REGEXP is required for verify"
+  [ "${OIDC_ISSUER}" = "${CANONICAL_COSIGN_OIDC_ISSUER}" ] \
+    || die "COSIGN_CERTIFICATE_OIDC_ISSUER must equal canonical issuer"
+  [ "${IDENTITY_REGEXP}" = "${CANONICAL_COSIGN_CERTIFICATE_IDENTITY_REGEXP}" ] \
+    || die "COSIGN_CERTIFICATE_IDENTITY_REGEXP must equal canonical identity regexp"
 fi
 
 sign_one() {

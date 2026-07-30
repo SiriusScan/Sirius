@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Install version-pinned Syft and Cosign with SHA-256 verification.
+# Install version-pinned Syft and/or Cosign with SHA-256 verification.
 # No long-lived secrets; downloads official GitHub release assets only.
 #
 # Usage:
-#   bash scripts/install-release-attest-tools.sh [--dir <install-dir>]
+#   bash scripts/install-release-attest-tools.sh [--dir <install-dir>] [--tools all|syft|cosign]
 #
-# Defaults install to ${HOME}/.local/bin (added guidance printed for PATH).
+# Defaults install both tools to ${HOME}/.local/bin.
 set -euo pipefail
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -21,10 +21,15 @@ COSIGN_SHA256="f7622ed3cf22e55e1ae6377c080979ff77a22da9981c11df222a2e444991e7cf"
 COSIGN_URL="https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/${COSIGN_ASSET}"
 
 INSTALL_DIR="${HOME}/.local/bin"
+TOOLS="all"
 while [ $# -gt 0 ]; do
   case "$1" in
     --dir)
       INSTALL_DIR="${2:-}"
+      shift 2
+      ;;
+    --tools)
+      TOOLS="${2:-}"
       shift 2
       ;;
     -h|--help)
@@ -36,6 +41,11 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
+
+case "${TOOLS}" in
+  all|syft|cosign) ;;
+  *) die "--tools must be all, syft, or cosign" ;;
+esac
 
 [ -n "${INSTALL_DIR}" ] || die "--dir requires a path"
 mkdir -p "${INSTALL_DIR}"
@@ -51,18 +61,30 @@ verify_sha256() {
   [ "${got}" = "${want}" ] || die "checksum mismatch for $(basename "${file}"): got=${got} want=${want}"
 }
 
-echo "Installing Syft v${SYFT_VERSION} -> ${INSTALL_DIR}/syft"
-curl -fsSL --retry 3 --retry-delay 2 -o "${TMP_DIR}/${SYFT_ASSET}" "${SYFT_URL}"
-verify_sha256 "${TMP_DIR}/${SYFT_ASSET}" "${SYFT_SHA256}"
-tar -xzf "${TMP_DIR}/${SYFT_ASSET}" -C "${TMP_DIR}" syft
-install -m 0755 "${TMP_DIR}/syft" "${INSTALL_DIR}/syft"
+install_syft=0
+install_cosign=0
+case "${TOOLS}" in
+  all) install_syft=1; install_cosign=1 ;;
+  syft) install_syft=1 ;;
+  cosign) install_cosign=1 ;;
+esac
 
-echo "Installing Cosign v${COSIGN_VERSION} -> ${INSTALL_DIR}/cosign"
-curl -fsSL --retry 3 --retry-delay 2 -o "${TMP_DIR}/${COSIGN_ASSET}" "${COSIGN_URL}"
-verify_sha256 "${TMP_DIR}/${COSIGN_ASSET}" "${COSIGN_SHA256}"
-install -m 0755 "${TMP_DIR}/${COSIGN_ASSET}" "${INSTALL_DIR}/cosign"
+if [ "${install_syft}" -eq 1 ]; then
+  echo "Installing Syft v${SYFT_VERSION} -> ${INSTALL_DIR}/syft"
+  curl -fsSL --retry 3 --retry-delay 2 -o "${TMP_DIR}/${SYFT_ASSET}" "${SYFT_URL}"
+  verify_sha256 "${TMP_DIR}/${SYFT_ASSET}" "${SYFT_SHA256}"
+  tar -xzf "${TMP_DIR}/${SYFT_ASSET}" -C "${TMP_DIR}" syft
+  install -m 0755 "${TMP_DIR}/syft" "${INSTALL_DIR}/syft"
+  "${INSTALL_DIR}/syft" version >/dev/null
+fi
 
-"${INSTALL_DIR}/syft" version >/dev/null
-"${INSTALL_DIR}/cosign" version >/dev/null
-echo "OK installed Syft v${SYFT_VERSION} and Cosign v${COSIGN_VERSION} in ${INSTALL_DIR}"
+if [ "${install_cosign}" -eq 1 ]; then
+  echo "Installing Cosign v${COSIGN_VERSION} -> ${INSTALL_DIR}/cosign"
+  curl -fsSL --retry 3 --retry-delay 2 -o "${TMP_DIR}/${COSIGN_ASSET}" "${COSIGN_URL}"
+  verify_sha256 "${TMP_DIR}/${COSIGN_ASSET}" "${COSIGN_SHA256}"
+  install -m 0755 "${TMP_DIR}/${COSIGN_ASSET}" "${INSTALL_DIR}/cosign"
+  "${INSTALL_DIR}/cosign" version >/dev/null
+fi
+
+echo "OK installed tools=${TOOLS} in ${INSTALL_DIR}"
 echo "Ensure PATH includes ${INSTALL_DIR}"

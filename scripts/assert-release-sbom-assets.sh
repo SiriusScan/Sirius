@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fail closed if any of the six CycloneDX SBOM release assets is missing/invalid.
+# Fail closed if any of the 12 platform-scoped CycloneDX SBOM assets is missing/invalid.
 #
 # Usage:
 #   bash scripts/assert-release-sbom-assets.sh --tag v1.1.0 --dir /path/to/assets
@@ -40,14 +40,21 @@ printf '%s' "${TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || die "tag must mat
 [ -d "${DIR}" ] || die "directory not found: ${DIR}"
 command -v jq >/dev/null 2>&1 || die "jq is required"
 
+count=0
 for component in "${RELEASE_COMPONENTS[@]}"; do
-  asset="$(release_sbom_asset_name "${component}" "${TAG}")"
-  path="${DIR}/${asset}"
-  [ -f "${path}" ] || die "missing required SBOM asset: ${asset}"
-  [ -s "${path}" ] || die "empty SBOM asset: ${asset}"
-  jq -e '.bomFormat == "CycloneDX"' "${path}" >/dev/null \
-    || die "invalid CycloneDX JSON for ${asset}"
-  echo "OK ${asset}"
+  for platform_entry in "${RELEASE_SBOM_PLATFORMS[@]}"; do
+    slug="${platform_entry##*:}"
+    asset="$(release_sbom_asset_name "${component}" "${TAG}" "${slug}")"
+    path="${DIR}/${asset}"
+    [ -f "${path}" ] || die "missing required SBOM asset: ${asset}"
+    [ -s "${path}" ] || die "empty SBOM asset: ${asset}"
+    jq -e '.bomFormat == "CycloneDX"' "${path}" >/dev/null \
+      || die "invalid CycloneDX JSON for ${asset}"
+    echo "OK ${asset}"
+    count=$((count + 1))
+  done
 done
 
-echo "OK all ${#RELEASE_COMPONENTS[@]} SBOM assets present and valid for ${TAG}"
+expected="$(release_expected_sbom_count)"
+[ "${count}" -eq "${expected}" ] || die "expected ${expected} SBOM assets, validated ${count}"
+echo "OK all ${count} platform-scoped SBOM assets present and valid for ${TAG}"

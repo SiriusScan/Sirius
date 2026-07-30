@@ -6,11 +6,13 @@ name: Publish Release Image Tags
 #   3) download CI core-build-inventory for that exact commit (push runs only)
 #   4) write-once retag release from inventory @sha256 refs
 #   5) parity + anonymous + public compose smoke on target
-#   6) generate core-manifest from inventory + source checkout at commit
-#   7) draft GitHub Release -> upload -> re-download/validate -> publish
-#   8) explicitly dispatch verify-ghcr-release-tag.yml for the target tag
+#   6) Syft SBOMs (CycloneDX) + Cosign keyless sign/verify on inventory digests
+#   7) generate core-manifest from inventory + source checkout at commit
+#   8) draft GitHub Release -> upload manifest+SBOMs -> re-download/validate -> publish
+#   9) explicitly dispatch verify-ghcr-release-tag.yml for the target tag
 #
 # Does NOT create Git tags. Already-published releases are fail-closed.
+# Publication requires all six SBOM assets and verified Cosign signatures.
 
 on:
   workflow_dispatch:
@@ -213,8 +215,80 @@ jobs:
           set -euo pipefail
           bash scripts/validate-public-compose-path.sh "${TARGET_TAG}"
 
-  publish-github-release:
+  attest-release-images:
     needs: [validate-inputs, resolve-inventory, retag-and-verify, validate-public-release-stack]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout workflow tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Download inventory artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-core-build-inventory
+          path: inventory
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Install pinned Syft and Cosign
+        run: |
+          set -euo pipefail
+          bash scripts/install-release-attest-tools.sh --dir "${HOME}/.local/bin"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
+      - name: Generate CycloneDX SBOMs from inventory digests
+        env:
+          TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
+          SOURCE_COMMIT: ${{ needs.validate-inputs.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          INV="inventory/core-build-inventory.json"
+          bash scripts/validate-core-manifest.sh --mode inventory --expect-commit "${SOURCE_COMMIT}" "${INV}"
+          mkdir -p sboms
+          bash scripts/generate-release-sboms.sh \
+            --inventory "${INV}" \
+            --tag "${TARGET_TAG}" \
+            --outdir sboms
+          bash scripts/assert-release-sbom-assets.sh --tag "${TARGET_TAG}" --dir sboms
+
+      - name: Cosign keyless sign and verify inventory digests
+        env:
+          COSIGN_CERTIFICATE_OIDC_ISSUER: https://token.actions.githubusercontent.com
+        run: |
+          set -euo pipefail
+          # Fulcio subject: this workflow file on a branch ref (workflow_dispatch).
+          # Issuer: https://token.actions.githubusercontent.com (GitHub Actions OIDC).
+          export COSIGN_CERTIFICATE_IDENTITY_REGEXP="^https://github\\.com/${GITHUB_REPOSITORY//\//\\/}/\\.github/workflows/publish-release-image-tags\\.yml@refs/heads/.+$"
+          INV="inventory/core-build-inventory.json"
+          bash scripts/sign-verify-release-images.sh \
+            --inventory "${INV}" \
+            --mode sign-and-verify
+
+      - name: Upload SBOM artifacts for release publish
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-sboms-${{ needs.validate-inputs.outputs.target_tag }}
+          path: sboms/sbom-*.cdx.json
+          if-no-files-found: error
+
+  publish-github-release:
+    needs: [validate-inputs, resolve-inventory, retag-and-verify, validate-public-release-stack, attest-release-images]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -242,6 +316,12 @@ jobs:
           name: release-core-build-inventory
           path: inventory
 
+      - name: Download SBOM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-sboms-${{ needs.validate-inputs.outputs.target_tag }}
+          path: sboms
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -264,6 +344,7 @@ jobs:
             --expect-commit "${SOURCE_COMMIT}" \
             --dockerfile release-src/sirius-engine/Dockerfile \
             "${GITHUB_WORKSPACE}/core-manifest.yaml"
+          bash scripts/assert-release-sbom-assets.sh --tag "${TARGET_TAG}" --dir sboms
 
       - name: Immediate pre-publish digest recheck
         env:
@@ -298,15 +379,36 @@ jobs:
             echo "- Images retagged from CI core-build-inventory digests (write-once)"
             echo "- Public compose smoke test passed"
             echo "- \`core-manifest.yaml\` attached (image digests, engine pins, schema ledger)"
+            echo "- CycloneDX SBOMs attached for all six public images (\`sbom-<component>-${TARGET_TAG}.cdx.json\`)"
+            echo "- Image manifests signed with Cosign (GitHub Actions OIDC / Fulcio keyless)"
+            echo
+            echo "### Verify Cosign signatures"
+            echo
+            echo '```bash'
+            echo "IDENTITY_RE='^https://github\\.com/${GITHUB_REPOSITORY//\//\\/}/\\.github/workflows/publish-release-image-tags\\.yml@refs/heads/.+$'"
+            echo "ISSUER='https://token.actions.githubusercontent.com'"
+            echo "for c in sirius-ui sirius-api sirius-engine sirius-postgres sirius-rabbitmq sirius-valkey; do"
+            echo "  digest=\$(crane digest \"ghcr.io/siriusscan/\${c}:${TARGET_TAG}\")"
+            echo "  cosign verify --certificate-identity-regexp \"\${IDENTITY_RE}\" --certificate-oidc-issuer \"\${ISSUER}\" \\"
+            echo "    \"ghcr.io/siriusscan/\${c}@\${digest}\""
+            echo "done"
+            echo '```'
             echo
             echo "Install with \`IMAGE_TAG=${TARGET_TAG}\` against public GHCR."
           } > "${NOTES_FILE}"
+
+          bash scripts/assert-release-sbom-assets.sh --tag "${TARGET_TAG}" --dir sboms
+          mapfile -t SBOM_FILES < <(ls -1 sboms/sbom-*-"${TARGET_TAG}".cdx.json)
+          [ "${#SBOM_FILES[@]}" -eq 6 ] || {
+            echo "::error::expected exactly six SBOM files before upload, got ${#SBOM_FILES[@]}"
+            exit 1
+          }
 
           RELEASE_STATE="$(bash scripts/gh-release-draft-state.sh "${TARGET_TAG}" "${GITHUB_REPOSITORY}")"
           if [ "${RELEASE_STATE}" = "draft" ]; then
             echo "Updating existing draft release ${TARGET_TAG}"
             gh release edit "${TARGET_TAG}" --notes-file "${NOTES_FILE}" --title "${TARGET_TAG}"
-            gh release upload "${TARGET_TAG}" core-manifest.yaml --clobber
+            gh release upload "${TARGET_TAG}" core-manifest.yaml "${SBOM_FILES[@]}" --clobber
           else
             echo "Creating draft GitHub Release ${TARGET_TAG}"
             gh release create "${TARGET_TAG}" \
@@ -314,12 +416,16 @@ jobs:
               --verify-tag \
               --title "${TARGET_TAG}" \
               --notes-file "${NOTES_FILE}"
-            gh release upload "${TARGET_TAG}" core-manifest.yaml --clobber
+            gh release upload "${TARGET_TAG}" core-manifest.yaml "${SBOM_FILES[@]}" --clobber
           fi
 
           mkdir -p /tmp/release-asset-check
           gh release download "${TARGET_TAG}" \
             --pattern 'core-manifest.yaml' \
+            --dir /tmp/release-asset-check \
+            --clobber
+          gh release download "${TARGET_TAG}" \
+            --pattern 'sbom-*.cdx.json' \
             --dir /tmp/release-asset-check \
             --clobber
           bash scripts/validate-core-manifest.sh \
@@ -332,6 +438,9 @@ jobs:
             --skip-dockerfile-pins \
             --verify-digests \
             /tmp/release-asset-check/core-manifest.yaml
+          bash scripts/assert-release-sbom-assets.sh \
+            --tag "${TARGET_TAG}" \
+            --dir /tmp/release-asset-check
 
           echo "Publishing GitHub Release ${TARGET_TAG}"
           gh release edit "${TARGET_TAG}" --draft=false

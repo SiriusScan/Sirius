@@ -24,6 +24,12 @@ bash -n scripts/ghcr-ensure-write-once-tag.sh
 bash -n scripts/gh-release-draft-state.sh
 bash -n scripts/ci-dispatch-allowlist.sh
 bash -n scripts/resolve-core-build-inventory.sh
+bash -n scripts/release-components.sh
+bash -n scripts/install-release-attest-tools.sh
+bash -n scripts/generate-release-sboms.sh
+bash -n scripts/sign-verify-release-images.sh
+bash -n scripts/assert-release-sbom-assets.sh
+bash -n scripts/test-release-signing-contract.sh
 bash -n scripts/test-core-manifest.sh
 bash -n "${MOCK_INSPECT}"
 pass "shell syntax"
@@ -229,6 +235,10 @@ echo "==> go test validator (includes schema_map ↔ Dockerfile pin)"
   go test ./...
 )
 pass "go test"
+
+echo "==> release SBOM + Cosign signing contract"
+bash scripts/test-release-signing-contract.sh
+pass "release signing contract"
 
 echo
 echo "All core-manifest local tests passed."

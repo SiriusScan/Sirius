@@ -93,7 +93,7 @@
         "id": "1.4",
         "title": "Establish release train and digest manifest",
         "description": "Cut v1.1.0 and emit core-manifest.yaml with image digests, component pins, and schema version per release.",
-        "details": "Tag v1.1.0 from hardened HEAD; make publish-release-image-tags.yml + verify-ghcr-release-tag.yml a gated release workflow (release blocked unless all six images retag and verify); generate core-manifest.yaml as a release asset.",
+        "details": "Tag v1.1.0 from hardened HEAD; make publish-release-image-tags.yml + verify-ghcr-release-tag.yml a gated release workflow (release blocked unless all six images retag and verify); generate core-manifest.yaml as a release asset. Publishing the v1.1.0 GitHub Release also requires the task 1.5 SBOM+Cosign fail-closed gate in publish-release-image-tags.yml (do not mark 1.4 done until a real release run succeeds).",
         "status": "in_progress",
         "priority": "high",
         "dependencies": ["1.2", "1.3"],
@@ -103,11 +103,11 @@
         "id": "1.5",
         "title": "SBOM generation and image signing in public CI",
         "description": "Add Syft SBOMs and Cosign signatures for all six public images.",
-        "details": "Extend ci.yml and the release workflow; publish SBOMs as release assets; sign multi-arch manifests; pin GitHub Action versions.",
-        "status": "pending",
-        "priority": "medium",
+        "details": "REQUIRED BEFORE v1.1.0 GitHub Release publication. Implement in publish-release-image-tags.yml (attest-release-images job) after write-once retags and public smoke: generate one Syft CycloneDX SBOM per image from inventory @sha256 digests; Cosign keyless sign+verify all six digests via GitHub Actions OIDC (id-token:write, packages:write); upload/re-download/validate all six sbom-<component>-<tag>.cdx.json assets on the draft release before draft=false. Pin Syft/Cosign via checksummed install script. Static contract tests in scripts/test-release-signing-contract.sh (invoked by test-core-manifest.sh). Do not mark done until a real release run proves signatures and SBOM assets.",
+        "status": "in_progress",
+        "priority": "high",
         "dependencies": ["1.4"],
-        "testStrategy": "cosign verify succeeds against published images; SBOM asset present for each image in the release."
+        "testStrategy": "bash scripts/test-core-manifest.sh (includes signing contract); on a real release: cosign verify succeeds for all six digest refs with the workflow OIDC identity; six CycloneDX SBOM assets present on the GitHub Release."
       }
     ]
   },

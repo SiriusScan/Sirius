@@ -261,7 +261,7 @@ pass "NUL/nested archive canaries"
 
 echo "==> canary: streaming large members / gzip tar / malformed magic / budgets"
 python3 - <<PY
-import gzip, io, sys, tarfile, tempfile
+import gzip, io, os, sys, tarfile, tempfile, zipfile
 from pathlib import Path
 
 sys.path.insert(0, "scripts/community-independence")
@@ -364,6 +364,98 @@ except ArchiveSafetyError as exc:
     print("OK budget exceed")
 else:
     raise SystemExit("expected budget exceed")
+
+# 7) Budget is not triple-counted on a clean large gzip→tar layer.
+# Member is 5MiB; compressed layer is also ~5MiB (level-0). Single-representation
+# accounting charges ~5MiB (+ tiny configs). A 6MiB budget must pass; triple-count
+# of compressed+raw+member would exceed ~15MiB and fail.
+member = os.urandom(5 * 1024 * 1024)
+inner_tar = io.BytesIO()
+with tarfile.open(fileobj=inner_tar, mode="w") as tf:
+    info = tarfile.TarInfo("opt/blob.bin")
+    info.size = len(member)
+    tf.addfile(info, io.BytesIO(member))
+gz_buf = io.BytesIO()
+with gzip.GzipFile(fileobj=gz_buf, mode="wb", compresslevel=0) as gzf:
+    gzf.write(inner_tar.getvalue())
+gz_layer = gz_buf.getvalue()
+assert len(gz_layer) > 4 * 1024 * 1024, len(gz_layer)
+save_budget = tmp / "budget-layer.docker-save.tar"
+with tarfile.open(save_budget, "w") as tf:
+    for name, data in [
+        ("manifest.json", b"[]"),
+        ("config.json", b"{}"),
+        ("layer.tar.gz", gz_layer),
+    ]:
+        info = tarfile.TarInfo(name)
+        info.size = len(data)
+        tf.addfile(info, io.BytesIO(data))
+tight = _Budget(limit=6 * 1024 * 1024)
+findings = scan_image_layers.scan_docker_save(
+    save_budget, allow, "sirius-engine/linux-amd64", budget=tight
+)
+assert findings == [], findings
+assert tight.total <= 6 * 1024 * 1024, tight.total
+# Must have charged the member once (~5MiB), not 3x (~15MiB).
+assert tight.total < 6 * 1024 * 1024, tight.total
+assert tight.total >= 5 * 1024 * 1024, tight.total
+print(f"OK budget single-count large layer (charged={tight.total})")
+
+# 8) >32MiB nested gzip/tar/zip members still recurse; markers are detected.
+pad = b"P" * (33 * 1024 * 1024)
+
+# 8a) nested tar member
+inner = io.BytesIO()
+with tarfile.open(fileobj=inner, mode="w") as tf:
+    secret = marker + b"\n"
+    info = tarfile.TarInfo("secret.txt")
+    info.size = len(secret)
+    tf.addfile(info, io.BytesIO(secret))
+    info = tarfile.TarInfo("pad.bin")
+    info.size = len(pad)
+    tf.addfile(info, io.BytesIO(pad))
+nested_tar = inner.getvalue()
+assert len(nested_tar) > 32 * 1024 * 1024
+t_outer = tmp / "nested-large-tar.tar"
+with tarfile.open(t_outer, "w") as tf:
+    info = tarfile.TarInfo("bundle.tar")
+    info.size = len(nested_tar)
+    tf.addfile(info, io.BytesIO(nested_tar))
+findings = scan_archive.scan_archive(t_outer, allow)
+assert any("private_registry" in f for f in findings), findings
+print("OK >32MiB nested tar marker")
+
+# 8b) nested gzip member (compresslevel=0 keeps member >32MiB)
+gz_buf = io.BytesIO()
+with gzip.GzipFile(fileobj=gz_buf, mode="wb", compresslevel=0) as gzf:
+    gzf.write(pad)
+    gzf.write(marker)
+gz_member = gz_buf.getvalue()
+assert len(gz_member) > 32 * 1024 * 1024
+t_gz = tmp / "nested-large-gzip.tar"
+with tarfile.open(t_gz, "w") as tf:
+    info = tarfile.TarInfo("blob.gz")
+    info.size = len(gz_member)
+    tf.addfile(info, io.BytesIO(gz_member))
+findings = scan_archive.scan_archive(t_gz, allow)
+assert any("private_registry" in f for f in findings), findings
+print("OK >32MiB nested gzip marker")
+
+# 8c) nested zip member (ZIP_STORED keeps member >32MiB)
+zbuf = io.BytesIO()
+with zipfile.ZipFile(zbuf, "w", compression=zipfile.ZIP_STORED) as zf:
+    zf.writestr("secret.txt", marker + b"\n")
+    zf.writestr("pad.bin", pad)
+zip_member = zbuf.getvalue()
+assert len(zip_member) > 32 * 1024 * 1024
+t_zip = tmp / "nested-large-zip.tar"
+with tarfile.open(t_zip, "w") as tf:
+    info = tarfile.TarInfo("bundle.zip")
+    info.size = len(zip_member)
+    tf.addfile(info, io.BytesIO(zip_member))
+findings = scan_archive.scan_archive(t_zip, allow)
+assert any("private_registry" in f for f in findings), findings
+print("OK >32MiB nested zip marker")
 PY
 pass "streaming/malformed/budget canaries"
 

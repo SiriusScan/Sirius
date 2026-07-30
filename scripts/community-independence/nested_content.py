@@ -5,6 +5,19 @@ Image/OCI layers stream gzip→tar without buffering full decompressed archives.
 Ordinary source scans treat nested detection as opportunistic: malformed magic
 keeps raw-byte findings and does not fail the whole scan. Explicit archive/image
 modes remain fail-closed.
+
+Budget model (shared across a top-level scan root)
+-------------------------------------------------
+``_Budget`` counts each scanned *representation* once:
+
+- Opaque / non-nested payloads: charge the raw byte length once.
+- When gzip/zip/tar nesting succeeds: charge only nested (decompressed) member
+  or stream bytes. Outer compressed/container bytes are **not** also charged.
+- Raw marker detection still runs on outer bytes (so markers in opaque blobs
+  are found) but does not double/triple-count when a nested parse succeeds.
+
+Caps: traversal/link rejection, per-member buffering threshold, nest depth,
+member count, and a GiB-level total uncompressed scan budget.
 """
 
 from __future__ import annotations
@@ -15,18 +28,21 @@ import struct
 import tarfile
 import tempfile
 import zipfile
-from typing import BinaryIO, List, Optional, Sequence
+from typing import BinaryIO, List, Optional, Sequence, Tuple
 
 import scan_text
 
 # Small members may be fully buffered for nested recursion.
 MAX_BUFFERED_MEMBER = 32 * 1024 * 1024
 # Realistic total uncompressed scan budget (GiB-level) per top-level scan root.
+# Charged once per representation (see module docstring) — not per nest attempt.
 MAX_TOTAL_BYTES = 4 * 1024 * 1024 * 1024
 MAX_MEMBERS = 200_000
 MAX_NEST_DEPTH = 5
 CHUNK_SIZE = 1024 * 1024
 CHUNK_OVERLAP = 64 * 1024
+# Spooled temp files spill to disk above this in-RAM size.
+SPOOL_RAM = 8 * 1024 * 1024
 
 # Back-compat aliases used by other modules/tests.
 MAX_MEMBER_BYTES = MAX_BUFFERED_MEMBER
@@ -128,6 +144,37 @@ def _opportunistic_exc(exc: BaseException) -> bool:
     )
 
 
+def _spool_to_temp(fh: BinaryIO) -> BinaryIO:
+    """Copy a (possibly non-seekable) stream into a spooled temp file."""
+    spool: BinaryIO = tempfile.SpooledTemporaryFile(max_size=SPOOL_RAM)
+    while True:
+        chunk = fh.read(CHUNK_SIZE)
+        if not chunk:
+            break
+        spool.write(chunk)
+    spool.seek(0)
+    return spool
+
+
+def _ensure_seekable(fh: BinaryIO) -> BinaryIO:
+    """Return a seekable file object, spooling tar/gzip stream members when needed."""
+    seekable = getattr(fh, "seekable", None)
+    if callable(seekable):
+        try:
+            if not seekable():
+                return _spool_to_temp(fh)
+        except (OSError, AttributeError, io.UnsupportedOperation):
+            return _spool_to_temp(fh)
+    if hasattr(fh, "seek") and hasattr(fh, "tell"):
+        try:
+            pos = fh.tell()
+            fh.seek(pos)
+            return fh
+        except (OSError, AttributeError, io.UnsupportedOperation):
+            pass
+    return _spool_to_temp(fh)
+
+
 class _ChainReader(io.RawIOBase):
     """Readable stream that yields prefix bytes then delegates to an underlying reader."""
 
@@ -169,15 +216,22 @@ def scan_stream_chunks(
     *,
     chunk_size: int = CHUNK_SIZE,
     overlap: int = CHUNK_OVERLAP,
+    charge: bool = True,
 ) -> List[str]:
-    """Stream-scan a readable binary stream with overlap for boundary-spanning markers."""
+    """Stream-scan a readable binary stream with overlap for boundary-spanning markers.
+
+    When ``charge`` is False, bytes are still scanned for markers but are not added
+    to ``budget`` (used for outer raw pre-scans before a nested parse owns the
+    representation accounting).
+    """
     findings: List[str] = []
     prev = b""
     while True:
         chunk = fh.read(chunk_size)
         if not chunk:
             break
-        budget.add_bytes(len(chunk), rel_path)
+        if charge:
+            budget.add_bytes(len(chunk), rel_path)
         window = prev + chunk
         findings.extend(scan_text.match_rules(window, rel_path, rules, allowlist))
         if len(window) > overlap:
@@ -185,6 +239,25 @@ def scan_stream_chunks(
         else:
             prev = window
     return findings
+
+
+def _raw_findings_bytes(
+    data: bytes,
+    rel_path: str,
+    rules: Sequence[scan_text.Rule],
+    allowlist: Sequence[str],
+) -> List[str]:
+    """Marker detection on raw bytes without budget charging."""
+    if len(data) > MAX_BUFFERED_MEMBER:
+        return scan_stream_chunks(
+            io.BytesIO(data),
+            rel_path,
+            rules,
+            allowlist,
+            _Budget(limit=2**63 - 1),
+            charge=False,
+        )
+    return scan_text.match_rules(data, rel_path, rules, allowlist)
 
 
 def _scan_tar_stream(
@@ -219,10 +292,17 @@ def _scan_tar_stream(
                 if size < 0:
                     raise ArchiveSafetyError(f"negative tar size for {member.name}")
 
+                # Large members: stream/spool and still recurse into gzip/tar/zip.
                 if size > MAX_BUFFERED_MEMBER:
                     findings.extend(
-                        scan_stream_chunks(
-                            extracted, nested_rel, rules, allowlist, budget
+                        scan_nested_fileobj(
+                            extracted,
+                            nested_rel,
+                            rules,
+                            allowlist,
+                            nest_depth=nest_depth + 1,
+                            budget=budget,
+                            strict=strict,
                         )
                     )
                     continue
@@ -234,7 +314,7 @@ def _scan_tar_stream(
                     raise ArchiveSafetyError(
                         f"declared/actual size mismatch for {member.name}"
                     )
-                budget.add_bytes(len(blob), nested_rel)
+                # Nested call owns representation budget (no pre-charge here).
                 findings.extend(
                     scan_nested_bytes(
                         blob,
@@ -287,7 +367,22 @@ def _scan_gzip_payload(
             stream_mode=True,
         )
 
-    return scan_stream_chunks(rest, gzip_rel, rules, allowlist, budget)
+    # Non-tar gzip: if decompressed head is zip, spool and recurse; otherwise
+    # chunk-scan the decompressed stream (charged representation).
+    if _is_zip(head):
+        spool = _spool_to_temp(rest)
+        return scan_nested_fileobj(
+            spool,
+            gzip_rel,
+            rules,
+            allowlist,
+            nest_depth=nest_depth + 1,
+            budget=budget,
+            strict=strict,
+            raw_pre_scanned=True,
+        )
+
+    return scan_stream_chunks(rest, gzip_rel, rules, allowlist, budget, charge=True)
 
 
 def _scan_zip_bytes(
@@ -349,7 +444,15 @@ def _scan_zip_member(
 
     with fh:
         if info.file_size > MAX_BUFFERED_MEMBER:
-            return scan_stream_chunks(fh, nested_rel, rules, allowlist, budget)
+            return scan_nested_fileobj(
+                fh,
+                nested_rel,
+                rules,
+                allowlist,
+                nest_depth=nest_depth + 1,
+                budget=budget,
+                strict=strict,
+            )
         data = fh.read(MAX_BUFFERED_MEMBER + 1)
 
     if len(data) > MAX_BUFFERED_MEMBER:
@@ -359,7 +462,6 @@ def _scan_zip_member(
             f"declared/actual size mismatch for {name}: "
             f"declared={info.file_size} actual={len(data)}"
         )
-    budget.add_bytes(len(data), nested_rel)
     return scan_nested_bytes(
         data,
         nested_rel,
@@ -371,53 +473,44 @@ def _scan_zip_member(
     )
 
 
-def scan_nested_bytes(
-    data: bytes,
+def _try_nested_parse(
+    head_or_data: bytes,
+    open_fh,
     rel_path: str,
     rules: Sequence[scan_text.Rule],
     allowlist: Sequence[str],
+    budget: _Budget,
     *,
-    nest_depth: int = 0,
-    budget: Optional[_Budget] = None,
-    strict: bool = True,
-) -> List[str]:
-    if budget is None:
-        budget = _Budget()
-
-    # Raw-byte findings first (including NUL binaries / large blobs).
-    if len(data) > MAX_BUFFERED_MEMBER:
-        findings = scan_stream_chunks(
-            io.BytesIO(data), rel_path, rules, allowlist, budget
-        )
-    else:
-        budget.add_bytes(len(data), rel_path)
-        findings = scan_text.match_rules(data, rel_path, rules, allowlist)
-
-    if nest_depth >= MAX_NEST_DEPTH:
-        return findings
-
+    nest_depth: int,
+    strict: bool,
+) -> Tuple[bool, List[str]]:
+    """Attempt gzip/zip/tar nesting. Returns (nested_ok, findings)."""
     prefer_tar = _prefer_tar_path(rel_path)
+    findings: List[str] = []
 
-    try:
-        if _is_gzip(data):
-            findings.extend(
-                _scan_gzip_payload(
-                    io.BytesIO(data),
-                    rel_path,
-                    rules,
-                    allowlist,
-                    budget,
-                    nest_depth=nest_depth,
-                    strict=strict,
-                    prefer_tar=prefer_tar,
-                )
+    if _is_gzip(head_or_data):
+        findings.extend(
+            _scan_gzip_payload(
+                open_fh(),
+                rel_path,
+                rules,
+                allowlist,
+                budget,
+                nest_depth=nest_depth,
+                strict=strict,
+                prefer_tar=prefer_tar,
             )
-            return findings
+        )
+        return True, findings
 
-        if _is_zip(data):
+    if _is_zip(head_or_data):
+        fh = open_fh()
+        # Bytes path: full payload already in memory. Fileobj path: ZipFile needs
+        # random-access (caller spools non-seekable streams first).
+        if isinstance(fh, io.BytesIO):
             findings.extend(
                 _scan_zip_bytes(
-                    data,
+                    fh.getvalue(),
                     rel_path,
                     rules,
                     allowlist,
@@ -426,86 +519,7 @@ def scan_nested_bytes(
                     strict=strict,
                 )
             )
-            return findings
-
-        tarish = prefer_tar or _looks_tar_header(data[:512] if len(data) >= 512 else data)
-        if tarish:
-            findings.extend(
-                _scan_tar_stream(
-                    io.BytesIO(data),
-                    rel_path,
-                    rules,
-                    allowlist,
-                    budget,
-                    nest_depth=nest_depth,
-                    strict=strict,
-                    stream_mode=False,
-                )
-            )
-    except Exception as exc:  # noqa: BLE001 - opportunistic fallback is intentional
-        if strict or not _opportunistic_exc(exc):
-            if isinstance(exc, ArchiveSafetyError):
-                raise
-            raise ArchiveSafetyError(f"nested parse failed at {rel_path}: {exc}") from exc
-        return findings
-
-    return findings
-
-
-def scan_nested_fileobj(
-    fh: BinaryIO,
-    rel_path: str,
-    rules: Sequence[scan_text.Rule],
-    allowlist: Sequence[str],
-    *,
-    nest_depth: int = 0,
-    budget: Optional[_Budget] = None,
-    strict: bool = True,
-) -> List[str]:
-    """Scan a file object using spooling/streaming (no multi-hundred-MiB RAM buffer)."""
-    if budget is None:
-        budget = _Budget()
-
-    # Ensure seekable backing store without holding the whole blob in RAM.
-    if not (hasattr(fh, "seek") and hasattr(fh, "tell")):
-        spool: BinaryIO = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
-        while True:
-            chunk = fh.read(CHUNK_SIZE)
-            if not chunk:
-                break
-            spool.write(chunk)
-        spool.seek(0)
-        fh = spool
-
-    head = fh.read(512)
-    fh.seek(0)
-
-    # Raw findings via streaming (counts compressed/raw blob bytes once).
-    findings = scan_stream_chunks(fh, rel_path, rules, allowlist, budget)
-    fh.seek(0)
-
-    if nest_depth >= MAX_NEST_DEPTH:
-        return findings
-
-    prefer_tar = _prefer_tar_path(rel_path)
-
-    try:
-        if _is_gzip(head):
-            findings.extend(
-                _scan_gzip_payload(
-                    fh,
-                    rel_path,
-                    rules,
-                    allowlist,
-                    budget,
-                    nest_depth=nest_depth,
-                    strict=strict,
-                    prefer_tar=prefer_tar,
-                )
-            )
-            return findings
-
-        if _is_zip(head):
+        else:
             with zipfile.ZipFile(fh) as zf:
                 for info in zf.infolist():
                     if info.is_dir():
@@ -522,28 +536,163 @@ def scan_nested_fileobj(
                             strict=strict,
                         )
                     )
-            return findings
+        return True, findings
 
-        if prefer_tar or _looks_tar_header(head):
-            findings.extend(
-                _scan_tar_stream(
-                    fh,
-                    rel_path,
-                    rules,
-                    allowlist,
-                    budget,
-                    nest_depth=nest_depth,
-                    strict=strict,
-                    stream_mode=False,
-                )
+    tarish = prefer_tar or _looks_tar_header(
+        head_or_data[:512] if len(head_or_data) >= 512 else head_or_data
+    )
+    if tarish:
+        findings.extend(
+            _scan_tar_stream(
+                open_fh(),
+                rel_path,
+                rules,
+                allowlist,
+                budget,
+                nest_depth=nest_depth,
+                strict=strict,
+                stream_mode=False,
             )
+        )
+        return True, findings
+
+    return False, findings
+
+
+def scan_nested_bytes(
+    data: bytes,
+    rel_path: str,
+    rules: Sequence[scan_text.Rule],
+    allowlist: Sequence[str],
+    *,
+    nest_depth: int = 0,
+    budget: Optional[_Budget] = None,
+    strict: bool = True,
+) -> List[str]:
+    if budget is None:
+        budget = _Budget()
+
+    # Raw-byte findings first (detection only — no budget charge yet).
+    findings = _raw_findings_bytes(data, rel_path, rules, allowlist)
+
+    if nest_depth >= MAX_NEST_DEPTH:
+        budget.add_bytes(len(data), rel_path)
+        return findings
+
+    try:
+        nested_ok, nested_findings = _try_nested_parse(
+            data,
+            lambda: io.BytesIO(data),
+            rel_path,
+            rules,
+            allowlist,
+            budget,
+            nest_depth=nest_depth,
+            strict=strict,
+        )
+    except Exception as exc:  # noqa: BLE001 - opportunistic fallback is intentional
+        if strict or not _opportunistic_exc(exc):
+            if isinstance(exc, ArchiveSafetyError):
+                raise
+            raise ArchiveSafetyError(f"nested parse failed at {rel_path}: {exc}") from exc
+        # Nested parse failed: this blob is the charged representation.
+        budget.add_bytes(len(data), rel_path)
+        return findings
+
+    findings.extend(nested_findings)
+    if not nested_ok:
+        # Opaque: charge this representation once.
+        budget.add_bytes(len(data), rel_path)
+    return findings
+
+
+def scan_nested_fileobj(
+    fh: BinaryIO,
+    rel_path: str,
+    rules: Sequence[scan_text.Rule],
+    allowlist: Sequence[str],
+    *,
+    nest_depth: int = 0,
+    budget: Optional[_Budget] = None,
+    strict: bool = True,
+    raw_pre_scanned: bool = False,
+) -> List[str]:
+    """Scan a file object using spooling/streaming (no multi-hundred-MiB RAM buffer).
+
+    ``raw_pre_scanned`` skips a second outer raw pass when the caller already
+    scanned for markers (e.g. decompressed gzip head routed back here).
+    """
+    if budget is None:
+        budget = _Budget()
+
+    fh = _ensure_seekable(fh)
+    head = fh.read(512)
+    fh.seek(0)
+
+    findings: List[str] = []
+    if not raw_pre_scanned:
+        # Detection-only raw pass (no charge — nested parse owns accounting).
+        findings = scan_stream_chunks(
+            fh, rel_path, rules, allowlist, budget, charge=False
+        )
+        fh.seek(0)
+        try:
+            end = fh.seek(0, io.SEEK_END)
+            raw_size = int(end)
+        except (OSError, io.UnsupportedOperation):
+            raw_size = -1
+        fh.seek(0)
+    else:
+        try:
+            end = fh.seek(0, io.SEEK_END)
+            raw_size = int(end)
+        except (OSError, io.UnsupportedOperation):
+            raw_size = -1
+        fh.seek(0)
+
+    if nest_depth >= MAX_NEST_DEPTH:
+        if raw_size >= 0:
+            budget.add_bytes(raw_size, rel_path)
+        else:
+            findings.extend(
+                scan_stream_chunks(fh, rel_path, rules, allowlist, budget, charge=True)
+            )
+        return findings
+
+    try:
+        nested_ok, nested_findings = _try_nested_parse(
+            head,
+            lambda: (fh.seek(0) or fh),
+            rel_path,
+            rules,
+            allowlist,
+            budget,
+            nest_depth=nest_depth,
+            strict=strict,
+        )
     except Exception as exc:  # noqa: BLE001
         if strict or not _opportunistic_exc(exc):
             if isinstance(exc, ArchiveSafetyError):
                 raise
             raise ArchiveSafetyError(f"nested parse failed at {rel_path}: {exc}") from exc
+        if raw_size >= 0:
+            budget.add_bytes(raw_size, rel_path)
+        else:
+            fh.seek(0)
+            findings.extend(
+                scan_stream_chunks(fh, rel_path, rules, allowlist, budget, charge=True)
+            )
         return findings
 
+    findings.extend(nested_findings)
+    if not nested_ok:
+        if raw_size >= 0:
+            budget.add_bytes(raw_size, rel_path)
+        else:
+            fh.seek(0)
+            findings.extend(
+                scan_stream_chunks(fh, rel_path, rules, allowlist, budget, charge=True)
+            )
     return findings
 
 
@@ -559,8 +708,8 @@ def _read_zip_member(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> bytes:
             f"member requires streaming extract: {name} ({info.file_size})"
         )
     try:
-        with zf.open(info, "r") as fh:
-            data = fh.read(MAX_BUFFERED_MEMBER + 1)
+        with zf.open(info, "r") as member_fh:
+            data = member_fh.read(MAX_BUFFERED_MEMBER + 1)
     except (zipfile.BadZipFile, RuntimeError, OSError) as exc:
         raise ArchiveSafetyError(f"zip member read failed for {name}: {exc}") from exc
     if len(data) > MAX_BUFFERED_MEMBER:

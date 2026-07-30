@@ -28,11 +28,18 @@ from nested_content import (  # noqa: E402
 )
 
 
-def scan_docker_save(save_tar: Path, allowlist: Path, image_label: str) -> List[str]:
+def scan_docker_save(
+    save_tar: Path,
+    allowlist: Path,
+    image_label: str,
+    *,
+    budget: Optional[_Budget] = None,
+) -> List[str]:
     allow = scan_text.load_allowlist(allowlist)
     rules = scan_text.compile_rules()
     findings: List[str] = []
-    budget = _Budget()
+    if budget is None:
+        budget = _Budget()
 
     with tarfile.open(save_tar, mode="r:*") as outer:
         for member in outer:

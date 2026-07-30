@@ -27,7 +27,7 @@ from nested_content import (  # noqa: E402
     _Budget,
     _validate_member_name,
     scan_nested_bytes,
-    scan_stream_chunks,
+    scan_nested_fileobj,
 )
 
 
@@ -38,10 +38,16 @@ def _strip_single_top_dir(name: str) -> str:
     return name.replace("\\", "/")
 
 
-def scan_archive(path: Path, allowlist_path: Path) -> List[str]:
+def scan_archive(
+    path: Path,
+    allowlist_path: Path,
+    *,
+    budget: Optional[_Budget] = None,
+) -> List[str]:
     allowlist = scan_text.load_allowlist(allowlist_path)
     rules = scan_text.compile_rules()
-    budget = _Budget()
+    if budget is None:
+        budget = _Budget()
 
     suffix = path.name.lower()
     if suffix.endswith(".zip"):
@@ -84,10 +90,13 @@ def _scan_zip_archive(
                 raise ArchiveSafetyError(f"symlink member forbidden: {info.filename}")
 
             with zf.open(info, "r") as fh:
+                budget.add_member(rel)
                 if info.file_size > MAX_BUFFERED_MEMBER:
-                    budget.add_member(rel)
+                    # Stream/spool and still recurse into nested gzip/tar/zip.
                     findings.extend(
-                        scan_stream_chunks(fh, rel, rules, allowlist, budget)
+                        scan_nested_fileobj(
+                            fh, rel, rules, allowlist, budget=budget, strict=True
+                        )
                     )
                     continue
                 data = fh.read(MAX_BUFFERED_MEMBER + 1)
@@ -97,7 +106,6 @@ def _scan_zip_archive(
                 raise ArchiveSafetyError(
                     f"declared/actual size mismatch for {info.filename}"
                 )
-            budget.add_member(rel)
             findings.extend(
                 scan_nested_bytes(
                     data, rel, rules, allowlist, budget=budget, strict=True
@@ -133,8 +141,11 @@ def _scan_tar_archive(
             size = int(member.size)
             budget.add_member(rel)
             if size > MAX_BUFFERED_MEMBER:
+                # Stream/spool and still recurse into nested gzip/tar/zip.
                 findings.extend(
-                    scan_stream_chunks(extracted, rel, rules, allowlist, budget)
+                    scan_nested_fileobj(
+                        extracted, rel, rules, allowlist, budget=budget, strict=True
+                    )
                 )
                 continue
             data = extracted.read(MAX_BUFFERED_MEMBER + 1)

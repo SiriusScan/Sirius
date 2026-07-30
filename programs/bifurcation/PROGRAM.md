@@ -258,8 +258,8 @@ Cycle 6 evidence:
 current_task_id: bifurcation.s3.t008
 cycle: 9
 attempt: 1
-status: active
-next_action: Implement credential-free Community-independence and public leakage checks.
+status: human_gate
+next_action: Push feature/bifurcation-cycle-8 and open a PR so Actions can confirm public-release-scan (six-image + compose smoke); do not push from the agent.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -284,7 +284,7 @@ Tasks:
 - [x] Record the approved private branch/tag protection and secret-scanning waiver
 - [x] Verify anonymous denial and record governance evidence
 - [x] Prove private GHCR publishing, SBOM, keyless signing, and Community verification
-- [ ] Complete Phase 2 and record private repository governance evidence
+- [x] Complete Phase 2 and record private repository governance evidence
 
 Task 2.1 result:
 
@@ -395,7 +395,7 @@ Cycle 8 evidence:
 - Decision: task 2.2 is accepted; continue to task 2.3. The GitHub Free governance
   waiver and public Rekor disclosure of private image digests remain recorded risks.
 
-Current task:
+Task 2.3 result:
 
 - `task_id`: `bifurcation.s3.t008`
 - `stage`: `3 Private Supply Chain`
@@ -413,12 +413,34 @@ Current task:
   - A seeded private canary is rejected in a dry-run fixture while the current public
     `v1.1.0` artifacts pass.
 - `validation`:
-  - Repository-native shell, fixture, and workflow contract tests
-  - Credential-free local source/config scan
-  - Public `v1.1.0` source, SBOM, and image scan
-  - GitHub Actions workflow YAML parsing and least-permission assertions
-- `next_action`: Implement and independently review task 2.3 locally, then stop at the
-  public branch push/pull-request human gate.
+  - `bash scripts/test-community-independence.sh` and `bash scripts/test-core-manifest.sh` passed
+  - Live anonymous `v1.1.0` source archive + 12 SBOM scan + core-manifest validation passed
+  - Six-image layer scan / compose smoke deferred to CI (local Docker daemon unavailable)
+- `verdict`: `accepted_pending_ci`
+- `loop_decision`: `human_gate`
+- `next_action`: Human pushes the feature branch / opens PR; Actions confirms
+  `public-release-scan`.
+
+Cycle 9 evidence:
+
+- Added `.github/workflows/community-independence.yml` with full-SHA pins,
+  `contents: read` only, `persist-credentials: false`, emptied tokens during scans,
+  separate `source-contract` (PR/push) and `public-release-scan`
+  (main/schedule/workflow_dispatch) jobs targeting immutable `v1.1.0` (no mutable
+  latest path).
+- Added `scripts/community-independence/` path-aware fail-closed scanner (source,
+  safe archives, SBOMs, anonymous digest image inspect without container run, public
+  compose independence) and `scripts/test-community-independence.sh` wired into
+  `scripts/test-core-manifest.sh`.
+- Governance allowlist is prefix-scoped to docs/tasks/program records; runtime,
+  Docker/Compose, build scripts, and workflows are never allowlisted.
+- Canaries are synthetic runtime fixtures; public CI must never read a real private
+  repo to plant or verify leakage markers.
+- Docs: `documentation/dev/deployment/README.community-independence.md` (+ index /
+  workflows index updates).
+- Evaluation: `programs/bifurcation/evaluations/bifurcation.s3.t008.md`.
+- Decision: local implementation accepted pending CI confirmation; stop at public
+  push/PR human gate.
 
 ## Stage 4: Public Contracts
 

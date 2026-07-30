@@ -70,6 +70,7 @@ The Sirius CI/CD pipeline is implemented in `.github/workflows/ci.yml` and follo
 - [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) `core-manifest-tests` — PR/main: `bash scripts/test-core-manifest.sh`. `core-build-inventory` — **default-branch push only** (never `repository_dispatch`): write-once `sha-<commit>` snapshot + Compose smoke + inventory artifact. Depends on `core-manifest-tests`.
 - [`.github/workflows/publish-release-image-tags.yml`](../../../.github/workflows/publish-release-image-tags.yml) — **gated Community release train** (manual). Fail-closed trust root: `SiriusScan/Sirius` and `workflow_dispatch` on `refs/heads/main` only. Requires an existing Git tag (`vMAJOR.MINOR.PATCH`) and fails early if a non-draft release exists. Resolves inventory from successful default-branch push CI runs, write-once retags from `@sha256` digests, smokes, **platform-scoped Syft CycloneDX SBOMs (12) + Cosign keyless sign/verify on inventory index digests**, draft→upload manifest+SBOMs→revalidate→final Cosign verify→publish, then dispatches verify. Concurrency keyed by target tag (`cancel-in-progress: false`). Attest job: `id-token:write` + `packages:write`. Final publish job: `contents:write` + `actions:write` + `packages:read` (no `id-token`).
 - [`.github/workflows/verify-ghcr-release-tag.yml`](../../../.github/workflows/verify-ghcr-release-tag.yml) — anonymous GHCR checks always; `core-manifest.yaml` digest verification required for **v1.1.0+** (pre-v1.1.0 legacy anonymous-only). Tooling from current checkout; inputs passed via step `env` only.
+- [`.github/workflows/community-independence.yml`](../../../.github/workflows/community-independence.yml) — credential-free Community independence / private-leakage checks. PR/push: contract tests + source scan + public compose independence (`contents: read`, full-SHA pins, `persist-credentials: false`). Main/schedule/dispatch: anonymous public `v1.1.0` source archive + 12 SBOMs + six digest image scans (no container run) + public Compose smoke. See [README.community-independence.md](README.community-independence.md).
 
 **Release scripts:**
 
@@ -81,7 +82,8 @@ The Sirius CI/CD pipeline is implemented in `.github/workflows/ci.yml` and follo
 - `scripts/install-release-attest-tools.sh` — checksum-pinned Syft and/or Cosign install (`--tools all|syft|cosign`).
 - `scripts/generate-release-sboms.sh` / `scripts/assert-release-sbom-assets.sh` — 12 platform-scoped CycloneDX SBOMs from inventory OCI indexes (`linux/amd64` + `linux/arm64` child digests); fail-closed asset checks.
 - `scripts/sign-verify-release-images.sh` — Cosign keyless sign/verify of inventory index digests (canonical GitHub Actions OIDC → Fulcio).
-- `scripts/test-core-manifest.sh` — local fixture tests (no GHCR); includes `test-release-signing-contract.sh`; enforced in CI.
+- `scripts/test-core-manifest.sh` — local fixture tests (no GHCR); includes `test-release-signing-contract.sh` and `test-community-independence.sh`; enforced in CI.
+- `scripts/community-independence/` / `scripts/test-community-independence.sh` — standing private-leakage scanner + contract/canary tests (no private credentials).
 
 **Cosign trust / verification (Community releases):**
 

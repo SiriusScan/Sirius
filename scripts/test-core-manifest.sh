@@ -30,6 +30,8 @@ bash -n scripts/generate-release-sboms.sh
 bash -n scripts/sign-verify-release-images.sh
 bash -n scripts/assert-release-sbom-assets.sh
 bash -n scripts/test-release-signing-contract.sh
+bash -n scripts/test-community-independence.sh
+bash -n scripts/community-independence/scan.sh
 bash -n scripts/test-core-manifest.sh
 bash -n "${MOCK_INSPECT}"
 pass "shell syntax"
@@ -239,6 +241,10 @@ pass "go test"
 echo "==> release SBOM + Cosign signing contract"
 bash scripts/test-release-signing-contract.sh
 pass "release signing contract"
+
+echo "==> community independence / private-leakage contract"
+bash scripts/test-community-independence.sh
+pass "community independence contract"
 
 echo
 echo "All core-manifest local tests passed."

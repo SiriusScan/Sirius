@@ -1,6 +1,6 @@
 ---
 goal: "Bifurcate Sirius into a canonical, independently runnable public Community core and a private, commercially licensed Pro extension layer that consumes immutable public releases without private-to-public source export."
-status: "planned"
+status: "in_progress"
 acceptance_criteria:
   - "Community builds, tests, scans, upgrades, and runs without private credentials or Pro artifacts."
   - "Every public release publishes six digest-addressed images, a validated core manifest, SBOMs, and verifiable signatures."
@@ -130,7 +130,7 @@ Owned paths:
 
 Tasks:
 
-- [ ] Validate and review the task 1.4 release-train implementation
+- [x] Validate and review the task 1.4 release-train implementation
 - [ ] Cross the human gate to push, review, and merge the feature branch
 - [ ] Confirm main CI produced the exact-SHA core build inventory
 - [ ] Cross the human gate to tag and publish `v1.1.0`
@@ -140,22 +140,30 @@ Tasks:
 
 Current task:
 
-- `task_id`: `bifurcation.s2.t001`
+- `task_id`: `bifurcation.s2.t002`
 - `stage`: `2 Core Release Train`
-- `cycle`: `0`
+- `cycle`: `1`
 - `attempt`: `1`
 - `assigned_role`: `parent`
 - `criteria`:
-  - Release-train changes pass `bash scripts/test-core-manifest.sh`.
-  - The feature branch is reviewable without staging unrelated
+  - The feature branch is pushed without unrelated
     `scripts/bootstrap-windows.ps1`.
-  - No tag or release is cut until the implementation is merged to `main` and a
-    successful exact-SHA main inventory exists.
+  - A pull request targets `main` and describes the immutable-provenance release gate.
+  - Required review and CI checks pass before merge.
 - `validation`:
-  - `bash scripts/test-core-manifest.sh`
-  - `git diff main...HEAD --check`
-- `next_action`: Validate the committed task 1.4 changes and prepare the human-gated
-  pull-request handoff.
+  - `git status --short --branch`
+  - `gh pr checks --watch`
+- `next_action`: After human approval, push `feature/pro-bifurcation` and open the
+  pull request; do not merge or publish a release without a separate gate.
+
+Cycle 1 evidence:
+
+- `bash scripts/test-core-manifest.sh`: passed all syntax, generation, strict
+  validation, digest-drift, determinism, fixture, and Go tests.
+- `git diff main...HEAD --check`: passed.
+- Unrelated `scripts/bootstrap-windows.ps1` remains untracked and excluded.
+- Decision: task `bifurcation.s2.t001` accepted; stopped at the recorded external
+  push/pull-request human gate.
 
 ## Stage 3: Private Supply Chain
 

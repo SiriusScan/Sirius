@@ -53,5 +53,5 @@ Community currently publishes primarily via mutable `latest` tags, with sparse S
 ## Implementation Notes
 
 - Engine pin policy in `README.engine-component-pinning.md` is the model for Pro→Community pins.
-- Public CI should generate SBOMs and Cosign signatures as release assets (Phase 1 follow-on).
+- Public release train (`publish-release-image-tags.yml`) generates 12 platform-scoped Syft CycloneDX SBOMs (`linux/amd64` + `linux/arm64`) and Cosign keyless signatures (canonical GitHub Actions OIDC / Fulcio identity on `SiriusScan/Sirius@refs/heads/main`) for all six inventory index digests before publishing a GitHub Release. See [README.workflows.md](../deployment/README.workflows.md) for the verification identity policy.
 - Nightly Pro compatibility runs against public `main` provide early breakage signal.

@@ -93,7 +93,7 @@
         "id": "1.4",
         "title": "Establish release train and digest manifest",
         "description": "Cut v1.1.0 and emit core-manifest.yaml with image digests, component pins, and schema version per release.",
-        "details": "Tag v1.1.0 from hardened HEAD; make publish-release-image-tags.yml + verify-ghcr-release-tag.yml a gated release workflow (release blocked unless all six images retag and verify); generate core-manifest.yaml as a release asset.",
+        "details": "Tag v1.1.0 from hardened HEAD; make publish-release-image-tags.yml + verify-ghcr-release-tag.yml a gated release workflow (release blocked unless all six images retag and verify); generate core-manifest.yaml as a release asset. Publishing the v1.1.0 GitHub Release also requires the task 1.5 SBOM+Cosign fail-closed gate in publish-release-image-tags.yml (do not mark 1.4 done until a real release run succeeds).",
         "status": "in_progress",
         "priority": "high",
         "dependencies": ["1.2", "1.3"],
@@ -103,11 +103,11 @@
         "id": "1.5",
         "title": "SBOM generation and image signing in public CI",
         "description": "Add Syft SBOMs and Cosign signatures for all six public images.",
-        "details": "Extend ci.yml and the release workflow; publish SBOMs as release assets; sign multi-arch manifests; pin GitHub Action versions.",
-        "status": "pending",
-        "priority": "medium",
-        "dependencies": ["1.4"],
-        "testStrategy": "cosign verify succeeds against published images; SBOM asset present for each image in the release."
+        "details": "REQUIRED BEFORE v1.1.0 GitHub Release publication (parallel with 1.4 release-train wiring; no dependency cycle). Implement in publish-release-image-tags.yml after write-once retags and public smoke: resolve linux/amd64 + linux/arm64 child digests from each inventory OCI index and generate 12 Syft CycloneDX assets (sbom-<component>-<tag>-linux-amd64|arm64.cdx.json); Cosign keyless sign+verify all six inventory index digests via GitHub Actions OIDC with canonical identity https://github.com/SiriusScan/Sirius/.github/workflows/publish-release-image-tags.yml@refs/heads/main (workflow fail-closed to SiriusScan/Sirius@refs/heads/main); re-verify Cosign in publish-github-release before draft=false (packages:read, no id-token). Pin Syft/Cosign via checksummed install script. Contract tests in scripts/test-release-signing-contract.sh. Do not mark done until a real release run proves signatures and the 12 SBOM assets.",
+        "status": "in_progress",
+        "priority": "high",
+        "dependencies": ["1.2", "1.3"],
+        "testStrategy": "bash scripts/test-core-manifest.sh (includes signing contract); on a real release: cosign verify succeeds for all six inventory digest refs with the canonical OIDC identity; twelve platform-scoped CycloneDX SBOM assets present on the GitHub Release."
       }
     ]
   },

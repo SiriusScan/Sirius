@@ -1,6 +1,6 @@
 ---
 goal: "Bifurcate Sirius into a canonical, independently runnable public Community core and a private, commercially licensed Pro extension layer that consumes immutable public releases without private-to-public source export."
-status: "in_progress"
+status: "waiting"
 acceptance_criteria:
   - "Community builds, tests, scans, upgrades, and runs without private credentials or Pro artifacts."
   - "Every public release publishes six digest-addressed images, a validated core manifest, SBOMs, and verifiable signatures."
@@ -131,8 +131,8 @@ Owned paths:
 Tasks:
 
 - [x] Validate and review the task 1.4 release-train implementation
-- [ ] Cross the human gate to push, review, and merge the feature branch
-- [ ] Confirm main CI produced the exact-SHA core build inventory
+- [x] Cross the human gate to push, review, and merge the feature branch
+- [x] Confirm main CI produced the exact-SHA core build inventory
 - [ ] Cross the human gate to tag and publish `v1.1.0`
 - [ ] Verify all six images and `core-manifest.yaml`; mark task 1.4 done
 - [ ] Implement and verify task 1.5 SBOM generation and Cosign signing
@@ -140,21 +140,28 @@ Tasks:
 
 Current task:
 
-- `task_id`: `bifurcation.s2.t002`
+- `task_id`: `bifurcation.s2.t004`
 - `stage`: `2 Core Release Train`
-- `cycle`: `3`
+- `cycle`: `5`
 - `attempt`: `1`
-- `assigned_role`: `parent`
+- `assigned_role`: `grok`
 - `criteria`:
-  - The feature branch is pushed without unrelated
-    `scripts/bootstrap-windows.ps1`.
-  - A pull request targets `main` and describes the immutable-provenance release gate.
-  - Required review and CI checks pass before merge.
+  - The release workflow generates platform-scoped Syft SBOM assets for each of the six
+    public image indexes using exact linux/amd64 and linux/arm64 child digests.
+  - The six release image manifests are signed with Cosign and admit verification.
+  - Release publication fails closed if SBOM generation, signing, or verification
+    fails.
+  - No Git tag, GitHub Release, package tag, or external deployment is created during
+    implementation and validation.
 - `validation`:
-  - `git status --short --branch`
-  - `gh pr checks --watch`
-- `next_action`: Monitor pull request checks and reviews; stop for separate approval
-  before merging.
+  - `bash scripts/test-core-manifest.sh`
+  - Workflow YAML parsing and pinned-tool checksum validation
+  - Focused SBOM/signing release-contract tests
+- `verdict`: `accepted`
+- `loop_decision`: `human_gate`
+- `next_action`: Obtain explicit approval to push the cycle-5 branch, open and merge
+  its pull request, and confirm main CI before returning to the separate `v1.1.0`
+  tag-and-publish human gate.
 
 Cycle 1 evidence:
 
@@ -193,6 +200,50 @@ Cycle 3 evidence:
   failed only because the local PostgreSQL credentials were unavailable.
 - Decision: push the scoped fix, rerun PR CI, then merge only if all required checks
   pass.
+
+Cycle 4 evidence:
+
+- Pull request 132 merged as
+  `2ed5a1f41298f54a16163aaa531a53da8200fa0c`; all review threads were resolved.
+- Main Actions run 30557457126 succeeded on attempt 2 after retrying a transient Docker
+  Hub connection reset.
+- `Core Build Inventory` and `Public Stack Contract` succeeded, and the non-expired
+  `core-build-inventory` artifact is present.
+- Remote tag `refs/tags/v1.1.0` is absent; no release or customer-facing action was
+  taken.
+- Evaluation:
+  `programs/bifurcation/evaluations/bifurcation.s2.t003.md`.
+- Decision: task `bifurcation.s2.t003` accepted; program is waiting at the explicit
+  `v1.1.0` tag-and-publish human gate.
+
+Cycle 5 evidence:
+
+- User selected SBOM generation and image signing before publishing `v1.1.0`, resolving
+  the task-order conflict in favor of the program acceptance criteria.
+- Commits `a8460de25` and `9e336ef39` add checksummed Syft/Cosign tooling, 12
+  platform-scoped CycloneDX assets, exact-digest keyless signing, canonical
+  `SiriusScan/Sirius@main` verification, and a final pre-publish signature check.
+- `bash scripts/test-core-manifest.sh`, workflow YAML parsing, pinned upstream tool
+  checksum verification, and `git diff --check` passed.
+- The first independent review found an over-broad signing identity and incomplete
+  multi-architecture SBOM coverage. Both were corrected; the second review reported no
+  findings.
+- Evaluation:
+  `programs/bifurcation/evaluations/bifurcation.s2.t004.md`.
+- Decision: task `bifurcation.s2.t004` accepted locally; program waits before pushing
+  the branch or opening a pull request.
+
+## Current loop state
+
+```yaml
+current_task_id: bifurcation.s2.t004
+cycle: 5
+attempt: 1
+status: waiting
+verdict: accepted
+loop_decision: human_gate
+next_action: Obtain approval to push, review, and merge the cycle-5 release gate changes.
+```
 
 ## Stage 3: Private Supply Chain
 

@@ -1,6 +1,6 @@
 ---
 goal: "Bifurcate Sirius into a canonical, independently runnable public Community core and a private, commercially licensed Pro extension layer that consumes immutable public releases without private-to-public source export."
-status: "waiting"
+status: "active"
 acceptance_criteria:
   - "Community builds, tests, scans, upgrades, and runs without private credentials or Pro artifacts."
   - "Every public release publishes six digest-addressed images, a validated core manifest, SBOMs, and verifiable signatures."
@@ -255,13 +255,11 @@ Cycle 6 evidence:
 ## Current loop state
 
 ```yaml
-current_task_id: bifurcation.s3.t006
-cycle: 7
+current_task_id: bifurcation.s3.t007
+cycle: 8
 attempt: 1
-status: waiting
-verdict: accepted
-loop_decision: human_gate
-next_action: Obtain approval before creating private GHCR packages or signing identities.
+status: active
+next_action: Build and prove the private GHCR and keyless signing template.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -282,9 +280,10 @@ Tasks:
 - [x] Establish access teams and document the approved GitHub Free access waiver
 - [x] Record the approved private branch/tag protection and secret-scanning waiver
 - [x] Verify anonymous denial and record governance evidence
+- [ ] Prove private GHCR publishing, SBOM, keyless signing, and Community verification
 - [ ] Complete Phase 2 and record private repository governance evidence
 
-Current task:
+Task 2.1 result:
 
 - `task_id`: `bifurcation.s3.t006`
 - `stage`: `3 Private Supply Chain`
@@ -338,6 +337,31 @@ Cycle 7 evidence:
   unavailable, and all nine organization members retain inherited write access.
 - Decision: task `bifurcation.s3.t006` is accepted under that explicit waiver. The
   program stops before task 2.2 creates a package namespace or signing identity.
+
+Current task:
+
+- `task_id`: `bifurcation.s3.t007`
+- `stage`: `3 Private Supply Chain`
+- `cycle`: `8`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `criteria`:
+  - A private GHCR bootstrap image is built once, addressed by digest, and cannot be
+    pulled anonymously.
+  - The image has a generated CycloneDX SBOM and a GitHub OIDC keyless Cosign signature
+    that verifies against the canonical private workflow identity.
+  - CI verifies all six Community `v1.1.0` image signatures and digests from
+    `core.lock.yaml` before building.
+  - The repository ships a reusable, least-permission, full-SHA-pinned Pro image
+    pipeline template without long-lived credentials or signing keys.
+- `validation`:
+  - Repository-native boundary and supply-chain contract tests
+  - Successful private GitHub Actions publish run
+  - `cosign verify` and SBOM validation against the published digest
+  - Authenticated package API inspection and anonymous pull denial
+- `next_action`: Implement and review the private supply-chain template in
+  `OpenSecurity-Infosec/sirius-release`, then run it once to create and verify the
+  approved bootstrap package.
 
 ## Stage 4: Public Contracts
 

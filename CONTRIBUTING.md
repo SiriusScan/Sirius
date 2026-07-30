@@ -115,6 +115,16 @@ For major features or architectural changes:
 2. Align with maintainers on scope and sequencing
 3. Implement in incremental PRs
 
+## Developer Certificate of Origin (DCO)
+
+Pending final counsel confirmation, contributors should sign off commits with a Developer Certificate of Origin:
+
+```bash
+git commit -s -m "feat: your change"
+```
+
+This adds a `Signed-off-by` trailer affirming you have the right to submit the contribution under the project license. See [`documentation/dev/ABOUT.opensecurity-sirius-relationship.md`](./documentation/dev/ABOUT.opensecurity-sirius-relationship.md) for the OpenSecurity/SiriusScan relationship and public-first commitment.
+
 ## License
 
 By contributing, you agree that your contributions are licensed under the project license in [`LICENSE`](./LICENSE).

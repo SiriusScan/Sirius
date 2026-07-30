@@ -270,14 +270,46 @@ Expected result: the script identifies the missing tag explicitly. Re-run the pu
 
 ### Maintainer: GHCR distribution checklist (public operators)
 
-A Git tag and GitHub Release do **not** create container tags on GHCR. Third parties need **all six** images (`sirius-ui`, `sirius-api`, `sirius-engine`, `sirius-postgres`, `sirius-rabbitmq`, `sirius-valkey`) published under the **same** semver tag, and each package must be **public** for anonymous `docker pull`.
+A Git tag alone does **not** create container tags on GHCR. Third parties need **all six** images (`sirius-ui`, `sirius-api`, `sirius-engine`, `sirius-postgres`, `sirius-rabbitmq`, `sirius-valkey`) published under the **same** semver tag, each package **public** for anonymous `docker pull`, plus a release `core-manifest.yaml` with digest pins.
 
-1. **Package visibility (per package)** — In [SiriusScan org packages](https://github.com/orgs/SiriusScan/packages), open each container image, set **Package settings** to **Public**, and link the package to this repository if needed. Partial visibility explains “works when logged in” vs failures for everyone else (see [issue #119](https://github.com/SiriusScan/Sirius/issues/119)).
-2. **Publish semver tags** — Run [Publish Release Image Tags](https://github.com/SiriusScan/Sirius/actions/workflows/publish-release-image-tags.yml) with `source_tag` = the tag that exists on GHCR for all six (usually `latest`) and `target_tag` = the release (e.g. `v1.0.0`). Confirm the workflow run succeeds end-to-end.
-3. **Verify anonymously** — From a machine **not** logged in to `ghcr.io`:
+#### Gated Community release train
+
+Provenance is commit-scoped. Default-branch **push** CI (not `repository_dispatch`) snapshots `latest` digests to write-once `sha-<commit>` tags, smoke-tests that tag, and uploads a `core-build-inventory` artifact. Releases retag from those digests—not from mutable tags.
+
+1. **Land the release commit on `main`** — wait for CI `core-manifest-tests` + `core-build-inventory` to succeed for that exact SHA.
+2. **Create and push the Git tag** — `target_tag` must already exist (`vMAJOR.MINOR.PATCH`) and point at that commit. The publish workflow never creates Git tags.
+3. **Package visibility (per package)** — In [SiriusScan org packages](https://github.com/orgs/SiriusScan/packages), set each container image to **Public** (see [issue #119](https://github.com/SiriusScan/Sirius/issues/119)).
+4. **Run the gated publish workflow** — [Publish Release Image Tags](https://github.com/SiriusScan/Sirius/actions/workflows/publish-release-image-tags.yml) with `target_tag` = the existing Git tag (e.g. `v1.1.0`). Gates, in order:
+   - SemVer + existing Git tag → full commit; fail if a non-draft GitHub Release already exists
+   - Resolve an unexpired CI `core-build-inventory` from successful default-branch **push** runs for that commit (conflict-checked)
+   - Recheck unpublished; write-once retag all six images from inventory `@sha256` refs (equal digest → skip; different → fail); anonymous access
+   - Public compose smoke on the release tag
+   - Generate `core-manifest.yaml` from inventory + Dockerfile pins at the tagged commit
+   - Create/update a **draft** GitHub Release, upload the asset, re-download/validate, then publish. Already-published releases fail closed.
+   - Explicitly `workflow_dispatch` [verify-ghcr-release-tag.yml](.github/workflows/verify-ghcr-release-tag.yml) for the tag (`GITHUB_TOKEN` does not chain `release.published`)
+5. **Verify anonymously + manifest digests** — From a machine **not** logged in to `ghcr.io`:
 
 ```bash
-bash scripts/verify-ghcr-public-access.sh v1.0.0
+bash scripts/verify-ghcr-public-access.sh v1.1.0
+gh release download v1.1.0 --pattern core-manifest.yaml
+bash scripts/validate-core-manifest.sh --expect-tag v1.1.0 --verify-digests core-manifest.yaml
 ```
 
-CI runs the same check on every published release and weekly via [.github/workflows/verify-ghcr-release-tag.yml](.github/workflows/verify-ghcr-release-tag.yml).
+CI ([verify-ghcr-release-tag.yml](.github/workflows/verify-ghcr-release-tag.yml)): anonymous checks always; `core-manifest.yaml` required for **v1.1.0+**. Pre-v1.1.0 tags are legacy anonymous-only so weekly checks do not break before the first manifest-bearing release.
+
+#### `core-manifest.yaml` contract
+
+JSON-compatible YAML 1.2 (pretty JSON). Validated by a strict Go stdlib parser (`scripts/core-manifest`) that rejects duplicate keys, unknown fields, and wrong nesting/types.
+
+| Field | Meaning |
+| --- | --- |
+| `metadata.release_tag` / `metadata.source.*` | SemVer tag, source repo, full commit, tag |
+| `schema.*` | From enforced `scripts/core-manifest/schema_map.json` keyed by `GO_API_COMMIT_SHA` |
+| `component_pins` | All eight engine Dockerfile ARG defaults at the release commit |
+| `images.*.digest` / `images.*.ref` | Digests from CI inventory (`ghcr.io/siriusscan/<image>@sha256:...`) |
+
+When bumping `GO_API_COMMIT_SHA`, update `schema_map.json` in the same change or release generation fails.
+
+```bash
+bash scripts/test-core-manifest.sh
+```

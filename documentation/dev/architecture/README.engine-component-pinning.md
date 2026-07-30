@@ -14,7 +14,7 @@ related_docs:
 
 # Engine Component Pinning
 
-`sirius-engine` is built from six external SiriusScan repositories that
+`sirius-engine` is built from eight external SiriusScan repositories that
 are cloned and compiled inside the engine image. To make every build
 reproducible, each repository is pinned to a single commit SHA (or, for
 `go-api`, a tag). This document describes where those pins live, the
@@ -44,6 +44,8 @@ mechanically (see `.github/workflows/check-pin-consistency.yml`).
 | `SIRIUS_NSE_COMMIT_SHA` | `SiriusScan/sirius-nse` | NSE script repo bundled with the scanner | Full SHA. |
 | `APP_AGENT_COMMIT_SHA` | `SiriusScan/app-agent` | Agent server (`/app-agent-src/server`) | Full SHA. |
 | `PINGPP_COMMIT_SHA` | `SiriusScan/pingpp` | Fingerprinting library linked into `app-scanner` | Full SHA. |
+| `APP_SYSTEM_MONITOR_COMMIT_SHA` | `SiriusScan/app-system-monitor` | `system-monitor` sidecar binary | Full SHA. Built in `utility-go-binaries` stage. |
+| `APP_ADMINISTRATOR_COMMIT_SHA` | `SiriusScan/app-administrator` | `administrator` binary | Full SHA. Built in `utility-go-binaries` stage. |
 
 ## Where pins live
 

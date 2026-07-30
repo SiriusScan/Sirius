@@ -53,7 +53,8 @@ make test-health   # Health checks only
 make test-integration  # Integration tests only
 make test-runtime-contract  # SIRIUS_API_KEY parity, engine preflight script, API HTTP contract
 make test-public-ghcr  # anonymous GHCR access for the compose-rendered IMAGE_TAG
-make test-release-gates  # test-build + test-integration + test-runtime-contract (release bar)
+make test-release-gates  # test-build + test-integration + test-runtime-contract + test-core-manifest (release bar)
+make test-core-manifest  # core-manifest generate/validate fixture tests (no GHCR)
 
 # Test specific environment
 make test-dev      # Development environment

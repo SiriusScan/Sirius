@@ -13,14 +13,21 @@ FROM golang:1.24-alpine AS utility-go-binaries
 
 RUN apk add --no-cache git ca-certificates tzdata
 
+# Pin policy (utility binaries): ARG defaults MUST match ci.yml build-args.
+# Enforced by .github/workflows/check-pin-consistency.yml.
+ARG APP_SYSTEM_MONITOR_COMMIT_SHA=d4780cff46c98d6d030d03a4c73a40a78c7895ae
+ARG APP_ADMINISTRATOR_COMMIT_SHA=142ac93b620ac8a52a033f312fc2cb86c1f2979d
+
 RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
     cd /tmp/system-monitor && \
+    git checkout ${APP_SYSTEM_MONITOR_COMMIT_SHA} && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/system-monitor main.go && \
     rm -rf /tmp/system-monitor
 
 RUN git clone https://github.com/SiriusScan/app-administrator.git /tmp/administrator && \
     cd /tmp/administrator && \
+    git checkout ${APP_ADMINISTRATOR_COMMIT_SHA} && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/administrator main.go && \
     rm -rf /tmp/administrator
@@ -163,7 +170,7 @@ RUN apt-get update && \
 #     CI fallback, and SHA-AUDIT-2026-04.md (or its successor) in one PR.
 #
 # Audit doc: documentation/dev-notes/SHA-AUDIT-2026-04.md
-ARG GO_API_COMMIT_SHA=v0.0.18
+ARG GO_API_COMMIT_SHA=c7c42d4444c8637140ab0e29743184fface5b12f
 ARG APP_SCANNER_COMMIT_SHA=a031480cc7e0dc4a1cb09bdcfafedd89fbc61dfd
 ARG APP_TERMINAL_COMMIT_SHA=5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1
 ARG SIRIUS_NSE_COMMIT_SHA=a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9

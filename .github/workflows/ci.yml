@@ -15,6 +15,12 @@ on:
   repository_dispatch:
     types: [submodule-update]
 
+# Prevent overlapping main/dispatch runs from racing on mutable `latest` digests
+# while a core-build-inventory snapshot is being produced.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' || github.event_name == 'pull_request' }}
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAMESPACE: siriusscan
@@ -39,42 +45,30 @@ jobs:
 
       - name: Determine Changed Files
         id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_SUBMODULE: ${{ github.event.client_payload.submodule }}
+          DISPATCH_COMMIT_SHA: ${{ github.event.client_payload.commit_sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.event.after }}
         run: |
-          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            SUBMODULE="${{ github.event.client_payload.submodule }}"
-            echo "submodule_changes=true" >> $GITHUB_OUTPUT
-            echo "Submodule update detected: $SUBMODULE"
-
-            REPO_NAME=$(echo $SUBMODULE | awk -F'/' '{print $NF}')
-
-            case $REPO_NAME in
-              "go-api")
-                echo "Affects both sirius-api and sirius-engine"
-                echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
-                echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
-                ;;
-              "app-scanner"|"app-terminal"|"sirius-nse"|"app-agent")
-                echo "Affects sirius-engine"
-                echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
-                ;;
-              *)
-                echo "Unknown submodule, rebuilding everything"
-                echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
-                echo "sirius_api_changes=true" >> $GITHUB_OUTPUT
-                echo "sirius_engine_changes=true" >> $GITHUB_OUTPUT
-                echo "sirius_infra_changes=true" >> $GITHUB_OUTPUT
-                ;;
-            esac
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "repository_dispatch" ]; then
+            echo "submodule_changes=true" >> "$GITHUB_OUTPUT"
+            SUBMODULE="${DISPATCH_SUBMODULE}" COMMIT_SHA="${DISPATCH_COMMIT_SHA}" EMIT_CHANGES=1 \
+              bash scripts/ci-dispatch-allowlist.sh
           else
-            if [ "${{ github.event_name }}" == "pull_request" ]; then
-              BASE_SHA=${{ github.event.pull_request.base.sha }}
-              HEAD_SHA=${{ github.event.pull_request.head.sha }}
+            if [ "${EVENT_NAME}" = "pull_request" ]; then
+              BASE_SHA="${PR_BASE_SHA}"
+              HEAD_SHA="${PR_HEAD_SHA}"
             else
-              BASE_SHA=${{ github.event.before }}
-              HEAD_SHA=${{ github.event.after }}
+              BASE_SHA="${PUSH_BEFORE}"
+              HEAD_SHA="${PUSH_AFTER}"
             fi
 
-            git diff --name-only $BASE_SHA $HEAD_SHA > changed_files.txt
+            git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" > changed_files.txt
 
             if grep -q "sirius-ui/" changed_files.txt; then
               echo "UI changes detected"
@@ -204,7 +198,7 @@ jobs:
   # Merge arch-specific UI images into a single multi-arch manifest
   merge-ui:
     name: "Merge UI Manifest"
-    needs: build-ui
+    needs: [detect-changes, build-ui]
     if: needs.detect-changes.outputs.sirius_ui_changes == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:
@@ -266,28 +260,31 @@ jobs:
 
       - name: Generate image tag
         id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GIT_REF: ${{ github.ref }}
+          PR_NUMBER: ${{ github.event.number }}
+          DISPATCH_SUBMODULE: ${{ github.event.client_payload.submodule }}
+          DISPATCH_COMMIT_SHA: ${{ github.event.client_payload.commit_sha }}
         run: |
-          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            SUBMODULE="${{ github.event.client_payload.submodule }}"
-            REPO_NAME=$(echo $SUBMODULE | awk -F'/' '{print $NF}')
-            COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
-            if [ "$REPO_NAME" == "go-api" ]; then
-              echo "GO_API_COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
-            fi
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "repository_dispatch" ]; then
+            SUBMODULE="${DISPATCH_SUBMODULE}" COMMIT_SHA="${DISPATCH_COMMIT_SHA}" APPLY_PIN=1 \
+              bash scripts/ci-dispatch-allowlist.sh
           fi
 
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            TAG="pr-${{ github.event.number }}"
-          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            TAG="pr-${PR_NUMBER}"
+          elif [ "${EVENT_NAME}" = "push" ] && [ "${GIT_REF}" = "refs/heads/main" ]; then
             TAG="latest"
-            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            echo "also_tag_beta=true" >> "$GITHUB_OUTPUT"
+          elif [ "${EVENT_NAME}" = "repository_dispatch" ]; then
             TAG="latest"
-            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+            echo "also_tag_beta=true" >> "$GITHUB_OUTPUT"
           else
             TAG="dev"
           fi
-          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -327,14 +324,15 @@ jobs:
           # Fallback SHAs MUST match sirius-engine/Dockerfile ARG defaults.
           # Enforced by .github/workflows/check-pin-consistency.yml.
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.18' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'c7c42d4444c8637140ab0e29743184fface5b12f' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
   # Merge arch-specific API images into a single multi-arch manifest
   merge-api:
     name: "Merge API Manifest"
-    needs: build-api
+    needs: [detect-changes, build-api]
     if: needs.detect-changes.outputs.sirius_api_changes == 'true' && github.event_name != 'pull_request'
+
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
@@ -395,27 +393,31 @@ jobs:
 
       - name: Generate image tag and submodule SHAs
         id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GIT_REF: ${{ github.ref }}
+          PR_NUMBER: ${{ github.event.number }}
+          DISPATCH_SUBMODULE: ${{ github.event.client_payload.submodule }}
+          DISPATCH_COMMIT_SHA: ${{ github.event.client_payload.commit_sha }}
         run: |
-          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
-            SUBMODULE="${{ github.event.client_payload.submodule }}"
-            REPO_NAME=$(echo $SUBMODULE | awk -F'/' '{print $NF}')
-            COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
-            REPO_NAME_UPPER=$(echo $REPO_NAME | tr '-' '_' | tr 'a-z' 'A-Z')
-            echo "${REPO_NAME_UPPER}_COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "repository_dispatch" ]; then
+            SUBMODULE="${DISPATCH_SUBMODULE}" COMMIT_SHA="${DISPATCH_COMMIT_SHA}" APPLY_PIN=1 \
+              bash scripts/ci-dispatch-allowlist.sh
           fi
 
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            TAG="pr-${{ github.event.number }}"
-          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            TAG="pr-${PR_NUMBER}"
+          elif [ "${EVENT_NAME}" = "push" ] && [ "${GIT_REF}" = "refs/heads/main" ]; then
             TAG="latest"
-            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            echo "also_tag_beta=true" >> "$GITHUB_OUTPUT"
+          elif [ "${EVENT_NAME}" = "repository_dispatch" ]; then
             TAG="latest"
-            echo "also_tag_beta=true" >> $GITHUB_OUTPUT
+            echo "also_tag_beta=true" >> "$GITHUB_OUTPUT"
           else
             TAG="dev"
           fi
-          echo "image_tag=$TAG" >> $GITHUB_OUTPUT
+          echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -457,18 +459,20 @@ jobs:
           # Enforced by .github/workflows/check-pin-consistency.yml.
           # See documentation/dev/architecture/README.engine-component-pinning.md.
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'v0.0.18' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'c7c42d4444c8637140ab0e29743184fface5b12f' }}
             APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'a031480cc7e0dc4a1cb09bdcfafedd89fbc61dfd' }}
             APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || '5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1' }}
             SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9' }}
             APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '9311f3805db9cc08740f1b588b6f3bff9191c9dd' }}
             PINGPP_COMMIT_SHA=${{ env.PINGPP_COMMIT_SHA || '9508a16c40a49746feb7cab4b8c1c358246169b0' }}
+            APP_SYSTEM_MONITOR_COMMIT_SHA=${{ env.APP_SYSTEM_MONITOR_COMMIT_SHA || 'd4780cff46c98d6d030d03a4c73a40a78c7895ae' }}
+            APP_ADMINISTRATOR_COMMIT_SHA=${{ env.APP_ADMINISTRATOR_COMMIT_SHA || '142ac93b620ac8a52a033f312fc2cb86c1f2979d' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
   # Merge arch-specific Engine images into a single multi-arch manifest
   merge-engine:
     name: "Merge Engine Manifest"
-    needs: build-engine
+    needs: [detect-changes, build-engine]
     if: needs.detect-changes.outputs.sirius_engine_changes == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     outputs:
@@ -961,8 +965,30 @@ jobs:
         run: |
           docker compose -f docker-compose.test.yml down --volumes --remove-orphans 2>/dev/null || true
 
-  public-stack-contract:
-    name: Public Stack Contract
+  # Local/fixture validation for core-manifest tooling (no GHCR required).
+  core-manifest-tests:
+    name: Core Manifest Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Run core-manifest fixture suite
+        run: |
+          set -euo pipefail
+          bash scripts/test-core-manifest.sh
+
+  # Immutable provenance snapshot for Community releases. Default-branch push only
+  # (never repository_dispatch). Write-once sha-<commit> tags + inventory artifact.
+  core-build-inventory:
+    name: Core Build Inventory
     needs:
       - build-ui
       - build-api
@@ -973,29 +999,81 @@ jobs:
       - merge-engine
       - merge-infra
       - test
+      - core-manifest-tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     if: >
       always() &&
-      (
-        github.event_name == 'repository_dispatch' ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/main')
-      ) &&
-      (needs.build-ui.result == 'success' || needs.build-ui.result == 'skipped') &&
-      (needs.build-api.result == 'success' || needs.build-api.result == 'skipped') &&
-      (needs.build-engine.result == 'success' || needs.build-engine.result == 'skipped') &&
-      (needs.build-infra.result == 'success' || needs.build-infra.result == 'skipped') &&
-      (needs.merge-ui.result == 'success' || needs.merge-ui.result == 'skipped') &&
-      (needs.merge-api.result == 'success' || needs.merge-api.result == 'skipped') &&
-      (needs.merge-engine.result == 'success' || needs.merge-engine.result == 'skipped') &&
-      (needs.merge-infra.result == 'success' || needs.merge-infra.result == 'skipped') &&
-      (needs.test.result == 'success' || needs.test.result == 'skipped')
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.core-manifest-tests.result == 'success' &&
+      needs.build-ui.result == 'success' &&
+      needs.build-api.result == 'success' &&
+      needs.build-engine.result == 'success' &&
+      needs.build-infra.result == 'success' &&
+      needs.merge-ui.result == 'success' &&
+      needs.merge-api.result == 'success' &&
+      needs.merge-engine.result == 'success' &&
+      needs.merge-infra.result == 'success' &&
+      needs.test.result == 'success'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate public latest compose path
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.GHCR_PUSH_USER }}
+          password: ${{ secrets.GHCR_PUSH_TOKEN }}
+
+      - name: Snapshot digests, write-once sha-* tags, smoke, write inventory
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
         run: |
-          bash scripts/validate-public-compose-path.sh latest
+          set -euo pipefail
+          if ! printf '%s' "${SOURCE_COMMIT}" | grep -Eq '^[a-f0-9]{40}$'; then
+            echo "::error::github.sha is not a full 40-char commit"
+            exit 1
+          fi
+          bash scripts/snapshot-core-build-inventory.sh \
+            --commit "${SOURCE_COMMIT}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --source-tag latest \
+            --smoke 1 \
+            --output "${GITHUB_WORKSPACE}/core-build-inventory.json"
+
+      - name: Upload core-build-inventory artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-build-inventory
+          path: core-build-inventory.json
+          if-no-files-found: error
+          retention-days: 90
+
+  # Backward-compatible alias job name for docs/status checks that still refer
+  # to public-stack-contract; provenance smoke is owned by core-build-inventory.
+  public-stack-contract:
+    name: Public Stack Contract
+    needs: [core-build-inventory]
+    runs-on: ubuntu-latest
+    if: >
+      always() &&
+      needs.core-build-inventory.result == 'success'
+    steps:
+      - name: Confirm immutable public stack provenance
+        run: |
+          echo "Public stack contract satisfied via core-build-inventory (sha- snapshot + smoke)."
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Dispatch to sirius-demo when sirius-demo branch is pushed

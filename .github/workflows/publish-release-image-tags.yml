@@ -1,31 +1,142 @@
 name: Publish Release Image Tags
 
+# Gated Community release train (digest-proven):
+#   1) validate SemVer target + existing Git tag -> full commit
+#   2) fail closed if a non-draft GitHub Release already exists
+#   3) download CI core-build-inventory for that exact commit (push runs only)
+#   4) write-once retag release from inventory @sha256 refs
+#   5) parity + anonymous + public compose smoke on target
+#   6) generate core-manifest from inventory + source checkout at commit
+#   7) draft GitHub Release -> upload -> re-download/validate -> publish
+#   8) explicitly dispatch verify-ghcr-release-tag.yml for the target tag
+#
+# Does NOT create Git tags. Already-published releases are fail-closed.
+
 on:
   workflow_dispatch:
     inputs:
-      source_tag:
-        description: "Existing source image tag (e.g. latest)"
-        required: true
-        default: "latest"
       target_tag:
-        description: "Release image tag to publish (e.g. v1.0.0)"
+        description: "Existing Git tag (vMAJOR.MINOR.PATCH) to publish"
         required: true
-        default: "v1.0.0"
+        default: "v1.1.0"
+
+concurrency:
+  group: publish-release-${{ github.event.inputs.target_tag }}
+  cancel-in-progress: false
 
 env:
-  GHCR_OWNER: SiriusScan
   REGISTRY: ghcr.io
   IMAGE_NAMESPACE: siriusscan
 
 jobs:
-  retag-and-publish:
+  validate-inputs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      target_tag: ${{ steps.validated.outputs.target_tag }}
+      source_commit: ${{ steps.validated.outputs.source_commit }}
+    steps:
+      - name: Checkout repository (workflow tooling + tag resolution)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Validate SemVer target, Git tag, and unpublished release
+        id: validated
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RAW_TARGET_TAG: ${{ github.event.inputs.target_tag }}
+        run: |
+          set -euo pipefail
+          TARGET_TAG="${RAW_TARGET_TAG}"
+          if ! printf '%s' "${TARGET_TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::target_tag must match vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          if ! git rev-parse "refs/tags/${TARGET_TAG}" >/dev/null 2>&1; then
+            echo "::error::Git tag ${TARGET_TAG} does not exist. Create and push the tag before running this workflow."
+            exit 1
+          fi
+          SOURCE_COMMIT="$(git rev-list -n 1 "refs/tags/${TARGET_TAG}")"
+          if ! printf '%s' "${SOURCE_COMMIT}" | grep -Eq '^[a-f0-9]{40}$'; then
+            echo "::error::resolved commit is not a full SHA"
+            exit 1
+          fi
+
+          RELEASE_STATE="$(bash scripts/gh-release-draft-state.sh "${TARGET_TAG}" "${GITHUB_REPOSITORY}")"
+          if [ "${RELEASE_STATE}" = "draft" ]; then
+            echo "Existing draft release ${TARGET_TAG} may be updated"
+          else
+            echo "No GitHub Release yet for ${TARGET_TAG}"
+          fi
+
+          {
+            echo "target_tag=${TARGET_TAG}"
+            echo "source_commit=${SOURCE_COMMIT}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Validated target_tag=${TARGET_TAG} -> ${SOURCE_COMMIT}"
+
+  resolve-inventory:
+    needs: validate-inputs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout workflow tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Resolve CI core-build-inventory for exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ needs.validate-inputs.outputs.source_commit }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          bash scripts/resolve-core-build-inventory.sh \
+            --commit "${SOURCE_COMMIT}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --default-branch "${DEFAULT_BRANCH}" \
+            --outdir inventory
+
+      - name: Upload inventory for downstream jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-core-build-inventory
+          path: inventory/core-build-inventory.json
+          if-no-files-found: error
+
+  retag-and-verify:
+    needs: [validate-inputs, resolve-inventory]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - name: Checkout code
+      - name: Checkout workflow tooling
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Download inventory artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-core-build-inventory
+          path: inventory
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -37,114 +148,204 @@ jobs:
           username: ${{ secrets.GHCR_PUSH_USER }}
           password: ${{ secrets.GHCR_PUSH_TOKEN }}
 
-      - name: Verify source manifests exist for all components
+      - name: Recheck release is still unpublished before package writes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
         run: |
           set -euo pipefail
+          RELEASE_STATE="$(bash scripts/gh-release-draft-state.sh "${TARGET_TAG}" "${GITHUB_REPOSITORY}")"
+          echo "Release state before package writes: ${RELEASE_STATE}"
 
-          verify_source_manifest() {
-            local component="$1"
-            local source_ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${component}:${{ github.event.inputs.source_tag }}"
-            echo "Checking source manifest: ${source_ref}"
-            docker buildx imagetools inspect "${source_ref}" > /dev/null
-          }
-
-          verify_source_manifest sirius-ui
-          verify_source_manifest sirius-api
-          verify_source_manifest sirius-engine
-          verify_source_manifest sirius-postgres
-          verify_source_manifest sirius-rabbitmq
-          verify_source_manifest sirius-valkey
-
-      - name: Publish sirius-ui release tag
-        run: |
-          docker buildx imagetools create \
-            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ github.event.inputs.target_tag }}" \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ github.event.inputs.source_tag }}"
-
-      - name: Publish sirius-api release tag
-        run: |
-          docker buildx imagetools create \
-            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ github.event.inputs.target_tag }}" \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ github.event.inputs.source_tag }}"
-
-      - name: Publish sirius-engine release tag
-        run: |
-          docker buildx imagetools create \
-            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ github.event.inputs.target_tag }}" \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ github.event.inputs.source_tag }}"
-
-      - name: Publish sirius-postgres release tag
-        run: |
-          docker buildx imagetools create \
-            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-postgres:${{ github.event.inputs.target_tag }}" \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-postgres:${{ github.event.inputs.source_tag }}"
-
-      - name: Publish sirius-rabbitmq release tag
-        run: |
-          docker buildx imagetools create \
-            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-rabbitmq:${{ github.event.inputs.target_tag }}" \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-rabbitmq:${{ github.event.inputs.source_tag }}"
-
-      - name: Publish sirius-valkey release tag
-        run: |
-          docker buildx imagetools create \
-            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-valkey:${{ github.event.inputs.target_tag }}" \
-            "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-valkey:${{ github.event.inputs.source_tag }}"
-
-      - name: Verify published manifests
-        run: |
-          docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ github.event.inputs.target_tag }}" > /dev/null
-          docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ github.event.inputs.target_tag }}" > /dev/null
-          docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ github.event.inputs.target_tag }}" > /dev/null
-          docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-postgres:${{ github.event.inputs.target_tag }}" > /dev/null
-          docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-rabbitmq:${{ github.event.inputs.target_tag }}" > /dev/null
-          docker manifest inspect "${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-valkey:${{ github.event.inputs.target_tag }}" > /dev/null
-          echo "Published release image tags: ${{ github.event.inputs.target_tag }}"
-
-      - name: Verify source and release digest parity
+      - name: Write-once retag release from inventory digests
+        env:
+          TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
+          SOURCE_COMMIT: ${{ needs.validate-inputs.outputs.source_commit }}
         run: |
           set -euo pipefail
+          INV="inventory/core-build-inventory.json"
+          bash scripts/validate-core-manifest.sh --mode inventory --expect-commit "${SOURCE_COMMIT}" "${INV}"
 
-          verify_digest() {
-            local component="$1"
-            local source_ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${component}:${{ github.event.inputs.source_tag }}"
-            local target_ref="${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${component}:${{ github.event.inputs.target_tag }}"
-            local source_digest
-            local target_digest
+          for component in sirius-ui sirius-api sirius-engine sirius-postgres sirius-rabbitmq sirius-valkey; do
+            digest="$(jq -r --arg c "${component}" '.images[$c].digest' "${INV}")"
+            bash scripts/ghcr-ensure-write-once-tag.sh \
+              "${REGISTRY}/${IMAGE_NAMESPACE}/${component}" \
+              "${TARGET_TAG}" \
+              "${digest}"
+          done
 
-            # Human-readable output no longer has a stable "^Digest:" line; use JSON index digest.
-            source_digest=$(docker buildx imagetools inspect "$source_ref" --format '{{json .}}' | jq -r '.manifest.digest')
-            target_digest=$(docker buildx imagetools inspect "$target_ref" --format '{{json .}}' | jq -r '.manifest.digest')
-
-            echo "${component} source digest: ${source_digest}"
-            echo "${component} target digest: ${target_digest}"
-
-            if [ -z "$source_digest" ] || [ -z "$target_digest" ] || [ "$source_digest" != "$target_digest" ]; then
-              echo "Digest verification failed for ${component}" >&2
-              exit 1
-            fi
-          }
-
-          verify_digest sirius-ui
-          verify_digest sirius-api
-          verify_digest sirius-engine
-          verify_digest sirius-postgres
-          verify_digest sirius-rabbitmq
-          verify_digest sirius-valkey
+      - name: Recheck target digests match inventory
+        env:
+          TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
+        run: |
+          set -euo pipefail
+          INV="inventory/core-build-inventory.json"
+          for component in sirius-ui sirius-api sirius-engine sirius-postgres sirius-rabbitmq sirius-valkey; do
+            want="$(jq -r --arg c "${component}" '.images[$c].digest' "${INV}")"
+            target_ref="${REGISTRY}/${IMAGE_NAMESPACE}/${component}:${TARGET_TAG}"
+            live="$(docker buildx imagetools inspect "${target_ref}" --format '{{json .}}' | jq -r '.manifest.digest')"
+            echo "${component}: want=${want} live=${live}"
+            [ "${live}" = "${want}" ] || { echo "::error::digest mismatch for ${component}"; exit 1; }
+          done
 
       - name: Verify anonymous access for release tag
+        env:
+          TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
         run: |
-          bash scripts/verify-ghcr-public-access.sh "${{ github.event.inputs.target_tag }}"
+          set -euo pipefail
+          bash scripts/verify-ghcr-public-access.sh "${TARGET_TAG}"
 
   validate-public-release-stack:
-    needs: retag-and-publish
+    needs: [validate-inputs, retag-and-verify]
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - name: Checkout code
+      - name: Checkout workflow tooling
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Smoke-test published public compose path
+        env:
+          TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
         run: |
-          bash scripts/validate-public-compose-path.sh "${{ github.event.inputs.target_tag }}"
+          set -euo pipefail
+          bash scripts/validate-public-compose-path.sh "${TARGET_TAG}"
+
+  publish-github-release:
+    needs: [validate-inputs, resolve-inventory, retag-and-verify, validate-public-release-stack]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout workflow tooling
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Checkout release source at full commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate-inputs.outputs.source_commit }}
+          path: release-src
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Download inventory artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-core-build-inventory
+          path: inventory
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate core-manifest.yaml from inventory + release source
+        env:
+          TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
+          SOURCE_COMMIT: ${{ needs.validate-inputs.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          INV="inventory/core-build-inventory.json"
+          bash scripts/generate-core-manifest.sh \
+            --tag "${TARGET_TAG}" \
+            --commit "${SOURCE_COMMIT}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --inventory "${INV}" \
+            --dockerfile release-src/sirius-engine/Dockerfile \
+            --output "${GITHUB_WORKSPACE}/core-manifest.yaml"
+          bash scripts/validate-core-manifest.sh \
+            --expect-tag "${TARGET_TAG}" \
+            --expect-commit "${SOURCE_COMMIT}" \
+            --dockerfile release-src/sirius-engine/Dockerfile \
+            "${GITHUB_WORKSPACE}/core-manifest.yaml"
+
+      - name: Immediate pre-publish digest recheck
+        env:
+          TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
+        run: |
+          set -euo pipefail
+          bash scripts/validate-core-manifest.sh \
+            --expect-tag "${TARGET_TAG}" \
+            --skip-dockerfile-pins \
+            --verify-digests \
+            "${GITHUB_WORKSPACE}/core-manifest.yaml"
+
+      - name: Upload core-manifest workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-manifest-${{ needs.validate-inputs.outputs.target_tag }}
+          path: core-manifest.yaml
+          if-no-files-found: error
+
+      - name: Draft, upload, re-validate, then publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
+          SOURCE_COMMIT: ${{ needs.validate-inputs.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          NOTES_FILE="$(mktemp)"
+          {
+            echo "Community release ${TARGET_TAG}"
+            echo
+            echo "- Source commit: \`${SOURCE_COMMIT}\`"
+            echo "- Images retagged from CI core-build-inventory digests (write-once)"
+            echo "- Public compose smoke test passed"
+            echo "- \`core-manifest.yaml\` attached (image digests, engine pins, schema ledger)"
+            echo
+            echo "Install with \`IMAGE_TAG=${TARGET_TAG}\` against public GHCR."
+          } > "${NOTES_FILE}"
+
+          RELEASE_STATE="$(bash scripts/gh-release-draft-state.sh "${TARGET_TAG}" "${GITHUB_REPOSITORY}")"
+          if [ "${RELEASE_STATE}" = "draft" ]; then
+            echo "Updating existing draft release ${TARGET_TAG}"
+            gh release edit "${TARGET_TAG}" --notes-file "${NOTES_FILE}" --title "${TARGET_TAG}"
+            gh release upload "${TARGET_TAG}" core-manifest.yaml --clobber
+          else
+            echo "Creating draft GitHub Release ${TARGET_TAG}"
+            gh release create "${TARGET_TAG}" \
+              --draft \
+              --verify-tag \
+              --title "${TARGET_TAG}" \
+              --notes-file "${NOTES_FILE}"
+            gh release upload "${TARGET_TAG}" core-manifest.yaml --clobber
+          fi
+
+          mkdir -p /tmp/release-asset-check
+          gh release download "${TARGET_TAG}" \
+            --pattern 'core-manifest.yaml' \
+            --dir /tmp/release-asset-check \
+            --clobber
+          bash scripts/validate-core-manifest.sh \
+            --expect-tag "${TARGET_TAG}" \
+            --expect-commit "${SOURCE_COMMIT}" \
+            --dockerfile release-src/sirius-engine/Dockerfile \
+            /tmp/release-asset-check/core-manifest.yaml
+          bash scripts/validate-core-manifest.sh \
+            --expect-tag "${TARGET_TAG}" \
+            --skip-dockerfile-pins \
+            --verify-digests \
+            /tmp/release-asset-check/core-manifest.yaml
+
+          echo "Publishing GitHub Release ${TARGET_TAG}"
+          gh release edit "${TARGET_TAG}" --draft=false
+
+      - name: Dispatch verify-ghcr-release-tag workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          # GITHUB_TOKEN publishing does not emit release.published to other workflows.
+          # workflow_dispatch is the supported exception for chaining verification.
+          gh workflow run verify-ghcr-release-tag.yml \
+            --ref "${DEFAULT_BRANCH}" \
+            -f "image_tag=${TARGET_TAG}"
+          echo "Dispatched verify-ghcr-release-tag.yml for ${TARGET_TAG}"

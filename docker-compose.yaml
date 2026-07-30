@@ -147,6 +147,25 @@ services:
           memory: 512M
           cpus: "0.5"
 
+  # One-shot core schema migrator (schema_migrations_core). Uses the same image
+  # as sirius-api; command runs /app/migrate then exits. API/engine wait for success.
+  sirius-migrate:
+    image: ghcr.io/siriusscan/sirius-api:${IMAGE_TAG:-latest}
+    pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
+    container_name: sirius-migrate
+    hostname: sirius-migrate
+    restart: "no"
+    entrypoint: ["/app/migrate"]
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for sirius-migrate. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
+      - POSTGRES_DB=${POSTGRES_DB:-sirius}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+    depends_on:
+      sirius-postgres:
+        condition: service_healthy
+
   sirius-api:
     image: ghcr.io/siriusscan/sirius-api:${IMAGE_TAG:-latest}
     pull_policy: ${SIRIUS_IMAGE_PULL_POLICY:-always}
@@ -157,6 +176,7 @@ services:
       - "9001:9001"
     environment:
       - GO_ENV=${GO_ENV:-production}
+      - SIRIUS_VERSION=${IMAGE_TAG:-latest}
       - API_PORT=${API_PORT:-9001}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
       - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
@@ -186,6 +206,8 @@ services:
         condition: service_healthy
       sirius-valkey:
         condition: service_healthy
+      sirius-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9001/health"]
       interval: 30s
@@ -232,6 +254,8 @@ services:
         condition: service_healthy
       sirius-valkey:
         condition: service_healthy
+      sirius-migrate:
+        condition: service_completed_successfully
       sirius-api:
         condition: service_healthy
     healthcheck:

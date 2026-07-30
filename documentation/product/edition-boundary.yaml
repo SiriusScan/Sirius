@@ -1,0 +1,184 @@
+# Sirius Community / Pro edition boundary
+# Source of truth for capability classification (see ADR-001, ADR-003).
+# Rubric: security fixes, scanner fidelity, and operational completeness stay community;
+# organizational scale, enterprise identity, compliance, and governance are pro.
+version: "1.0.0"
+last_updated: "2026-07-29"
+
+editions:
+  community:
+    description: Complete single-deployment vulnerability management platform
+  pro:
+    description: Commercial superset for organizational scale and enterprise operations
+
+capabilities:
+  # --- Core platform (required to operate; always public) ---
+  scanning.core:
+    edition: community
+    classification: core_platform
+    description: Network and host vulnerability scanning execution
+  inventory.hosts:
+    edition: community
+    classification: core_platform
+    description: Host and port inventory storage and query
+  findings.vulnerabilities:
+    edition: community
+    classification: community_feature
+    description: CVE browsing, vulnerability list, and detail views
+  api.public_rest:
+    edition: community
+    classification: core_platform
+    description: Authenticated public REST API on /api/v1 (and current Fiber routes)
+  ui.dashboard_shell:
+    edition: community
+    classification: core_platform
+    description: Next.js UI shell, auth session, and navigation framework
+  auth.local_users:
+    edition: community
+    classification: community_feature
+    description: Local username/password authentication (NextAuth credentials)
+  auth.api_keys:
+    edition: community
+    classification: community_feature
+    description: Infrastructure and user-generated API keys
+  messaging.queues:
+    edition: community
+    classification: shared_infrastructure
+    description: RabbitMQ direct queues for scan, terminal, and agent commands
+  storage.postgres_core:
+    edition: community
+    classification: shared_infrastructure
+    description: Core PostgreSQL schema and schema_migrations_core
+  storage.valkey:
+    edition: community
+    classification: shared_infrastructure
+    description: Valkey for templates, NSE cache, and dynamic API keys
+  migrations.core:
+    edition: community
+    classification: shared_infrastructure
+    description: Forward-only core migration framework
+  extensions.module_registry:
+    edition: community
+    classification: shared_infrastructure
+    description: Public Module / UI extension / entitlement evaluator contracts
+
+  # --- Community product features (current UI/API surface) ---
+  ui.scanner:
+    edition: community
+    classification: community_feature
+    description: Scanner page and scan initiation (/scanner)
+  ui.vulnerabilities:
+    edition: community
+    classification: community_feature
+    description: Vulnerabilities pages (/vulnerabilities, /vulnerability)
+  ui.environment:
+    edition: community
+    classification: community_feature
+    description: Environment and host pages (/environment, /host)
+  ui.terminal:
+    edition: community
+    classification: community_feature
+    description: Terminal page (/terminal)
+  api.hosts:
+    edition: community
+    classification: community_feature
+    description: HostRouteSetter REST surface
+  api.vulnerabilities:
+    edition: community
+    classification: community_feature
+    description: VulnerabilityRouteSetter REST surface
+  api.templates:
+    edition: community
+    classification: community_feature
+    description: Template and script route setters
+  api.agent_templates:
+    edition: community
+    classification: community_feature
+    description: Agent template and repository route setters
+  api.events:
+    edition: community
+    classification: community_feature
+    description: EventRouteSetter
+  api.snapshots:
+    edition: community
+    classification: community_feature
+    description: Snapshot and vulnerability trend routes
+  api.statistics:
+    edition: community
+    classification: community_feature
+    description: Statistics routes
+  api.scan_control:
+    edition: community
+    classification: community_feature
+    description: Scan cancel/status control routes
+  engine.scanner:
+    edition: community
+    classification: community_feature
+    description: app-scanner scan pipeline and NSE execution
+  engine.agent_runtime:
+    edition: community
+    classification: community_feature
+    description: Remote agent gRPC/runtime baseline
+  agents.remote:
+    edition: community
+    classification: community_feature
+    description: Remote agent enrollment and command queues
+    limits:
+      community: null # baseline community; numeric fleet limits may be introduced later
+      pro: unlimited
+  reporting.basic_export:
+    edition: community
+    classification: community_feature
+    description: Standard list/export of findings already available in Community UI/API
+
+  # --- Pro capabilities (commercial; not in Community builds) ---
+  identity.sso:
+    edition: pro
+    classification: pro_feature
+    description: SAML/OIDC enterprise identity providers
+  identity.scim:
+    edition: pro
+    classification: pro_feature
+    description: SCIM provisioning and deprovisioning
+  reporting.enterprise:
+    edition: pro
+    classification: pro_feature
+    description: Executive and compliance reporting, scheduled PDF/CSV
+  integrations.servicenow:
+    edition: pro
+    classification: pro_feature
+    description: ServiceNow enterprise workflow integration
+  integrations.jira:
+    edition: pro
+    classification: pro_feature
+    description: Jira enterprise workflow integration
+  workspaces.multiple:
+    edition: pro
+    classification: pro_feature
+    description: Multi-tenant or multi-workspace governance
+  operations.multi_site:
+    edition: pro
+    classification: pro_feature
+    description: Centralized multi-site management
+  operations.ha:
+    edition: pro
+    classification: pro_feature
+    description: High-availability deployment tooling
+  agents.fleet_policy:
+    edition: pro
+    classification: pro_feature
+    description: Centralized agent lifecycle and fleet policy
+  scoring.business_context:
+    edition: pro
+    classification: pro_feature
+    description: Business-context and exploitability risk scoring enrichers
+  support.bundles:
+    edition: pro
+    classification: pro_feature
+    description: Commercial support diagnostic bundles
+
+forbidden:
+  - Moving existing Community features behind the Pro boundary
+  - Public repository importing private packages or registries
+  - Private-to-public source export as the development model
+  - Edition string checks (use capability checks only)

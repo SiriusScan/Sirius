@@ -109,7 +109,7 @@ Images are tagged with the following strategy:
 - **Public images**: No authentication required
 - **Multi-architecture**: Images support `linux/amd64` and `linux/arm64`
 - **Automatic updates**: Latest images are built automatically by CI/CD
-- **Release contract**: A release tag is only valid for operators after the release-tag workflow publishes it, the anonymous GHCR verification step passes, and the public Compose smoke test succeeds. CI validates **`latest`** on every main push (`public-stack-contract` in `ci.yml`); **semver** tags are additionally checked when a GitHub Release is published and on a weekly schedule ([`verify-ghcr-release-tag.yml`](../../../.github/workflows/verify-ghcr-release-tag.yml)).
+- **Release contract**: A release tag is only valid for operators after the release-tag workflow publishes it from a CI `core-build-inventory` digest snapshot, the anonymous GHCR verification step passes, and the public Compose smoke test succeeds. CI writes an immutable `sha-<commit>` provenance snapshot on every main push (`core-build-inventory` in `ci.yml`); **semver** tags are additionally checked when a GitHub Release is published and on a weekly schedule ([`verify-ghcr-release-tag.yml`](../../../.github/workflows/verify-ghcr-release-tag.yml); `core-manifest.yaml` required for v1.1.0+).
 
 ## Docker Compose Configuration
 

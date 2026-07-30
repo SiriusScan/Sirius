@@ -255,14 +255,11 @@ Cycle 6 evidence:
 ## Current loop state
 
 ```yaml
-current_task_id: bifurcation.s3.t007
-cycle: 8
+current_task_id: bifurcation.s3.t008
+cycle: 9
 attempt: 1
 status: active
-verdict: accepted
-loop_decision: continue
-next_task_id: bifurcation.s3.t008
-next_action: Implement standing Community-independence and leakage tests for task 2.3.
+next_action: Implement credential-free Community-independence and public leakage checks.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -272,6 +269,9 @@ Owned paths:
 - `/Users/oz/Projects/Sirius-Project/private/sirius-pro`
 - `/Users/oz/Projects/Sirius-Project/private/sirius-entitlements`
 - `/Users/oz/Projects/Sirius-Project/private/sirius-release`
+- `.github/workflows/community-independence.yml`
+- `scripts/community-independence/`
+- `scripts/test-community-independence.sh`
 - `programs/bifurcation/PROGRAM.md`
 - `programs/bifurcation/evaluations/`
 - `tasks/pro-bifurcation.json`
@@ -341,7 +341,7 @@ Cycle 7 evidence:
 - Decision: task `bifurcation.s3.t006` is accepted under that explicit waiver. The
   program stops before task 2.2 creates a package namespace or signing identity.
 
-Current task:
+Task 2.2 result:
 
 - `task_id`: `bifurcation.s3.t007`
 - `stage`: `3 Private Supply Chain`
@@ -394,6 +394,31 @@ Cycle 8 evidence:
   `programs/bifurcation/evaluations/bifurcation.s3.t007.md`.
 - Decision: task 2.2 is accepted; continue to task 2.3. The GitHub Free governance
   waiver and public Rekor disclosure of private image digests remain recorded risks.
+
+Current task:
+
+- `task_id`: `bifurcation.s3.t008`
+- `stage`: `3 Private Supply Chain`
+- `cycle`: `9`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `criteria`:
+  - Public CI runs Community-independence validation with no private credentials,
+    private package access, or private repository checkout.
+  - A standing scanner checks public runtime source/configuration, all six released
+    images, and all twelve release SBOMs for private module paths, private registry
+    references, credentials, and high-confidence Pro-only runtime markers.
+  - Governance documentation may describe the public/private boundary, but allowlists
+    are path-scoped and cannot exempt runtime code, build files, workflows, or images.
+  - A seeded private canary is rejected in a dry-run fixture while the current public
+    `v1.1.0` artifacts pass.
+- `validation`:
+  - Repository-native shell, fixture, and workflow contract tests
+  - Credential-free local source/config scan
+  - Public `v1.1.0` source, SBOM, and image scan
+  - GitHub Actions workflow YAML parsing and least-permission assertions
+- `next_action`: Implement and independently review task 2.3 locally, then stop at the
+  public branch push/pull-request human gate.
 
 ## Stage 4: Public Contracts
 

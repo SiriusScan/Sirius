@@ -145,7 +145,7 @@
         "title": "Standing community-independence and leakage tests",
         "description": "Prove the public edition never needs private access, and public artifacts never contain private references.",
         "details": "Public CI job running with zero credentials builds and boots the full Community stack; scanner job checks public images, SBOMs, and source archives for private module paths, opensecurity-infosec registry refs, or Pro-only strings.",
-        "status": "pending",
+        "status": "in_progress",
         "priority": "high",
         "dependencies": ["2.2"],
         "testStrategy": "Both jobs green on main; deliberately seeded canary string in a private repo is caught by the leakage scanner in a dry run."

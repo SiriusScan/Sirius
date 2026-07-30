@@ -1,0 +1,185 @@
+---
+goal: "Bifurcate Sirius into a canonical, independently runnable public Community core and a private, commercially licensed Pro extension layer that consumes immutable public releases without private-to-public source export."
+status: "planned"
+acceptance_criteria:
+  - "Community builds, tests, scans, upgrades, and runs without private credentials or Pro artifacts."
+  - "Every public release publishes six digest-addressed images, a validated core manifest, SBOMs, and verifiable signatures."
+  - "The three private OpenSecurity-Infosec repositories exist with access controls, protected branches/tags, private GHCR, and leakage prevention."
+  - "Versioned public API, event, UI, and engine extension contracts admit a test extension without changing Community behavior."
+  - "Capabilities are enforced centrally with offline-verifiable licenses while Community requires no license and existing scan data remains accessible after expiry."
+  - "Enterprise Reporting ships as a private, entitlement-gated vertical and its deployment overlay can be added and removed without damaging core data."
+  - "Pro releases consume core.lock.yaml digests, pass Community regression and compatibility tests, and promote tested artifacts without rebuilding."
+human_gates:
+  - "Human approval before pushing branches, opening or merging pull requests, creating or publishing Git tags/releases, or changing GitHub organization settings."
+  - "Human approval before creating private repositories, teams, package namespaces, signing identities, KMS keys, credentials, or customer-facing infrastructure."
+  - "Counsel approval before first customer distribution of the Pro license or EULA."
+  - "Human approval before production deployment, destructive migration, billing change, or external customer communication."
+---
+
+# Program: bifurcation
+
+## Operating Contract
+
+Outcome:
+
+- Deliver the six milestones in `documentation/dev-notes/pro-bifurcation-plan.md`
+  while preserving the public-first Community commitment and the repository ownership
+  rules in ADR-001 through ADR-005.
+
+Non-goals:
+
+- Do not create a private fork of `SiriusScan/Sirius`.
+- Do not move an existing Community feature behind a Pro entitlement.
+- Do not introduce runtime plugin loading in v1; extension registration is compile-time.
+- Do not add multi-user RBAC or workspace behavior outside the planned Pro contracts
+  and vertical.
+- Do not deploy to production or distribute customer licenses as an unattended action.
+
+Selected stack and source:
+
+- Established repository stack takes precedence: Docker Compose distribution; Go for
+  API, engine, shared contracts, migrators, and entitlement verification; Next.js and
+  TypeScript for UI; PostgreSQL, RabbitMQ, and Valkey for state and messaging; GitHub
+  Actions plus GHCR for build and release.
+- Pro uses the same established stack and consumes immutable public artifacts by
+  digest. No greenfield scaffold selection is required.
+
+Existing scaffold:
+
+- Public distribution and component repositories under `SiriusScan`.
+- Bifurcation plan at `documentation/dev-notes/pro-bifurcation-plan.md`.
+- Task tracker at `tasks/pro-bifurcation.json`.
+- ADR-001 through ADR-005 and `documentation/product/edition-boundary.yaml`.
+- Release-train implementation on `feature/pro-bifurcation`.
+- Private repository skeletons are intentionally not created until Phase 2.
+
+Repository-native validation:
+
+- `bash scripts/test-core-manifest.sh`
+- `go test ./...` from each changed Go module or package.
+- Native Next.js lint, typecheck, test, and build commands from the changed UI package.
+- `cd testing && make lint-docs && make lint-index`
+- Task-specific container, Compose, release, signature, compatibility, upgrade, and E2E
+  checks recorded in `tasks/pro-bifurcation.json`.
+
+Dependencies and order:
+
+1. Phase 0 governance and boundary decisions (complete).
+2. Phase 1 public-core hardening (1.1–1.3 complete; 1.4 active; 1.5 follows).
+3. Phase 2 private repository and supply-chain foundation.
+4. Phase 3 public extension contracts; depends on Phase 1.
+5. Phase 4 entitlements; depends on Phases 2 and 3.
+6. Phase 5 Enterprise Reporting; depends on Phase 4.
+7. Phase 6 compatibility, promotion, cleanup, and reconciliation; depends on Phase 5.
+
+Ownership:
+
+- Each bounded task records exclusive writable paths before execution.
+- Public-core work is owned in this repository and relevant public component
+  repositories. Private-repository work is isolated to one repository/worktree per
+  writer.
+- No concurrent writers may edit the same path. Cross-repository contract updates are
+  sequenced by published version or immutable commit.
+
+Loop limits and stop conditions:
+
+- Maximum 40 execution cycles for the full program and 120 minutes per bounded cycle.
+- Maximum two attempts per task before reframing; a third attempt requires an explicit
+  escalation decision.
+- Stop successfully when all acceptance criteria are evidenced and task statuses are
+  done or explicitly deferred with rationale.
+- Stop for a human gate, a security or data-integrity risk, a material conflict with an
+  ADR/edition boundary, exhausted retry budget, or a required external dependency that
+  cannot be verified.
+
+Retry policy:
+
+- Retry once for transient CI, registry, network, or deterministic test-harness
+  failures after recording evidence.
+- Do not repeat the same implementation after a reproducible code, architecture, or
+  contract failure; reframe the task and acceptance test first.
+- Escalate ambiguous debugging or production-facing independent review only when the
+  routing policy permits it. Stop and request a human decision for scope, legal,
+  credentials, destructive actions, or irreversible external changes.
+
+## Stage 1: Frame
+
+Owned paths:
+
+- `programs/bifurcation/PROGRAM.md`
+
+Tasks:
+
+- [x] Confirm the goal and acceptance criteria
+- [x] Record dependencies, risks, and human gates
+
+## Stage 2: Core Release Train
+
+Owned paths:
+
+- `.github/workflows/ci.yml`
+- `.github/workflows/publish-release-image-tags.yml`
+- `.github/workflows/verify-ghcr-release-tag.yml`
+- `scripts/core-manifest/`
+- `scripts/*core*manifest*.sh`
+- `scripts/*build-inventory*.sh`
+- `scripts/ghcr-ensure-write-once-tag.sh`
+- `scripts/gh-release-draft-state.sh`
+- `scripts/ci-dispatch-allowlist.sh`
+- `tasks/pro-bifurcation.json`
+
+Tasks:
+
+- [ ] Validate and review the task 1.4 release-train implementation
+- [ ] Cross the human gate to push, review, and merge the feature branch
+- [ ] Confirm main CI produced the exact-SHA core build inventory
+- [ ] Cross the human gate to tag and publish `v1.1.0`
+- [ ] Verify all six images and `core-manifest.yaml`; mark task 1.4 done
+- [ ] Implement and verify task 1.5 SBOM generation and Cosign signing
+- [ ] Update this file with stage outcomes
+
+Current task:
+
+- `task_id`: `bifurcation.s2.t001`
+- `stage`: `2 Core Release Train`
+- `cycle`: `0`
+- `attempt`: `1`
+- `assigned_role`: `parent`
+- `criteria`:
+  - Release-train changes pass `bash scripts/test-core-manifest.sh`.
+  - The feature branch is reviewable without staging unrelated
+    `scripts/bootstrap-windows.ps1`.
+  - No tag or release is cut until the implementation is merged to `main` and a
+    successful exact-SHA main inventory exists.
+- `validation`:
+  - `bash scripts/test-core-manifest.sh`
+  - `git diff main...HEAD --check`
+- `next_action`: Validate the committed task 1.4 changes and prepare the human-gated
+  pull-request handoff.
+
+## Stage 3: Private Supply Chain
+
+Tasks:
+
+- [ ] Complete Phase 2 and record private repository governance evidence
+
+## Stage 4: Public Contracts
+
+Tasks:
+
+- [ ] Complete Phase 3 and publish a tagged compatible core contract release
+
+## Stage 5: Entitlements and First Vertical
+
+Tasks:
+
+- [ ] Complete Phase 4 capability and license platform
+- [ ] Complete Phase 5 Enterprise Reporting vertical
+
+## Stage 6: Compatibility, Release, and Closeout
+
+Tasks:
+
+- [ ] Complete Phase 6 release and compatibility automation
+- [ ] Run final Community independence, leakage, upgrade, and overlay lifecycle checks
+- [ ] Reconcile the plan and task tracker; record residual risks and acceptance

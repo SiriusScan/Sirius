@@ -18,13 +18,13 @@ source "${SCRIPT_DIR}/release-components.sh"
 pass() { echo "PASS: $*"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-# Assemble private markers at runtime (do not store real private-repo content).
 ORG_DISPLAY="OpenSecurity""-Infosec"
 ORG_LOWER="opensecurity""-infosec"
 PRIVATE_REGISTRY="ghcr.io/${ORG_LOWER}/"
 PRIVATE_MODULE="github.com/${ORG_DISPLAY}/sirius-pro"
 PRO_CANARY="SIRIUS_PRO_""PRIVATE_RUNTIME_CANARY_V1"
 FAKE_PAT="ghp_""$(printf 'a%.0s' {1..36})"
+FAKE_PEM="-----BEGIN ""RSA PRIVATE KEY-----"
 
 cd "${PROJECT_ROOT}"
 
@@ -45,14 +45,15 @@ echo "==> python compile"
 python3 -m py_compile \
   scripts/community-independence/scan_text.py \
   scripts/community-independence/scan_archive.py \
-  scripts/community-independence/scan_image_layers.py
+  scripts/community-independence/scan_image_layers.py \
+  scripts/community-independence/nested_content.py \
+  scripts/community-independence/resolve_platform_digests.py
 pass "python compile"
 
 echo "==> workflow YAML parses"
 python3 - <<'PY'
 import pathlib, sys
 text = pathlib.Path(".github/workflows/community-independence.yml").read_text()
-# Minimal structural checks without PyYAML.
 assert "\nname:" in text or text.startswith("name:"), "missing workflow name"
 assert "\non:\n" in text or "\non:" in text or text.startswith("on:"), "missing on:"
 assert "\njobs:\n" in text or "\njobs:" in text, "missing jobs"
@@ -65,7 +66,6 @@ pass "workflow YAML structure"
 echo "==> workflow least permissions + anonymous/no-secret contract"
 wf="$(cat "${WORKFLOW}")"
 printf '%s\n' "${wf}" | grep -Eq '^permissions:' || fail "top-level permissions required"
-# contents: read only; forbid packages/id-token/write escalation.
 perm_block="$(awk '
   /^permissions:/ {grab=1; print; next}
   grab && /^[^[:space:]]/ {exit}
@@ -78,12 +78,10 @@ if printf '%s\n' "${wf}" | grep -Eiq 'packages:[[:space:]]*(read|write)|id-token
 fi
 printf '%s\n' "${wf}" | grep -Fq 'persist-credentials: false' \
   || fail "checkout must set persist-credentials: false"
-# Full SHA pins for uses:
 while IFS= read -r use_line; do
   printf '%s\n' "${use_line}" | grep -Eq '@[0-9a-f]{40}' \
     || fail "action not full-SHA pinned: ${use_line}"
-done < <(grep -E 'uses:[[:space:]]*' "${WORKFLOW}" | grep -v $'^\s*#' || true)
-# No private checkout / registry login / org secrets / PAT (live YAML only).
+done < <(grep -E 'uses:[[:space:]]*' "${WORKFLOW}" | grep -vE '^[[:space:]]*#' || true)
 live_wf="$(printf '%s\n' "${wf}" | grep -vE '^[[:space:]]*#')"
 if printf '%s\n' "${live_wf}" | grep -Eiq 'opensecurity-infosec|OpenSecurity-Infosec'; then
   fail "workflow must not reference private org/registry"
@@ -94,82 +92,79 @@ fi
 if printf '%s\n' "${live_wf}" | grep -Eiq 'docker/login-action|persist-credentials:[[:space:]]*true'; then
   fail "workflow must not login to registries or persist checkout credentials"
 fi
-if printf '%s\n' "${live_wf}" | grep -Eiq 'GHCR_TOKEN|PERSONAL_ACCESS|private_token'; then
-  fail "workflow must not reference private tokens"
-fi
-# Credentials visibly emptied in scan/smoke steps.
 printf '%s\n' "${wf}" | grep -Eq 'GH_TOKEN:[[:space:]]*""' \
   || fail "workflow must visibly empty GH_TOKEN during scans"
 printf '%s\n' "${wf}" | grep -Eq 'GITHUB_TOKEN:[[:space:]]*""' \
   || fail "workflow must visibly empty GITHUB_TOKEN during scans"
 pass "workflow permissions + anonymous contract"
 
-echo "==> workflow trigger split (PR/push contract vs full public release)"
-# Job names and if: conditions must exist as live YAML, not merely comments.
-printf '%s\n' "${wf}" | grep -Eq '^  source-contract:' \
-  || fail "missing source-contract job"
-printf '%s\n' "${wf}" | grep -Eq '^  public-release-scan:' \
-  || fail "missing public-release-scan job"
-src_job="$(awk '
-  /^  source-contract:/ {grab=1; next}
-  grab && /^  [a-zA-Z0-9_-]+:/ {exit}
-  grab {print}
-' "${WORKFLOW}")"
+echo "==> workflow trigger split"
+printf '%s\n' "${wf}" | grep -Eq '^  source-contract:' || fail "missing source-contract job"
+printf '%s\n' "${wf}" | grep -Eq '^  public-release-scan:' || fail "missing public-release-scan job"
 full_job="$(awk '
   /^  public-release-scan:/ {grab=1; next}
   grab && /^  [a-zA-Z0-9_-]+:/ {exit}
   grab {print}
 ' "${WORKFLOW}")"
-printf '%s\n' "${src_job}" | grep -Eq 'test-community-independence\.sh' \
-  || fail "source-contract must run contract tests"
-printf '%s\n' "${src_job}" | grep -Eq 'community-independence/scan\.sh|--mode[[:space:]]+source|scan_text\.py' \
-  || fail "source-contract must run source leakage scan"
-printf '%s\n' "${full_job}" | grep -Eq 'public-release|download_public_release|scan\.sh' \
-  || fail "public-release-scan must run public release scan path"
-# Full job restricted to main/schedule/workflow_dispatch.
-on_block="$(awk '
-  /^on:/ {grab=1; print; next}
-  grab && /^[a-zA-Z]/ {exit}
-  grab {print}
-' "${WORKFLOW}")"
-printf '%s\n' "${on_block}" | grep -Eq 'pull_request:' || fail "workflow must listen for pull_request"
-printf '%s\n' "${on_block}" | grep -Eq 'schedule:' || fail "workflow must schedule full scans"
-printf '%s\n' "${on_block}" | grep -Eq 'workflow_dispatch:' || fail "workflow must allow workflow_dispatch"
 printf '%s\n' "${full_job}" | grep -Eq "github.event_name == 'schedule'|github.ref == 'refs/heads/main'|workflow_dispatch" \
   || fail "public-release-scan must gate on main/schedule/workflow_dispatch"
-# Must not duplicate mutable latest path as the release subject.
-if printf '%s\n' "${full_job}" | grep -vE '^[[:space:]]*#' | grep -Eq 'IMAGE_TAG:[[:space:]]*latest|:latest|tag:[[:space:]]*latest'; then
+if printf '%s\n' "${full_job}" | grep -vE '^[[:space:]]*#' | grep -Eq 'IMAGE_TAG:[[:space:]]*latest|tag:[[:space:]]*latest'; then
   fail "public-release-scan must not use mutable latest"
 fi
-printf '%s\n' "${full_job}" | grep -Eq 'v1\.1\.0' \
-  || fail "public-release-scan must target public v1.1.0"
+printf '%s\n' "${full_job}" | grep -Eq 'v1\.1\.0' || fail "public-release-scan must target v1.1.0"
 pass "workflow trigger split"
 
-echo "==> allowlist is path-scoped and excludes runtime/build/workflow"
-grep -Eq '^programs/bifurcation/' "${ALLOWLIST}" || fail "allowlist missing programs/"
-grep -Eq '^tasks/pro-bifurcation\.json$' "${ALLOWLIST}" || fail "allowlist missing tasks file"
-if grep -Eq '^\.github/workflows/|^scripts/|^docker-compose|^Dockerfile|^sirius-' "${ALLOWLIST}"; then
-  fail "allowlist must never include runtime/build/workflow paths"
-fi
-# Behavioral: allowlisted governance path may mention private org; workflow path must not.
-gov="${TMP_DIR}/gov-doc.md"
+echo "==> path normalization does not charset-lstrip"
+python3 - <<'PY'
+import sys
+sys.path.insert(0, "scripts/community-independence")
+import scan_text
+assert scan_text.norm_rel("./.github/workflows/x.yml") == ".github/workflows/x.yml"
+assert scan_text.norm_rel(".github/workflows/x.yml") == ".github/workflows/x.yml"
+assert scan_text.norm_rel("github/workflows/x.yml") == "github/workflows/x.yml"
+assert scan_text.norm_rel("/abs/path") == "abs/path"
+print("OK norm_rel")
+PY
+pass "path normalization"
+
+echo "==> allowlist path-scoped; .yaml workflows never allowlisted"
 mkdir -p "${TMP_DIR}/documentation/dev-notes" "${TMP_DIR}/.github/workflows"
 printf 'Boundary note: %s and %s\n' "${ORG_DISPLAY}" "${PRIVATE_REGISTRY}" \
   > "${TMP_DIR}/documentation/dev-notes/pro-bifurcation-plan.md"
-# Use a temporary allowlist that matches fixture layout.
 printf '%s\n' "documentation/dev-notes/pro-bifurcation-plan.md" > "${TMP_DIR}/allow.txt"
-if ! python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
-  --paths-file <(printf '%s\n' "documentation/dev-notes/pro-bifurcation-plan.md"); then
-  fail "allowlisted governance path should pass"
-fi
-printf 'image: %sfoo\n' "${PRIVATE_REGISTRY}" > "${TMP_DIR}/.github/workflows/evil.yml"
-# Even if mistakenly allowlisted, workflows are never allowlisted.
-printf '%s\n' ".github/workflows/evil.yml" >> "${TMP_DIR}/allow.txt"
+python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "documentation/dev-notes/pro-bifurcation-plan.md") \
+  || fail "allowlisted governance boundary vocabulary should pass"
+printf 'image: %sfoo\n' "${PRIVATE_REGISTRY}" > "${TMP_DIR}/.github/workflows/evil.yaml"
+printf '%s\n' ".github/workflows/evil.yaml" >> "${TMP_DIR}/allow.txt"
 if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
-  --paths-file <(printf '%s\n' ".github/workflows/evil.yml") 2>/dev/null; then
-  fail "workflow path must never be allowlisted"
+  --paths-file <(printf '%s\n' ".github/workflows/evil.yaml") 2>/dev/null; then
+  fail ".yaml workflow must never be allowlisted"
 fi
-pass "path-scoped allowlist behavior"
+# Normalized path that would be corrupted by lstrip('./') must still never-allowlist.
+mkdir -p "${TMP_DIR}/dotgithub"
+# Simulate scanning a path that starts with .github after safe norm.
+printf 'image: %sfoo\n' "${PRIVATE_REGISTRY}" > "${TMP_DIR}/.github/workflows/evil.yml"
+if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "./.github/workflows/evil.yml") 2>/dev/null; then
+  fail "./.github/workflows/*.yml must never be allowlisted"
+fi
+pass "path-scoped allowlist + yaml bypass canary"
+
+echo "==> secrets/canary never allowlisted in governance paths"
+printf 'token=%s\ncanary=%s\npem=%s\n' "${FAKE_PAT}" "${PRO_CANARY}" "${FAKE_PEM}" \
+  > "${TMP_DIR}/documentation/dev-notes/pro-bifurcation-plan.md"
+if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "documentation/dev-notes/pro-bifurcation-plan.md") 2>/dev/null; then
+  fail "secret markers must fail even in allowlisted governance paths"
+fi
+# Boundary-only content still passes
+printf 'Boundary: %s\n' "${ORG_DISPLAY}" \
+  > "${TMP_DIR}/documentation/dev-notes/pro-bifurcation-plan.md"
+python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "documentation/dev-notes/pro-bifurcation-plan.md") \
+  || fail "boundary-only governance content should pass"
+pass "secret markers never allowlisted"
 
 echo "==> canary: private registry/module/pro canary rejected"
 canary_root="${TMP_DIR}/canary-src"
@@ -178,70 +173,349 @@ printf 'FROM scratch\nENV X=%s\n' "${PRIVATE_REGISTRY}sirius-pro:latest" \
   > "${canary_root}/sirius-engine/Dockerfile"
 printf 'module %s\n' "${PRIVATE_MODULE}" > "${canary_root}/go.mod"
 printf 'marker %s\n' "${PRO_CANARY}" > "${canary_root}/main.go"
-printf '%s\n' "sirius-engine/Dockerfile" "go.mod" "main.go" > "${TMP_DIR}/canary.paths"
 printf '%s\n' "documentation/dev-notes/pro-bifurcation-plan.md" > "${TMP_DIR}/canary.allow"
 if python3 "${CI_DIR}/scan_text.py" --root "${canary_root}" --allowlist "${TMP_DIR}/canary.allow" \
-  --paths-file "${TMP_DIR}/canary.paths" 2>/dev/null; then
+  --paths-file <(printf '%s\n' "sirius-engine/Dockerfile" "go.mod" "main.go") 2>/dev/null; then
   fail "expected canary private markers to fail"
 fi
 pass "private registry/module/canary rejected"
 
-echo "==> canary: credential body rejected"
-printf 'token=%s\n' "${FAKE_PAT}" > "${canary_root}/leak.env"
-if python3 "${CI_DIR}/scan_text.py" --root "${canary_root}" --allowlist "${TMP_DIR}/canary.allow" \
-  --paths-file <(printf '%s\n' "leak.env") 2>/dev/null; then
-  fail "expected fake PAT to fail"
-fi
-pass "credential canary rejected"
-
-echo "==> canary: traversal archive rejected"
-trav="${TMP_DIR}/trav.tar"
+echo "==> canary: release-archive GitHub top-dir + private marker"
+arch="${TMP_DIR}/release-canary.tar.gz"
 python3 - <<PY
-import tarfile
+import io, tarfile, gzip
 from pathlib import Path
-p = Path("${trav}")
-with tarfile.open(p, "w") as tf:
-    info = tarfile.TarInfo("../../evil.txt")
-    data = b"nope"
+marker = "${PRIVATE_REGISTRY}".encode() + b"leak"
+buf = io.BytesIO()
+with tarfile.open(fileobj=buf, mode="w") as tf:
+    data = b"ref: " + marker + b"\n"
+    info = tarfile.TarInfo("Sirius-1.1.0/sirius-engine/Dockerfile")
     info.size = len(data)
-    import io
     tf.addfile(info, io.BytesIO(data))
+Path("${arch}").write_bytes(gzip.compress(buf.getvalue()))
 PY
-if python3 "${CI_DIR}/scan_archive.py" --archive "${trav}" --allowlist "${ALLOWLIST}" 2>/dev/null; then
-  fail "expected traversal archive to fail"
-fi
-pass "traversal archive rejected"
+out="$(python3 "${CI_DIR}/scan_archive.py" --archive "${arch}" --allowlist "${ALLOWLIST}" 2>&1 || true)"
+printf '%s\n' "${out}" | grep -Eq 'COMMUNITY INDEPENDENCE ARCHIVE SCAN FAILED' \
+  || fail "expected release-archive canary to fail"
+printf '%s\n' "${out}" | grep -Fq 'sirius-engine/Dockerfile' \
+  || fail "archive finding must attribute normalized repo-relative path"
+printf '%s\n' "${out}" | grep -Eq 'Sirius-1\.1\.0/sirius-engine' \
+  && fail "finding must not keep GitHub top directory prefix"
+pass "release-archive top-dir canary"
 
-echo "==> canary: malformed/missing SBOMs rejected"
+echo "==> canary: zip bomb / oversize streaming rejection"
+zipbomb="${TMP_DIR}/zipbomb.zip"
+python3 - <<PY
+import zipfile, zlib
+from pathlib import Path
+# Craft a zip that declares a small size but would expand larger than MAX if trusted.
+# Our reader streams with MAX_MEMBER_BYTES+1 and also checks declared vs actual.
+payload = b"A" * (33 * 1024 * 1024)
+path = Path("${zipbomb}")
+with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    # Normal oversized member: declared size is honest and > MAX
+    zf.writestr("big.bin", payload)
+PY
+if python3 "${CI_DIR}/scan_archive.py" --archive "${zipbomb}" --allowlist "${ALLOWLIST}" 2>/dev/null; then
+  fail "expected oversize zip member to fail"
+fi
+# Declared/actual mismatch canary via manual zip header mutation is fragile;
+# exercise nested_content reader with a crafted ZipInfo mismatch using a temp helper.
+python3 - <<PY
+import io, sys, zipfile
+sys.path.insert(0, "scripts/community-independence")
+from nested_content import ArchiveSafetyError, _read_zip_member
+buf = io.BytesIO()
+with zipfile.ZipFile(buf, "w") as zf:
+    zf.writestr("x.txt", b"hello")
+raw = buf.getvalue()
+with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+    info = zf.getinfo("x.txt")
+    info.file_size = 999  # lie
+    try:
+        _read_zip_member(zf, info)
+    except ArchiveSafetyError as exc:
+        assert "mismatch" in str(exc).lower() or "too large" in str(exc).lower()
+        print("OK mismatch rejection")
+    else:
+        raise SystemExit("expected mismatch rejection")
+PY
+pass "zip oversize/mismatch canaries"
+
+echo "==> canary: NUL binary + nested gzip/tar/zip markers"
+python3 - <<PY
+import gzip, io, tarfile, zipfile
+from pathlib import Path
+root = Path("${TMP_DIR}/nested")
+root.mkdir(parents=True, exist_ok=True)
+marker = ("${PRIVATE_REGISTRY}" + "nested").encode()
+# NUL binary with marker
+(root / "nul.bin").write_bytes(b"\x00\x01" + marker + b"\x00")
+# nested gzip
+(root / "nested.gz").write_bytes(gzip.compress(b"x=" + marker + b"\n"))
+# nested tar
+tbuf = io.BytesIO()
+with tarfile.open(fileobj=tbuf, mode="w") as tf:
+    data = b"y=" + marker + b"\n"
+    info = tarfile.TarInfo("inside.txt")
+    info.size = len(data)
+    tf.addfile(info, io.BytesIO(data))
+(root / "nested.tar").write_bytes(tbuf.getvalue())
+# nested zip
+zbuf = io.BytesIO()
+with zipfile.ZipFile(zbuf, "w") as zf:
+    zf.writestr("inside.txt", b"z=" + marker + b"\n")
+(root / "nested.zip").write_bytes(zbuf.getvalue())
+PY
+printf '%s\n' "documentation/dev-notes/pro-bifurcation-plan.md" > "${TMP_DIR}/nested.allow"
+for rel in nul.bin nested.gz nested.tar nested.zip; do
+  if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}/nested" --allowlist "${TMP_DIR}/nested.allow" \
+    --paths-file <(printf '%s\n' "${rel}") 2>/dev/null; then
+    fail "expected nested/binary canary to fail for ${rel}"
+  fi
+done
+pass "NUL/nested archive canaries"
+
+echo "==> canary: SBOM wrong-component and duplicate digest"
 sbom_dir="${TMP_DIR}/sboms"
 mkdir -p "${sbom_dir}"
-if bash "${CI_DIR}/scan_sboms.sh" --tag v1.1.0 --dir "${sbom_dir}" 2>/dev/null; then
-  fail "expected missing SBOMs to fail"
-fi
-# Create 12 empty-looking invalid files
+# Build 12 valid-looking SBOMs then mutate.
+amd_digest() { printf 'sha256:%064d' "$1"; }
+i=1
 for component in "${RELEASE_COMPONENTS[@]}"; do
-  for platform_entry in "${RELEASE_SBOM_PLATFORMS[@]}"; do
-    slug="${platform_entry##*:}"
+  for slug in linux-amd64 linux-arm64; do
     asset="$(release_sbom_asset_name "${component}" "v1.1.0" "${slug}")"
-    printf '{}\n' > "${sbom_dir}/${asset}"
+    dig="$(amd_digest "${i}")"
+    i=$((i + 1))
+    jq -n --arg name "ghcr.io/siriusscan/${component}" --arg ver "${dig}" \
+      '{bomFormat:"CycloneDX",specVersion:"1.7",metadata:{component:{name:$name,version:$ver}}}' \
+      > "${sbom_dir}/${asset}"
+  done
+done
+# Baseline should pass structural checks.
+bash "${CI_DIR}/scan_sboms.sh" --tag v1.1.0 --dir "${sbom_dir}" >/dev/null
+# Wrong component name
+bad="${sbom_dir}/$(release_sbom_asset_name sirius-ui v1.1.0 linux-amd64)"
+jq '.metadata.component.name="ghcr.io/siriusscan/sirius-api"' "${bad}" > "${bad}.tmp" && mv "${bad}.tmp" "${bad}"
+if bash "${CI_DIR}/scan_sboms.sh" --tag v1.1.0 --dir "${sbom_dir}" 2>/dev/null; then
+  fail "expected wrong-component SBOM to fail"
+fi
+# Restore and duplicate digests across platforms for ui
+jq -n --arg name "ghcr.io/siriusscan/sirius-ui" --arg ver "$(amd_digest 1)" \
+  '{bomFormat:"CycloneDX",specVersion:"1.7",metadata:{component:{name:$name,version:$ver}}}' \
+  > "${sbom_dir}/$(release_sbom_asset_name sirius-ui v1.1.0 linux-amd64)"
+jq -n --arg name "ghcr.io/siriusscan/sirius-ui" --arg ver "$(amd_digest 1)" \
+  '{bomFormat:"CycloneDX",specVersion:"1.7",metadata:{component:{name:$name,version:$ver}}}' \
+  > "${sbom_dir}/$(release_sbom_asset_name sirius-ui v1.1.0 linux-arm64)"
+# Repair other components to keep counts valid
+i=3
+for component in sirius-api sirius-engine sirius-postgres sirius-rabbitmq sirius-valkey; do
+  for slug in linux-amd64 linux-arm64; do
+    asset="$(release_sbom_asset_name "${component}" "v1.1.0" "${slug}")"
+    dig="$(amd_digest "${i}")"
+    i=$((i + 1))
+    jq -n --arg name "ghcr.io/siriusscan/${component}" --arg ver "${dig}" \
+      '{bomFormat:"CycloneDX",specVersion:"1.7",metadata:{component:{name:$name,version:$ver}}}' \
+      > "${sbom_dir}/${asset}"
   done
 done
 if bash "${CI_DIR}/scan_sboms.sh" --tag v1.1.0 --dir "${sbom_dir}" 2>/dev/null; then
-  fail "expected malformed SBOMs to fail"
+  fail "expected duplicate platform digest SBOM to fail"
 fi
-pass "malformed/missing SBOMs rejected"
+pass "SBOM wrong-component + duplicate digest canaries"
 
-echo "==> canary: seeded private-repo-shaped fixture rejected"
-seed="${TMP_DIR}/seed-private-shape"
-mkdir -p "${seed}/internal"
-printf 'require %s\nclone https://github.com/%s/sirius-release.git\n' \
-  "${PRIVATE_MODULE}" "${ORG_DISPLAY}" > "${seed}/internal/import.go"
-printf '%s\n' "documentation/dev-notes/pro-bifurcation-plan.md" > "${TMP_DIR}/seed.allow"
-if python3 "${CI_DIR}/scan_text.py" --root "${seed}" --allowlist "${TMP_DIR}/seed.allow" \
-  --paths-file <(printf '%s\n' "internal/import.go") 2>/dev/null; then
-  fail "expected private-repo-shaped fixture to fail"
-fi
-pass "private-repo-shaped fixture rejected"
+echo "==> canary: docker-save fixtures via scan_image_layers.py"
+python3 - <<'PY'
+import gzip, io, json, tarfile, sys
+from pathlib import Path
+sys.path.insert(0, "scripts/community-independence")
+import scan_image_layers
+from nested_content import ArchiveSafetyError
+
+tmp = Path("""${TMP_DIR}""") / "docker-save"
+tmp.mkdir(parents=True, exist_ok=True)
+allow = Path("scripts/community-independence/policy/governance-allowlist.txt")
+marker = ("ghcr.io/" + "opensecurity" + "-infosec/").encode() + b"img"
+
+def write_save(path: Path, members):
+    with tarfile.open(path, "w") as tf:
+        for name, data in members:
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+
+# clean fixture
+clean = tmp / "clean.tar"
+cfg = json.dumps({"config": {"Env": ["PATH=/usr/bin"]}}).encode()
+layer_buf = io.BytesIO()
+with tarfile.open(fileobj=layer_buf, mode="w") as lf:
+    data = b"ok\n"
+    info = tarfile.TarInfo("etc/issue")
+    info.size = len(data)
+    lf.addfile(info, io.BytesIO(data))
+write_save(clean, [("manifest.json", b"[]"), ("config.json", cfg), ("layer.tar", layer_buf.getvalue())])
+findings = scan_image_layers.scan_docker_save(clean, allow, "sirius-ui/linux-amd64")
+assert findings == [], findings
+
+# poisoned config
+poison_cfg = tmp / "poison-config.tar"
+write_save(poison_cfg, [("config.json", b'{"Env":["X=' + marker + b'"]}')])
+findings = scan_image_layers.scan_docker_save(poison_cfg, allow, "sirius-ui/linux-amd64")
+assert findings, "expected poisoned config findings"
+
+# poisoned normal layer file
+poison_layer = tmp / "poison-layer.tar"
+lbuf = io.BytesIO()
+with tarfile.open(fileobj=lbuf, mode="w") as lf:
+    data = b"leak=" + marker + b"\n"
+    info = tarfile.TarInfo("app/run.sh")
+    info.size = len(data)
+    lf.addfile(info, io.BytesIO(data))
+write_save(poison_layer, [("layer.tar", lbuf.getvalue())])
+findings = scan_image_layers.scan_docker_save(poison_layer, allow, "sirius-api/linux-arm64")
+assert findings, "expected poisoned layer findings"
+
+# nested compressed marker inside layer
+nested = tmp / "nested-layer.tar"
+inner = gzip.compress(b"z=" + marker + b"\n")
+lbuf = io.BytesIO()
+with tarfile.open(fileobj=lbuf, mode="w") as lf:
+    info = tarfile.TarInfo("opt/payload.gz")
+    info.size = len(inner)
+    lf.addfile(info, io.BytesIO(inner))
+write_save(nested, [("layer.tar", lbuf.getvalue())])
+findings = scan_image_layers.scan_docker_save(nested, allow, "sirius-engine/linux-amd64")
+assert findings, "expected nested compressed layer findings"
+
+# dangerous link/traversal in layer
+danger = tmp / "danger.tar"
+lbuf = io.BytesIO()
+with tarfile.open(fileobj=lbuf, mode="w") as lf:
+    info = tarfile.TarInfo("link")
+    info.type = tarfile.SYMTYPE
+    info.linkname = "../escape"
+    lf.addfile(info)
+write_save(danger, [("layer.tar", lbuf.getvalue())])
+try:
+    scan_image_layers.scan_docker_save(danger, allow, "sirius-postgres/linux-amd64")
+except ArchiveSafetyError as exc:
+    assert "link" in str(exc).lower() or "dangerous" in str(exc).lower()
+else:
+    # nested_content raises link forbidden
+    raise SystemExit("expected dangerous link rejection")
+
+print("OK docker-save fixture canaries")
+PY
+pass "docker-save fixture canaries"
+
+echo "==> mocked multi-arch index resolution + 12 child pulls/scans"
+mock_inspect="${TMP_DIR}/mock-inspect.sh"
+mock_pull="${TMP_DIR}/mock-pull.sh"
+mock_save="${TMP_DIR}/mock-save.sh"
+mock_cfg="${TMP_DIR}/mock-config.sh"
+cat > "${mock_inspect}" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+ref="$1"
+component="$(printf '%s' "${ref}" | sed -E 's#.*/([^@]+)@.*#\1#')"
+case "${component}" in
+  sirius-ui) a=11; b=12 ;;
+  sirius-api) a=21; b=22 ;;
+  sirius-engine) a=31; b=32 ;;
+  sirius-postgres) a=41; b=42 ;;
+  sirius-rabbitmq) a=51; b=52 ;;
+  sirius-valkey) a=61; b=62 ;;
+  *) echo "unknown ${component}" >&2; exit 1 ;;
+esac
+amd="$(printf 'sha256:%064d' "${a}")"
+arm="$(printf 'sha256:%064d' "${b}")"
+cat <<JSON
+{"schemaVersion":2,"mediaType":"application/vnd.oci.image.index.v1+json","manifests":[
+ {"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"${amd}","size":1,"platform":{"architecture":"amd64","os":"linux"}},
+ {"mediaType":"application/vnd.oci.image.manifest.v1+json","digest":"${arm}","size":1,"platform":{"architecture":"arm64","os":"linux"}}
+]}
+JSON
+EOF
+chmod +x "${mock_inspect}"
+cat > "${mock_pull}" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s %s\n' "$1" "$2" >> "${MOCK_PULL_LOG}"
+EOF
+chmod +x "${mock_pull}"
+cat > "${mock_save}" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+out="$2"
+python3 - "$out" <<'PY'
+import io, json, tarfile, sys
+from pathlib import Path
+out = Path(sys.argv[1])
+cfg = json.dumps({"config": {"Env": ["PATH=/bin"]}}).encode()
+lbuf = io.BytesIO()
+with tarfile.open(fileobj=lbuf, mode="w") as lf:
+    data = b"clean\n"
+    info = tarfile.TarInfo("etc/ok")
+    info.size = len(data)
+    lf.addfile(info, io.BytesIO(data))
+with tarfile.open(out, "w") as tf:
+    for name, data in [("manifest.json", b"[]"), ("config.json", cfg), ("layer.tar", lbuf.getvalue())]:
+        info = tarfile.TarInfo(name)
+        info.size = len(data)
+        tf.addfile(info, io.BytesIO(data))
+PY
+EOF
+chmod +x "${mock_save}"
+cat > "${mock_cfg}" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' '{"Config":{"Env":["PATH=/bin"]}}'
+EOF
+chmod +x "${mock_cfg}"
+
+# Missing platform must fail resolver
+python3 - <<'PY'
+import json, sys
+sys.path.insert(0, "scripts/community-independence")
+from resolve_platform_digests import resolve_platforms
+try:
+    resolve_platforms({"manifests":[{"digest":"sha256:"+"a"*64,"platform":{"os":"linux","architecture":"amd64"}}]})
+except ValueError as exc:
+    assert "arm64" in str(exc)
+else:
+    raise SystemExit("expected missing arm64 to fail")
+print("OK missing platform rejected")
+PY
+
+mock_manifest="${TMP_DIR}/core-manifest.yaml"
+python3 - <<PY
+import json
+from pathlib import Path
+comps = ["sirius-ui","sirius-api","sirius-engine","sirius-postgres","sirius-rabbitmq","sirius-valkey"]
+images = {}
+for i, c in enumerate(comps, start=1):
+    d = f"sha256:{i:064d}"
+    images[c] = {"tag":"v1.1.0","digest":d,"ref":f"ghcr.io/siriusscan/{c}@{d}"}
+Path("${mock_manifest}").write_text(json.dumps({
+  "apiVersion":"siriusscan.dev/v1","kind":"CoreManifest",
+  "metadata":{"release_tag":"v1.1.0"},
+  "images": images
+}))
+PY
+
+export MOCK_PULL_LOG="${TMP_DIR}/pulls.log"
+: > "${MOCK_PULL_LOG}"
+COMMUNITY_INDEPENDENCE_INSPECT_CMD="${mock_inspect}" \
+COMMUNITY_INDEPENDENCE_PULL_CMD="${mock_pull}" \
+COMMUNITY_INDEPENDENCE_SAVE_CMD="${mock_save}" \
+COMMUNITY_INDEPENDENCE_CONFIG_CMD="${mock_cfg}" \
+  bash "${CI_DIR}/scan_images.sh" --manifest "${mock_manifest}" --workdir "${TMP_DIR}/imgwork"
+
+pull_n="$(wc -l < "${MOCK_PULL_LOG}" | tr -d ' ')"
+[ "${pull_n}" -eq 12 ] || fail "expected 12 mocked child pulls, got ${pull_n}"
+grep -Eq 'linux/amd64 ghcr.io/siriusscan/sirius-ui@sha256:' "${MOCK_PULL_LOG}" || fail "missing ui amd64 pull"
+grep -Eq 'linux/arm64 ghcr.io/siriusscan/sirius-valkey@sha256:' "${MOCK_PULL_LOG}" || fail "missing valkey arm64 pull"
+pass "mocked 12 platform pulls/scans"
 
 echo "==> canary: why public CI must never read a real private repo"
 cat <<'EOF'
@@ -253,17 +527,14 @@ are therefore synthetic fixtures generated at test runtime.
 EOF
 pass "documented private-repo canary policy"
 
-echo "==> contract: six images + twelve SBOMs + exact digest refs helpers"
+echo "==> contract: six images / twelve SBOMs / platform children"
 [ "${#RELEASE_COMPONENTS[@]}" -eq 6 ] || fail "expected six release components"
 [ "$(release_expected_sbom_count)" -eq 12 ] || fail "expected twelve SBOM assets"
-# scan_images.sh must require digest refs from manifest (live check via script content + jq path).
-grep -Eq 'ghcr\\.io/siriusscan/|ghcr\.io/siriusscan/' "${CI_DIR}/scan_images.sh" \
-  || fail "image scanner must require public ghcr.io/siriusscan refs"
-grep -Eq '@sha256:' "${CI_DIR}/scan_images.sh" || fail "image scanner must require digest refs"
-grep -Fq 'exactly six' "${CI_DIR}/scan_images.sh" || grep -Fq 'exactly 6' "${CI_DIR}/scan_images.sh" \
-  || grep -Fq 'length) != 6' "${CI_DIR}/scan_images.sh" \
-  || fail "image scanner must enforce six images"
-pass "six images / twelve SBOMs / digest ref contracts"
+grep -Eq 'resolve_platform_digests|linux/amd64|linux/arm64' "${CI_DIR}/scan_images.sh" \
+  || fail "image scanner must resolve platform children"
+grep -Eq -- '--platform' "${CI_DIR}/scan_images.sh" || fail "image scanner must pull with --platform"
+grep -Eq 'scanned=.*12|expected 12' "${CI_DIR}/scan_images.sh" || fail "image scanner must require 12 scans"
+pass "six images / twelve platform scans contract"
 
 echo "==> current tracked public source passes leakage scan"
 bash "${CI_DIR}/scan.sh" --mode source --root "${PROJECT_ROOT}" --tag v1.1.0

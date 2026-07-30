@@ -75,18 +75,27 @@ bash scripts/community-independence/scan.sh --mode images --manifest "${out}/ass
 | --- | --- |
 | `source` | Git-tracked public source/config; path-aware allowlist |
 | `release-archive` | Public tag source archive members (safe extract semantics) |
-| `sbom` | Exactly twelve v1.1.0 CycloneDX assets + marker scan |
-| `images` | Six `core-manifest` digest refs, anonymous pull, no container run |
+| `sbom` | Exactly twelve CycloneDX assets; exact `ghcr.io/siriusscan/<component>` name + `sha256:` version; two distinct child digests per component |
+| `images` | Six index digests → resolve linux/amd64 + linux/arm64 children → anonymous `--platform` pull + layer scan (12 total, no run) |
 | `compose` | Rendered public Compose references only public GHCR |
 
 ### Governance allowlist
 
 Only narrow governance documentation, task records, and program notes may describe the
-public/private boundary. The allowlist lives at
-`scripts/community-independence/policy/governance-allowlist.txt`.
+public/private boundary vocabulary (private org/repo/registry references). The allowlist
+lives at `scripts/community-independence/policy/governance-allowlist.txt`.
 
-Runtime code, Docker/Compose files, build/release scripts, and GitHub workflows are
-never allowlisted—even if mistakenly added to the policy file.
+Credentials, PEM/private keys, tokens, and the Pro runtime canary are **never**
+allowlisted anywhere. Runtime code, Docker/Compose files, build/release scripts, and
+GitHub workflows (`.yml` and `.yaml`) are never allowlisted—even if mistakenly added
+to the policy file.
+
+### SBOM platform coverage
+
+Syft CycloneDX assets for Community releases do not encode an OCI platform field in the
+JSON. Platform coverage is enforced by the release filename slug
+(`linux-amd64` / `linux-arm64`) plus requiring exactly two distinct
+`metadata.component.version` child digests per component.
 
 ### Anonymous release scan
 
@@ -97,9 +106,11 @@ registry logins, organization secrets, or PATs.
 
 ### Limitations
 
-- Binary blobs are skipped for text markers; layer archives are inspected, but encrypted
-  or opaque payloads may not yield readable text
+- Recognized nested gzip/zip/tar payloads are inspected with bounded depth/size; encrypted
+  or opaque blobs may still hide markers
 - High-confidence credential regexes are intentionally narrow to limit false positives
+- Full image scan requires Docker/buildx and network; local mocked contract tests cover
+  index resolution and 12 child pull/scan wiring when Docker is unavailable
 - Compose smoke requires a working Docker engine and network access to public GHCR
 - Public CI must never read a real private repository to plant or verify canaries;
   synthetic runtime fixtures preserve the independence guarantee

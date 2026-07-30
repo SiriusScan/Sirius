@@ -6,7 +6,7 @@ execution_kind: parent
 cycle: 9
 attempt: 1
 evaluator_role: parent
-evaluated_at: "2026-07-30T23:20:00Z"
+evaluated_at: "2026-07-30T23:35:00Z"
 evidence_paths: "scripts/community-independence/; scripts/test-community-independence.sh; .github/workflows/community-independence.yml; documentation/dev/deployment/README.community-independence.md; local test logs"
 criteria:
   - id: credential-free-public-ci
@@ -17,33 +17,32 @@ criteria:
   - id: standing-scanner-coverage
     status: pass
     evidence:
-      - "Modes cover source, release-archive, sbom (12 CycloneDX), images (six digest refs, no run), and compose independence."
-      - "Live anonymous v1.1.0 source archive + all 12 SBOMs + core-manifest validation passed locally."
+      - "Modes cover source, release-archive, sbom (exact name/version + distinct child digests), images (6 indexes → 12 platform children), and compose independence."
+      - "Live anonymous v1.1.0 source archive + all 12 SBOMs + core-manifest validation passed locally after review fixes."
   - id: path-scoped-allowlist
     status: pass
     evidence:
-      - "governance-allowlist.txt is limited to docs/tasks/program paths; workflows/Docker/scripts never allowlisted (behavioral canary)."
+      - "Safe path normalization (no charset lstrip); .yml and .yaml workflows never allowlisted."
+      - "Allowlist suppresses only boundary vocabulary; secrets/PEM/tokens/Pro canary never allowlisted (behavioral canaries)."
   - id: synthetic-canaries
     status: pass
     evidence:
-      - "Runtime-generated private registry/module/Pro-canary/PAT/traversal/SBOM/private-repo-shaped fixtures fail closed; tracked public source passes."
-      - "Public CI must not read a real private repo for canaries (documented in tests and README)."
-  - id: six-image-live-scan
+      - "Runtime canaries cover private markers, governance secret bypass, release-archive top-dir attribution, zip oversize/mismatch, NUL/nested archives, SBOM wrong-component/duplicate digest, docker-save fixtures, and mocked 12 platform pulls."
+  - id: twelve-platform-image-live-scan
     status: deferred_to_ci
     evidence:
-      - "Local Docker daemon unavailable (cannot connect to docker.sock); image pull/layer scan and compose smoke remain for GitHub Actions public-release-scan."
+      - "Local Docker daemon unavailable; mocked contract proves index resolution and 12 child pull/scan wiring. Live 12-platform image scan + compose smoke remain for GitHub Actions public-release-scan after push."
 verdict: accepted_pending_ci
-artifact_verdict: accepted
+artifact_verdict: accepted_pending_ci
 loop_decision: human_gate
 residual_risk:
-  - "Six-image layer scan and public Compose smoke were not executed locally; CI must confirm."
-  - "Text scanners skip opaque binary payloads; layer archives are inspected but encrypted blobs may not yield markers."
+  - "Live 12-platform image layer scans and public Compose smoke were not executed locally; CI must confirm after push."
+  - "Encrypted or opaque blobs may still hide markers despite nested gzip/zip/tar inspection."
   - "GitHub Free private-org governance waiver from earlier Stage 3 work remains unrelated but active."
 ---
 
 # Evaluation
 
-Task 2.3 implementation is locally complete and fail-closed against synthetic canaries.
-Stop at the public branch push / pull-request human gate so Actions can run
-`public-release-scan` (six digest image scans + compose smoke) without this agent
-pushing or opening a PR.
+Task 2.3 remains `accepted_pending_ci` / `human_gate`. Review findings were corrected
+locally; Phase 2 is not complete until pushed CI proves all 12 platform image scans and
+compose smoke. Do not mark task 2.3 done until that evidence exists.

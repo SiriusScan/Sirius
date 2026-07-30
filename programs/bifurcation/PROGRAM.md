@@ -284,7 +284,7 @@ Tasks:
 - [x] Record the approved private branch/tag protection and secret-scanning waiver
 - [x] Verify anonymous denial and record governance evidence
 - [x] Prove private GHCR publishing, SBOM, keyless signing, and Community verification
-- [x] Complete Phase 2 and record private repository governance evidence
+- [ ] Complete Phase 2 and record private repository governance evidence
 
 Task 2.1 result:
 
@@ -415,11 +415,13 @@ Task 2.3 result:
 - `validation`:
   - `bash scripts/test-community-independence.sh` and `bash scripts/test-core-manifest.sh` passed
   - Live anonymous `v1.1.0` source archive + 12 SBOM scan + core-manifest validation passed
-  - Six-image layer scan / compose smoke deferred to CI (local Docker daemon unavailable)
+  - Mocked contract proves 6→12 platform child pull/scan wiring; live 12-platform image
+    scan + compose smoke deferred to CI (local Docker daemon unavailable)
 - `verdict`: `accepted_pending_ci`
 - `loop_decision`: `human_gate`
+- `task_status`: `in_progress` (not done until CI proves 12 platform images + smoke)
 - `next_action`: Human pushes the feature branch / opens PR; Actions confirms
-  `public-release-scan`.
+  `public-release-scan` for all 12 platform digests and compose smoke.
 
 Cycle 9 evidence:
 
@@ -428,10 +430,11 @@ Cycle 9 evidence:
   separate `source-contract` (PR/push) and `public-release-scan`
   (main/schedule/workflow_dispatch) jobs targeting immutable `v1.1.0` (no mutable
   latest path).
-- Added `scripts/community-independence/` path-aware fail-closed scanner (source,
-  safe archives, SBOMs, anonymous digest image inspect without container run, public
-  compose independence) and `scripts/test-community-independence.sh` wired into
-  `scripts/test-core-manifest.sh`.
+- Review fixes: safe path normalization; `.yml`/`.yaml` never-allowlist; boundary-only
+  allowlist (secrets/canary never suppressed); nested gzip/zip/tar + NUL binary scan;
+  zip stream size/mismatch rejection; exact SBOM name/version + distinct child digests;
+  multi-arch image scan (buildx resolve + `--platform` child pulls); docker-save and
+  mocked 12-pull behavioral canaries.
 - Governance allowlist is prefix-scoped to docs/tasks/program records; runtime,
   Docker/Compose, build scripts, and workflows are never allowlisted.
 - Canaries are synthetic runtime fixtures; public CI must never read a real private
@@ -439,8 +442,8 @@ Cycle 9 evidence:
 - Docs: `documentation/dev/deployment/README.community-independence.md` (+ index /
   workflows index updates).
 - Evaluation: `programs/bifurcation/evaluations/bifurcation.s3.t008.md`.
-- Decision: local implementation accepted pending CI confirmation; stop at public
-  push/PR human gate.
+- Decision: local implementation `accepted_pending_ci`; Phase 2 incomplete; stop at
+  public push/PR human gate.
 
 ## Stage 4: Public Contracts
 

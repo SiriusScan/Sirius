@@ -14,25 +14,22 @@ import zipfile
 from pathlib import Path
 from typing import Iterable, List, Optional, Sequence, Tuple
 
-# Reuse text scanner helpers.
 _SCAN_DIR = Path(__file__).resolve().parent
 if str(_SCAN_DIR) not in sys.path:
     sys.path.insert(0, str(_SCAN_DIR))
 
 import scan_text  # noqa: E402
-
-
-MAX_MEMBER_BYTES = 32 * 1024 * 1024  # 32 MiB per member
-MAX_TOTAL_BYTES = 512 * 1024 * 1024  # 512 MiB uncompressed text budget
-MAX_MEMBERS = 200_000
-
-
-class ArchiveSafetyError(Exception):
-    pass
+from nested_content import (  # noqa: E402
+    MAX_MEMBER_BYTES,
+    MAX_MEMBERS,
+    MAX_TOTAL_BYTES,
+    ArchiveSafetyError,
+    _read_zip_member,
+    _validate_member_name,
+)
 
 
 def _open_tar(path: Path) -> tarfile.TarFile:
-    # tarfile detects gz/bz2/xz when mode is r:*
     return tarfile.open(path, mode="r:*")
 
 
@@ -42,22 +39,6 @@ def _strip_single_top_dir(name: str) -> str:
     if len(parts) >= 2 and parts[0]:
         return "/".join(parts[1:])
     return name.replace("\\", "/")
-
-
-def _validate_member_name(name: str) -> str:
-    rel = name.replace("\\", "/")
-    if not rel or rel.endswith("/"):
-        return ""
-    if rel.startswith("/") or rel.startswith("../") or "/../" in f"/{rel}/":
-        raise ArchiveSafetyError(f"illegal archive member path: {name}")
-    if PureHasDrive(rel):
-        raise ArchiveSafetyError(f"absolute/drive archive member path: {name}")
-    # After stripping GitHub top dir for allowlist, still reject oddities.
-    return rel
-
-
-def PureHasDrive(rel: str) -> bool:
-    return len(rel) >= 2 and rel[1] == ":"
 
 
 def iter_zip_members(path: Path) -> Iterable[Tuple[str, bytes]]:
@@ -70,22 +51,11 @@ def iter_zip_members(path: Path) -> Iterable[Tuple[str, bytes]]:
             count += 1
             if count > MAX_MEMBERS:
                 raise ArchiveSafetyError("too many archive members")
-            name = info.filename
-            _validate_member_name(name)
-            if info.file_size > MAX_MEMBER_BYTES:
-                raise ArchiveSafetyError(f"member too large: {name} ({info.file_size})")
-            # Reject symlink-like zip extras loosely by checking external attrs on Unix.
-            # Zip symlinks often have create_system==3 and mode with IFMT symlink.
-            mode = (info.external_attr >> 16) & 0o170000
-            if mode == 0o120000:
-                raise ArchiveSafetyError(f"symlink member forbidden: {name}")
-            data = zf.read(info)
-            if len(data) > MAX_MEMBER_BYTES:
-                raise ArchiveSafetyError(f"expanded member too large: {name}")
+            data = _read_zip_member(zf, info)
             total += len(data)
             if total > MAX_TOTAL_BYTES:
                 raise ArchiveSafetyError("archive uncompressed budget exceeded")
-            yield name, data
+            yield info.filename, data
 
 
 def iter_tar_members(path: Path) -> Iterable[Tuple[str, bytes]]:
@@ -110,6 +80,8 @@ def iter_tar_members(path: Path) -> Iterable[Tuple[str, bytes]]:
             data = extracted.read(MAX_MEMBER_BYTES + 1)
             if len(data) > MAX_MEMBER_BYTES:
                 raise ArchiveSafetyError(f"expanded member too large: {name}")
+            if member.size != len(data):
+                raise ArchiveSafetyError(f"declared/actual size mismatch for {name}")
             total += len(data)
             if total > MAX_TOTAL_BYTES:
                 raise ArchiveSafetyError("archive uncompressed budget exceeded")
@@ -133,24 +105,16 @@ def scan_archive(path: Path, allowlist_path: Path) -> List[str]:
     ):
         members = iter_tar_members(path)
     else:
-        # Try tar then zip.
         try:
             members = list(iter_tar_members(path))
         except (tarfile.TarError, ArchiveSafetyError):
             members = iter_zip_members(path)
 
     for name, data in members:
-        rel = _strip_single_top_dir(name)
-        rel = scan_text.norm_rel(rel)
+        rel = scan_text.norm_rel(_strip_single_top_dir(name))
         if not rel:
             continue
-        if b"\x00" in data[:8192]:
-            continue
-        try:
-            text = data.decode("utf-8", errors="replace")
-        except Exception:
-            continue
-        findings.extend(scan_text.scan_text(text, rel, rules, allowlist))
+        findings.extend(scan_text.scan_bytes(data, rel, rules, allowlist))
     return findings
 
 

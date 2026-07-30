@@ -144,11 +144,11 @@
         "id": "2.3",
         "title": "Standing community-independence and leakage tests",
         "description": "Prove the public edition never needs private access, and public artifacts never contain private references.",
-        "details": "Added .github/workflows/community-independence.yml (contents:read, full-SHA pins, persist-credentials:false) with source-contract (PR/push) and public-release-scan (main/schedule/dispatch) jobs. Scanner under scripts/community-independence/ covers source, release archives, 12 SBOMs, and six digest image refs without private credentials. Contract/canary tests in scripts/test-community-independence.sh (wired into test-core-manifest.sh) generate prohibited strings at runtime; public CI never reads a real private repo.",
-        "status": "done",
+        "details": "Local implementation of community-independence.yml + scripts/community-independence/ with path-safe allowlists, secret/boundary rule split, nested archive/binary scanning, tightened 12-SBOM checks, and multi-arch (6 indexes → 12 platform digests) image scanning. Contract/canary tests pass locally; live anonymous v1.1.0 source+SBOM scan passes. Remains in_progress until pushed CI proves all 12 platform image scans and compose smoke.",
+        "status": "in_progress",
         "priority": "high",
         "dependencies": ["2.2"],
-        "testStrategy": "bash scripts/test-community-independence.sh; bash scripts/test-core-manifest.sh; anonymous v1.1.0 source+SBOM scan; CI public-release-scan for six-image layer scan + compose smoke."
+        "testStrategy": "bash scripts/test-community-independence.sh; bash scripts/test-core-manifest.sh; anonymous v1.1.0 source+SBOM scan; CI public-release-scan must prove 12 platform image scans + compose smoke."
       }
     ]
   },

@@ -1,5 +1,5 @@
 {
-  "v0.0.19": {
+  "c7c42d4444c8637140ab0e29743184fface5b12f": {
     "ledger_table": "schema_migrations_core",
     "latest_migration": "007_add_vulnerability_stats_indexes"
   }

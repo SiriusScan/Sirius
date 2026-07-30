@@ -170,7 +170,7 @@ RUN apt-get update && \
 #     CI fallback, and SHA-AUDIT-2026-04.md (or its successor) in one PR.
 #
 # Audit doc: documentation/dev-notes/SHA-AUDIT-2026-04.md
-ARG GO_API_COMMIT_SHA=v0.0.19
+ARG GO_API_COMMIT_SHA=c7c42d4444c8637140ab0e29743184fface5b12f
 ARG APP_SCANNER_COMMIT_SHA=a031480cc7e0dc4a1cb09bdcfafedd89fbc61dfd
 ARG APP_TERMINAL_COMMIT_SHA=5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1
 ARG SIRIUS_NSE_COMMIT_SHA=a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9

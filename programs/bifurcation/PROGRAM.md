@@ -142,7 +142,7 @@ Current task:
 
 - `task_id`: `bifurcation.s2.t002`
 - `stage`: `2 Core Release Train`
-- `cycle`: `2`
+- `cycle`: `3`
 - `attempt`: `1`
 - `assigned_role`: `parent`
 - `criteria`:
@@ -177,6 +177,22 @@ Cycle 2 evidence:
   after the update.
 - Decision: continue task `bifurcation.s2.t002` by monitoring checks; merging and
   publishing remain separate human gates.
+
+Cycle 3 evidence:
+
+- Human approval received to handle and merge pull request 132.
+- All build, pin, manifest, Compose, and documentation checks passed; Integration Test
+  exposed a real fresh-install defect in go-api migration 005:
+  `vulnerabilities(vid)` referenced a nonexistent column (the persisted column is
+  `v_id`).
+- Fixed and tested go-api at commit
+  `c7c42d4444c8637140ab0e29743184fface5b12f`; Sirius now pins that immutable commit
+  and the API module uses its generated pseudo-version.
+- Local migration-package, API handler/internal, core-manifest, JSON, and diff checks
+  passed. Full local API integration tests require configured PostgreSQL/Valkey and
+  failed only because the local PostgreSQL credentials were unavailable.
+- Decision: push the scoped fix, rerun PR CI, then merge only if all required checks
+  pass.
 
 ## Stage 3: Private Supply Chain
 

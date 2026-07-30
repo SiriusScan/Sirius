@@ -133,35 +133,34 @@ Tasks:
 - [x] Validate and review the task 1.4 release-train implementation
 - [x] Cross the human gate to push, review, and merge the feature branch
 - [x] Confirm main CI produced the exact-SHA core build inventory
-- [ ] Cross the human gate to tag and publish `v1.1.0`
-- [ ] Verify all six images and `core-manifest.yaml`; mark task 1.4 done
-- [ ] Implement and verify task 1.5 SBOM generation and Cosign signing
-- [ ] Update this file with stage outcomes
+- [x] Cross the human gate to tag and publish `v1.1.0`
+- [x] Verify all six images and `core-manifest.yaml`; mark task 1.4 done
+- [x] Implement and verify task 1.5 SBOM generation and Cosign signing
+- [x] Update this file with stage outcomes
 
 Current task:
 
-- `task_id`: `bifurcation.s2.t004`
+- `task_id`: `bifurcation.s2.t005`
 - `stage`: `2 Core Release Train`
-- `cycle`: `5`
+- `cycle`: `6`
 - `attempt`: `1`
-- `assigned_role`: `grok`
+- `assigned_role`: `parent`
 - `criteria`:
-  - The release workflow generates platform-scoped Syft SBOM assets for each of the six
-    public image indexes using exact linux/amd64 and linux/arm64 child digests.
-  - The six release image manifests are signed with Cosign and admit verification.
-  - Release publication fails closed if SBOM generation, signing, or verification
-    fails.
-  - No Git tag, GitHub Release, package tag, or external deployment is created during
-    implementation and validation.
+  - `v1.1.0` resolves to the exact main commit with a successful core-build inventory.
+  - All six public image tags resolve to the manifest digests in `core-manifest.yaml`.
+  - Twelve platform-scoped CycloneDX SBOM assets are published.
+  - The release workflow keyless-signs and verifies all six image indexes before
+    publication, and the follow-up public verification workflow succeeds.
 - `validation`:
-  - `bash scripts/test-core-manifest.sh`
-  - Workflow YAML parsing and pinned-tool checksum validation
-  - Focused SBOM/signing release-contract tests
+  - `gh run view 30578119633`
+  - `gh release view v1.1.0`
+  - `gh run view 30578823485`
+  - Local release-asset and live-digest validation
 - `verdict`: `accepted`
 - `loop_decision`: `human_gate`
-- `next_action`: Obtain explicit approval to push the cycle-5 branch, open and merge
-  its pull request, and confirm main CI before returning to the separate `v1.1.0`
-  tag-and-publish human gate.
+- `next_action`: Obtain explicit approval before creating the three private
+  `OpenSecurity-Infosec` repositories, teams, package namespaces, or credentials for
+  Stage 3.
 
 Cycle 1 evidence:
 
@@ -233,16 +232,36 @@ Cycle 5 evidence:
 - Decision: task `bifurcation.s2.t004` accepted locally; program waits before pushing
   the branch or opening a pull request.
 
+Cycle 6 evidence:
+
+- Pull request 133 merged as
+  `b61b47b468cfc5c837a5bde50eeafe52df4fe10d`; main CI run 30574501048 succeeded and
+  produced a non-expired exact-commit `core-build-inventory`.
+- Human approval was received to create annotated tag `v1.1.0` at that commit and run
+  the public release workflow.
+- Publish run 30578119633 succeeded through inventory resolution, write-once retagging,
+  public compose smoke, 12 platform SBOMs, canonical OIDC signing, draft asset
+  re-validation, final Cosign verification, and publication.
+- Release `v1.1.0` contains `core-manifest.yaml` and all 12 expected CycloneDX assets.
+  Local validation matched all six live GHCR digests to the manifest.
+- Follow-up verification run 30578823485 succeeded for anonymous GHCR and release
+  manifest checks.
+- Tasks 1.4 and 1.5 and the Phase 1 parent are marked done.
+- Evaluation:
+  `programs/bifurcation/evaluations/bifurcation.s2.t005.md`.
+- Decision: Stage 2 is complete; the program waits at the private-infrastructure human
+  gate before Stage 3.
+
 ## Current loop state
 
 ```yaml
-current_task_id: bifurcation.s2.t004
-cycle: 5
+current_task_id: bifurcation.s2.t005
+cycle: 6
 attempt: 1
 status: waiting
 verdict: accepted
 loop_decision: human_gate
-next_action: Obtain approval to push, review, and merge the cycle-5 release gate changes.
+next_action: Obtain approval before creating private repositories or infrastructure.
 ```
 
 ## Stage 3: Private Supply Chain

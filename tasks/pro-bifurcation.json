@@ -55,7 +55,7 @@
     "title": "PHASE 1: Public-Core Hardening",
     "description": "Fix the data layer, pinning, and release discipline that Pro will depend on. All work is public and benefits Community directly.",
     "details": "Prerequisites discovered in ground-truth review: destructive go-api schema init, migrations skipped in production, unpinned engine components, no release cadence or digest manifest, no SBOM/signing.",
-    "status": "in_progress",
+    "status": "done",
     "priority": "high",
     "dependencies": ["0"],
     "subtasks": [
@@ -93,8 +93,8 @@
         "id": "1.4",
         "title": "Establish release train and digest manifest",
         "description": "Cut v1.1.0 and emit core-manifest.yaml with image digests, component pins, and schema version per release.",
-        "details": "Tag v1.1.0 from hardened HEAD; make publish-release-image-tags.yml + verify-ghcr-release-tag.yml a gated release workflow (release blocked unless all six images retag and verify); generate core-manifest.yaml as a release asset. Publishing the v1.1.0 GitHub Release also requires the task 1.5 SBOM+Cosign fail-closed gate in publish-release-image-tags.yml (do not mark 1.4 done until a real release run succeeds).",
-        "status": "in_progress",
+        "details": "Released v1.1.0 from merge commit b61b47b468cfc5c837a5bde50eeafe52df4fe10d. Publish run 30578119633 resolved exact-commit inventory, write-once retagged and verified all six public images, passed the public compose smoke, attached core-manifest.yaml, and published only after task 1.5 attestation checks. Follow-up verification run 30578823485 succeeded.",
+        "status": "done",
         "priority": "high",
         "dependencies": ["1.2", "1.3"],
         "testStrategy": "v1.1.0 release exists with all six images pullable at the tag, manifest lists sha256 digests matching GHCR, and verify workflow is green."
@@ -103,8 +103,8 @@
         "id": "1.5",
         "title": "SBOM generation and image signing in public CI",
         "description": "Add Syft SBOMs and Cosign signatures for all six public images.",
-        "details": "REQUIRED BEFORE v1.1.0 GitHub Release publication (parallel with 1.4 release-train wiring; no dependency cycle). Implement in publish-release-image-tags.yml after write-once retags and public smoke: resolve linux/amd64 + linux/arm64 child digests from each inventory OCI index and generate 12 Syft CycloneDX assets (sbom-<component>-<tag>-linux-amd64|arm64.cdx.json); Cosign keyless sign+verify all six inventory index digests via GitHub Actions OIDC with canonical identity https://github.com/SiriusScan/Sirius/.github/workflows/publish-release-image-tags.yml@refs/heads/main (workflow fail-closed to SiriusScan/Sirius@refs/heads/main); re-verify Cosign in publish-github-release before draft=false (packages:read, no id-token). Pin Syft/Cosign via checksummed install script. Contract tests in scripts/test-release-signing-contract.sh. Do not mark done until a real release run proves signatures and the 12 SBOM assets.",
-        "status": "in_progress",
+        "details": "Proven by v1.1.0 publish run 30578119633: generated and validated 12 platform-scoped Syft CycloneDX assets from exact linux/amd64 and linux/arm64 child digests; keyless-signed and verified all six inventory OCI index digests with the canonical SiriusScan/Sirius@main OIDC identity; re-verified signatures before draft=false. All 12 SBOMs and core-manifest.yaml are published release assets.",
+        "status": "done",
         "priority": "high",
         "dependencies": ["1.2", "1.3"],
         "testStrategy": "bash scripts/test-core-manifest.sh (includes signing contract); on a real release: cosign verify succeeds for all six inventory digest refs with the canonical OIDC identity; twelve platform-scoped CycloneDX SBOM assets present on the GitHub Release."

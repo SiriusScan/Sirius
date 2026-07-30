@@ -140,24 +140,28 @@ Tasks:
 
 Current task:
 
-- `task_id`: `bifurcation.s2.t003`
+- `task_id`: `bifurcation.s2.t004`
 - `stage`: `2 Core Release Train`
-- `cycle`: `4`
+- `cycle`: `5`
 - `attempt`: `1`
-- `assigned_role`: `parent`
+- `assigned_role`: `grok`
 - `criteria`:
-  - Pull request 132 is merged into `main` with all review threads resolved.
-  - Main CI succeeds for the merge commit and publishes the exact-SHA
-    `core-build-inventory` artifact.
-  - The public-stack contract succeeds without creating a release tag.
+  - The release workflow generates platform-scoped Syft SBOM assets for each of the six
+    public image indexes using exact linux/amd64 and linux/arm64 child digests.
+  - The six release image manifests are signed with Cosign and admit verification.
+  - Release publication fails closed if SBOM generation, signing, or verification
+    fails.
+  - No Git tag, GitHub Release, package tag, or external deployment is created during
+    implementation and validation.
 - `validation`:
-  - `gh pr view 132 --json state,mergeCommit,mergedAt`
-  - `gh run view 30557457126 --json status,conclusion,attempt,jobs`
-  - `gh api repos/SiriusScan/Sirius/actions/runs/30557457126/artifacts`
+  - `bash scripts/test-core-manifest.sh`
+  - Workflow YAML parsing and pinned-tool checksum validation
+  - Focused SBOM/signing release-contract tests
 - `verdict`: `accepted`
 - `loop_decision`: `human_gate`
-- `next_action`: Obtain explicit approval before creating and publishing tag `v1.1.0`;
-  then verify all six release images and `core-manifest.yaml`.
+- `next_action`: Obtain explicit approval to push the cycle-5 branch, open and merge
+  its pull request, and confirm main CI before returning to the separate `v1.1.0`
+  tag-and-publish human gate.
 
 Cycle 1 evidence:
 
@@ -212,16 +216,33 @@ Cycle 4 evidence:
 - Decision: task `bifurcation.s2.t003` accepted; program is waiting at the explicit
   `v1.1.0` tag-and-publish human gate.
 
+Cycle 5 evidence:
+
+- User selected SBOM generation and image signing before publishing `v1.1.0`, resolving
+  the task-order conflict in favor of the program acceptance criteria.
+- Commits `a8460de25` and `9e336ef39` add checksummed Syft/Cosign tooling, 12
+  platform-scoped CycloneDX assets, exact-digest keyless signing, canonical
+  `SiriusScan/Sirius@main` verification, and a final pre-publish signature check.
+- `bash scripts/test-core-manifest.sh`, workflow YAML parsing, pinned upstream tool
+  checksum verification, and `git diff --check` passed.
+- The first independent review found an over-broad signing identity and incomplete
+  multi-architecture SBOM coverage. Both were corrected; the second review reported no
+  findings.
+- Evaluation:
+  `programs/bifurcation/evaluations/bifurcation.s2.t004.md`.
+- Decision: task `bifurcation.s2.t004` accepted locally; program waits before pushing
+  the branch or opening a pull request.
+
 ## Current loop state
 
 ```yaml
-current_task_id: bifurcation.s2.t003
-cycle: 4
+current_task_id: bifurcation.s2.t004
+cycle: 5
 attempt: 1
 status: waiting
 verdict: accepted
 loop_decision: human_gate
-next_action: Obtain explicit approval before creating and publishing tag v1.1.0.
+next_action: Obtain approval to push, review, and merge the cycle-5 release gate changes.
 ```
 
 ## Stage 3: Private Supply Chain

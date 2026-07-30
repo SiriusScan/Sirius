@@ -1,6 +1,6 @@
 ---
 goal: "Bifurcate Sirius into a canonical, independently runnable public Community core and a private, commercially licensed Pro extension layer that consumes immutable public releases without private-to-public source export."
-status: "active"
+status: "blocked"
 acceptance_criteria:
   - "Community builds, tests, scans, upgrades, and runs without private credentials or Pro artifacts."
   - "Every public release publishes six digest-addressed images, a validated core manifest, SBOMs, and verifiable signatures."
@@ -258,8 +258,10 @@ Cycle 6 evidence:
 current_task_id: bifurcation.s3.t006
 cycle: 7
 attempt: 1
-status: active
-next_action: Build private skeletons and apply repository-scoped governance.
+status: blocked
+verdict: rejected
+loop_decision: blocked
+next_action: Upgrade GitHub plan and decide whether organization base permission becomes none.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -275,11 +277,11 @@ Owned paths:
 
 Tasks:
 
-- [ ] Create leakage-safe skeletons for the three private repositories
-- [ ] Create the private repositories and push only their independent skeleton histories
+- [x] Create leakage-safe skeletons for the three private repositories
+- [x] Create the private repositories and push only their independent skeleton histories
 - [ ] Establish access teams and least-privilege repository grants
 - [ ] Protect `main` and `v*` tags; enable available security controls
-- [ ] Verify anonymous denial and record governance evidence
+- [x] Verify anonymous denial and record governance evidence
 - [ ] Complete Phase 2 and record private repository governance evidence
 
 Current task:
@@ -302,8 +304,40 @@ Current task:
   - Repository-native tests and workflow syntax checks in each skeleton
   - GitHub API inspection of teams, grants, rules, and security settings
   - Anonymous HTTPS probes with credentials removed
-- `next_action`: Build and validate the three independent local skeletons, then create
-  the approved private repositories and apply repository-scoped governance.
+- `verdict`: `rejected`
+- `loop_decision`: `blocked`
+- `next_action`: Upgrade the OpenSecurity-Infosec organization from GitHub Free so
+  private branch/tag rules and secret scanning are available, and explicitly decide
+  whether to change organization-wide base repository permission from `write` to
+  `none`; then retry task 2.1 governance enforcement.
+
+Cycle 7 evidence:
+
+- Created independent private repositories:
+  `OpenSecurity-Infosec/sirius-pro`,
+  `OpenSecurity-Infosec/sirius-entitlements`, and
+  `OpenSecurity-Infosec/sirius-release`. No Community source or Git history was cloned.
+- Created six closed Sirius teams and assigned repository-scoped grants. The current
+  authenticated organization admin is a maintainer of each team.
+- Each repository has a proprietary boundary notice, CODEOWNERS, required skeleton
+  layout, immutable Community `v1.1.0` pins where applicable, and a read-only boundary
+  workflow using a full-SHA action pin.
+- Independent review found fail-open scanner gaps. Commits `16d483e`, `ff1e4e2`, and
+  `a429d4a` corrected secret, mutable-ref, workflow-permission, export, customer-license,
+  malformed-digest, and self-test coverage. All three pushed guardrail runs succeeded.
+- All repositories are private; unauthenticated GitHub API probes return 404.
+  Vulnerability alerts are enabled.
+- GitHub rejected private branch protection and repository rulesets with
+  `403 Upgrade to GitHub Pro or make this repository public`. Secret scanning returned
+  `422 Secret scanning is not available for this repository`.
+- Organization plan is `free`, with nine members and
+  `default_repository_permission=write`. Repository team grants cannot reduce that
+  organization-wide base permission, so least privilege is not yet achieved.
+- Evaluation:
+  `programs/bifurcation/evaluations/bifurcation.s3.t006.md`.
+- Decision: task `bifurcation.s3.t006` is blocked on plan entitlement and an
+  organization-wide base-permission decision; no package namespace, signing identity,
+  credential, or customer infrastructure was created.
 
 ## Stage 4: Public Contracts
 

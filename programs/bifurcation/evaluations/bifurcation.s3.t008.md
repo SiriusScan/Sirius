@@ -29,12 +29,13 @@ criteria:
     evidence:
       - "Runtime canaries cover private markers, governance secret bypass, release-archive top-dir attribution, zip oversize/mismatch, NUL/nested archives, SBOM wrong-component/duplicate digest, docker-save fixtures, and mocked 12 platform pulls."
   - id: twelve-platform-image-live-scan
-    status: deferred_to_ci
+    status: unknown
     evidence:
       - "Local Docker daemon unavailable; mocked contract proves index resolution and 12 child pull/scan wiring. Live 12-platform image scan + compose smoke remain for GitHub Actions public-release-scan after push."
-verdict: accepted_pending_ci
-artifact_verdict: accepted_pending_ci
+verdict: corrected
+artifact_verdict: accepted
 loop_decision: human_gate
+correction: "Push the feature branch and require a green public-release-scan covering all 12 platform child digests plus public Compose smoke before final task acceptance."
 residual_risk:
   - "Live 12-platform image layer scans and public Compose smoke were not executed locally; CI must confirm after push."
   - "Encrypted or opaque blobs may still hide markers despite nested gzip/zip/tar inspection."
@@ -43,6 +44,6 @@ residual_risk:
 
 # Evaluation
 
-Task 2.3 remains `accepted_pending_ci` / `human_gate`. Review findings were corrected
-locally; Phase 2 is not complete until pushed CI proves all 12 platform image scans and
-compose smoke. Do not mark task 2.3 done until that evidence exists.
+The local task 2.3 artifact is accepted and the loop stops at a human gate. Phase 2 is
+not complete until pushed CI proves all 12 platform image scans and Compose smoke. Do
+not mark task 2.3 done until that evidence exists.

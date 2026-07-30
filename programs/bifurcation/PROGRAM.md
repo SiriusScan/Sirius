@@ -1,6 +1,6 @@
 ---
 goal: "Bifurcate Sirius into a canonical, independently runnable public Community core and a private, commercially licensed Pro extension layer that consumes immutable public releases without private-to-public source export."
-status: "active"
+status: "waiting"
 acceptance_criteria:
   - "Community builds, tests, scans, upgrades, and runs without private credentials or Pro artifacts."
   - "Every public release publishes six digest-addressed images, a validated core manifest, SBOMs, and verifiable signatures."
@@ -258,8 +258,11 @@ Cycle 6 evidence:
 current_task_id: bifurcation.s3.t008
 cycle: 9
 attempt: 1
-status: human_gate
-next_action: Push feature/bifurcation-cycle-8 and open a PR so Actions can confirm public-release-scan (six-image + compose smoke); do not push from the agent.
+status: waiting
+verdict: corrected
+artifact_verdict: accepted
+loop_decision: human_gate
+next_action: Obtain approval to push feature/bifurcation-cycle-8 and open a PR so Actions can confirm all 12 platform scans and Compose smoke.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -417,10 +420,11 @@ Task 2.3 result:
   - Live anonymous `v1.1.0` source archive + 12 SBOM scan + core-manifest validation passed
   - Mocked contract proves 6→12 platform child pull/scan wiring; live 12-platform image
     scan + compose smoke deferred to CI (local Docker daemon unavailable)
-- `verdict`: `accepted_pending_ci`
+- `verdict`: `corrected`
+- `artifact_verdict`: `accepted`
 - `loop_decision`: `human_gate`
 - `task_status`: `in_progress` (not done until CI proves 12 platform images + smoke)
-- `next_action`: Human pushes the feature branch / opens PR; Actions confirms
+- `next_action`: Obtain approval to push the feature branch / open a PR; Actions confirms
   `public-release-scan` for all 12 platform digests and compose smoke.
 
 Cycle 9 evidence:
@@ -442,8 +446,8 @@ Cycle 9 evidence:
 - Docs: `documentation/dev/deployment/README.community-independence.md` (+ index /
   workflows index updates).
 - Evaluation: `programs/bifurcation/evaluations/bifurcation.s3.t008.md`.
-- Decision: local implementation `accepted_pending_ci`; Phase 2 incomplete; stop at
-  public push/PR human gate.
+- Decision: local artifact accepted; final task verdict awaits CI. Phase 2 remains
+  incomplete at the public push/PR human gate.
 
 ## Stage 4: Public Contracts
 

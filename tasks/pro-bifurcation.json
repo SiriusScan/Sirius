@@ -134,8 +134,8 @@
         "id": "2.2",
         "title": "Private GHCR namespace and Pro CI template",
         "description": "Private image publishing pipeline with SBOM and signing from day one.",
-        "details": "ghcr.io/opensecurity-infosec/* namespace; CI template mirroring public pipeline plus digest verification of upstream Community images.",
-        "status": "in_progress",
+        "details": "Implemented in OpenSecurity-Infosec/sirius-release through commit c7bbdc65b6d7354839e998f99ca0b56ba1d140a4. Run 30585723325 verified all six Community v1.1.0 lock digests and canonical public Cosign signatures, then published ghcr.io/opensecurity-infosec/sirius-pro-bootstrap@sha256:4ec53af35646f7a93a2fca42aa1a7e0ef94d7343e50414a7034053540a9274e3, generated a CycloneDX SBOM, keyless-signed and attested the exact digest with the canonical private workflow identity, and verified both. Anonymous registry access returns 401; no long-lived signing or registry credential was introduced.",
+        "status": "done",
         "priority": "high",
         "dependencies": ["2.1"],
         "testStrategy": "Test image publishes privately, is signed, has an SBOM, and cannot be pulled anonymously."

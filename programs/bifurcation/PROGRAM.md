@@ -259,7 +259,10 @@ current_task_id: bifurcation.s3.t007
 cycle: 8
 attempt: 1
 status: active
-next_action: Build and prove the private GHCR and keyless signing template.
+verdict: accepted
+loop_decision: continue
+next_task_id: bifurcation.s3.t008
+next_action: Implement standing Community-independence and leakage tests for task 2.3.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -280,7 +283,7 @@ Tasks:
 - [x] Establish access teams and document the approved GitHub Free access waiver
 - [x] Record the approved private branch/tag protection and secret-scanning waiver
 - [x] Verify anonymous denial and record governance evidence
-- [ ] Prove private GHCR publishing, SBOM, keyless signing, and Community verification
+- [x] Prove private GHCR publishing, SBOM, keyless signing, and Community verification
 - [ ] Complete Phase 2 and record private repository governance evidence
 
 Task 2.1 result:
@@ -359,9 +362,38 @@ Current task:
   - Successful private GitHub Actions publish run
   - `cosign verify` and SBOM validation against the published digest
   - Authenticated package API inspection and anonymous pull denial
-- `next_action`: Implement and review the private supply-chain template in
-  `OpenSecurity-Infosec/sirius-release`, then run it once to create and verify the
-  approved bootstrap package.
+- `verdict`: `accepted`
+- `loop_decision`: `continue`
+- `next_task_id`: `bifurcation.s3.t008`
+- `next_action`: Implement task 2.3 standing Community-independence and leakage tests.
+
+Cycle 8 evidence:
+
+- Commit `5cb9fb3` introduced the private GHCR bootstrap pipeline. Independent review
+  found a PR-triggered shell injection through `eval`, unsafe publish/PR workflow
+  coupling, and template identity/test gaps.
+- Commits `3f00b50` and `c7bbdc6` removed shell evaluation in favor of a typed
+  fail-closed parser, split read-only PR/push validation from dispatch-only package
+  publication, made signing identities explicit, disabled publish cancellation, and
+  strengthened injection and Cosign argument tests. Re-review reported no findings.
+- Local `make test`, shell/Python syntax, YAML/JSON parsing, and diff checks passed.
+  Push runs 30585689687 and 30585689675 passed guardrail and supply-chain validation.
+- Approved publish run 30585723325 verified the Community `v1.1.0` manifest, all six
+  locked image digests, and all six canonical public Cosign signatures before build.
+- The run published
+  `ghcr.io/opensecurity-infosec/sirius-pro-bootstrap@sha256:4ec53af35646f7a93a2fca42aa1a7e0ef94d7343e50414a7034053540a9274e3`
+  from source commit `c7bbdc65b6d7354839e998f99ca0b56ba1d140a4`.
+- Syft produced a valid CycloneDX artifact; Cosign keyless-signed, attached the SBOM
+  attestation, and verified both under the exact
+  `OpenSecurity-Infosec/sirius-release@main` workflow identity.
+- The package tag is the immutable full source SHA; unauthenticated GHCR manifest access
+  returns HTTP 401. The local OAuth token lacks `read:packages`, so authenticated package
+  metadata inspection returned 403; workflow publication and anonymous denial provide
+  the available evidence.
+- Evaluation:
+  `programs/bifurcation/evaluations/bifurcation.s3.t007.md`.
+- Decision: task 2.2 is accepted; continue to task 2.3. The GitHub Free governance
+  waiver and public Rekor disclosure of private image digests remain recorded risks.
 
 ## Stage 4: Public Contracts
 

@@ -20,18 +20,19 @@ criteria:
       - "Each repository has CODEOWNERS, boundary policy, security notice, required layout, and read-only full-SHA-pinned guardrail CI."
       - "Independent review findings were corrected; all three hardened guardrail runs succeeded."
   - id: repository-governance
-    status: fail
+    status: pass
     evidence:
       - "Private branch protection and repository rulesets return HTTP 403 upgrade-required on the GitHub Free organization."
       - "Secret scanning returns HTTP 422 unavailable for these private repositories."
       - "Organization default_repository_permission is write, so all nine members inherit write access despite repository team grants."
+      - "The user explicitly approved this documented temporary GitHub Free governance waiver on 2026-07-30."
   - id: anonymous-denial
     status: pass
     evidence:
       - "Unauthenticated GitHub API probes return HTTP 404 for all three repositories."
-verdict: rejected
+verdict: accepted
 artifact_verdict: accepted
-loop_decision: blocked
+loop_decision: human_gate
 residual_risk:
   - "Direct pushes, force pushes, branch deletion, and tag mutation cannot be technically blocked on the current GitHub plan."
   - "All organization members inherit write access until the organization-wide base permission is changed."
@@ -41,7 +42,7 @@ residual_risk:
 
 # Evaluation
 
-The private skeleton artifacts and leakage guardrails are accepted, but task 2.1 cannot
-be accepted because mandatory access and branch/tag governance are unavailable on the
-current GitHub Free plan and the organization base permission is broader than the
-program permits. The program stops without weakening those requirements.
+The private skeleton artifacts and leakage guardrails are accepted under the user's
+explicit temporary GitHub Free governance waiver. The waiver does not remove the
+recorded risks; it permits task 2.1 to close while the program stops before creating
+private package namespaces or signing identities in task 2.2.

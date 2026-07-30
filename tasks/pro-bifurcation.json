@@ -116,7 +116,7 @@
     "title": "PHASE 2: Private Repositories and Supply-Chain Foundation",
     "description": "Bootstrap OpenSecurity-Infosec private repos from skeletons with protections, private GHCR, and standing leakage-prevention tests.",
     "details": "Create sirius-pro, sirius-entitlements, and sirius-release. Never clone the public repo as a starting point. Establish access teams, branch protection, CODEOWNERS, secret scanning, and CI templates.",
-    "status": "blocked",
+    "status": "in_progress",
     "priority": "high",
     "dependencies": ["0"],
     "subtasks": [
@@ -124,8 +124,8 @@
         "id": "2.1",
         "title": "Create private repositories with governance controls",
         "description": "sirius-pro, sirius-entitlements, sirius-release under OpenSecurity-Infosec.",
-        "details": "Created private OpenSecurity-Infosec/sirius-pro, sirius-entitlements, and sirius-release from independent root histories with boundary policies, CODEOWNERS, green guardrail CI, teams, repository-scoped grants, vulnerability alerts, and anonymous denial. Blocked on GitHub Free organization limits: private branch/tag rules and secret scanning return 403/422 upgrade-required errors. The organization also has default_repository_permission=write for all nine members; least privilege requires explicit approval to change that organization-wide setting to none after assessing existing repositories.",
-        "status": "blocked",
+        "details": "Created private OpenSecurity-Infosec/sirius-pro, sirius-entitlements, and sirius-release from independent root histories with boundary policies, CODEOWNERS, green guardrail CI, six Sirius teams, repository-scoped grants, vulnerability alerts, and anonymous denial. GitHub Free prevents private branch/tag rules and secret scanning, and all nine organization members inherit write access. The user explicitly approved a documented temporary governance waiver on 2026-07-30; CODEOWNERS and boundary CI are advisory until the organization upgrades and narrows base permission.",
+        "status": "done",
         "priority": "high",
         "dependencies": [],
         "testStrategy": "Force-push and direct-to-main commits rejected; CODEOWNERS enforced on a test PR; anonymous access to repos and packages denied."

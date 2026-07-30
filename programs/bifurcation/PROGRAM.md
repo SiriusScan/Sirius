@@ -1,10 +1,10 @@
 ---
 goal: "Bifurcate Sirius into a canonical, independently runnable public Community core and a private, commercially licensed Pro extension layer that consumes immutable public releases without private-to-public source export."
-status: "blocked"
+status: "waiting"
 acceptance_criteria:
   - "Community builds, tests, scans, upgrades, and runs without private credentials or Pro artifacts."
   - "Every public release publishes six digest-addressed images, a validated core manifest, SBOMs, and verifiable signatures."
-  - "The three private OpenSecurity-Infosec repositories exist with access controls, protected branches/tags, private GHCR, and leakage prevention."
+  - "The three private OpenSecurity-Infosec repositories exist with access teams, private GHCR, and leakage prevention; the approved GitHub Free governance waiver remains documented until private branch/tag protection, secret scanning, and least-privilege base access become available."
   - "Versioned public API, event, UI, and engine extension contracts admit a test extension without changing Community behavior."
   - "Capabilities are enforced centrally with offline-verifiable licenses while Community requires no license and existing scan data remains accessible after expiry."
   - "Enterprise Reporting ships as a private, entitlement-gated vertical and its deployment overlay can be added and removed without damaging core data."
@@ -258,10 +258,10 @@ Cycle 6 evidence:
 current_task_id: bifurcation.s3.t006
 cycle: 7
 attempt: 1
-status: blocked
-verdict: rejected
-loop_decision: blocked
-next_action: Upgrade GitHub plan and decide whether organization base permission becomes none.
+status: waiting
+verdict: accepted
+loop_decision: human_gate
+next_action: Obtain approval before creating private GHCR packages or signing identities.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -279,8 +279,8 @@ Tasks:
 
 - [x] Create leakage-safe skeletons for the three private repositories
 - [x] Create the private repositories and push only their independent skeleton histories
-- [ ] Establish access teams and least-privilege repository grants
-- [ ] Protect `main` and `v*` tags; enable available security controls
+- [x] Establish access teams and document the approved GitHub Free access waiver
+- [x] Record the approved private branch/tag protection and secret-scanning waiver
 - [x] Verify anonymous denial and record governance evidence
 - [ ] Complete Phase 2 and record private repository governance evidence
 
@@ -304,12 +304,10 @@ Current task:
   - Repository-native tests and workflow syntax checks in each skeleton
   - GitHub API inspection of teams, grants, rules, and security settings
   - Anonymous HTTPS probes with credentials removed
-- `verdict`: `rejected`
-- `loop_decision`: `blocked`
-- `next_action`: Upgrade the OpenSecurity-Infosec organization from GitHub Free so
-  private branch/tag rules and secret scanning are available, and explicitly decide
-  whether to change organization-wide base repository permission from `write` to
-  `none`; then retry task 2.1 governance enforcement.
+- `verdict`: `accepted`
+- `loop_decision`: `human_gate`
+- `next_action`: Obtain explicit approval before task 2.2 creates the private GHCR
+  package namespace and a GitHub OIDC signing identity.
 
 Cycle 7 evidence:
 
@@ -335,9 +333,11 @@ Cycle 7 evidence:
   organization-wide base permission, so least privilege is not yet achieved.
 - Evaluation:
   `programs/bifurcation/evaluations/bifurcation.s3.t006.md`.
-- Decision: task `bifurcation.s3.t006` is blocked on plan entitlement and an
-  organization-wide base-permission decision; no package namespace, signing identity,
-  credential, or customer infrastructure was created.
+- User explicitly accepted a documented GitHub Free governance waiver: CODEOWNERS and
+  guardrail CI remain advisory, private branch/tag protection and secret scanning are
+  unavailable, and all nine organization members retain inherited write access.
+- Decision: task `bifurcation.s3.t006` is accepted under that explicit waiver. The
+  program stops before task 2.2 creates a package namespace or signing identity.
 
 ## Stage 4: Public Contracts
 

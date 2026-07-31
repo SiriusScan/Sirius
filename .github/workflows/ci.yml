@@ -298,7 +298,9 @@ jobs:
         working-directory: sirius-api
 
       - name: Verify API module composition contract
-        run: go test . -run 'TestCommunityModuleInventory|TestCommunityRouteInventory|TestExtensionModuleAddsRouteWithoutChangingCommunityComposition' -count=1
+        run: |
+          go test . -run 'TestCommunityModuleInventory|TestCommunityRouteInventory|TestExtensionModuleAddsRouteWithoutChangingCommunityComposition|TestLiveRouteContractCoverage|TestUnclassifiedLiveRouteIsRejected' -count=1
+          go test ./internal/contract/ -count=1
         working-directory: sirius-api
 
       - name: Run API tests (non-blocking)

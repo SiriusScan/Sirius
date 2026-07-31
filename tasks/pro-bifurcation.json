@@ -175,7 +175,7 @@
         "id": "3.2",
         "title": "Route inventory and published OpenAPI for /api/v1",
         "description": "Inventory and classify all current routes; publish a versioned OpenAPI spec; reserve /api/pro/v1 and /api/internal/v1 namespaces.",
-        "details": "Classify public/internal/deprecated; consistent error format; request correlation IDs; generated TypeScript client for the UI where practical.",
+        "details": "Local implementation on feature/openapi-contract: 74-route classification inventory (public/internal/deprecated), versioned OpenAPI 3.0.3 for live /api/v1, reserved /api/pro/v1 and /api/internal/v1 policy extensions, kin-openapi semantic validation, live Fiber coverage comparison preserving task 3.1 ordering, breaking missing-operation fixture, and docs/index updates. Error shapes documented as current inconsistent forms plus a canonical future shape; X-Request-ID semantics verified against Fiber requestid defaults. TypeScript client deferred (no clear deterministic consumer). Status remains in_progress until live CI accepts the branch.",
         "status": "in_progress",
         "priority": "high",
         "dependencies": ["3.1"],

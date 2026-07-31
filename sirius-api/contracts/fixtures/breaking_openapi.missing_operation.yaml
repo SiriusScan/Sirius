@@ -1,0 +1,1106 @@
+openapi: 3.0.3
+info:
+  title: Sirius Community API
+  description: |
+    Versioned Community contract for the live Fiber `/api/v1` surface.
+
+    Auth: every `/api/v1` operation requires the `X-API-Key` header. The only
+    unauthenticated route in Community is `GET /health` (outside this document).
+
+    Correlation: Fiber `requestid` middleware uses the `X-Request-ID` header. When
+    the client supplies the header it is echoed on the response; otherwise the
+    server generates a UUID and sets it on the response. The ID is also stored in
+    Fiber locals under the key `requestid`.
+
+    Error shapes (current, inconsistent across handlers):
+      - `{ "error": "<string>" }` — most handlers and API-key middleware
+      - `{ "error": "<string>", "details": "<string>" }` — some event handlers
+      - `{ "success": false, "error": "<string>" }` — scan control handlers
+
+    Canonical future error shape (not yet universally implemented):
+      `{ "error": { "code": "<string>", "message": "<string>", "details": {} },
+         "request_id": "<string>" }`
+
+    Reserved namespaces (policy only; Community does not register handlers):
+      - `/api/pro/v1` — Pro edition routes
+      - `/api/internal/v1` — inter-service routes
+
+    Legacy product routes under `/host`, `/vulnerability`, `/templates`,
+    `/api/agent-templates`, and `/app` remain classified in
+    `route_classification.yaml` but are outside this versioned OpenAPI document.
+  version: 1.0.0-breaking
+  x-sirius-contract-version: "1.0.0-breaking"
+  x-sirius-fixture: "missing GET /api/v1/scans/status"
+  x-sirius-reserved-namespaces:
+    - path_prefix: /api/pro/v1
+      purpose: Pro-only edition routes. Reserved by ADR-004; absent from Community runtime.
+    - path_prefix: /api/internal/v1
+      purpose: Inter-service routes. Reserved by ADR-004; Community ops routes remain on legacy paths until migrated.
+servers:
+  - url: http://localhost:9001
+    description: Local Community API (compose / docker)
+tags:
+  - name: system
+  - name: admin
+  - name: logs
+  - name: performance
+  - name: events
+  - name: statistics
+  - name: scans
+  - name: keys
+  - name: deprecated
+paths:
+  /api/v1/system/health:
+    get:
+      tags: [system]
+      operationId: getSystemHealth
+      summary: Comprehensive system health
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Overall healthy
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemHealthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: One or more dependencies reported down (overall degraded)
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemHealthResponse'
+
+  /api/v1/test:
+    get:
+      tags: [deprecated]
+      operationId: getTestProbe
+      summary: Development probe (deprecated)
+      deprecated: true
+      description: Exists in the live route table; not part of the stable Community contract.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Probe response
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/system/logs:
+    get:
+      tags: [system]
+      operationId: getSystemLogs
+      summary: Container log viewer (ops)
+      description: Internal/ops surface. May return real Valkey-backed logs or mock data.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: container
+          in: query
+          schema:
+            type: string
+            default: all
+        - name: lines
+          in: query
+          schema:
+            type: string
+            default: "100"
+      responses:
+        '200':
+          description: Log payload (real or mock)
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/system/resources:
+    get:
+      tags: [system]
+      operationId: getSystemResources
+      summary: Container resource snapshot (ops)
+      description: Internal/ops surface. May return real or mock container metrics.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Resource payload (real or mock)
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/performance/metrics:
+    get:
+      tags: [performance]
+      operationId: getPerformanceMetrics
+      summary: Performance metrics placeholder (ops)
+      description: Internal/ops surface currently returning placeholder metrics.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Placeholder metrics payload
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/v1/logs/stats:
+    get:
+      tags: [logs]
+      operationId: getLogStats
+      summary: Aggregated log statistics
+      description: Internal service log surface.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Stats payload
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        'default':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/logs:
+    get:
+      tags: [logs]
+      operationId: getLogs
+      summary: Retrieve stored logs
+      description: Internal service log surface.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Log list payload
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        'default':
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [logs]
+      operationId: submitLog
+      summary: Submit a log entry
+      description: Internal service log surface.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Log accepted
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/logs/{logId}:
+    put:
+      tags: [logs]
+      operationId: updateLog
+      summary: Update a stored log entry
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: logId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Updated
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+    delete:
+      tags: [logs]
+      operationId: deleteLog
+      summary: Delete a stored log entry
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: logId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/logs/clear:
+    delete:
+      tags: [logs]
+      operationId: clearLogs
+      summary: Clear stored logs
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Cleared
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/admin/command:
+    post:
+      tags: [admin]
+      operationId: postAdminCommand
+      summary: Publish an admin command to RabbitMQ
+      description: Internal/ops surface. Publishes to the `admin_commands` queue.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, container_name]
+              properties:
+                action:
+                  type: string
+                container_name:
+                  type: string
+      responses:
+        '200':
+          description: Command accepted
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  request_id:
+                    type: string
+                  action:
+                    type: string
+                  container:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/events/:
+    get:
+      tags: [events]
+      operationId: listEvents
+      summary: List events with filters
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: service
+          in: query
+          schema: { type: string }
+        - name: severity
+          in: query
+          schema: { type: string }
+        - name: event_type
+          in: query
+          schema: { type: string }
+        - name: entity_type
+          in: query
+          schema: { type: string }
+        - name: entity_id
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50, maximum: 500 }
+        - name: offset
+          in: query
+          schema: { type: integer, default: 0 }
+        - name: start_time
+          in: query
+          schema: { type: string, format: date-time }
+        - name: end_time
+          in: query
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Event page
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ErrorWithDetails'
+
+  /api/v1/events/{id}:
+    get:
+      tags: [events]
+      operationId: getEvent
+      summary: Get a single event by event_id
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Event object
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/ErrorWithDetails'
+
+  /api/v1/events/stats:
+    get:
+      tags: [events]
+      operationId: getEventStats
+      summary: Event statistics
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Stats payload
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ErrorWithDetails'
+
+  /api/v1/events/by-entity:
+    get:
+      tags: [events]
+      operationId: getEventsByEntity
+      summary: Events for an entity
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: entity_type
+          in: query
+          schema: { type: string }
+        - name: entity_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Events for entity
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ErrorWithDetails'
+
+  /api/v1/events/by-severity/{severity}:
+    get:
+      tags: [events]
+      operationId: getEventsBySeverity
+      summary: Recent events by severity
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: severity
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Events matching severity
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ErrorWithDetails'
+
+  /api/v1/statistics/vulnerability-trends:
+    get:
+      tags: [statistics]
+      operationId: getVulnerabilityTrends
+      summary: Vulnerability trend series
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Trend payload
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/statistics/vulnerability-snapshots:
+    get:
+      tags: [statistics]
+      operationId: listVulnerabilitySnapshots
+      summary: List vulnerability snapshots
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Snapshot list
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/statistics/vulnerability-snapshot/{snapshotId}:
+    get:
+      tags: [statistics]
+      operationId: getVulnerabilitySnapshot
+      summary: Get one vulnerability snapshot
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: snapshotId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Snapshot
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/statistics/vulnerability-snapshot:
+    post:
+      tags: [statistics]
+      operationId: createVulnerabilitySnapshot
+      summary: Create a vulnerability snapshot
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '201':
+          description: Snapshot created
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/statistics/hosts/most-vulnerable:
+    get:
+      tags: [statistics]
+      operationId: getMostVulnerableHosts
+      summary: Most vulnerable hosts ranking
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Host ranking payload
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/scans/cancel:
+    post:
+      tags: [scans]
+      operationId: cancelScan
+      summary: Cancel the current scan (graceful)
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scan_id:
+                  type: string
+      responses:
+        '200':
+          description: Cancel accepted
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/ScanError'
+        '500':
+          $ref: '#/components/responses/ScanError'
+
+  /api/v1/scans/force-stop:
+    post:
+      tags: [scans]
+      operationId: forceStopScan
+      summary: Force-stop the current scan
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Force-stop accepted
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        'default':
+          $ref: '#/components/responses/ScanError'
+
+  /api/v1/scans/reset:
+    post:
+      tags: [scans]
+      operationId: resetScanState
+      summary: Reset scan dashboard state
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Reset accepted
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        'default':
+          $ref: '#/components/responses/ScanError'
+
+  /api/v1/keys/:
+    get:
+      tags: [keys]
+      operationId: listAPIKeys
+      summary: List API key metadata
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      responses:
+        '200':
+          description: Key metadata list
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+    post:
+      tags: [keys]
+      operationId: createAPIKey
+      summary: Create an API key
+      description: Returns the raw key exactly once.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label:
+                  type: string
+      responses:
+        '201':
+          description: Key created
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  key:
+                    type: string
+                  raw_key:
+                    type: string
+                    description: Compatibility alias for key
+                  meta:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/Error'
+
+  /api/v1/keys/{id}:
+    delete:
+      tags: [keys]
+      operationId: revokeAPIKey
+      summary: Revoke an API key by hash id
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-f0-9]{64}$'
+      responses:
+        '200':
+          description: Key revoked
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        Infrastructure root key (SIRIUS_API_KEY_FILE / SIRIUS_API_KEY) or a
+        Valkey-backed user-generated API key.
+  parameters:
+    RequestID:
+      name: X-Request-ID
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Optional client correlation ID. Echoed when present; otherwise generated.
+  headers:
+    RequestID:
+      description: Request correlation ID (echoed or generated by Fiber requestid middleware).
+      schema:
+        type: string
+  schemas:
+    ErrorMessage:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+      description: Dominant current error shape.
+    ErrorWithDetails:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+      description: Current event-handler error shape.
+    ScanError:
+      type: object
+      required: [success, error]
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+      description: Current scan-control error shape.
+    CanonicalError:
+      type: object
+      description: |
+        Canonical future error shape. Documented for migration; not claimed as
+        universally implemented by current handlers.
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+        request_id:
+          type: string
+    SystemHealthResponse:
+      type: object
+      required: [status, timestamp, service, version, services, overall]
+      properties:
+        status:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        service:
+          type: string
+        version:
+          type: string
+        services:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              status:
+                type: string
+              message:
+                type: string
+              timestamp:
+                type: string
+                format: date-time
+              port:
+                type: integer
+        overall:
+          type: string
+    ScanStatusResponse:
+      type: object
+      required: [status, hosts_completed, total_hosts, vulnerabilities]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+        targets:
+          type: array
+          items:
+            type: string
+        hosts:
+          type: array
+          items:
+            type: string
+        hosts_completed:
+          type: integer
+        total_hosts:
+          type: integer
+        vulnerabilities:
+          type: integer
+        start_time:
+          type: string
+        end_time:
+          type: string
+  responses:
+    Unauthorized:
+      description: Missing or invalid API key
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    Error:
+      description: Handler error using the dominant `{error}` shape
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    ErrorWithDetails:
+      description: Handler error that may include details
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorWithDetails'
+    ScanError:
+      description: Scan-control error shape
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ScanError'

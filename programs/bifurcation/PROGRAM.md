@@ -259,10 +259,10 @@ current_task_id: bifurcation.s4.t010
 cycle: 11
 attempt: 1
 status: active
-verdict: accepted
-artifact_verdict: accepted
+verdict: pending_ci
+artifact_verdict: accepted_local
 loop_decision: continue
-next_action: Inventory and classify the live API routes, then publish a versioned OpenAPI contract with reserved Pro and internal namespaces.
+next_action: Push feature/openapi-contract and confirm live CI before marking task 3.2 done.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -534,8 +534,23 @@ Current task:
   - Live Fiber route inventory to OpenAPI coverage comparison
   - Negative breaking-change fixture
   - Focused API tests, API image build, and Community-independence checks
-- `next_action`: Inspect the real route inventory and current error/request-ID behavior,
-  then implement the smallest versioned OpenAPI and classification contract.
+- `next_action`: Push `feature/openapi-contract` through the human gate and confirm
+  live CI before marking task 3.2 done.
+
+Cycle 11 local evidence:
+
+- Added `sirius-api/contracts/route_classification.yaml` covering all 74 golden routes
+  in registration order (`public` / `internal` / `deprecated`).
+- Published `sirius-api/contracts/openapi.v1.yaml` (OpenAPI 3.0.3, contract version
+  1.0.0) for the live `/api/v1` surface with auth, `X-Request-ID`, current error
+  shapes, canonical future error shape, and reserved-namespace policy.
+- Added `sirius-api/internal/contract` kin-openapi validators plus negative fixture
+  `contracts/fixtures/breaking_openapi.missing_operation.yaml`.
+- Blocking CI step in `.github/workflows/ci.yml` now runs live coverage + contract
+  package tests. Docs/index:
+  `documentation/dev/architecture/README.api-openapi-contract.md`.
+- Local validation passed focused route/contract tests, `go test ./internal/contract`,
+  and `git diff --check`. Task 3.2 remains `in_progress` until live CI.
 
 ## Stage 5: Entitlements and First Vertical
 

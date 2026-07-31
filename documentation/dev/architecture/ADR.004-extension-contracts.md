@@ -9,6 +9,7 @@ related_docs:
   - "ADR.001-public-core-private-extension.md"
   - "ADR.003-entitlement-model.md"
   - "README.go-api-sdk.md"
+  - "README.api-openapi-contract.md"
   - "../../dev-notes/pro-bifurcation-plan.md"
 ---
 
@@ -50,3 +51,6 @@ Today the API registers Fiber routes through a `RouteSetter` interface wired in 
 - Existing seam to build on: `sirius-api/routes/routes.go` `RouteSetter`.
 - Do not publish npm packages on day one; pin+overlay mirrors engine component pins.
 - A test extension adding one API route, one UI page, and one event consumer is the Phase 3 exit criterion.
+- Community `/api/v1` OpenAPI, route classification, and reserved-namespace policy live in
+  [README.api-openapi-contract.md](README.api-openapi-contract.md) and
+  `sirius-api/contracts/`.

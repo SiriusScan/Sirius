@@ -168,16 +168,18 @@ Tasks:
 
 - `task_id`: `complete-split-deploy-to-range.s2.t002`
 - `stage`: `2 Complete Public Contracts`
-- `cycle`: `0`
+- `cycle`: `1`
 - `attempt`: `1`
 - `assigned_role`: `grok`
 - `status`: `active`
-- `verdict`: `accepted`
-- `artifact_verdict`: `accepted`
+- `verdict`: `pending_ci`
+- `artifact_verdict`: `accepted_local`
 - `loop_decision`: `continue`
 - `owned_paths`:
   - `sirius-api/`
-  - API contract and validation paths selected after inventory
+  - `.github/workflows/ci.yml`
+  - `documentation/dev/architecture/README.api-openapi-contract.md`
+  - `documentation/README.documentation-index.md`
 - `criteria`:
   - Every live API route is classified as public, internal, or deprecated.
   - A versioned OpenAPI contract covers `/api/v1` and is compared with the live Fiber
@@ -190,9 +192,18 @@ Tasks:
   - Live route-to-contract coverage comparison
   - Breaking-change fixture
   - Focused API tests and image build
-- `next_action`: Inventory and classify the live routes and current error/request-ID
-  behavior, then implement the smallest versioned OpenAPI contract and blocking drift
-  check.
+- `next_action`: Obtain push/PR approval and confirm live CI before accepting task
+  `complete-split-deploy-to-range.s2.t002` / bifurcation 3.2.
+
+Local task evidence (cycle 1):
+
+- Classification inventory matches the 74-line golden/live Fiber inventory.
+- OpenAPI contract published at `sirius-api/contracts/openapi.v1.yaml` with reserved
+  namespace policy and documented auth/correlation/error reality.
+- Blocking validators and breaking fixture land under `sirius-api/internal/contract`
+  and the existing API CI job.
+- TypeScript client intentionally deferred; no new generated bulk.
+- Bifurcation task 3.2 remains `in_progress` pending live CI.
 
 Local task evidence:
 

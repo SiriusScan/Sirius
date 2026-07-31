@@ -164,16 +164,16 @@ Tasks:
 - [ ] Remove the overlay and prove Community/data health, then restore accepted Pro state
 - [ ] Reconcile both programs/task tracker and obtain final human acceptance
 
-## Current task
+## Completed task
 
 - `task_id`: `complete-split-deploy-to-range.s2.t002`
 - `stage`: `2 Complete Public Contracts`
 - `cycle`: `1`
 - `attempt`: `1`
 - `assigned_role`: `grok`
-- `status`: `active`
-- `verdict`: `pending_ci`
-- `artifact_verdict`: `accepted_local`
+- `status`: `done`
+- `verdict`: `accepted`
+- `artifact_verdict`: `accepted`
 - `loop_decision`: `continue`
 - `owned_paths`:
   - `sirius-api/`
@@ -190,10 +190,9 @@ Tasks:
 - `validation`:
   - OpenAPI syntax/semantic validation
   - Live route-to-contract coverage comparison
-  - Breaking-change fixture
+  - Protected-base breaking-change fixtures
   - Focused API tests and image build
-- `next_action`: Obtain push/PR approval and confirm live CI before accepting task
-  `complete-split-deploy-to-range.s2.t002` / bifurcation 3.2.
+- `next_action`: Continue with the public event contract.
 
 Local task evidence (cycle 1):
 
@@ -210,7 +209,39 @@ Local task evidence (cycle 1):
   with negative fixtures; Fiber-mounted shadow detector; in-process no-network
   logging sink for production middleware tests; OpenAPI input/status accuracy.
 - TypeScript client intentionally deferred; no new generated bulk.
-- Bifurcation task 3.2 remains `in_progress` pending live CI.
+- PR 142 live CI run 30649648210 passed API/engine/UI/infra builds, contract gates,
+  integration, core-manifest, pin consistency, and source-independence checks.
+- Evaluation:
+  `programs/complete-split-deploy-to-range/evaluations/complete-split-deploy-to-range.s2.t002.md`.
+- Decision: API inventory/OpenAPI accepted; continue with the event contract as
+  `complete-split-deploy-to-range.s2.t003`.
+
+## Current task
+
+- `task_id`: `complete-split-deploy-to-range.s2.t003`
+- `stage`: `2 Complete Public Contracts`
+- `cycle`: `2`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `status`: `active`
+- `verdict`: `pending`
+- `artifact_verdict`: `pending`
+- `loop_decision`: `continue`
+- `owned_paths`:
+  - `/Users/oz/Projects/Sirius-Project/minor-projects/go-api/sirius/queue/`
+  - `sirius-api/`
+  - `sirius-engine/`
+  - `documentation/dev/architecture/`
+- `criteria`:
+  - Publish a versioned, CloudEvents-compatible public event envelope.
+  - Wrap existing Community queue payloads additively without breaking consumers.
+  - Reserve the `pro.*` event namespace without introducing private runtime code.
+  - Define correlation, idempotency, retry, and dead-letter semantics.
+- `validation`:
+  - Go unit and queue compatibility tests
+  - JSON schema validation and negative fixtures
+  - Existing Community queue regression tests
+- `next_action`: Inventory existing queue payloads and implement bifurcation task 3.3.
 
 Local task evidence:
 

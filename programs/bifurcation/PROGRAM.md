@@ -255,14 +255,14 @@ Cycle 6 evidence:
 ## Current loop state
 
 ```yaml
-current_task_id: bifurcation.s4.t010
-cycle: 11
+current_task_id: bifurcation.s4.t011
+cycle: 12
 attempt: 1
 status: active
-verdict: pending_ci
-artifact_verdict: accepted_local
+verdict: accepted
+artifact_verdict: accepted
 loop_decision: continue
-next_action: Push feature/openapi-contract and confirm live CI before marking task 3.2 done.
+next_action: Implement task 3.3, the versioned public event envelope and additive queue compatibility contract.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -461,7 +461,7 @@ Tasks:
 
 - [ ] Complete Phase 3 and publish a tagged compatible core contract release
 
-Current task:
+Completed task:
 
 - `task_id`: `bifurcation.s4.t009`
 - `stage`: `4 Public Contracts`
@@ -514,7 +514,7 @@ Task 3.1 completion:
 - Evaluation: `programs/bifurcation/evaluations/bifurcation.s4.t009.md`.
 - Decision: task 3.1 accepted and marked done; continue to task 3.2.
 
-Current task:
+Completed task:
 
 - `task_id`: `bifurcation.s4.t010`
 - `stage`: `4 Public Contracts`
@@ -555,7 +555,28 @@ Cycle 11 local evidence:
   request-ID semantics.
 - Second review: protected-base oasdiff gate (not candidate-controlled baseline),
   Fiber shadow detector, no-network middleware sink, OpenAPI input/status audit.
-  Task 3.2 remains `in_progress` until live CI.
+  PR 142 live CI run 30649648210 passed API/engine/UI/infra builds, focused contract
+  gates, integration, core-manifest, pin-consistency, and source-independence checks.
+- Evaluation: `programs/bifurcation/evaluations/bifurcation.s4.t010.md`.
+- Decision: task 3.2 accepted and marked done; continue to task 3.3.
+
+Current task:
+
+- `task_id`: `bifurcation.s4.t011`
+- `stage`: `4 Public Contracts`
+- `cycle`: `12`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `criteria`:
+  - Publish a versioned, CloudEvents-compatible public event envelope in go-api.
+  - Preserve existing Community queues additively and reserve the `pro.*` namespace.
+  - Define correlation, idempotency, retry, and dead-letter behavior without private
+    runtime dependencies.
+- `validation`:
+  - Go unit and compatibility tests
+  - JSON schema validation and negative fixtures
+  - Existing Community queue regression tests
+- `next_action`: Inventory existing queue payloads and implement task 3.3.
 
 ## Stage 5: Entitlements and First Vertical
 

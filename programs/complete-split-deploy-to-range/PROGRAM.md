@@ -1,6 +1,6 @@
 ---
 goal: "Complete the Sirius Community/Pro product split, publish a runnable Pro distribution that consumes immutable Community releases, and deploy and verify that Pro distribution in the approved range environment."
-status: "waiting"
+status: "active"
 acceptance_criteria:
   - "The existing bifurcation program completes its public contracts, entitlement platform, first Pro vertical, compatibility automation, and release closeout without weakening the completed Community release or private-foundation controls."
   - "A tagged Community core release remains independently runnable without private credentials, packages, repositories, licenses, or Pro artifacts and passes leakage, upgrade, and regression checks."
@@ -114,7 +114,7 @@ Owned paths:
 
 Tasks:
 
-- [ ] Finish API Module contract task 3.1 and publish an immutable go-api pin
+- [x] Finish API Module contract task 3.1 and publish an immutable go-api pin
 - [ ] Complete API inventory/OpenAPI, event, UI, and engine extension contracts
 - [ ] Publish and verify the tagged compatible Community contract release
 
@@ -166,37 +166,33 @@ Tasks:
 
 ## Current task
 
-- `task_id`: `complete-split-deploy-to-range.s2.t001`
+- `task_id`: `complete-split-deploy-to-range.s2.t002`
 - `stage`: `2 Complete Public Contracts`
 - `cycle`: `0`
 - `attempt`: `1`
-- `assigned_role`: `parent`
-- `status`: `waiting`
-- `verdict`: `corrected`
+- `assigned_role`: `grok`
+- `status`: `active`
+- `verdict`: `accepted`
 - `artifact_verdict`: `accepted`
-- `loop_decision`: `human_gate`
+- `loop_decision`: `continue`
 - `owned_paths`:
-  - `/Users/oz/Projects/Sirius-Project/minor-projects/go-api/sirius/module/`
-  - `sirius-api/main.go`
-  - `sirius-api/modules_community.go`
-  - `sirius-api/modules_community_test.go`
-  - `sirius-api/testdata/community_routes.golden`
+  - `sirius-api/`
+  - API contract and validation paths selected after inventory
 - `criteria`:
-  - The reviewed go-api Module seam is available at an immutable remote commit.
-  - Sirius pins that commit and production startup mounts the compile-time Community
-    registry rather than directly wiring legacy setters in `main.go`.
-  - Real Community route order and duplicates are locked by a golden inventory.
-  - A test extension adds a route without editing Community composition.
-  - Focused API and module tests pass; environment-only integration failures are
-    recorded without being misclassified.
+  - Every live API route is classified as public, internal, or deprecated.
+  - A versioned OpenAPI contract covers `/api/v1` and is compared with the live Fiber
+    inventory in blocking CI.
+  - `/api/pro/v1` and `/api/internal/v1` are reserved without introducing Pro runtime
+    behavior into Community.
+  - A negative fixture proves breaking contract drift fails validation.
 - `validation`:
-  - `go test -race ./sirius/module` in go-api
-  - `go test . -count=1` in `sirius-api`
-  - Sirius API container build and route-inventory golden
-  - `git diff --check` in both repositories
-- `next_action`: Obtain approval to push the Sirius API Module integration branch and
-  open a PR. Task completion requires green blocking module-contract, API image, pin,
-  manifest, and Community-independence checks.
+  - OpenAPI syntax/semantic validation
+  - Live route-to-contract coverage comparison
+  - Breaking-change fixture
+  - Focused API tests and image build
+- `next_action`: Inventory and classify the live routes and current error/request-ID
+  behavior, then implement the smallest versioned OpenAPI contract and blocking drift
+  check.
 
 Local task evidence:
 
@@ -213,3 +209,14 @@ Local task evidence:
 - Full local snapshot integration tests still require configured PostgreSQL and Valkey;
   their prior local failures were authentication/environment failures, not Module
   contract failures.
+
+Completion evidence:
+
+- PR 141 merged as `f24a67bd6781d7f4806bb2ac264b6f8a726db9c0` after its pin-audit
+  review finding was corrected and resolved.
+- Main CI 30640910687, Community Independence 30640910672, and pin consistency
+  30640910719 passed.
+- Evaluation:
+  `programs/complete-split-deploy-to-range/evaluations/complete-split-deploy-to-range.s2.t001.md`.
+- Decision: task `complete-split-deploy-to-range.s2.t001` accepted; continue with API
+  inventory and OpenAPI as `complete-split-deploy-to-range.s2.t002`.

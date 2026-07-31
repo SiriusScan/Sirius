@@ -85,7 +85,13 @@ def forbidden_markers() -> List[Tuple[str, str, str]]:
         ("secret", "re:github_server_token", r"\bghs_[A-Za-z0-9]{20,}\b"),
         ("secret", "re:github_refresh", r"\bghr_[A-Za-z0-9]{20,}\b"),
         ("secret", "re:aws_access_key", r"\bAKIA[0-9A-Z]{16}\b"),
-        ("secret", "re:pem_private_key", r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+        (
+            "secret",
+            "re:pem_private_key",
+            r"-----BEGIN (?:RSA |DSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----"
+            r"[\r\n]+[A-Za-z0-9+/=\r\n]{64,}"
+            r"-----END (?:RSA |DSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----",
+        ),
     ]
 
 

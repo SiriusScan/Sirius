@@ -24,7 +24,9 @@ PRIVATE_REGISTRY="ghcr.io/${ORG_LOWER}/"
 PRIVATE_MODULE="github.com/${ORG_DISPLAY}/sirius-pro"
 PRO_CANARY="SIRIUS_PRO_""PRIVATE_RUNTIME_CANARY_V1"
 FAKE_PAT="ghp_""$(printf 'a%.0s' {1..36})"
-FAKE_PEM="-----BEGIN ""RSA PRIVATE KEY-----"
+FAKE_PEM_HEADER="-----BEGIN ""RSA PRIVATE KEY-----"
+FAKE_PEM_FOOTER="-----END ""RSA PRIVATE KEY-----"
+FAKE_PEM_BODY="$(printf 'A%.0s' {1..80})"
 
 cd "${PROJECT_ROOT}"
 
@@ -152,7 +154,8 @@ fi
 pass "path-scoped allowlist + yaml bypass canary"
 
 echo "==> secrets/canary never allowlisted in governance paths"
-printf 'token=%s\ncanary=%s\npem=%s\n' "${FAKE_PAT}" "${PRO_CANARY}" "${FAKE_PEM}" \
+printf 'token=%s\ncanary=%s\n%s\n%s\n%s\n' \
+  "${FAKE_PAT}" "${PRO_CANARY}" "${FAKE_PEM_HEADER}" "${FAKE_PEM_BODY}" "${FAKE_PEM_FOOTER}" \
   > "${TMP_DIR}/documentation/dev-notes/pro-bifurcation-plan.md"
 if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
   --paths-file <(printf '%s\n' "documentation/dev-notes/pro-bifurcation-plan.md") 2>/dev/null; then
@@ -165,6 +168,19 @@ python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/all
   --paths-file <(printf '%s\n' "documentation/dev-notes/pro-bifurcation-plan.md") \
   || fail "boundary-only governance content should pass"
 pass "secret markers never allowlisted"
+
+echo "==> PEM detection requires encoded key material"
+printf 'const marker = %q\n' "${FAKE_PEM_HEADER}" > "${TMP_DIR}/crypto-api.js"
+python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "crypto-api.js") \
+  || fail "a PEM header string without key material must not be treated as a key"
+printf '%s\n%s\n%s\n' "${FAKE_PEM_HEADER}" "${FAKE_PEM_BODY}" "${FAKE_PEM_FOOTER}" \
+  > "${TMP_DIR}/actual-private-key.pem"
+if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "actual-private-key.pem") 2>/dev/null; then
+  fail "a complete PEM private-key block must be rejected"
+fi
+pass "PEM key-material detection"
 
 echo "==> canary: private registry/module/pro canary rejected"
 canary_root="${TMP_DIR}/canary-src"

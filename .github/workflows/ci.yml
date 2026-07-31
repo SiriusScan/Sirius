@@ -257,6 +257,8 @@ jobs:
     steps:
       - name: Checkout Sirius repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Generate image tag
         id: meta
@@ -286,6 +288,35 @@ jobs:
           fi
           echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve protected OpenAPI baseline ref
+        id: openapi_base
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          GIT_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          BASE_REF=""
+          if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${PR_BASE_SHA}" ]; then
+            BASE_REF="${PR_BASE_SHA}"
+          elif [ "${EVENT_NAME}" = "push" ] && [ "${GIT_REF}" = "refs/heads/main" ] && [ -n "${PUSH_BEFORE}" ] && [ "${PUSH_BEFORE}" != "0000000000000000000000000000000000000000" ]; then
+            BASE_REF="${PUSH_BEFORE}"
+          else
+            git fetch origin main --depth=1 2>/dev/null || true
+            if git rev-parse --verify origin/main >/dev/null 2>&1; then
+              BASE_REF="$(git merge-base HEAD origin/main)"
+            elif git rev-parse --verify main >/dev/null 2>&1; then
+              BASE_REF="$(git merge-base HEAD main)"
+            fi
+          fi
+          if [ -z "${BASE_REF}" ]; then
+            echo "Unable to resolve protected OpenAPI base ref" >&2
+            exit 1
+          fi
+          echo "base_ref=${BASE_REF}" >> "$GITHUB_OUTPUT"
+          echo "Protected OpenAPI base ref: ${BASE_REF}"
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -298,8 +329,10 @@ jobs:
         working-directory: sirius-api
 
       - name: Verify API module composition contract
+        env:
+          SIRIUS_OPENAPI_BASE_REF: ${{ steps.openapi_base.outputs.base_ref }}
         run: |
-          go test . -run 'TestCommunityModuleInventory|TestCommunityRouteInventory|TestExtensionModuleAddsRouteWithoutChangingCommunityComposition|TestLiveRouteContractCoverage|TestUnclassifiedLiveRouteIsRejected|TestProductionMiddlewareAuthAndRequestID|TestFixedRoutesNotShadowedByParams' -count=1
+          go test . -run 'TestCommunityModuleInventory|TestCommunityRouteInventory|TestExtensionModuleAddsRouteWithoutChangingCommunityComposition|TestLiveRouteContractCoverage|TestUnclassifiedLiveRouteIsRejected|TestProductionMiddlewareAuthAndRequestID|TestProductionMiddlewareLoggingUsesInProcessSink|TestFixedRoutesNotShadowedByParams' -count=1
           go test ./internal/contract/ ./middleware/ -count=1
         working-directory: sirius-api
 

@@ -175,11 +175,11 @@
         "id": "3.2",
         "title": "Route inventory and published OpenAPI for /api/v1",
         "description": "Inventory and classify all current routes; publish a versioned OpenAPI spec; reserve /api/pro/v1 and /api/internal/v1 namespaces.",
-        "details": "Local implementation on feature/openapi-contract with review corrections: 74-route classification, OpenAPI 3.0.3 + semantic baseline breaking detection, reserved Pro/internal namespaces, production middleware shared by main/tests, exact GET /health auth bypass, fixed event/agent-template route shadowing, request/response accuracy fixes, Fiber utils.UUID request-ID semantics. TypeScript client deferred. Status remains in_progress until live CI accepts the branch.",
+        "details": "Local implementation on feature/openapi-contract with second-review corrections: protected merge-base/PR-base OpenAPI comparison (bootstrap until merged, fail-closed after; SIRIUS_OPENAPI_ALLOW_BREAKING gate); pinned oasdiff ERR/WARN + curated INFO checks with negative fixtures; Fiber-mounted shadow detector + deprecated duplicate allowlist; production middleware tests with in-process no-network logging sink; OpenAPI input/status accuracy (logs/events/trends/performance/snapshot/delete). TypeScript client deferred. Status remains in_progress until live CI accepts the branch.",
         "status": "in_progress",
         "priority": "high",
         "dependencies": ["3.1"],
-        "testStrategy": "OpenAPI spec validates and is diffed in CI against the live route table; breaking-change detection fails a test PR that removes a field."
+        "testStrategy": "OpenAPI validates vs live route table; oasdiff rejects named breaking classes; protected-baseline bypass tests fail without allow gate; Fiber shadow + middleware no-network tests pass."
       },
       {
         "id": "3.3",

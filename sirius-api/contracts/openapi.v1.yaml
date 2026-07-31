@@ -146,6 +146,13 @@ paths:
                 additionalProperties: true
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          description: Docker/service failure
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
 
   /api/v1/system/resources:
     get:
@@ -181,6 +188,44 @@ paths:
         - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
+        - name: service
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: endpoint
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: method
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: time_range
+          in: query
+          required: false
+          description: Handler default "1h".
+          schema:
+            type: string
+            default: "1h"
+        - name: limit
+          in: query
+          required: false
+          description: Handler default 100; values below 1 fall back to 100; capped at 1000.
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: offset
+          in: query
+          required: false
+          description: Handler default 0; negative values fall back to 0.
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
       responses:
         '200':
           description: Placeholder metrics payload
@@ -194,6 +239,8 @@ paths:
                 additionalProperties: true
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ErrorWithDetails'
 
   /api/v1/logs/stats:
     get:
@@ -231,6 +278,42 @@ paths:
         - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
+        - name: service
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: level
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: subcomponent
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Handler default 100; values below 1 fall back to 100; capped at 1000.
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+        - name: offset
+          in: query
+          required: false
+          description: Handler default 0; negative values fall back to 0.
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
       responses:
         '200':
           description: Log list payload
@@ -354,12 +437,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/Error'
         '500':
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/ErrorWithDetails'
 
   /api/v1/logs/clear:
     delete:
@@ -568,10 +651,19 @@ paths:
         - $ref: '#/components/parameters/RequestID'
         - name: entity_type
           in: query
+          required: true
           schema: { type: string }
         - name: entity_id
           in: query
+          required: true
           schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          description: Handler default 50; values below 1 fall back to 50.
+          schema:
+            type: integer
+            default: 50
       responses:
         '200':
           description: Events for entity
@@ -604,6 +696,13 @@ paths:
           required: true
           schema:
             type: string
+        - name: limit
+          in: query
+          required: false
+          description: Handler default 50; values below 1 fall back to 50.
+          schema:
+            type: integer
+            default: 50
       responses:
         '200':
           description: Events matching severity
@@ -631,6 +730,14 @@ paths:
         - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
+        - name: limit
+          in: query
+          required: false
+          description: Number of snapshots. Handler default 7; values below 1 fall back to 7; capped at 10.
+          schema:
+            type: integer
+            default: 7
+            maximum: 10
       responses:
         '200':
           description: Trend payload
@@ -709,16 +816,13 @@ paths:
       tags: [statistics]
       operationId: createVulnerabilitySnapshot
       summary: Create a vulnerability snapshot
+      description: |
+        Manual trigger. Handler parses no request body and auto-generates a
+        timestamp-based snapshot ID.
       security:
         - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
       responses:
         '201':
           description: Snapshot created
@@ -730,8 +834,6 @@ paths:
               schema:
                 type: object
                 additionalProperties: true
-        '400':
-          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':

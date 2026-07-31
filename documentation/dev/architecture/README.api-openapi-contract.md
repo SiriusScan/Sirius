@@ -69,10 +69,11 @@ go test . -run 'TestCommunityRouteInventory|TestLiveRouteContractCoverage' -coun
 | Artifact | Path |
 | --- | --- |
 | OpenAPI 3.0.3 contract | `sirius-api/contracts/openapi.v1.yaml` |
-| Semantic breaking baseline | `sirius-api/contracts/openapi.v1.baseline.yaml` |
+| Local seed copy (non-authoritative) | `sirius-api/contracts/openapi.v1.baseline.yaml` |
 | Route classification inventory | `sirius-api/contracts/route_classification.yaml` |
 | Ordered live-route golden | `sirius-api/testdata/community_routes.golden` |
 | Operation-removal fixture | `sirius-api/contracts/fixtures/breaking_openapi.missing_operation.yaml` |
+| oasdiff mini fixtures | `sirius-api/contracts/fixtures/breaking_base_mini.yaml` |
 | Validator package | `sirius-api/internal/contract/` |
 
 ### Updating the Contract
@@ -85,14 +86,28 @@ go test . -run 'TestCommunityRouteInventory|TestLiveRouteContractCoverage' -coun
    `deprecated`). Keep fixed routes registered before parameterized siblings.
 4. Update `openapi.v1.yaml` for every live `/api/v1` operation. Do not invent
    behavior the handlers do not provide.
-5. Run `go test ./internal/contract/ -count=1`. Semantic breaking detection
-   compares the published contract to `openapi.v1.baseline.yaml` and rejects
-   removed operations, removed/changed security, removed response codes,
-   schema/type changes, and newly required parameters/request fields.
-6. When the published contract change is intentionally accepted, copy
-   `openapi.v1.yaml` over `openapi.v1.baseline.yaml` in the same change set:
+5. Run `go test ./internal/contract/ -count=1`. CI compares the candidate
+   `openapi.v1.yaml` against the **protected** copy at the PR base / merge-base /
+   previous main tip (`SIRIUS_OPENAPI_BASE_REF`), using pinned **oasdiff** ERR
+   checks. Editing `openapi.v1.baseline.yaml` in the same feature PR cannot bypass
+   that gate.
+6. **Bootstrap (this introductory PR only):** if the protected base does not yet
+   contain `openapi.v1.yaml`, comparison is skipped (bootstrap). After merge to
+   main the check is fail-closed.
+7. **Intentional breaking advancement:** open a dedicated contract-change PR (or
+   obtain an explicit human gate) and set `SIRIUS_OPENAPI_ALLOW_BREAKING=1` in the
+   approved workflow only. Do **not** silently advance a local baseline alongside
+   a breaking feature change.
+8. Optionally refresh the local seed copy for docs/fixtures after an accepted
+   non-breaking edit:
    `cp sirius-api/contracts/openapi.v1.yaml sirius-api/contracts/openapi.v1.baseline.yaml`
-7. Keep the operation-removal fixture failing coverage validation.
+9. Keep the operation-removal fixture failing coverage validation.
+
+### Route shadowing policy
+
+Shadow detection mounts route pairs into a real Fiber app. The deprecated
+duplicate `GET /host/source-coverage` (second registration) is allowlisted for
+inventory fidelity; public/internal shadowed routes fail CI.
 
 ## What It Is
 
@@ -157,8 +172,9 @@ The API build job in `.github/workflows/ci.yml` runs:
 
 1. Existing module/route golden tests from task 3.1
 2. Live Fiber ↔ classification ↔ OpenAPI coverage tests
-3. `internal/contract` suite, including the breaking OpenAPI fixture that removes
-   `GET /api/v1/scans/status` and must fail validation
+3. Production middleware tests with an in-process no-network logging sink
+4. `internal/contract` suite: coverage, Fiber shadow detector, oasdiff negative
+   fixtures, and protected-baseline comparison via `SIRIUS_OPENAPI_BASE_REF`
 
 ### TypeScript Client
 

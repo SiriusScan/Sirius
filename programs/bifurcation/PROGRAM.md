@@ -552,7 +552,10 @@ Cycle 11 local evidence:
 - Review corrections: fixed event/agent-template route shadowing; semantic OpenAPI
   baseline breaking detection; production middleware shared by main/tests; exact
   GET `/health` auth skip; request/response OpenAPI accuracy; Fiber `utils.UUID`
-  request-ID semantics. Task 3.2 remains `in_progress` until live CI.
+  request-ID semantics.
+- Second review: protected-base oasdiff gate (not candidate-controlled baseline),
+  Fiber shadow detector, no-network middleware sink, OpenAPI input/status audit.
+  Task 3.2 remains `in_progress` until live CI.
 
 ## Stage 5: Entitlements and First Vertical
 

@@ -205,6 +205,10 @@ Local task evidence (cycle 1):
 - Review corrections: route shadowing fixes, semantic baseline breaking detection,
   production middleware test stack, exact `/health` auth bypass, OpenAPI
   request/response accuracy, Fiber `utils.UUID` request-ID docs/tests.
+- Second independent review: protected merge-base/PR-base OpenAPI comparison
+  (bootstrap → fail-closed; `SIRIUS_OPENAPI_ALLOW_BREAKING` gate); pinned oasdiff
+  with negative fixtures; Fiber-mounted shadow detector; in-process no-network
+  logging sink for production middleware tests; OpenAPI input/status accuracy.
 - TypeScript client intentionally deferred; no new generated bulk.
 - Bifurcation task 3.2 remains `in_progress` pending live CI.
 

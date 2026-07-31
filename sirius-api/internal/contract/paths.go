@@ -25,6 +25,11 @@ func ModuleRoot() string {
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 }
 
+// RepoRoot returns the absolute path to the Sirius repository root.
+func RepoRoot() string {
+	return filepath.Clean(filepath.Join(ModuleRoot(), ".."))
+}
+
 // NormalizePath converts Fiber `:param` segments to OpenAPI `{param}` segments.
 func NormalizePath(path string) string {
 	if path == "" {

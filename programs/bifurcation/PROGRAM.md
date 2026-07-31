@@ -255,13 +255,14 @@ Cycle 6 evidence:
 ## Current loop state
 
 ```yaml
-current_task_id: bifurcation.s3.t006
-cycle: 7
+current_task_id: bifurcation.s3.t008
+cycle: 9
 attempt: 1
 status: waiting
-verdict: accepted
+verdict: corrected
+artifact_verdict: accepted
 loop_decision: human_gate
-next_action: Obtain approval before creating private GHCR packages or signing identities.
+next_action: Obtain approval to push feature/bifurcation-cycle-8 and open a PR so Actions can confirm all 12 platform scans and Compose smoke.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -271,6 +272,9 @@ Owned paths:
 - `/Users/oz/Projects/Sirius-Project/private/sirius-pro`
 - `/Users/oz/Projects/Sirius-Project/private/sirius-entitlements`
 - `/Users/oz/Projects/Sirius-Project/private/sirius-release`
+- `.github/workflows/community-independence.yml`
+- `scripts/community-independence/`
+- `scripts/test-community-independence.sh`
 - `programs/bifurcation/PROGRAM.md`
 - `programs/bifurcation/evaluations/`
 - `tasks/pro-bifurcation.json`
@@ -282,9 +286,10 @@ Tasks:
 - [x] Establish access teams and document the approved GitHub Free access waiver
 - [x] Record the approved private branch/tag protection and secret-scanning waiver
 - [x] Verify anonymous denial and record governance evidence
+- [x] Prove private GHCR publishing, SBOM, keyless signing, and Community verification
 - [ ] Complete Phase 2 and record private repository governance evidence
 
-Current task:
+Task 2.1 result:
 
 - `task_id`: `bifurcation.s3.t006`
 - `stage`: `3 Private Supply Chain`
@@ -338,6 +343,111 @@ Cycle 7 evidence:
   unavailable, and all nine organization members retain inherited write access.
 - Decision: task `bifurcation.s3.t006` is accepted under that explicit waiver. The
   program stops before task 2.2 creates a package namespace or signing identity.
+
+Task 2.2 result:
+
+- `task_id`: `bifurcation.s3.t007`
+- `stage`: `3 Private Supply Chain`
+- `cycle`: `8`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `criteria`:
+  - A private GHCR bootstrap image is built once, addressed by digest, and cannot be
+    pulled anonymously.
+  - The image has a generated CycloneDX SBOM and a GitHub OIDC keyless Cosign signature
+    that verifies against the canonical private workflow identity.
+  - CI verifies all six Community `v1.1.0` image signatures and digests from
+    `core.lock.yaml` before building.
+  - The repository ships a reusable, least-permission, full-SHA-pinned Pro image
+    pipeline template without long-lived credentials or signing keys.
+- `validation`:
+  - Repository-native boundary and supply-chain contract tests
+  - Successful private GitHub Actions publish run
+  - `cosign verify` and SBOM validation against the published digest
+  - Authenticated package API inspection and anonymous pull denial
+- `verdict`: `accepted`
+- `loop_decision`: `continue`
+- `next_task_id`: `bifurcation.s3.t008`
+- `next_action`: Implement task 2.3 standing Community-independence and leakage tests.
+
+Cycle 8 evidence:
+
+- Commit `5cb9fb3` introduced the private GHCR bootstrap pipeline. Independent review
+  found a PR-triggered shell injection through `eval`, unsafe publish/PR workflow
+  coupling, and template identity/test gaps.
+- Commits `3f00b50` and `c7bbdc6` removed shell evaluation in favor of a typed
+  fail-closed parser, split read-only PR/push validation from dispatch-only package
+  publication, made signing identities explicit, disabled publish cancellation, and
+  strengthened injection and Cosign argument tests. Re-review reported no findings.
+- Local `make test`, shell/Python syntax, YAML/JSON parsing, and diff checks passed.
+  Push runs 30585689687 and 30585689675 passed guardrail and supply-chain validation.
+- Approved publish run 30585723325 verified the Community `v1.1.0` manifest, all six
+  locked image digests, and all six canonical public Cosign signatures before build.
+- The run published
+  `ghcr.io/opensecurity-infosec/sirius-pro-bootstrap@sha256:4ec53af35646f7a93a2fca42aa1a7e0ef94d7343e50414a7034053540a9274e3`
+  from source commit `c7bbdc65b6d7354839e998f99ca0b56ba1d140a4`.
+- Syft produced a valid CycloneDX artifact; Cosign keyless-signed, attached the SBOM
+  attestation, and verified both under the exact
+  `OpenSecurity-Infosec/sirius-release@main` workflow identity.
+- The package tag is the immutable full source SHA; unauthenticated GHCR manifest access
+  returns HTTP 401. The local OAuth token lacks `read:packages`, so authenticated package
+  metadata inspection returned 403; workflow publication and anonymous denial provide
+  the available evidence.
+- Evaluation:
+  `programs/bifurcation/evaluations/bifurcation.s3.t007.md`.
+- Decision: task 2.2 is accepted; continue to task 2.3. The GitHub Free governance
+  waiver and public Rekor disclosure of private image digests remain recorded risks.
+
+Task 2.3 result:
+
+- `task_id`: `bifurcation.s3.t008`
+- `stage`: `3 Private Supply Chain`
+- `cycle`: `9`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `criteria`:
+  - Public CI runs Community-independence validation with no private credentials,
+    private package access, or private repository checkout.
+  - A standing scanner checks public runtime source/configuration, all six released
+    images, and all twelve release SBOMs for private module paths, private registry
+    references, credentials, and high-confidence Pro-only runtime markers.
+  - Governance documentation may describe the public/private boundary, but allowlists
+    are path-scoped and cannot exempt runtime code, build files, workflows, or images.
+  - A seeded private canary is rejected in a dry-run fixture while the current public
+    `v1.1.0` artifacts pass.
+- `validation`:
+  - `bash scripts/test-community-independence.sh` and `bash scripts/test-core-manifest.sh` passed
+  - Live anonymous `v1.1.0` source archive + 12 SBOM scan + core-manifest validation passed
+  - Mocked contract proves 6→12 platform child pull/scan wiring; live 12-platform image
+    scan + compose smoke deferred to CI (local Docker daemon unavailable)
+- `verdict`: `corrected`
+- `artifact_verdict`: `accepted`
+- `loop_decision`: `human_gate`
+- `task_status`: `in_progress` (not done until CI proves 12 platform images + smoke)
+- `next_action`: Obtain approval to push the feature branch / open a PR; Actions confirms
+  `public-release-scan` for all 12 platform digests and compose smoke.
+
+Cycle 9 evidence:
+
+- Added `.github/workflows/community-independence.yml` with full-SHA pins,
+  `contents: read` only, `persist-credentials: false`, emptied tokens during scans,
+  separate `source-contract` (PR/push) and `public-release-scan`
+  (main/schedule/workflow_dispatch) jobs targeting immutable `v1.1.0` (no mutable
+  latest path).
+- Review fixes: safe path normalization; `.yml`/`.yaml` never-allowlist; boundary-only
+  allowlist (secrets/canary never suppressed); nested gzip/zip/tar + NUL binary scan;
+  zip stream size/mismatch rejection; exact SBOM name/version + distinct child digests;
+  multi-arch image scan (buildx resolve + `--platform` child pulls); docker-save and
+  mocked 12-pull behavioral canaries.
+- Governance allowlist is prefix-scoped to docs/tasks/program records; runtime,
+  Docker/Compose, build scripts, and workflows are never allowlisted.
+- Canaries are synthetic runtime fixtures; public CI must never read a real private
+  repo to plant or verify leakage markers.
+- Docs: `documentation/dev/deployment/README.community-independence.md` (+ index /
+  workflows index updates).
+- Evaluation: `programs/bifurcation/evaluations/bifurcation.s3.t008.md`.
+- Decision: local artifact accepted; final task verdict awaits CI. Phase 2 remains
+  incomplete at the public push/PR human gate.
 
 ## Stage 4: Public Contracts
 

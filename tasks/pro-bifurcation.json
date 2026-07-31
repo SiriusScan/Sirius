@@ -134,8 +134,8 @@
         "id": "2.2",
         "title": "Private GHCR namespace and Pro CI template",
         "description": "Private image publishing pipeline with SBOM and signing from day one.",
-        "details": "ghcr.io/opensecurity-infosec/* namespace; CI template mirroring public pipeline plus digest verification of upstream Community images.",
-        "status": "pending",
+        "details": "Implemented in OpenSecurity-Infosec/sirius-release through commit c7bbdc65b6d7354839e998f99ca0b56ba1d140a4. Run 30585723325 verified all six Community v1.1.0 lock digests and canonical public Cosign signatures, then published ghcr.io/opensecurity-infosec/sirius-pro-bootstrap@sha256:4ec53af35646f7a93a2fca42aa1a7e0ef94d7343e50414a7034053540a9274e3, generated a CycloneDX SBOM, keyless-signed and attested the exact digest with the canonical private workflow identity, and verified both. Anonymous registry access returns 401; no long-lived signing or registry credential was introduced.",
+        "status": "done",
         "priority": "high",
         "dependencies": ["2.1"],
         "testStrategy": "Test image publishes privately, is signed, has an SBOM, and cannot be pulled anonymously."
@@ -144,11 +144,11 @@
         "id": "2.3",
         "title": "Standing community-independence and leakage tests",
         "description": "Prove the public edition never needs private access, and public artifacts never contain private references.",
-        "details": "Public CI job running with zero credentials builds and boots the full Community stack; scanner job checks public images, SBOMs, and source archives for private module paths, opensecurity-infosec registry refs, or Pro-only strings.",
-        "status": "pending",
+        "details": "Local implementation of community-independence.yml + scripts/community-independence/ with path-safe allowlists, secret/boundary rule split, nested archive/binary scanning, tightened 12-SBOM checks, and multi-arch (6 indexes → 12 platform digests) image scanning. Contract/canary tests pass locally; live anonymous v1.1.0 source+SBOM scan passes. Remains in_progress until pushed CI proves all 12 platform image scans and compose smoke.",
+        "status": "in_progress",
         "priority": "high",
         "dependencies": ["2.2"],
-        "testStrategy": "Both jobs green on main; deliberately seeded canary string in a private repo is caught by the leakage scanner in a dry run."
+        "testStrategy": "bash scripts/test-community-independence.sh; bash scripts/test-core-manifest.sh; anonymous v1.1.0 source+SBOM scan; CI public-release-scan must prove 12 platform image scans + compose smoke."
       }
     ]
   },

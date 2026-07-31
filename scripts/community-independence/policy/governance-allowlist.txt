@@ -1,0 +1,19 @@
+# Narrow path-scoped allowlist for Community-independence scans.
+# Only governance documentation / task / program records may describe the
+# public/private boundary. Matching is prefix-based on repo-relative paths.
+# Runtime code, Docker/Compose, build scripts, and workflows are NEVER listed.
+#
+# Format: one relative path prefix per line. Comments start with #.
+
+documentation/dev/architecture/ADR.001-public-core-private-extension.md
+documentation/dev/architecture/ADR.002-repository-ownership.md
+documentation/dev/architecture/ADR.003-entitlement-model.md
+documentation/dev/architecture/ADR.004-extension-contracts.md
+documentation/dev/architecture/ADR.005-versioning-and-release-policy.md
+documentation/dev/ABOUT.opensecurity-sirius-relationship.md
+documentation/dev-notes/pro-bifurcation-plan.md
+documentation/dev/deployment/README.community-independence.md
+documentation/dev/deployment/README.workflows.md
+documentation/README.documentation-index.md
+programs/bifurcation/
+tasks/pro-bifurcation.json

@@ -115,8 +115,8 @@
     "id": "2",
     "title": "PHASE 2: Private Repositories and Supply-Chain Foundation",
     "description": "Bootstrap OpenSecurity-Infosec private repos from skeletons with protections, private GHCR, and standing leakage-prevention tests.",
-    "details": "Create sirius-pro, sirius-entitlements, and sirius-release. Never clone the public repo as a starting point. Establish access teams, branch protection, CODEOWNERS, secret scanning, and CI templates.",
-    "status": "in_progress",
+    "details": "Created sirius-pro, sirius-entitlements, and sirius-release from independent histories; established teams, private GHCR, signed/SBOM-attested publishing, and standing public leakage prevention. GitHub Free governance limitations remain covered by the explicit temporary waiver recorded in task 2.1.",
+    "status": "done",
     "priority": "high",
     "dependencies": ["0"],
     "subtasks": [
@@ -144,8 +144,8 @@
         "id": "2.3",
         "title": "Standing community-independence and leakage tests",
         "description": "Prove the public edition never needs private access, and public artifacts never contain private references.",
-        "details": "Local implementation of community-independence.yml + scripts/community-independence/ with path-safe allowlists, secret/boundary rule split, nested archive/binary scanning, tightened 12-SBOM checks, and multi-arch (6 indexes → 12 platform digests) image scanning. Contract/canary tests pass locally; live anonymous v1.1.0 source+SBOM scan passes. Remains in_progress until pushed CI proves all 12 platform image scans and compose smoke.",
-        "status": "in_progress",
+        "details": "Implemented community-independence.yml + scripts/community-independence/ with path-safe allowlists, secret/boundary rule split, bounded nested archive/binary scanning, exact 12-SBOM checks, and multi-arch image scanning (6 indexes → 12 platform digests). After live-CI corrections for legitimate image links and public system-library fixtures, main run 30604223699 passed source/config checks, the anonymous v1.1.0 source + 12-SBOM + 12-platform image scan, and public Compose smoke.",
+        "status": "done",
         "priority": "high",
         "dependencies": ["2.2"],
         "testStrategy": "bash scripts/test-community-independence.sh; bash scripts/test-core-manifest.sh; anonymous v1.1.0 source+SBOM scan; CI public-release-scan must prove 12 platform image scans + compose smoke."
@@ -157,7 +157,7 @@
     "title": "PHASE 3: Public Extension Contracts",
     "description": "Create the versioned seams Pro will consume: API module interface, event envelope, OpenAPI, UI extension registry, engine enrichment interfaces.",
     "details": "All contracts live in public code (go-api for Go, sirius-ui registry for TypeScript). Compile-time registration; no runtime plugins. Community behavior must be unchanged with zero extensions.",
-    "status": "pending",
+    "status": "in_progress",
     "priority": "high",
     "dependencies": ["1"],
     "subtasks": [
@@ -166,7 +166,7 @@
         "title": "API Module interface and registration seam",
         "description": "Evolve RouteSetter into a Module contract in go-api; move module wiring out of main.go into a replaceable build file.",
         "details": "Module: ID, Version, RegisterRoutes, RegisterJobs, RegisterEventHandlers, RequiredCapabilities, Health. Community registers core modules in modules_community.go; the Pro API build supplies its own registration file. Add capability-middleware hook point.",
-        "status": "pending",
+        "status": "in_progress",
         "priority": "high",
         "dependencies": [],
         "testStrategy": "Community API starts with zero non-core modules and identical route table (golden-file route inventory diff); a test module adds a route without editing core files."

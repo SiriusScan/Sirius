@@ -6,8 +6,8 @@ execution_kind: parent
 cycle: 9
 attempt: 1
 evaluator_role: parent
-evaluated_at: "2026-07-30T23:35:00Z"
-evidence_paths: "scripts/community-independence/; scripts/test-community-independence.sh; .github/workflows/community-independence.yml; documentation/dev/deployment/README.community-independence.md; local test logs"
+evaluated_at: "2026-07-31T04:59:55Z"
+evidence_paths: "scripts/community-independence/; scripts/test-community-independence.sh; .github/workflows/community-independence.yml; documentation/dev/deployment/README.community-independence.md; PRs 136, 137, 138, and 140; GitHub Actions run 30604223699"
 criteria:
   - id: credential-free-public-ci
     status: pass
@@ -29,21 +29,22 @@ criteria:
     evidence:
       - "Runtime canaries cover private markers, governance secret bypass, release-archive top-dir attribution, zip oversize/mismatch, NUL/nested archives, SBOM wrong-component/duplicate digest, docker-save fixtures, and mocked 12 platform pulls."
   - id: twelve-platform-image-live-scan
-    status: unknown
+    status: pass
     evidence:
-      - "Local Docker daemon unavailable; mocked contract proves index resolution and 12 child pull/scan wiring. Live 12-platform image scan + compose smoke remain for GitHub Actions public-release-scan after push."
-verdict: corrected
+      - "Main run 30604223699 anonymously scanned the immutable v1.1.0 source archive, all 12 CycloneDX SBOMs, and both linux/amd64 and linux/arm64 children of all six image indexes."
+      - "The same public-release-scan completed public v1.1.0 Compose smoke successfully."
+verdict: accepted
 artifact_verdict: accepted
-loop_decision: human_gate
-correction: "Push the feature branch and require a green public-release-scan covering all 12 platform child digests plus public Compose smoke before final task acceptance."
+loop_decision: continue
+next_task_id: bifurcation.s4.t009
 residual_risk:
-  - "Live 12-platform image layer scans and public Compose smoke were not executed locally; CI must confirm after push."
   - "Encrypted or opaque blobs may still hide markers despite nested gzip/zip/tar inspection."
   - "GitHub Free private-org governance waiver from earlier Stage 3 work remains unrelated but active."
 ---
 
 # Evaluation
 
-The local task 2.3 artifact is accepted and the loop stops at a human gate. Phase 2 is
-not complete until pushed CI proves all 12 platform image scans and Compose smoke. Do
-not mark task 2.3 done until that evidence exists.
+Task 2.3 is accepted. Main run 30604223699 supplied the previously missing live
+evidence: credential-free source/config checks, anonymous scans of all immutable
+Community v1.1.0 release assets and 12 platform image filesystems, and public Compose
+smoke all passed. Phase 2 is complete; continue with the public extension contracts.

@@ -190,6 +190,27 @@ if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/
   --paths-file <(printf '%s\n' "actual-private-key.pem") 2>/dev/null; then
   fail "a complete PEM private-key block must be rejected"
 fi
+mkdir -p "${TMP_DIR}/usr/lib/x86_64-linux-gnu" "${TMP_DIR}/app"
+cp "${TMP_DIR}/actual-private-key.pem" \
+  "${TMP_DIR}/usr/lib/x86_64-linux-gnu/libpublic-fixture.so.1"
+python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "usr/lib/x86_64-linux-gnu/libpublic-fixture.so.1") \
+  || fail "a public distro shared-library fixture must not be treated as a Sirius key"
+cp "${TMP_DIR}/actual-private-key.pem" "${TMP_DIR}/app/libprivate.so"
+if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "app/libprivate.so") 2>/dev/null; then
+  fail "the shared-library exception must not apply to application paths"
+fi
+cp "${TMP_DIR}/actual-private-key.pem" "${TMP_DIR}/usr/lib/leaked.key"
+if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "usr/lib/leaked.key") 2>/dev/null; then
+  fail "the shared-library exception must not apply to key files"
+fi
+cp "${TMP_DIR}/actual-private-key.pem" "${TMP_DIR}/usr/lib/leaked.so.pem"
+if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "usr/lib/leaked.so.pem") 2>/dev/null; then
+  fail "the shared-library exception must require a real soname"
+fi
 pass "PEM key-material detection"
 
 echo "==> canary: private registry/module/pro canary rejected"
@@ -535,7 +556,7 @@ pass "SBOM wrong-component + duplicate digest canaries"
 
 echo "==> canary: docker-save fixtures via scan_image_layers.py"
 python3 - <<PY
-import gzip, io, json, tarfile, sys
+import base64, gzip, io, json, tarfile, sys, zipfile
 from pathlib import Path
 sys.path.insert(0, "scripts/community-independence")
 import scan_image_layers
@@ -566,6 +587,61 @@ write_save(clean, [("manifest.json", b"[]"), ("config.json", cfg), ("layer.tar",
 findings = scan_image_layers.scan_docker_save(clean, allow, "sirius-ui/linux-amd64")
 assert findings == [], findings
 
+# Public package key fixture in a system shared library is ignored by precise path.
+der = b"\x30\x64" + b"A" * 100
+encoded = base64.b64encode(der)
+pem_body = b"\n".join(encoded[i:i + 64] for i in range(0, len(encoded), 64))
+pem = b"-----BEGIN RSA PRIVATE KEY-----\n" + pem_body + b"\n-----END RSA PRIVATE KEY-----\n"
+system_fixture = tmp / "system-fixture.tar"
+lbuf = io.BytesIO()
+with tarfile.open(fileobj=lbuf, mode="w") as lf:
+    info = tarfile.TarInfo("usr/lib/x86_64-linux-gnu/libfixture.so.1")
+    info.size = len(pem)
+    lf.addfile(info, io.BytesIO(pem))
+write_save(system_fixture, [("layer.tar", lbuf.getvalue())])
+findings = scan_image_layers.scan_docker_save(
+    system_fixture, allow, "sirius-engine/linux-amd64"
+)
+assert findings == [], findings
+
+# Small nested zip uses the bytes path and keeps the same precise exception.
+zip_buf = io.BytesIO()
+with zipfile.ZipFile(zip_buf, "w") as zf:
+    zf.writestr("usr/lib/libfixture.so.2", pem)
+zip_fixture = tmp / "system-fixture-zip.tar"
+lbuf = io.BytesIO()
+with tarfile.open(fileobj=lbuf, mode="w") as lf:
+    payload = zip_buf.getvalue()
+    info = tarfile.TarInfo("opt/package.zip")
+    info.size = len(payload)
+    lf.addfile(info, io.BytesIO(payload))
+write_save(zip_fixture, [("layer.tar", lbuf.getvalue())])
+findings = scan_image_layers.scan_docker_save(
+    zip_fixture, allow, "sirius-engine/linux-amd64"
+)
+assert findings == [], findings
+
+# The same key in an application path remains a finding.
+app_fixture = tmp / "app-fixture.tar"
+lbuf = io.BytesIO()
+with tarfile.open(fileobj=lbuf, mode="w") as lf:
+    info = tarfile.TarInfo("app/libfixture.so")
+    info.size = len(pem)
+    lf.addfile(info, io.BytesIO(pem))
+write_save(app_fixture, [("layer.tar", lbuf.getvalue())])
+findings = scan_image_layers.scan_docker_save(
+    app_fixture, allow, "sirius-engine/linux-amd64"
+)
+assert any("[pem_private_key]" in item for item in findings), findings
+
+# Successful tar parsing must retain non-PEM findings in trailing/polyglot bytes.
+trailing_fixture = tmp / "trailing-marker.tar"
+write_save(trailing_fixture, [("layer.tar", layer_buf.getvalue() + marker)])
+findings = scan_image_layers.scan_docker_save(
+    trailing_fixture, allow, "sirius-ui/linux-amd64"
+)
+assert any("[private_registry]" in item for item in findings), findings
+
 # poisoned config
 poison_cfg = tmp / "poison-config.tar"
 write_save(poison_cfg, [("config.json", b'{"Env":["X=' + marker + b'"]}')])
@@ -583,6 +659,18 @@ with tarfile.open(fileobj=lbuf, mode="w") as lf:
 write_save(poison_layer, [("layer.tar", lbuf.getvalue())])
 findings = scan_image_layers.scan_docker_save(poison_layer, allow, "sirius-api/linux-arm64")
 assert findings, "expected poisoned layer findings"
+
+# Private markers in member names remain visible after raw tar findings are discarded.
+poison_name = tmp / "poison-name.tar"
+lbuf = io.BytesIO()
+with tarfile.open(fileobj=lbuf, mode="w") as lf:
+    data = b"clean\n"
+    info = tarfile.TarInfo("app/" + marker.decode() + "/payload")
+    info.size = len(data)
+    lf.addfile(info, io.BytesIO(data))
+write_save(poison_name, [("layer.tar", lbuf.getvalue())])
+findings = scan_image_layers.scan_docker_save(poison_name, allow, "sirius-api/linux-amd64")
+assert any("#metadata" in item for item in findings), findings
 
 # nested compressed marker inside layer
 nested = tmp / "nested-layer.tar"

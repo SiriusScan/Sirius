@@ -17,7 +17,8 @@ Budget model (shared across a top-level scan root)
   are found) but does not double/triple-count when a nested parse succeeds.
 
 Caps: traversal/link rejection, per-member buffering threshold, nest depth,
-member count, and a GiB-level total uncompressed scan budget.
+archive-entry count (including files, directories, and links to prevent metadata
+bombs), and a GiB-level total uncompressed scan budget.
 
 Link policy
 -----------
@@ -273,6 +274,11 @@ def _raw_findings_bytes(
     return scan_text.match_rules(data, rel_path, rules, allowlist)
 
 
+def _without_container_pem(findings: Sequence[str]) -> List[str]:
+    """Drop only pathless raw-container PEM hits after member parsing succeeds."""
+    return [item for item in findings if "[pem_private_key]" not in item]
+
+
 def _scan_tar_stream(
     fh: BinaryIO,
     rel_path: str,
@@ -290,6 +296,15 @@ def _scan_tar_stream(
     try:
         with tarfile.open(fileobj=fh, mode=mode) as tf:
             for member in tf:
+                _validate_member_name(member.name)
+                nested_rel = f"{rel_path}#tar/{scan_text.norm_rel(member.name)}"
+                budget.add_member(nested_rel)
+                metadata = f"{member.name}\n{member.linkname or ''}".encode(
+                    "utf-8", errors="surrogateescape"
+                )
+                findings.extend(
+                    scan_text.match_rules(metadata, f"{nested_rel}#metadata", rules, allowlist)
+                )
                 if member.issym() or member.islnk():
                     # Image layers: never extract/follow links; ignore entries even
                     # when the in-container target is absolute (BusyBox style).
@@ -299,9 +314,6 @@ def _scan_tar_stream(
                     _reject_link(member)
                 if not member.isfile():
                     continue
-                _validate_member_name(member.name)
-                nested_rel = f"{rel_path}#tar/{scan_text.norm_rel(member.name)}"
-                budget.add_member(nested_rel)
 
                 extracted = tf.extractfile(member)
                 if extracted is None:
@@ -635,7 +647,8 @@ def scan_nested_bytes(
         budget.add_bytes(len(data), rel_path)
         return findings
 
-    findings.extend(nested_findings)
+    if nested_ok:
+        return _without_container_pem(findings) + nested_findings
     if not nested_ok:
         # Opaque: charge this representation once.
         budget.add_bytes(len(data), rel_path)
@@ -725,7 +738,10 @@ def scan_nested_fileobj(
             )
         return findings
 
-    findings.extend(nested_findings)
+    if nested_ok:
+        # Keep raw non-PEM findings for trailing/polyglot bytes. PEM decisions use
+        # precise member paths so public system-library fixtures can be distinguished.
+        return _without_container_pem(findings) + nested_findings
     if not nested_ok:
         if raw_size >= 0:
             budget.add_bytes(raw_size, rel_path)

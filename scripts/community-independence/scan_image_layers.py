@@ -74,6 +74,9 @@ def scan_docker_save(
                         allow,
                         budget=budget,
                         strict=True,
+                        # Layer tar members are never extracted; BusyBox-style
+                        # absolute in-container link targets are ignored safely.
+                        ignore_link_members=True,
                     )
                 )
 

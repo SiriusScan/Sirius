@@ -570,22 +570,94 @@ write_save(nested, [("layer.tar", lbuf.getvalue())])
 findings = scan_image_layers.scan_docker_save(nested, allow, "sirius-engine/linux-amd64")
 assert findings, "expected nested compressed layer findings"
 
-# dangerous link/traversal in layer
-danger = tmp / "danger.tar"
+# Image-layer symlink/hardlink members are ignored (never followed), including
+# absolute in-container targets (BusyBox) and relative hardlinks.
+busybox = tmp / "busybox-links.tar"
 lbuf = io.BytesIO()
 with tarfile.open(fileobj=lbuf, mode="w") as lf:
+    data = b"busybox\n"
+    info = tarfile.TarInfo("bin/busybox")
+    info.size = len(data)
+    lf.addfile(info, io.BytesIO(data))
+    info = tarfile.TarInfo("bin/arch")
+    info.type = tarfile.SYMTYPE
+    info.linkname = "/bin/busybox"
+    lf.addfile(info)
+    info = tarfile.TarInfo("bin/arch.hard")
+    info.type = tarfile.LNKTYPE
+    info.linkname = "bin/busybox"
+    lf.addfile(info)
+    # Former "dangerous" relative symlink target — ignored in image layers.
     info = tarfile.TarInfo("link")
     info.type = tarfile.SYMTYPE
     info.linkname = "../escape"
     lf.addfile(info)
-write_save(danger, [("layer.tar", lbuf.getvalue())])
+write_save(busybox, [("layer.tar", lbuf.getvalue())])
+findings = scan_image_layers.scan_docker_save(busybox, allow, "sirius-postgres/linux-amd64")
+assert findings == [], findings
+
+# Regular member absolute / traversal paths still fail-closed in image layers.
+for bad_name, label in [("/etc/shadow", "absolute"), ("../escape.txt", "traversal")]:
+    danger = tmp / f"danger-{label}.tar"
+    lbuf = io.BytesIO()
+    with tarfile.open(fileobj=lbuf, mode="w") as lf:
+        data = b"x\n"
+        info = tarfile.TarInfo(bad_name)
+        info.size = len(data)
+        lf.addfile(info, io.BytesIO(data))
+    write_save(danger, [("layer.tar", lbuf.getvalue())])
+    try:
+        scan_image_layers.scan_docker_save(danger, allow, "sirius-postgres/linux-amd64")
+    except ArchiveSafetyError as exc:
+        assert "illegal" in str(exc).lower() or "absolute" in str(exc).lower() or "path" in str(exc).lower(), exc
+    else:
+        raise SystemExit(f"expected {label} regular member path rejection")
+
+# Outer docker-save archive remains fail-closed on links.
+outer_link = tmp / "outer-link.tar"
+with tarfile.open(outer_link, "w") as tf:
+    info = tarfile.TarInfo("evil")
+    info.type = tarfile.SYMTYPE
+    info.linkname = "/etc/passwd"
+    tf.addfile(info)
 try:
-    scan_image_layers.scan_docker_save(danger, allow, "sirius-postgres/linux-amd64")
+    scan_image_layers.scan_docker_save(outer_link, allow, "sirius-ui/linux-amd64")
 except ArchiveSafetyError as exc:
-    assert "link" in str(exc).lower() or "dangerous" in str(exc).lower()
+    assert "link" in str(exc).lower() and "docker-save" in str(exc).lower(), exc
 else:
-    # nested_content raises link forbidden
-    raise SystemExit("expected dangerous link rejection")
+    raise SystemExit("expected outer docker-save link rejection")
+
+# Explicit public source release archives still reject symlink/hardlink members.
+import scan_archive
+src_sym = tmp / "src-symlink.tar"
+with tarfile.open(src_sym, "w") as tf:
+    info = tarfile.TarInfo("bin/arch")
+    info.type = tarfile.SYMTYPE
+    info.linkname = "/bin/busybox"
+    tf.addfile(info)
+try:
+    scan_archive.scan_archive(src_sym, allow)
+except ArchiveSafetyError as exc:
+    assert "link" in str(exc).lower(), exc
+else:
+    raise SystemExit("expected source-release symlink rejection")
+
+src_hard = tmp / "src-hardlink.tar"
+with tarfile.open(src_hard, "w") as tf:
+    data = b"payload\n"
+    info = tarfile.TarInfo("bin/busybox")
+    info.size = len(data)
+    tf.addfile(info, io.BytesIO(data))
+    info = tarfile.TarInfo("bin/arch.hard")
+    info.type = tarfile.LNKTYPE
+    info.linkname = "bin/busybox"
+    tf.addfile(info)
+try:
+    scan_archive.scan_archive(src_hard, allow)
+except ArchiveSafetyError as exc:
+    assert "link" in str(exc).lower(), exc
+else:
+    raise SystemExit("expected source-release hardlink rejection")
 
 print("OK docker-save fixture canaries")
 PY

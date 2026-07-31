@@ -18,6 +18,14 @@ Budget model (shared across a top-level scan root)
 
 Caps: traversal/link rejection, per-member buffering threshold, nest depth,
 member count, and a GiB-level total uncompressed scan budget.
+
+Link policy
+-----------
+Image-layer nested tar (``ignore_link_members=True``): symlink/hardlink entries
+are skipped without following; absolute in-container targets (BusyBox) are fine.
+Regular member pathnames still reject absolute/traversal/drive paths.
+Source-release archives and non-image nested paths reject link members.
+Outer docker-save archives reject links at the outer tar boundary.
 """
 
 from __future__ import annotations
@@ -102,6 +110,11 @@ def _looks_tar_header(head: bytes) -> bool:
 
 
 def _reject_link(member: tarfile.TarInfo) -> None:
+    """Reject symlink/hardlink members (source-release / nested non-image paths).
+
+    Image-layer nested tar uses ``ignore_link_members`` instead: links are skipped
+    without following or inspecting absolute in-container targets.
+    """
     link = member.linkname or ""
     name = member.name or ""
     if (
@@ -270,6 +283,7 @@ def _scan_tar_stream(
     nest_depth: int,
     strict: bool,
     stream_mode: bool,
+    ignore_link_members: bool = False,
 ) -> List[str]:
     findings: List[str] = []
     mode = "r|" if stream_mode else "r:*"
@@ -277,6 +291,11 @@ def _scan_tar_stream(
         with tarfile.open(fileobj=fh, mode=mode) as tf:
             for member in tf:
                 if member.issym() or member.islnk():
+                    # Image layers: never extract/follow links; ignore entries even
+                    # when the in-container target is absolute (BusyBox style).
+                    # Source-release / other nested paths stay fail-closed on links.
+                    if ignore_link_members:
+                        continue
                     _reject_link(member)
                 if not member.isfile():
                     continue
@@ -303,6 +322,7 @@ def _scan_tar_stream(
                             nest_depth=nest_depth + 1,
                             budget=budget,
                             strict=strict,
+                            ignore_link_members=ignore_link_members,
                         )
                     )
                     continue
@@ -324,6 +344,7 @@ def _scan_tar_stream(
                         nest_depth=nest_depth + 1,
                         budget=budget,
                         strict=strict,
+                        ignore_link_members=ignore_link_members,
                     )
                 )
     except tarfile.TarError as exc:
@@ -341,6 +362,7 @@ def _scan_gzip_payload(
     nest_depth: int,
     strict: bool,
     prefer_tar: bool,
+    ignore_link_members: bool = False,
 ) -> List[str]:
     try:
         gz = gzip.GzipFile(fileobj=fh, mode="rb")
@@ -365,6 +387,7 @@ def _scan_gzip_payload(
             nest_depth=nest_depth,
             strict=strict,
             stream_mode=True,
+            ignore_link_members=ignore_link_members,
         )
 
     # Non-tar gzip: if decompressed head is zip, spool and recurse; otherwise
@@ -380,6 +403,7 @@ def _scan_gzip_payload(
             budget=budget,
             strict=strict,
             raw_pre_scanned=True,
+            ignore_link_members=ignore_link_members,
         )
 
     return scan_stream_chunks(rest, gzip_rel, rules, allowlist, budget, charge=True)
@@ -394,6 +418,7 @@ def _scan_zip_bytes(
     *,
     nest_depth: int,
     strict: bool,
+    ignore_link_members: bool = False,
 ) -> List[str]:
     findings: List[str] = []
     try:
@@ -411,6 +436,7 @@ def _scan_zip_bytes(
                         budget,
                         nest_depth=nest_depth,
                         strict=strict,
+                        ignore_link_members=ignore_link_members,
                     )
                 )
     except zipfile.BadZipFile as exc:
@@ -428,6 +454,7 @@ def _scan_zip_member(
     *,
     nest_depth: int,
     strict: bool,
+    ignore_link_members: bool = False,
 ) -> List[str]:
     name = info.filename
     _validate_member_name(name)
@@ -452,6 +479,7 @@ def _scan_zip_member(
                 nest_depth=nest_depth + 1,
                 budget=budget,
                 strict=strict,
+                ignore_link_members=ignore_link_members,
             )
         data = fh.read(MAX_BUFFERED_MEMBER + 1)
 
@@ -470,6 +498,7 @@ def _scan_zip_member(
         nest_depth=nest_depth + 1,
         budget=budget,
         strict=strict,
+        ignore_link_members=ignore_link_members,
     )
 
 
@@ -483,6 +512,7 @@ def _try_nested_parse(
     *,
     nest_depth: int,
     strict: bool,
+    ignore_link_members: bool = False,
 ) -> Tuple[bool, List[str]]:
     """Attempt gzip/zip/tar nesting. Returns (nested_ok, findings)."""
     prefer_tar = _prefer_tar_path(rel_path)
@@ -499,6 +529,7 @@ def _try_nested_parse(
                 nest_depth=nest_depth,
                 strict=strict,
                 prefer_tar=prefer_tar,
+                ignore_link_members=ignore_link_members,
             )
         )
         return True, findings
@@ -517,6 +548,7 @@ def _try_nested_parse(
                     budget,
                     nest_depth=nest_depth,
                     strict=strict,
+                    ignore_link_members=ignore_link_members,
                 )
             )
         else:
@@ -534,6 +566,7 @@ def _try_nested_parse(
                             budget,
                             nest_depth=nest_depth,
                             strict=strict,
+                            ignore_link_members=ignore_link_members,
                         )
                     )
         return True, findings
@@ -552,6 +585,7 @@ def _try_nested_parse(
                 nest_depth=nest_depth,
                 strict=strict,
                 stream_mode=False,
+                ignore_link_members=ignore_link_members,
             )
         )
         return True, findings
@@ -568,6 +602,7 @@ def scan_nested_bytes(
     nest_depth: int = 0,
     budget: Optional[_Budget] = None,
     strict: bool = True,
+    ignore_link_members: bool = False,
 ) -> List[str]:
     if budget is None:
         budget = _Budget()
@@ -589,6 +624,7 @@ def scan_nested_bytes(
             budget,
             nest_depth=nest_depth,
             strict=strict,
+            ignore_link_members=ignore_link_members,
         )
     except Exception as exc:  # noqa: BLE001 - opportunistic fallback is intentional
         if strict or not _opportunistic_exc(exc):
@@ -616,11 +652,15 @@ def scan_nested_fileobj(
     budget: Optional[_Budget] = None,
     strict: bool = True,
     raw_pre_scanned: bool = False,
+    ignore_link_members: bool = False,
 ) -> List[str]:
     """Scan a file object using spooling/streaming (no multi-hundred-MiB RAM buffer).
 
     ``raw_pre_scanned`` skips a second outer raw pass when the caller already
     scanned for markers (e.g. decompressed gzip head routed back here).
+
+    ``ignore_link_members`` skips tar symlink/hardlink entries without following
+    them (image-layer scanning). Source-release archives reject links instead.
     """
     if budget is None:
         budget = _Budget()
@@ -669,6 +709,7 @@ def scan_nested_fileobj(
             budget,
             nest_depth=nest_depth,
             strict=strict,
+            ignore_link_members=ignore_link_members,
         )
     except Exception as exc:  # noqa: BLE001
         if strict or not _opportunistic_exc(exc):

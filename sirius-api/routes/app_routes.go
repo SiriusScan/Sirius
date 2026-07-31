@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/SiriusScan/sirius-api/handlers"
@@ -13,33 +14,37 @@ import (
 )
 
 type AppRouteSetter struct {
-	dockerHandler        *handlers.DockerHandler
+	valkeyOnce           sync.Once
+	rabbitMQOnce         sync.Once
 	valkeyMonitorService *services.ValkeyMonitorService
 	rabbitMQService      *services.RabbitMQService
 }
 
+func (h *AppRouteSetter) ensureValkeyMonitorService() *services.ValkeyMonitorService {
+	h.valkeyOnce.Do(func() {
+		var err error
+		h.valkeyMonitorService, err = services.NewValkeyMonitorService()
+		if err != nil {
+			fmt.Printf("Warning: Failed to initialize Valkey monitor service: %v\n", err)
+			fmt.Println("Falling back to mock data for system monitoring endpoints")
+		}
+	})
+	return h.valkeyMonitorService
+}
+
+func (h *AppRouteSetter) ensureRabbitMQService() *services.RabbitMQService {
+	h.rabbitMQOnce.Do(func() {
+		var err error
+		h.rabbitMQService, err = services.NewRabbitMQService()
+		if err != nil {
+			fmt.Printf("Warning: Failed to initialize RabbitMQ service: %v\n", err)
+			fmt.Println("Admin commands will not be available")
+		}
+	})
+	return h.rabbitMQService
+}
+
 func (h *AppRouteSetter) SetupRoutes(app *fiber.App) {
-	// Initialize Docker handler
-	var err error
-	h.dockerHandler, err = handlers.NewDockerHandler()
-	if err != nil {
-		fmt.Printf("Warning: Failed to initialize Docker handler: %v\n", err)
-		fmt.Println("Falling back to mock data for Docker endpoints")
-	}
-
-	// Initialize Valkey monitor service
-	h.valkeyMonitorService, err = services.NewValkeyMonitorService()
-	if err != nil {
-		fmt.Printf("Warning: Failed to initialize Valkey monitor service: %v\n", err)
-		fmt.Println("Falling back to mock data for system monitoring endpoints")
-	}
-
-	// Initialize RabbitMQ service
-	h.rabbitMQService, err = services.NewRabbitMQService()
-	if err != nil {
-		fmt.Printf("Warning: Failed to initialize RabbitMQ service: %v\n", err)
-		fmt.Println("Admin commands will not be available")
-	}
 	// Health check route at root level
 	app.Get("/health", handlers.HealthHandler)
 
@@ -59,9 +64,9 @@ func (h *AppRouteSetter) SetupRoutes(app *fiber.App) {
 		linesStr := c.Query("lines", "100")
 		lines, _ := strconv.Atoi(linesStr)
 
-		if h.valkeyMonitorService != nil {
+		if valkeyMonitorService := h.ensureValkeyMonitorService(); valkeyMonitorService != nil {
 			// Use real Valkey integration
-			logs, containerNames, err := h.valkeyMonitorService.GetDockerLogs(c.Context(), containerName, lines)
+			logs, containerNames, err := valkeyMonitorService.GetDockerLogs(c.Context(), containerName, lines)
 			if err != nil {
 				fmt.Printf("Error getting Docker logs: %v\n", err)
 				// Fall back to mock data on error
@@ -141,9 +146,9 @@ func (h *AppRouteSetter) SetupRoutes(app *fiber.App) {
 	// System resource monitoring route
 	app.Get("/api/v1/system/resources", func(c *fiber.Ctx) error {
 
-		if h.valkeyMonitorService != nil {
+		if valkeyMonitorService := h.ensureValkeyMonitorService(); valkeyMonitorService != nil {
 			// Use real Valkey integration
-			resources, summary, err := h.valkeyMonitorService.GetContainerResources(c.Context())
+			resources, summary, err := valkeyMonitorService.GetContainerResources(c.Context())
 			if err != nil {
 				fmt.Printf("Error getting container resources: %v\n", err)
 				// Fall back to mock data on error
@@ -268,8 +273,8 @@ func (h *AppRouteSetter) SetupRoutes(app *fiber.App) {
 		}
 
 		// Publish command to RabbitMQ admin queue
-		if h.rabbitMQService != nil {
-			if err := h.rabbitMQService.PublishMessage("admin_commands", commandJSON); err != nil {
+		if rabbitMQService := h.ensureRabbitMQService(); rabbitMQService != nil {
+			if err := rabbitMQService.PublishMessage("admin_commands", commandJSON); err != nil {
 				return c.Status(500).JSON(fiber.Map{
 					"error": "Failed to publish command to RabbitMQ",
 				})

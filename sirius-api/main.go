@@ -10,11 +10,11 @@ import (
 
 	"github.com/SiriusScan/go-api/sirius/logging"
 	"github.com/SiriusScan/go-api/sirius/migrate"
+	"github.com/SiriusScan/go-api/sirius/module"
 	"github.com/SiriusScan/go-api/sirius/slogger"
 	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/SiriusScan/sirius-api/internal/infraauth"
 	"github.com/SiriusScan/sirius-api/middleware"
-	"github.com/SiriusScan/sirius-api/routes"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
@@ -64,7 +64,6 @@ func runMigrations() error {
 	slog.Info("Database migrations completed")
 	return nil
 }
-
 
 func main() {
 	// Initialize structured logging (reads LOG_LEVEL env var)
@@ -122,31 +121,15 @@ func main() {
 	app.Use(middleware.SDKErrorLoggingMiddleware())
 	app.Use(middleware.SDKPerformanceMetricsMiddleware())
 
-	vulnerabilityRouteSetter := &routes.VulnerabilityRouteSetter{}
-	templateRouteSetter := &routes.TemplateRouteSetter{}
-	scriptRouteSetter := &routes.ScriptRouteSetter{}
-	agentTemplateRouteSetter := &routes.AgentTemplateRouteSetter{}
-	agentTemplateRepositoryRouteSetter := &routes.AgentTemplateRepositoryRouteSetter{}
-	eventRouteSetter := &routes.EventRouteSetter{}
-	snapshotRouteSetter := &routes.SnapshotRouteSetter{}
-	statisticsRouteSetter := &routes.StatisticsRoutes{}
-	scanRouteSetter := &routes.ScanRouteSetter{}
-	apiKeyRouteSetter := &routes.APIKeyRouteSetter{Store: kvStore}
-	routes.SetupRoutes(
-		app,
-		&routes.HostRouteSetter{},
-		&routes.AppRouteSetter{},
-		vulnerabilityRouteSetter,
-		templateRouteSetter,
-		scriptRouteSetter,
-		agentTemplateRepositoryRouteSetter, // Must be before agentTemplateRouteSetter to avoid :id matching
-		agentTemplateRouteSetter,
-		eventRouteSetter,      // Event routes for scan events
-		snapshotRouteSetter,   // Snapshot and vulnerability trend routes
-		statisticsRouteSetter, // Statistics routes
-		scanRouteSetter,       // Scan control routes (cancel, status)
-		apiKeyRouteSetter,     // API key management routes
-	)
+	moduleRegistry, err := buildModuleRegistry(kvStore)
+	if err != nil {
+		slog.Error("Failed to compose API modules", "error", err)
+		os.Exit(1)
+	}
+	if err := moduleRegistry.Mount(app, module.NoopJobRegistrar{}, module.NoopEventRegistrar{}); err != nil {
+		slog.Error("Failed to mount API modules", "error", err)
+		os.Exit(1)
+	}
 
 	slog.Info("Sirius API starting", "port", 9001, "log_level", os.Getenv("LOG_LEVEL"), "auth_required", true)
 	app.Listen(":9001")

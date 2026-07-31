@@ -255,14 +255,14 @@ Cycle 6 evidence:
 ## Current loop state
 
 ```yaml
-current_task_id: bifurcation.s3.t008
-cycle: 9
+current_task_id: bifurcation.s4.t009
+cycle: 10
 attempt: 1
 status: waiting
 verdict: corrected
 artifact_verdict: accepted
 loop_decision: human_gate
-next_action: Obtain approval to push feature/bifurcation-cycle-8 and open a PR so Actions can confirm all 12 platform scans and Compose smoke.
+next_action: Obtain approval to push the Sirius API Module integration branch and open a PR; require green blocking module-contract, API image, pin, manifest, and Community-independence checks before task 3.1 is done.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -287,7 +287,8 @@ Tasks:
 - [x] Record the approved private branch/tag protection and secret-scanning waiver
 - [x] Verify anonymous denial and record governance evidence
 - [x] Prove private GHCR publishing, SBOM, keyless signing, and Community verification
-- [ ] Complete Phase 2 and record private repository governance evidence
+- [x] Prove standing Community independence across source, release assets, 12 platform images, and Compose
+- [x] Complete Phase 2 and record private repository governance evidence
 
 Task 2.1 result:
 
@@ -420,12 +421,13 @@ Task 2.3 result:
   - Live anonymous `v1.1.0` source archive + 12 SBOM scan + core-manifest validation passed
   - Mocked contract proves 6→12 platform child pull/scan wiring; live 12-platform image
     scan + compose smoke deferred to CI (local Docker daemon unavailable)
-- `verdict`: `corrected`
+- `verdict`: `accepted`
 - `artifact_verdict`: `accepted`
-- `loop_decision`: `human_gate`
-- `task_status`: `in_progress` (not done until CI proves 12 platform images + smoke)
-- `next_action`: Obtain approval to push the feature branch / open a PR; Actions confirms
-  `public-release-scan` for all 12 platform digests and compose smoke.
+- `loop_decision`: `continue`
+- `task_status`: `done`
+- `next_task_id`: `bifurcation.s4.t009`
+- `next_action`: Implement task 3.1, the API Module interface and Community registration
+  seam.
 
 Cycle 9 evidence:
 
@@ -445,15 +447,60 @@ Cycle 9 evidence:
   repo to plant or verify leakage markers.
 - Docs: `documentation/dev/deployment/README.community-independence.md` (+ index /
   workflows index updates).
+- Pull requests 136, 137, 138, and 140 merged the scanner and corrected live-image
+  false positives without weakening source-archive or application-path checks.
+- Main Community Independence run 30604223699 passed credential-free source/config
+  validation, anonymous immutable `v1.1.0` source + 12-SBOM + 12-platform image scans,
+  and public Compose smoke.
 - Evaluation: `programs/bifurcation/evaluations/bifurcation.s3.t008.md`.
-- Decision: local artifact accepted; final task verdict awaits CI. Phase 2 remains
-  incomplete at the public push/PR human gate.
+- Decision: task 2.3 and Phase 2 are accepted. Continue to Stage 4 public contracts.
 
 ## Stage 4: Public Contracts
 
 Tasks:
 
 - [ ] Complete Phase 3 and publish a tagged compatible core contract release
+
+Current task:
+
+- `task_id`: `bifurcation.s4.t009`
+- `stage`: `4 Public Contracts`
+- `cycle`: `10`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `criteria`:
+  - `go-api` exposes a versioned Module contract for routes, jobs, event handlers,
+    required capabilities, and health without runtime plugin loading.
+  - Community module registration moves out of `main.go` into a compile-time
+    registration seam while preserving the existing public route table.
+  - A test module can add a route without editing core registration code.
+  - Community starts with no non-core modules and no behavior regression.
+- `validation`:
+  - `go test` for affected `go-api` packages
+  - Golden route-inventory comparison before and after the registration refactor
+  - Test-module registration and capability-hook tests
+- `next_action`: Inspect the current `go-api` RouteSetter and API startup wiring, then
+  implement the smallest compatible Module seam.
+
+Cycle 10 evidence:
+
+- Pushed reviewed go-api commits `4f48af4` and `ebd42f4`; the latter corrected
+  hand-maintained route fixtures, partial registration, nil/typed-nil handling,
+  mutable inventory, and registry lifecycle defects found by independent review.
+- Sirius pins immutable commit
+  `ebd42f4239ec2d0c99e3e7c463a5fc181f57737f` and production startup mounts a
+  build-selected `!pro` Community composition instead of wiring route setters in
+  `main.go`.
+- The real Community API route inventory is captured in registration order with
+  duplicates, and a synthetic extension adds a route without editing Community
+  composition.
+- A second independent review found file-mode dev startup, non-blocking CI coverage,
+  and eager route-registration I/O. Corrections build/run the package, add a blocking
+  contract step, lazily initialize runtime services, and close the test response.
+- `go test -race ./sirius/module`, focused Sirius API tests, the API runner Docker
+  build, `bash scripts/test-core-manifest.sh`, shell syntax, and diff checks pass.
+- Decision: local artifact accepted after corrections; task 3.1 remains `in_progress`
+  until pushed Sirius CI passes. Stop at the public branch/PR human gate.
 
 ## Stage 5: Entitlements and First Vertical
 

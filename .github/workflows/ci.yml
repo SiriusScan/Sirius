@@ -297,6 +297,10 @@ jobs:
           go vet ./...
         working-directory: sirius-api
 
+      - name: Verify API module composition contract
+        run: go test . -run 'TestCommunityModuleInventory|TestCommunityRouteInventory|TestExtensionModuleAddsRouteWithoutChangingCommunityComposition' -count=1
+        working-directory: sirius-api
+
       - name: Run API tests (non-blocking)
         continue-on-error: true
         run: go test ./... -short -count=1
@@ -324,7 +328,7 @@ jobs:
           # Fallback SHAs MUST match sirius-engine/Dockerfile ARG defaults.
           # Enforced by .github/workflows/check-pin-consistency.yml.
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'c7c42d4444c8637140ab0e29743184fface5b12f' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'ebd42f4239ec2d0c99e3e7c463a5fc181f57737f' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
   # Merge arch-specific API images into a single multi-arch manifest
@@ -459,7 +463,7 @@ jobs:
           # Enforced by .github/workflows/check-pin-consistency.yml.
           # See documentation/dev/architecture/README.engine-component-pinning.md.
           build-args: |
-            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'c7c42d4444c8637140ab0e29743184fface5b12f' }}
+            GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || 'ebd42f4239ec2d0c99e3e7c463a5fc181f57737f' }}
             APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'a031480cc7e0dc4a1cb09bdcfafedd89fbc61dfd' }}
             APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || '5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1' }}
             SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9' }}

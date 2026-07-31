@@ -228,6 +228,24 @@ SHA bumps no longer require the local `procyon/` working tree to exist.
 > (CGO + send_interrupt + include_dir documentation). Both commits
 > are part of the same overhaul and ship together.
 
+### July 2026 follow-up: public API Module contract
+
+| Component | Previous pin | New pin | Reason |
+| --- | --- | --- | --- |
+| `go-api` | `c7c42d4444c8637140ab0e29743184fface5b12f` | `ebd42f4239ec2d0c99e3e7c463a5fc181f57737f` | Add and harden the public v1 compile-time Module contract required for Community/Pro composition. |
+
+The new pin contains `4f48af4` (Module interface, RouteSetter adapter, registry,
+Community ordering, capability hook) and `ebd42f4` (atomic registration,
+nil/typed-nil rejection, single-mount lifecycle, defensive inventory, and
+order/duplicate-preserving route inspection). Sirius consumes the matching immutable
+pseudo-version in `sirius-api/go.mod` and uses the full SHA in API/engine Dockerfiles,
+Compose, CI fallbacks, and the core schema map.
+
+Validation for the bump includes `go test -race ./sirius/module`, the real Community
+route-inventory and extension-registration contract, API runner image construction,
+pin-consistency checks, core-manifest tests, Community-independence scanning, and the
+Sirius integration test.
+
 ## Risk register
 
 - `**app-scanner` sed → source rewrite (Phase 2)** is the highest-risk

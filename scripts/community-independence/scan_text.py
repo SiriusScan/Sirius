@@ -12,6 +12,8 @@ are never allowlisted.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import os
 import re
 import sys
@@ -85,14 +87,51 @@ def forbidden_markers() -> List[Tuple[str, str, str]]:
         ("secret", "re:github_server_token", r"\bghs_[A-Za-z0-9]{20,}\b"),
         ("secret", "re:github_refresh", r"\bghr_[A-Za-z0-9]{20,}\b"),
         ("secret", "re:aws_access_key", r"\bAKIA[0-9A-Z]{16}\b"),
-        (
-            "secret",
-            "re:pem_private_key",
-            r"-----BEGIN (?:RSA |DSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----"
-            r"[\r\n]+[A-Za-z0-9+/=\r\n]{64,}"
-            r"-----END (?:RSA |DSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----",
-        ),
     ]
+
+
+PEM_PRIVATE_KEY_RE = re.compile(
+    rb"-----BEGIN (?P<label>(?:RSA |DSA |EC |OPENSSH |ENCRYPTED )?)PRIVATE KEY-----"
+    rb"\r?\n(?P<body>(?:[A-Za-z0-9+/=]{4,128}\r?\n)+)"
+    rb"-----END (?P=label)PRIVATE KEY-----"
+)
+
+
+def is_der_sequence(data: bytes) -> bool:
+    """Validate the outer definite-length DER SEQUENCE used by private-key formats."""
+    if len(data) < 2 or data[0] != 0x30:
+        return False
+    length_byte = data[1]
+    if length_byte < 0x80:
+        header_size = 2
+        content_size = length_byte
+    else:
+        length_bytes = length_byte & 0x7F
+        if length_bytes == 0 or length_bytes > 4 or len(data) < 2 + length_bytes:
+            return False
+        header_size = 2 + length_bytes
+        content_size = int.from_bytes(data[2:header_size], "big")
+    return header_size + content_size == len(data)
+
+
+def contains_private_key_pem(data: bytes) -> bool:
+    """Return true only for a complete, structurally plausible private-key PEM."""
+    for match in PEM_PRIVATE_KEY_RE.finditer(data):
+        encoded = re.sub(rb"\s+", b"", match.group("body"))
+        try:
+            decoded = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError):
+            continue
+        if len(decoded) < 64:
+            continue
+        label = match.group("label")
+        if label == b"OPENSSH ":
+            if decoded.startswith(b"openssh-key-v1\x00"):
+                return True
+        elif is_der_sequence(decoded):
+            # RSA/DSA/EC, PKCS#8, and encrypted PKCS#8 are DER SEQUENCE values.
+            return True
+    return False
 
 
 def load_allowlist(path: Path) -> List[str]:
@@ -247,6 +286,8 @@ def match_rules(
                 findings.append(f"{rel_path}: forbidden marker [{rule.rule_id}]")
         elif rule.regex is not None and rule.regex.search(as_text):
             findings.append(f"{rel_path}: forbidden marker [{rule.rule_id}]")
+    if contains_private_key_pem(data):
+        findings.append(f"{rel_path}: forbidden marker [pem_private_key]")
     return findings
 
 

@@ -26,7 +26,12 @@ PRO_CANARY="SIRIUS_PRO_""PRIVATE_RUNTIME_CANARY_V1"
 FAKE_PAT="ghp_""$(printf 'a%.0s' {1..36})"
 FAKE_PEM_HEADER="-----BEGIN ""RSA PRIVATE KEY-----"
 FAKE_PEM_FOOTER="-----END ""RSA PRIVATE KEY-----"
-FAKE_PEM_BODY="$(printf 'A%.0s' {1..80})"
+FAKE_PEM_BODY="$(python3 - <<'PY'
+import base64
+import textwrap
+print("\n".join(textwrap.wrap(base64.b64encode(b"\x30\x64" + b"A" * 100).decode(), 64)))
+PY
+)"
 
 cd "${PROJECT_ROOT}"
 
@@ -174,6 +179,11 @@ printf 'const marker = %q\n' "${FAKE_PEM_HEADER}" > "${TMP_DIR}/crypto-api.js"
 python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
   --paths-file <(printf '%s\n' "crypto-api.js") \
   || fail "a PEM header string without key material must not be treated as a key"
+printf '%s\n%s\n%s\n' "${FAKE_PEM_HEADER}" "$(printf 'A%.0s' {1..80})" "${FAKE_PEM_FOOTER}" \
+  > "${TMP_DIR}/pem-parser-fixture.txt"
+python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \
+  --paths-file <(printf '%s\n' "pem-parser-fixture.txt") \
+  || fail "PEM-shaped parser/test text without a private-key structure must pass"
 printf '%s\n%s\n%s\n' "${FAKE_PEM_HEADER}" "${FAKE_PEM_BODY}" "${FAKE_PEM_FOOTER}" \
   > "${TMP_DIR}/actual-private-key.pem"
 if python3 "${CI_DIR}/scan_text.py" --root "${TMP_DIR}" --allowlist "${TMP_DIR}/allow.txt" \

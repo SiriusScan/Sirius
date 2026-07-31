@@ -72,6 +72,15 @@ Dependencies and order:
 6. Phase 5 Enterprise Reporting; depends on Phase 4.
 7. Phase 6 compatibility, promotion, cleanup, and reconciliation; depends on Phase 5.
 
+Accelerated class-ready track (parallel, not a replacement):
+
+- API Module and OpenAPI are sufficient to start a private companion Pro-dev
+  API/UI/worker composition for class use.
+- Phase 3.3-3.6 and Phases 4-6 remain required for the integrated Pro product, but do
+  not block the explicitly non-production companion cut.
+- The class cut, stub boundary, commands, and human gates are recorded in
+  `programs/complete-split-deploy-to-range/CLASS_READY_CUT.md`.
+
 Ownership:
 
 - Each bounded task records exclusive writable paths before execution.
@@ -262,7 +271,8 @@ status: active
 verdict: accepted
 artifact_verdict: accepted
 loop_decision: continue
-next_action: Implement task 3.3, the versioned public event envelope and additive queue compatibility contract.
+execution_priority: deferred-for-class-ready-cut
+next_action: Resume task 3.3 after the class-ready Pro-dev demonstration, or earlier only if the companion implementation finds a concrete event-contract blocker.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -577,6 +587,33 @@ Current task:
   - JSON schema validation and negative fixtures
   - Existing Community queue regression tests
 - `next_action`: Inventory existing queue payloads and implement task 3.3.
+
+Execution priority is temporarily deferred by the operator's class-readiness
+directive. The task, criteria, full Phase 3 exit criterion, and original acceptance
+criteria remain intact.
+
+## Parallel Stage CR: Class-ready Pro-dev Cut
+
+This stage accelerates a class demonstration; it does not complete Phase 3, Phase 4,
+Phase 5, Phase 6, or the full bifurcation acceptance criteria.
+
+Tasks:
+
+- [x] Inspect the private repositories, Phase 5 overlay contract, immutable Community
+  lock, current Community deployment evidence, and range access path
+- [x] Select a companion Pro-dev API/UI/worker cut with explicit dev-only
+  entitlements and no Pro migrations
+- [ ] Implement the private images and `docker-compose.community-lock.yaml` plus
+  `docker-compose.pro-dev.yaml` in `OpenSecurity-Infosec/sirius-pro`
+- [ ] Publish tested private images by digest after separate human approval
+- [ ] Back up, deploy, verify instructor paths, and prove Community-only rollback on
+  VMID 220 after separate range-owner approval
+
+Class-ready scope and handoff:
+`programs/complete-split-deploy-to-range/CLASS_READY_CUT.md`.
+
+Planning/discovery evidence:
+`programs/complete-split-deploy-to-range/evaluations/complete-split-deploy-to-range.scr.t001.md`.
 
 ## Stage 5: Entitlements and First Vertical
 

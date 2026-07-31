@@ -1,6 +1,6 @@
 ---
 goal: "Complete the Sirius Community/Pro product split, publish a runnable Pro distribution that consumes immutable Community releases, and deploy and verify that Pro distribution in the approved range environment."
-status: "active"
+status: "waiting"
 acceptance_criteria:
   - "The existing bifurcation program completes its public contracts, entitlement platform, first Pro vertical, compatibility automation, and release closeout without weakening the completed Community release or private-foundation controls."
   - "A tagged Community core release remains independently runnable without private credentials, packages, repositories, licenses, or Pro artifacts and passes leakage, upgrade, and regression checks."
@@ -9,6 +9,7 @@ acceptance_criteria:
   - "The Pro Compose overlay deploys to the approved SIRIUS range host (VMID 220 / 10.0.10.20), passes health and instructor-path E2E checks, and can be removed while Community and core data remain healthy."
   - "License valid, expired, grace, renewed, Community-to-Pro, Pro upgrade, and Pro-to-Community-only lifecycle tests pass with existing scan data retained and readable."
   - "The public repository and artifacts contain no private source, module paths, registry references, credentials, or Pro runtime code after final release and deployment."
+  - "A parallel class-ready Pro-dev cut may be demonstrated before full closeout only when it consumes immutable Community images, clearly labels every stub/dev behavior, and proves removal leaves Community and core data healthy; this does not satisfy or delete the full Pro release criteria above."
 human_gates:
   - "Human approval before every push, pull request, merge, public or private tag/release, package publication, or promotion."
   - "Human approval before creating or rotating signing identities, KMS keys, license keys, credentials, secrets, package namespaces, or external infrastructure."
@@ -60,6 +61,17 @@ Dependencies and order:
 5. Publish approved Community and Pro release candidates.
 6. Back up the range data, deploy the digest-pinned Pro overlay, execute E2E/lifecycle
    tests, prove overlay removal/data integrity, then restore the accepted Pro state.
+
+Accelerated parallel track:
+
+- After the completed API Module and OpenAPI contracts, the class-ready cut may build
+  a private companion API/UI/worker composition without waiting for Phase 3.3-6.
+- It must use the existing Community `v1.1.0` digests, remain visibly Pro-dev,
+  default to fail-closed capability checks, avoid Pro migrations, and prove
+  Community-only rollback.
+- The full ordered dependency chain and every original acceptance criterion remain
+  required for an actual Pro release. See
+  `programs/complete-split-deploy-to-range/CLASS_READY_CUT.md`.
 
 Repository-native validation:
 
@@ -117,6 +129,34 @@ Tasks:
 - [x] Finish API Module contract task 3.1 and publish an immutable go-api pin
 - [ ] Complete API inventory/OpenAPI, event, UI, and engine extension contracts
 - [ ] Publish and verify the tagged compatible Community contract release
+
+## Parallel Stage CR: Class-ready Pro-dev Cut
+
+Owned paths for the planning/discovery task:
+
+- `programs/complete-split-deploy-to-range/PROGRAM.md`
+- `programs/complete-split-deploy-to-range/CLASS_READY_CUT.md`
+- `programs/complete-split-deploy-to-range/evaluations/`
+- `programs/bifurcation/PROGRAM.md`
+
+Owned path for the next implementation task (requires a new writable workspace):
+
+- `/Users/oz/Projects/Sirius-Project/private/sirius-pro`
+
+Tasks:
+
+- [x] Inspect private scaffold, immutable lock, Community Compose state, and prior
+  range evidence
+- [x] Define the class-ready must/stub/deferred boundary and exact execution checklist
+- [ ] Implement and locally validate private companion API/UI/worker images plus
+  Community-lock and Pro-dev Compose overlays
+- [ ] Cross separate human gates for private push/review, image publication, GHCR pull
+  access, range backup, and deployment
+- [ ] Deploy, run class/instructor probes, prove Community-only rollback/data health,
+  and optionally restore the accepted Pro-dev state
+
+Class-ready is an accelerated demonstration milestone only. It does not mark Stages
+2-5 or the program acceptance criteria complete.
 
 ## Stage 3: Entitlements and Enterprise Reporting
 
@@ -216,14 +256,14 @@ Local task evidence (cycle 1):
 - Decision: API inventory/OpenAPI accepted; continue with the event contract as
   `complete-split-deploy-to-range.s2.t003`.
 
-## Current task
+## Paused full-track task
 
 - `task_id`: `complete-split-deploy-to-range.s2.t003`
 - `stage`: `2 Complete Public Contracts`
 - `cycle`: `2`
 - `attempt`: `1`
 - `assigned_role`: `grok`
-- `status`: `active`
+- `status`: `deferred`
 - `verdict`: `pending`
 - `artifact_verdict`: `pending`
 - `loop_decision`: `continue`
@@ -242,6 +282,9 @@ Local task evidence (cycle 1):
   - JSON schema validation and negative fixtures
   - Existing Community queue regression tests
 - `next_action`: Inventory existing queue payloads and implement bifurcation task 3.3.
+
+This task is retained unchanged and resumes after the class-ready cut, or earlier only
+if the companion design reveals a concrete event-contract blocker.
 
 Local task evidence:
 
@@ -269,3 +312,63 @@ Completion evidence:
   `programs/complete-split-deploy-to-range/evaluations/complete-split-deploy-to-range.s2.t001.md`.
 - Decision: task `complete-split-deploy-to-range.s2.t001` accepted; continue with API
   inventory and OpenAPI as `complete-split-deploy-to-range.s2.t002`.
+
+## Current class-ready task
+
+- `task_id`: `complete-split-deploy-to-range.scr.t001`
+- `stage`: `Parallel Class-Ready Cut`
+- `cycle`: `3`
+- `attempt`: `1`
+- `assigned_role`: `sol`
+- `status`: `done`
+- `verdict`: `accepted`
+- `artifact_verdict`: `null`
+- `loop_decision`: `human_gate`
+- `owned_paths`:
+  - `programs/complete-split-deploy-to-range/PROGRAM.md`
+  - `programs/complete-split-deploy-to-range/CLASS_READY_CUT.md`
+  - `programs/complete-split-deploy-to-range/evaluations/complete-split-deploy-to-range.scr.t001.md`
+  - `programs/bifurcation/PROGRAM.md`
+- `criteria`:
+  - Establish the actual private scaffold and immutable Community input state.
+  - Define a runnable Pro-dev composition that does not require unfinished public
+    contracts or weaken Community independence.
+  - Record must-ship, stubbed, and deferred scope with commands and human gates.
+  - Discover and attempt the previously proven range access path without changing
+    routes, VM state, services, or credentials.
+- `validation`:
+  - Private repository tree and Dockerfile/Compose inventory
+  - Community production Compose render for `v1.1.0`
+  - Existing core-manifest contract tests
+  - Exact direct and ProxyJump reachability probes
+  - Program evaluation validation and `git diff --check`
+- `next_task_id`: `complete-split-deploy-to-range.scr.t002`
+- `next_action`: Run the next bounded cycle from a workspace that can write this
+  repository's Git metadata and
+  `/Users/oz/Projects/Sirius-Project/private/sirius-pro`; first commit this handoff,
+  then implement and locally validate the private cut, but stop before
+  push/publication or range mutation.
+
+Cycle 3 evidence:
+
+- Private repositories are clean skeletons at `sirius-pro@16d483e`,
+  `sirius-entitlements@ff1e4e2`, and `sirius-release@c7bbdc6`; only the release repo
+  has a bootstrap Dockerfile and no private product Compose file exists.
+- `sirius-pro/core.lock.yaml` has exact, digest-addressed Community `v1.1.0` inputs.
+- The current Community Compose renders all seven service image uses (six distinct
+  images; API is also the one-shot migrator) for `IMAGE_TAG=v1.1.0`.
+- Prior range evidence records `/home/agi/Sirius`, VMID 220, and the exact
+  `agi@192.168.123.200` ProxyJump/ProxyCommand path. A 2026-07-31 receipt reports UI
+  and API 200 after the VM was started.
+- This sandbox blocked direct TCP, route inspection, HTTP, and the exact ProxyCommand
+  with `Operation not permitted`; no network, route, VM, container, or secret change
+  was attempted.
+- The managed sandbox also rejected `git add` because `.git/index.lock` cannot be
+  created. The scoped working-tree changes are validated but require a writable Git
+  metadata root before they can satisfy the always-commit gate.
+- Decision and execution handoff:
+  `programs/complete-split-deploy-to-range/CLASS_READY_CUT.md`.
+- Evaluation:
+  `programs/complete-split-deploy-to-range/evaluations/complete-split-deploy-to-range.scr.t001.md`.
+- Decision: the planning/discovery cut is accepted. Stop at the writable Git/private
+  repository and network-capable human gate before implementation or range work.

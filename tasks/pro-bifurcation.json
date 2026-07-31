@@ -165,8 +165,8 @@
         "id": "3.1",
         "title": "API Module interface and registration seam",
         "description": "Evolve RouteSetter into a Module contract in go-api; move module wiring out of main.go into a replaceable build file.",
-        "details": "Implemented and independently reviewed in go-api commits 4f48af4 and ebd42f4: v1 Module contract, atomic/lifecycle-safe registry, RouteSetter adapters, allow-all capability hook, nil hardening, and order/duplicate-preserving route inventory. Sirius locally pins ebd42f4239ec2d0c99e3e7c463a5fc181f57737f, mounts Community modules through a !pro compile-time composition file, locks the real 74-line route inventory, proves extension-route registration, makes the contract tests blocking in CI, and builds local/dev/container entrypoints as packages. Focused/race/manifest/Docker tests pass; remains in_progress until the Sirius branch is pushed and CI verifies the integration.",
-        "status": "in_progress",
+        "details": "Implemented and independently reviewed in go-api commits 4f48af4 and ebd42f4: v1 Module contract, atomic/lifecycle-safe registry, RouteSetter adapters, allow-all capability hook, nil hardening, and order/duplicate-preserving route inventory. Merged by Sirius PR 141 at f24a67bd6781d7f4806bb2ac264b6f8a726db9c0: immutable ebd42f4 pin, !pro compile-time Community composition, real 74-line route inventory, extension-route proof, blocking CI contract, package-based entrypoints, and lazy runtime-service initialization. Main CI 30640910687, Community Independence 30640910672, and pin consistency 30640910719 all passed.",
+        "status": "done",
         "priority": "high",
         "dependencies": [],
         "testStrategy": "Community API starts with zero non-core modules and identical route table (golden-file route inventory diff); a test module adds a route without editing core files."
@@ -175,11 +175,11 @@
         "id": "3.2",
         "title": "Route inventory and published OpenAPI for /api/v1",
         "description": "Inventory and classify all current routes; publish a versioned OpenAPI spec; reserve /api/pro/v1 and /api/internal/v1 namespaces.",
-        "details": "Classify public/internal/deprecated; consistent error format; request correlation IDs; generated TypeScript client for the UI where practical.",
-        "status": "pending",
+        "details": "Implemented on feature/openapi-contract and accepted by PR 142 live CI run 30649648210: all 74 routes classified; versioned /api/v1 OpenAPI published; /api/pro/v1 and /api/internal/v1 reserved; protected-base pinned-oasdiff breaking gate with negative fixtures; Fiber route-shadow detection and fixes; production auth/request-ID middleware behavior tests with a no-network logging sink; and audited input/status accuracy. TypeScript client deferred because no deterministic repository consumer exists.",
+        "status": "done",
         "priority": "high",
         "dependencies": ["3.1"],
-        "testStrategy": "OpenAPI spec validates and is diffed in CI against the live route table; breaking-change detection fails a test PR that removes a field."
+        "testStrategy": "OpenAPI validates vs live route table; oasdiff rejects named breaking classes; protected-baseline bypass tests fail without allow gate; Fiber shadow + middleware no-network tests pass."
       },
       {
         "id": "3.3",

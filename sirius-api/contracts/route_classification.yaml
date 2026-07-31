@@ -1,0 +1,301 @@
+# Machine-readable Community route classification inventory.
+# Order MUST match sirius-api/testdata/community_routes.golden and live Fiber RouteInventory.
+# class values: public | internal | deprecated
+version: "1.0.0"
+routes:
+- method: GET
+  path: /host/
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/vulnerabilities/all
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/source-coverage
+  class: public
+  note: "Legacy Community host surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/:id/packages
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/:id/fingerprint
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/:id/software-stats
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/statistics/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/severity/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/:id/sources
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/:id/history
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/:id/vulnerability/:vulnId/history
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /host/:ip/sources
+  class: deprecated
+  note: "Alias of GET /host/:id/sources with a differently named path parameter; do not extend."
+- method: GET
+  path: /host/source-coverage
+  class: deprecated
+  note: "Duplicate registration of GET /host/source-coverage; retained only for inventory fidelity."
+- method: GET
+  path: /vulnerability/:id/sources
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /health
+  class: public
+  note: "Unauthenticated liveness probe (exact GET /health only)."
+- method: GET
+  path: /api/v1/system/health
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/test
+  class: deprecated
+  note: "Development probe endpoint; not part of the stable Community contract."
+- method: GET
+  path: /api/v1/system/logs
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: GET
+  path: /api/v1/system/resources
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: GET
+  path: /api/v1/performance/metrics
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: GET
+  path: /api/v1/logs/stats
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: GET
+  path: /api/v1/logs
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: GET
+  path: /vulnerability/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /templates/
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /templates/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /api/agent-templates/repositories/
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /api/agent-templates/repositories/:id/sync-status
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /api/agent-templates/
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /api/agent-templates/analytics
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /api/agent-templates/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /api/agent-templates/:id/results
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: GET
+  path: /api/v1/events/
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/events/stats
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/events/by-entity
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/events/by-severity/:severity
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/events/:id
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/statistics/vulnerability-trends
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/statistics/vulnerability-snapshots
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/statistics/vulnerability-snapshot/:snapshotId
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/statistics/hosts/most-vulnerable
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/scans/status
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/keys/
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: POST
+  path: /host/
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /host/delete
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /host/with-source
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /api/v1/admin/command
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: POST
+  path: /api/v1/logs
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: POST
+  path: /app/:appName
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: POST
+  path: /vulnerability/
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /vulnerability/delete
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /templates/
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /api/agent-templates/repositories/
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /api/agent-templates/repositories/:id/sync
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /api/agent-templates/
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /api/agent-templates/validate
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /api/agent-templates/:id/test
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /api/agent-templates/:id/deploy
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: POST
+  path: /api/v1/statistics/vulnerability-snapshot
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: POST
+  path: /api/v1/scans/cancel
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: POST
+  path: /api/v1/scans/force-stop
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: POST
+  path: /api/v1/scans/reset
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: POST
+  path: /api/v1/keys/
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: PUT
+  path: /host/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: PUT
+  path: /api/v1/logs/:logId
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: PUT
+  path: /templates/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: PUT
+  path: /api/agent-templates/repositories/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: PUT
+  path: /api/agent-templates/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: DELETE
+  path: /api/v1/logs/clear
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: DELETE
+  path: /api/v1/logs/:logId
+  class: internal
+  note: "Service/ops surface; intended future home under reserved /api/internal/v1."
+- method: DELETE
+  path: /templates/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: DELETE
+  path: /api/agent-templates/repositories/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: DELETE
+  path: /api/agent-templates/:id
+  class: public
+  note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
+- method: DELETE
+  path: /api/v1/keys/:id
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."

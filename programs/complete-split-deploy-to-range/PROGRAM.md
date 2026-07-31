@@ -1,6 +1,6 @@
 ---
 goal: "Complete the Sirius Community/Pro product split, publish a runnable Pro distribution that consumes immutable Community releases, and deploy and verify that Pro distribution in the approved range environment."
-status: "waiting"
+status: "active"
 acceptance_criteria:
   - "The existing bifurcation program completes its public contracts, entitlement platform, first Pro vertical, compatibility automation, and release closeout without weakening the completed Community release or private-foundation controls."
   - "A tagged Community core release remains independently runnable without private credentials, packages, repositories, licenses, or Pro artifacts and passes leakage, upgrade, and regression checks."
@@ -114,7 +114,7 @@ Owned paths:
 
 Tasks:
 
-- [ ] Finish API Module contract task 3.1 and publish an immutable go-api pin
+- [x] Finish API Module contract task 3.1 and publish an immutable go-api pin
 - [ ] Complete API inventory/OpenAPI, event, UI, and engine extension contracts
 - [ ] Publish and verify the tagged compatible Community contract release
 
@@ -164,39 +164,84 @@ Tasks:
 - [ ] Remove the overlay and prove Community/data health, then restore accepted Pro state
 - [ ] Reconcile both programs/task tracker and obtain final human acceptance
 
+## Completed task
+
+- `task_id`: `complete-split-deploy-to-range.s2.t002`
+- `stage`: `2 Complete Public Contracts`
+- `cycle`: `1`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `status`: `done`
+- `verdict`: `accepted`
+- `artifact_verdict`: `accepted`
+- `loop_decision`: `continue`
+- `owned_paths`:
+  - `sirius-api/`
+  - `.github/workflows/ci.yml`
+  - `documentation/dev/architecture/README.api-openapi-contract.md`
+  - `documentation/README.documentation-index.md`
+- `criteria`:
+  - Every live API route is classified as public, internal, or deprecated.
+  - A versioned OpenAPI contract covers `/api/v1` and is compared with the live Fiber
+    inventory in blocking CI.
+  - `/api/pro/v1` and `/api/internal/v1` are reserved without introducing Pro runtime
+    behavior into Community.
+  - A negative fixture proves breaking contract drift fails validation.
+- `validation`:
+  - OpenAPI syntax/semantic validation
+  - Live route-to-contract coverage comparison
+  - Protected-base breaking-change fixtures
+  - Focused API tests and image build
+- `next_action`: Continue with the public event contract.
+
+Local task evidence (cycle 1):
+
+- Classification inventory matches the 74-line golden/live Fiber inventory.
+- OpenAPI contract published at `sirius-api/contracts/openapi.v1.yaml` with reserved
+  namespace policy and documented auth/correlation/error reality.
+- Blocking validators and breaking fixture land under `sirius-api/internal/contract`
+  and the existing API CI job.
+- Review corrections: route shadowing fixes, semantic baseline breaking detection,
+  production middleware test stack, exact `/health` auth bypass, OpenAPI
+  request/response accuracy, Fiber `utils.UUID` request-ID docs/tests.
+- Second independent review: protected merge-base/PR-base OpenAPI comparison
+  (bootstrap → fail-closed; `SIRIUS_OPENAPI_ALLOW_BREAKING` gate); pinned oasdiff
+  with negative fixtures; Fiber-mounted shadow detector; in-process no-network
+  logging sink for production middleware tests; OpenAPI input/status accuracy.
+- TypeScript client intentionally deferred; no new generated bulk.
+- PR 142 live CI run 30649648210 passed API/engine/UI/infra builds, contract gates,
+  integration, core-manifest, pin consistency, and source-independence checks.
+- Evaluation:
+  `programs/complete-split-deploy-to-range/evaluations/complete-split-deploy-to-range.s2.t002.md`.
+- Decision: API inventory/OpenAPI accepted; continue with the event contract as
+  `complete-split-deploy-to-range.s2.t003`.
+
 ## Current task
 
-- `task_id`: `complete-split-deploy-to-range.s2.t001`
+- `task_id`: `complete-split-deploy-to-range.s2.t003`
 - `stage`: `2 Complete Public Contracts`
-- `cycle`: `0`
+- `cycle`: `2`
 - `attempt`: `1`
-- `assigned_role`: `parent`
-- `status`: `waiting`
-- `verdict`: `corrected`
-- `artifact_verdict`: `accepted`
-- `loop_decision`: `human_gate`
+- `assigned_role`: `grok`
+- `status`: `active`
+- `verdict`: `pending`
+- `artifact_verdict`: `pending`
+- `loop_decision`: `continue`
 - `owned_paths`:
-  - `/Users/oz/Projects/Sirius-Project/minor-projects/go-api/sirius/module/`
-  - `sirius-api/main.go`
-  - `sirius-api/modules_community.go`
-  - `sirius-api/modules_community_test.go`
-  - `sirius-api/testdata/community_routes.golden`
+  - `/Users/oz/Projects/Sirius-Project/minor-projects/go-api/sirius/queue/`
+  - `sirius-api/`
+  - `sirius-engine/`
+  - `documentation/dev/architecture/`
 - `criteria`:
-  - The reviewed go-api Module seam is available at an immutable remote commit.
-  - Sirius pins that commit and production startup mounts the compile-time Community
-    registry rather than directly wiring legacy setters in `main.go`.
-  - Real Community route order and duplicates are locked by a golden inventory.
-  - A test extension adds a route without editing Community composition.
-  - Focused API and module tests pass; environment-only integration failures are
-    recorded without being misclassified.
+  - Publish a versioned, CloudEvents-compatible public event envelope.
+  - Wrap existing Community queue payloads additively without breaking consumers.
+  - Reserve the `pro.*` event namespace without introducing private runtime code.
+  - Define correlation, idempotency, retry, and dead-letter semantics.
 - `validation`:
-  - `go test -race ./sirius/module` in go-api
-  - `go test . -count=1` in `sirius-api`
-  - Sirius API container build and route-inventory golden
-  - `git diff --check` in both repositories
-- `next_action`: Obtain approval to push the Sirius API Module integration branch and
-  open a PR. Task completion requires green blocking module-contract, API image, pin,
-  manifest, and Community-independence checks.
+  - Go unit and queue compatibility tests
+  - JSON schema validation and negative fixtures
+  - Existing Community queue regression tests
+- `next_action`: Inventory existing queue payloads and implement bifurcation task 3.3.
 
 Local task evidence:
 
@@ -213,3 +258,14 @@ Local task evidence:
 - Full local snapshot integration tests still require configured PostgreSQL and Valkey;
   their prior local failures were authentication/environment failures, not Module
   contract failures.
+
+Completion evidence:
+
+- PR 141 merged as `f24a67bd6781d7f4806bb2ac264b6f8a726db9c0` after its pin-audit
+  review finding was corrected and resolved.
+- Main CI 30640910687, Community Independence 30640910672, and pin consistency
+  30640910719 passed.
+- Evaluation:
+  `programs/complete-split-deploy-to-range/evaluations/complete-split-deploy-to-range.s2.t001.md`.
+- Decision: task `complete-split-deploy-to-range.s2.t001` accepted; continue with API
+  inventory and OpenAPI as `complete-split-deploy-to-range.s2.t002`.

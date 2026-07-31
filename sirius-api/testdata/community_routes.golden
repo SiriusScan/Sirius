@@ -27,14 +27,14 @@ GET	/templates/:id
 GET	/api/agent-templates/repositories/
 GET	/api/agent-templates/repositories/:id/sync-status
 GET	/api/agent-templates/
-GET	/api/agent-templates/:id
 GET	/api/agent-templates/analytics
+GET	/api/agent-templates/:id
 GET	/api/agent-templates/:id/results
 GET	/api/v1/events/
-GET	/api/v1/events/:id
 GET	/api/v1/events/stats
 GET	/api/v1/events/by-entity
 GET	/api/v1/events/by-severity/:severity
+GET	/api/v1/events/:id
 GET	/api/v1/statistics/vulnerability-trends
 GET	/api/v1/statistics/vulnerability-snapshots
 GET	/api/v1/statistics/vulnerability-snapshot/:snapshotId

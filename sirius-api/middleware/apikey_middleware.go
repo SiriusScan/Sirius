@@ -10,23 +10,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// skipPaths lists route prefixes that do not require API key authentication.
-var skipPaths = []string{
-	"/health",
-}
-
 // APIKeyMiddleware returns a Fiber middleware that validates the X-API-Key
-// header against keys stored in Valkey. Requests to health-check endpoints
-// are allowed through without authentication.
+// header against keys stored in Valkey. Only exact GET /health is allowed
+// through without authentication.
 // rootKey is the installer/internal service key (from SIRIUS_API_KEY_FILE or SIRIUS_API_KEY).
 func APIKeyMiddleware(kvStore store.KVStore, rootKey string) fiber.Handler {
 	rootKey = strings.TrimSpace(rootKey)
 	return func(c *fiber.Ctx) error {
-		// Skip authentication for health and other excluded paths.
-		for _, p := range skipPaths {
-			if strings.HasPrefix(c.Path(), p) {
-				return c.Next()
-			}
+		if isPublicHealthProbe(c) {
+			return c.Next()
 		}
 
 		apiKey := c.Get("X-API-Key")
@@ -58,3 +50,13 @@ func APIKeyMiddleware(kvStore store.KVStore, rootKey string) fiber.Handler {
 	}
 }
 
+// isPublicHealthProbe reports the sole unauthenticated Community probe:
+// exact GET /health (with or without a trailing slash). Prefix matches such as
+// /healthz or /health/... and non-GET methods remain authenticated.
+func isPublicHealthProbe(c *fiber.Ctx) bool {
+	if c.Method() != fiber.MethodGet {
+		return false
+	}
+	path := c.Path()
+	return path == "/health" || path == "/health/"
+}

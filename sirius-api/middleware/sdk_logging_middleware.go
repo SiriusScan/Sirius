@@ -13,13 +13,10 @@ import (
 func SDKLoggingMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
-		
-		// Generate or get request ID
-		requestID := c.Get("X-Request-ID")
-		if requestID == "" {
-			requestID = fmt.Sprintf("req_%d", time.Now().UnixNano())
-			c.Set("X-Request-ID", requestID)
-		}
+
+		// Prefer the ID established by Fiber requestid middleware (locals /
+		// response header). Do not overwrite a generated correlation ID.
+		requestID := resolveRequestID(c)
 
 		// Process request
 		err := c.Next()
@@ -35,7 +32,7 @@ func SDKLoggingMiddleware() fiber.Handler {
 		} else if durationMs > 5000 { // Only log very slow requests (5+ seconds)
 			shouldLog = true
 		}
-		
+
 		if shouldLog && !strings.Contains(c.Path(), "/api/v1/logs") {
 			// Prepare metadata
 			metadata := map[string]interface{}{
@@ -83,14 +80,26 @@ func SDKLoggingMiddleware() fiber.Handler {
 	}
 }
 
+// resolveRequestID returns the correlation ID from Fiber requestid locals or
+// headers without inventing a second identifier.
+func resolveRequestID(c *fiber.Ctx) string {
+	if id, ok := c.Locals("requestid").(string); ok && id != "" {
+		return id
+	}
+	if id := c.Get(fiber.HeaderXRequestID); id != "" {
+		return id
+	}
+	return c.GetRespHeader(fiber.HeaderXRequestID)
+}
+
 // SDKErrorLoggingMiddleware creates middleware for comprehensive error logging using the SDK
 func SDKErrorLoggingMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		err := c.Next()
 		if err != nil {
 			// Log the error using SDK
-			requestID := c.Get("X-Request-ID")
-			
+			requestID := resolveRequestID(c)
+
 			metadata := map[string]interface{}{
 				"request_id": requestID,
 				"method":     c.Method(),
@@ -118,8 +127,8 @@ func SDKPerformanceMetricsMiddleware() fiber.Handler {
 
 		// Only log performance for non-logging endpoints and slow requests
 		if !strings.Contains(c.Path(), "/api/v1/logs") && duration.Milliseconds() > 1000 {
-			requestID := c.Get("X-Request-ID")
-			
+			requestID := resolveRequestID(c)
+
 			metadata := map[string]interface{}{
 				"request_id":  requestID,
 				"method":      c.Method(),

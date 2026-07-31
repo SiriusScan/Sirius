@@ -59,6 +59,7 @@ This document provides a complete index of all documentation files in the Sirius
 - [ADR.002-repository-ownership.md](dev/architecture/ADR.002-repository-ownership.md) - SiriusScan public vs OpenSecurity-Infosec private repository ownership
 - [ADR.003-entitlement-model.md](dev/architecture/ADR.003-entitlement-model.md) - Capability-based entitlements and signed offline licenses
 - [ADR.004-extension-contracts.md](dev/architecture/ADR.004-extension-contracts.md) - Public API, UI, event, and engine extension contracts
+- [README.api-openapi-contract.md](dev/architecture/README.api-openapi-contract.md) - Community `/api/v1` OpenAPI contract, route classification, and CI drift checks
 - [ADR.005-versioning-and-release-policy.md](dev/architecture/ADR.005-versioning-and-release-policy.md) - SemVer, Pro/Core compatibility, and digest-pinned releases
 - [ARCHITECTURE.nse-repository-management.md](dev/architecture/ARCHITECTURE.nse-repository-management.md) - NSE repository management architecture
 - [README.docker-architecture.md](dev/architecture/README.docker-architecture.md) - Comprehensive Docker setup and container architecture

@@ -9,4 +9,3 @@ func (s *ScriptRouteSetter) SetupRoutes(app *fiber.App) {
 	// Script routes will be implemented here
 	// Placeholder to satisfy RouteSetter interface
 }
-

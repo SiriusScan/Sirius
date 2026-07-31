@@ -1,6 +1,6 @@
 ---
 goal: "Bifurcate Sirius into a canonical, independently runnable public Community core and a private, commercially licensed Pro extension layer that consumes immutable public releases without private-to-public source export."
-status: "waiting"
+status: "active"
 acceptance_criteria:
   - "Community builds, tests, scans, upgrades, and runs without private credentials or Pro artifacts."
   - "Every public release publishes six digest-addressed images, a validated core manifest, SBOMs, and verifiable signatures."
@@ -255,14 +255,14 @@ Cycle 6 evidence:
 ## Current loop state
 
 ```yaml
-current_task_id: bifurcation.s4.t009
-cycle: 10
+current_task_id: bifurcation.s4.t011
+cycle: 12
 attempt: 1
-status: waiting
-verdict: corrected
+status: active
+verdict: accepted
 artifact_verdict: accepted
-loop_decision: human_gate
-next_action: Obtain approval to push the Sirius API Module integration branch and open a PR; require green blocking module-contract, API image, pin, manifest, and Community-independence checks before task 3.1 is done.
+loop_decision: continue
+next_action: Implement task 3.3, the versioned public event envelope and additive queue compatibility contract.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -461,7 +461,7 @@ Tasks:
 
 - [ ] Complete Phase 3 and publish a tagged compatible core contract release
 
-Current task:
+Completed task:
 
 - `task_id`: `bifurcation.s4.t009`
 - `stage`: `4 Public Contracts`
@@ -501,6 +501,82 @@ Cycle 10 evidence:
   build, `bash scripts/test-core-manifest.sh`, shell syntax, and diff checks pass.
 - Decision: local artifact accepted after corrections; task 3.1 remains `in_progress`
   until pushed Sirius CI passes. Stop at the public branch/PR human gate.
+
+Task 3.1 completion:
+
+- Pull request 141 merged as
+  `f24a67bd6781d7f4806bb2ac264b6f8a726db9c0`; its pin-audit review finding was
+  corrected and resolved.
+- Main CI run 30640910687 passed all builds, integration, inventory, and public stack
+  jobs. Community Independence run 30640910672 passed source/config validation,
+  anonymous 12-platform release scanning, and Compose smoke. Pin run 30640910719
+  passed.
+- Evaluation: `programs/bifurcation/evaluations/bifurcation.s4.t009.md`.
+- Decision: task 3.1 accepted and marked done; continue to task 3.2.
+
+Completed task:
+
+- `task_id`: `bifurcation.s4.t010`
+- `stage`: `4 Public Contracts`
+- `cycle`: `11`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `criteria`:
+  - Every current API route is classified as public, internal, or deprecated.
+  - A versioned OpenAPI contract covers `/api/v1` and validates against the live route
+    inventory in blocking CI.
+  - `/api/pro/v1` and `/api/internal/v1` namespaces are reserved without adding Pro
+    behavior to Community.
+  - Breaking contract changes fail a fixture test; Community runtime behavior remains
+    unchanged.
+- `validation`:
+  - OpenAPI syntax and semantic validation
+  - Live Fiber route inventory to OpenAPI coverage comparison
+  - Negative breaking-change fixture
+  - Focused API tests, API image build, and Community-independence checks
+- `next_action`: Push `feature/openapi-contract` through the human gate and confirm
+  live CI before marking task 3.2 done.
+
+Cycle 11 local evidence:
+
+- Added `sirius-api/contracts/route_classification.yaml` covering all 74 golden routes
+  in registration order (`public` / `internal` / `deprecated`).
+- Published `sirius-api/contracts/openapi.v1.yaml` (OpenAPI 3.0.3, contract version
+  1.0.0) for the live `/api/v1` surface with auth, `X-Request-ID`, current error
+  shapes, canonical future error shape, and reserved-namespace policy.
+- Added `sirius-api/internal/contract` kin-openapi validators plus negative fixture
+  `contracts/fixtures/breaking_openapi.missing_operation.yaml`.
+- Blocking CI step in `.github/workflows/ci.yml` now runs live coverage + contract
+  package tests. Docs/index:
+  `documentation/dev/architecture/README.api-openapi-contract.md`.
+- Review corrections: fixed event/agent-template route shadowing; semantic OpenAPI
+  baseline breaking detection; production middleware shared by main/tests; exact
+  GET `/health` auth skip; request/response OpenAPI accuracy; Fiber `utils.UUID`
+  request-ID semantics.
+- Second review: protected-base oasdiff gate (not candidate-controlled baseline),
+  Fiber shadow detector, no-network middleware sink, OpenAPI input/status audit.
+  PR 142 live CI run 30649648210 passed API/engine/UI/infra builds, focused contract
+  gates, integration, core-manifest, pin-consistency, and source-independence checks.
+- Evaluation: `programs/bifurcation/evaluations/bifurcation.s4.t010.md`.
+- Decision: task 3.2 accepted and marked done; continue to task 3.3.
+
+Current task:
+
+- `task_id`: `bifurcation.s4.t011`
+- `stage`: `4 Public Contracts`
+- `cycle`: `12`
+- `attempt`: `1`
+- `assigned_role`: `grok`
+- `criteria`:
+  - Publish a versioned, CloudEvents-compatible public event envelope in go-api.
+  - Preserve existing Community queues additively and reserve the `pro.*` namespace.
+  - Define correlation, idempotency, retry, and dead-letter behavior without private
+    runtime dependencies.
+- `validation`:
+  - Go unit and compatibility tests
+  - JSON schema validation and negative fixtures
+  - Existing Community queue regression tests
+- `next_action`: Inventory existing queue payloads and implement task 3.3.
 
 ## Stage 5: Entitlements and First Vertical
 

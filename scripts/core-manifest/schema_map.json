@@ -2,5 +2,9 @@
   "c7c42d4444c8637140ab0e29743184fface5b12f": {
     "ledger_table": "schema_migrations_core",
     "latest_migration": "007_add_vulnerability_stats_indexes"
+  },
+  "ebd42f4239ec2d0c99e3e7c463a5fc181f57737f": {
+    "ledger_table": "schema_migrations_core",
+    "latest_migration": "007_add_vulnerability_stats_indexes"
   }
 }

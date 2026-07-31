@@ -1,6 +1,6 @@
 ---
 goal: "Complete the Sirius Community/Pro product split, publish a runnable Pro distribution that consumes immutable Community releases, and deploy and verify that Pro distribution in the approved range environment."
-status: "active"
+status: "waiting"
 acceptance_criteria:
   - "The existing bifurcation program completes its public contracts, entitlement platform, first Pro vertical, compatibility automation, and release closeout without weakening the completed Community release or private-foundation controls."
   - "A tagged Community core release remains independently runnable without private credentials, packages, repositories, licenses, or Pro artifacts and passes leakage, upgrade, and regression checks."
@@ -171,6 +171,10 @@ Tasks:
 - `cycle`: `0`
 - `attempt`: `1`
 - `assigned_role`: `parent`
+- `status`: `waiting`
+- `verdict`: `corrected`
+- `artifact_verdict`: `accepted`
+- `loop_decision`: `human_gate`
 - `owned_paths`:
   - `/Users/oz/Projects/Sirius-Project/minor-projects/go-api/sirius/module/`
   - `sirius-api/main.go`
@@ -190,7 +194,22 @@ Tasks:
   - `go test . -count=1` in `sirius-api`
   - Sirius API container build and route-inventory golden
   - `git diff --check` in both repositories
-- `next_action`: Stop at the existing human gate and obtain approval to push go-api
-  commits `4f48af4` and `ebd42f4`; then replace the temporary local module override with
-  the immutable pseudo-version, run container validation, and commit the Sirius
-  integration.
+- `next_action`: Obtain approval to push the Sirius API Module integration branch and
+  open a PR. Task completion requires green blocking module-contract, API image, pin,
+  manifest, and Community-independence checks.
+
+Local task evidence:
+
+- The approved go-api push published reviewed commits `4f48af4` and `ebd42f4`.
+- Sirius now pins `ebd42f4239ec2d0c99e3e7c463a5fc181f57737f` consistently across
+  API modules, API/engine Dockerfiles, Compose, CI, schema mapping, and fixtures.
+- Community composition moved from direct `main.go` wiring to a `!pro` build-selected
+  registry; real route order/duplicates and extension registration are tested.
+- Independent integration review corrections changed file-mode local/dev commands to
+  package builds, made the contract tests blocking in CI, removed route-registration
+  I/O through lazy runtime-service initialization, and closed test responses.
+- `go test -race ./sirius/module`, focused API tests, runner image build,
+  `bash scripts/test-core-manifest.sh`, syntax, and diff checks pass.
+- Full local snapshot integration tests still require configured PostgreSQL and Valkey;
+  their prior local failures were authentication/environment failures, not Module
+  contract failures.

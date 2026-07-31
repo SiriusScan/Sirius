@@ -165,7 +165,7 @@
         "id": "3.1",
         "title": "API Module interface and registration seam",
         "description": "Evolve RouteSetter into a Module contract in go-api; move module wiring out of main.go into a replaceable build file.",
-        "details": "Module: ID, Version, RegisterRoutes, RegisterJobs, RegisterEventHandlers, RequiredCapabilities, Health. Community registers core modules in modules_community.go; the Pro API build supplies its own registration file. Add capability-middleware hook point.",
+        "details": "Implemented and independently reviewed in go-api commits 4f48af4 and ebd42f4: v1 Module contract, atomic/lifecycle-safe registry, RouteSetter adapters, allow-all capability hook, nil hardening, and order/duplicate-preserving route inventory. Sirius locally pins ebd42f4239ec2d0c99e3e7c463a5fc181f57737f, mounts Community modules through a !pro compile-time composition file, locks the real 74-line route inventory, proves extension-route registration, makes the contract tests blocking in CI, and builds local/dev/container entrypoints as packages. Focused/race/manifest/Docker tests pass; remains in_progress until the Sirius branch is pushed and CI verifies the integration.",
         "status": "in_progress",
         "priority": "high",
         "dependencies": [],

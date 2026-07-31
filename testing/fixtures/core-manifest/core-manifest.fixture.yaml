@@ -13,12 +13,12 @@
   "schema": {
     "ledger_table": "schema_migrations_core",
     "latest_migration": "007_add_vulnerability_stats_indexes",
-    "go_api_version": "c7c42d4444c8637140ab0e29743184fface5b12f"
+    "go_api_version": "ebd42f4239ec2d0c99e3e7c463a5fc181f57737f"
   },
   "component_pins": {
     "APP_SYSTEM_MONITOR_COMMIT_SHA": "d4780cff46c98d6d030d03a4c73a40a78c7895ae",
     "APP_ADMINISTRATOR_COMMIT_SHA": "142ac93b620ac8a52a033f312fc2cb86c1f2979d",
-    "GO_API_COMMIT_SHA": "c7c42d4444c8637140ab0e29743184fface5b12f",
+    "GO_API_COMMIT_SHA": "ebd42f4239ec2d0c99e3e7c463a5fc181f57737f",
     "APP_SCANNER_COMMIT_SHA": "a031480cc7e0dc4a1cb09bdcfafedd89fbc61dfd",
     "APP_TERMINAL_COMMIT_SHA": "5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1",
     "SIRIUS_NSE_COMMIT_SHA": "a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9",

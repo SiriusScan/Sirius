@@ -44,5 +44,5 @@ if [ ! -f "main.go" ]; then
     fi
 fi
 go mod tidy
-exec go run main.go
+exec go run .
 

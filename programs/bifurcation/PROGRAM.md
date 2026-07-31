@@ -1,6 +1,6 @@
 ---
 goal: "Bifurcate Sirius into a canonical, independently runnable public Community core and a private, commercially licensed Pro extension layer that consumes immutable public releases without private-to-public source export."
-status: "active"
+status: "waiting"
 acceptance_criteria:
   - "Community builds, tests, scans, upgrades, and runs without private credentials or Pro artifacts."
   - "Every public release publishes six digest-addressed images, a validated core manifest, SBOMs, and verifiable signatures."
@@ -258,11 +258,11 @@ Cycle 6 evidence:
 current_task_id: bifurcation.s4.t009
 cycle: 10
 attempt: 1
-status: active
-verdict: accepted
+status: waiting
+verdict: corrected
 artifact_verdict: accepted
-loop_decision: continue
-next_action: Implement and validate task 3.1, the public API Module interface and compile-time Community registration seam.
+loop_decision: human_gate
+next_action: Obtain approval to push the Sirius API Module integration branch and open a PR; require green blocking module-contract, API image, pin, manifest, and Community-independence checks before task 3.1 is done.
 ```
 
 ## Stage 3: Private Supply Chain
@@ -481,6 +481,26 @@ Current task:
   - Test-module registration and capability-hook tests
 - `next_action`: Inspect the current `go-api` RouteSetter and API startup wiring, then
   implement the smallest compatible Module seam.
+
+Cycle 10 evidence:
+
+- Pushed reviewed go-api commits `4f48af4` and `ebd42f4`; the latter corrected
+  hand-maintained route fixtures, partial registration, nil/typed-nil handling,
+  mutable inventory, and registry lifecycle defects found by independent review.
+- Sirius pins immutable commit
+  `ebd42f4239ec2d0c99e3e7c463a5fc181f57737f` and production startup mounts a
+  build-selected `!pro` Community composition instead of wiring route setters in
+  `main.go`.
+- The real Community API route inventory is captured in registration order with
+  duplicates, and a synthetic extension adds a route without editing Community
+  composition.
+- A second independent review found file-mode dev startup, non-blocking CI coverage,
+  and eager route-registration I/O. Corrections build/run the package, add a blocking
+  contract step, lazily initialize runtime services, and close the test response.
+- `go test -race ./sirius/module`, focused Sirius API tests, the API runner Docker
+  build, `bash scripts/test-core-manifest.sh`, shell syntax, and diff checks pass.
+- Decision: local artifact accepted after corrections; task 3.1 remains `in_progress`
+  until pushed Sirius CI passes. Stop at the public branch/PR human gate.
 
 ## Stage 5: Entitlements and First Vertical
 

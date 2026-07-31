@@ -69,9 +69,10 @@ go test . -run 'TestCommunityRouteInventory|TestLiveRouteContractCoverage' -coun
 | Artifact | Path |
 | --- | --- |
 | OpenAPI 3.0.3 contract | `sirius-api/contracts/openapi.v1.yaml` |
+| Semantic breaking baseline | `sirius-api/contracts/openapi.v1.baseline.yaml` |
 | Route classification inventory | `sirius-api/contracts/route_classification.yaml` |
 | Ordered live-route golden | `sirius-api/testdata/community_routes.golden` |
-| Breaking-change fixture | `sirius-api/contracts/fixtures/breaking_openapi.missing_operation.yaml` |
+| Operation-removal fixture | `sirius-api/contracts/fixtures/breaking_openapi.missing_operation.yaml` |
 | Validator package | `sirius-api/internal/contract/` |
 
 ### Updating the Contract
@@ -81,10 +82,17 @@ go test . -run 'TestCommunityRouteInventory|TestLiveRouteContractCoverage' -coun
    `UPDATE_GOLDEN=1 go test . -run TestCommunityRouteInventory -count=1`
 3. Update `route_classification.yaml` so every golden line has exactly one
    path/method classification in the same order (`public`, `internal`, or
-   `deprecated`).
+   `deprecated`). Keep fixed routes registered before parameterized siblings.
 4. Update `openapi.v1.yaml` for every live `/api/v1` operation. Do not invent
    behavior the handlers do not provide.
-5. Run the contract tests above and ensure the negative fixture still fails.
+5. Run `go test ./internal/contract/ -count=1`. Semantic breaking detection
+   compares the published contract to `openapi.v1.baseline.yaml` and rejects
+   removed operations, removed/changed security, removed response codes,
+   schema/type changes, and newly required parameters/request fields.
+6. When the published contract change is intentionally accepted, copy
+   `openapi.v1.yaml` over `openapi.v1.baseline.yaml` in the same change set:
+   `cp sirius-api/contracts/openapi.v1.yaml sirius-api/contracts/openapi.v1.baseline.yaml`
+7. Keep the operation-removal fixture failing coverage validation.
 
 ## What It Is
 
@@ -131,7 +139,7 @@ must not import or access private packages/repositories.
 | --- | --- |
 | Auth | `X-API-Key` required for all `/api/v1` routes via `APIKeyMiddleware` |
 | Auth bypass | Only `GET /health` is skipped (outside OpenAPI) |
-| Correlation | Fiber `requestid.New()` defaults: header `X-Request-ID`; echo client value or generate UUID; store in locals key `requestid` |
+| Correlation | Fiber `requestid.New()` defaults: header `X-Request-ID`; echo client value or generate via `utils.UUID` (RFC4122 v4-formatted seeded counter, not `google/uuid`); store in locals key `requestid`; present on success and error responses |
 
 ### Error Shapes
 

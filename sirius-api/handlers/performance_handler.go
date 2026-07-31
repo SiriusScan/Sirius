@@ -16,38 +16,38 @@ import (
 
 // PerformanceMetricsResponse represents the response for performance metrics
 type PerformanceMetricsResponse struct {
-	Metrics    []PerformanceMetric `json:"metrics"`
-	Total      int                 `json:"total"`
-	Limit      int                 `json:"limit"`
-	Offset     int                 `json:"offset"`
-	Summary    PerformanceSummary  `json:"summary"`
-	TimeRange  TimeRange           `json:"time_range"`
+	Metrics   []PerformanceMetric `json:"metrics"`
+	Total     int                 `json:"total"`
+	Limit     int                 `json:"limit"`
+	Offset    int                 `json:"offset"`
+	Summary   PerformanceSummary  `json:"summary"`
+	TimeRange TimeRange           `json:"time_range"`
 }
 
 // PerformanceMetric represents a single performance metric
 type PerformanceMetric struct {
-	ID          string                 `json:"id"`
-	Timestamp   time.Time              `json:"timestamp"`
-	Service     string                 `json:"service"`
-	Endpoint    string                 `json:"endpoint"`
-	Method      string                 `json:"method"`
-	Duration    int64                  `json:"duration_ms"`
-	StatusCode  int                    `json:"status_code"`
-	ResponseSize int                   `json:"response_size"`
-	RequestID   string                 `json:"request_id,omitempty"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID           string                 `json:"id"`
+	Timestamp    time.Time              `json:"timestamp"`
+	Service      string                 `json:"service"`
+	Endpoint     string                 `json:"endpoint"`
+	Method       string                 `json:"method"`
+	Duration     int64                  `json:"duration_ms"`
+	StatusCode   int                    `json:"status_code"`
+	ResponseSize int                    `json:"response_size"`
+	RequestID    string                 `json:"request_id,omitempty"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // PerformanceSummary provides aggregated performance statistics
 type PerformanceSummary struct {
-	TotalRequests    int     `json:"total_requests"`
-	AverageResponse  float64 `json:"average_response_ms"`
-	MinResponse      int64   `json:"min_response_ms"`
-	MaxResponse      int64   `json:"max_response_ms"`
-	ErrorRate        float64 `json:"error_rate"`
-	RequestsPerMinute float64 `json:"requests_per_minute"`
-	TopEndpoints     []EndpointStats `json:"top_endpoints"`
-	ServiceStats     []ServiceStats  `json:"service_stats"`
+	TotalRequests     int             `json:"total_requests"`
+	AverageResponse   float64         `json:"average_response_ms"`
+	MinResponse       int64           `json:"min_response_ms"`
+	MaxResponse       int64           `json:"max_response_ms"`
+	ErrorRate         float64         `json:"error_rate"`
+	RequestsPerMinute float64         `json:"requests_per_minute"`
+	TopEndpoints      []EndpointStats `json:"top_endpoints"`
+	ServiceStats      []ServiceStats  `json:"service_stats"`
 }
 
 // EndpointStats represents statistics for a specific endpoint
@@ -153,7 +153,7 @@ func retrievePerformanceMetrics(req PerformanceMetricsRequest) ([]PerformanceMet
 
 	// Calculate time range
 	timeRange := calculateTimeRange(req.TimeRange)
-	
+
 	// Build pattern based on service filter
 	pattern := PERFORMANCE_LOG_PREFIX + ":*"
 	if req.Service != "" {

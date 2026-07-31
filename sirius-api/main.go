@@ -14,10 +14,7 @@ import (
 	"github.com/SiriusScan/go-api/sirius/slogger"
 	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/SiriusScan/sirius-api/internal/infraauth"
-	"github.com/SiriusScan/sirius-api/middleware"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/requestid"
 )
 
 // waitForDatabase waits for PostgreSQL to be available before running migrations
@@ -96,30 +93,7 @@ func main() {
 	defer kvStore.Close()
 
 	app := fiber.New()
-
-	// Add CORS middleware
-	allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
-	if allowedOrigins == "" {
-		allowedOrigins = "*" // Default to allow all origins
-	}
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: allowedOrigins,
-		AllowMethods: "GET,POST,HEAD,PUT,DELETE,PATCH",
-	}))
-
-	// Add request ID middleware
-	app.Use(requestid.New())
-
-	// Add level-aware request logging middleware
-	app.Use(requestLoggerMiddleware())
-
-	// Add API key authentication middleware
-	app.Use(middleware.APIKeyMiddleware(kvStore, serviceAPIKey))
-
-	// Add SDK-based logging middlewares
-	app.Use(middleware.SDKLoggingMiddleware())
-	app.Use(middleware.SDKErrorLoggingMiddleware())
-	app.Use(middleware.SDKPerformanceMetricsMiddleware())
+	applyProductionHTTPMiddleware(app, kvStore, serviceAPIKey)
 
 	moduleRegistry, err := buildModuleRegistry(kvStore)
 	if err != nil {

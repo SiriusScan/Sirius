@@ -13,13 +13,12 @@ func (r *AgentTemplateRepositoryRouteSetter) SetupRoutes(app *fiber.App) {
 	repos := api.Group("/agent-templates/repositories")
 
 	// Repository CRUD operations
-	repos.Get("/", handlers.GetAgentTemplateRepositories)                    // GET /api/agent-templates/repositories - List all
-	repos.Post("/", handlers.AddAgentTemplateRepository)                    // POST /api/agent-templates/repositories - Add new
-	repos.Put("/:id", handlers.UpdateAgentTemplateRepository)               // PUT /api/agent-templates/repositories/:id - Update
-	repos.Delete("/:id", handlers.DeleteAgentTemplateRepository)             // DELETE /api/agent-templates/repositories/:id - Delete
+	repos.Get("/", handlers.GetAgentTemplateRepositories)        // GET /api/agent-templates/repositories - List all
+	repos.Post("/", handlers.AddAgentTemplateRepository)         // POST /api/agent-templates/repositories - Add new
+	repos.Put("/:id", handlers.UpdateAgentTemplateRepository)    // PUT /api/agent-templates/repositories/:id - Update
+	repos.Delete("/:id", handlers.DeleteAgentTemplateRepository) // DELETE /api/agent-templates/repositories/:id - Delete
 
 	// Repository sync operations
-	repos.Post("/:id/sync", handlers.TriggerAgentTemplateRepositorySync)     // POST /api/agent-templates/repositories/:id/sync - Trigger sync
+	repos.Post("/:id/sync", handlers.TriggerAgentTemplateRepositorySync)         // POST /api/agent-templates/repositories/:id/sync - Trigger sync
 	repos.Get("/:id/sync-status", handlers.GetAgentTemplateRepositorySyncStatus) // GET /api/agent-templates/repositories/:id/sync-status - Get sync status
 }
-

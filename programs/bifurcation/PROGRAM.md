@@ -549,8 +549,10 @@ Cycle 11 local evidence:
 - Blocking CI step in `.github/workflows/ci.yml` now runs live coverage + contract
   package tests. Docs/index:
   `documentation/dev/architecture/README.api-openapi-contract.md`.
-- Local validation passed focused route/contract tests, `go test ./internal/contract`,
-  and `git diff --check`. Task 3.2 remains `in_progress` until live CI.
+- Review corrections: fixed event/agent-template route shadowing; semantic OpenAPI
+  baseline breaking detection; production middleware shared by main/tests; exact
+  GET `/health` auth skip; request/response OpenAPI accuracy; Fiber `utils.UUID`
+  request-ID semantics. Task 3.2 remains `in_progress` until live CI.
 
 ## Stage 5: Entitlements and First Vertical
 

@@ -7,10 +7,15 @@ info:
     Auth: every `/api/v1` operation requires the `X-API-Key` header. The only
     unauthenticated route in Community is `GET /health` (outside this document).
 
-    Correlation: Fiber `requestid` middleware uses the `X-Request-ID` header. When
-    the client supplies the header it is echoed on the response; otherwise the
-    server generates a UUID and sets it on the response. The ID is also stored in
-    Fiber locals under the key `requestid`.
+    Correlation: Fiber `requestid` middleware (default config) uses the
+    `X-Request-ID` header. When the client supplies the header it is echoed on
+    the response; otherwise the server generates an ID with Fiber
+    `utils.UUID` — an RFC 4122 version-4 UUID-formatted string from a seeded
+    monotonic counter (not cryptographically random `google/uuid`). If seed
+    initialization fails, the nil UUID
+    `00000000-0000-0000-0000-000000000000` may be returned. The ID is stored in
+    Fiber locals under the key `requestid` and must appear on success and error
+    responses alike.
 
     Error shapes (current, inconsistent across handlers):
       - `{ "error": "<string>" }` — most handlers and API-key middleware
@@ -256,8 +261,13 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: true
+              $ref: '#/components/schemas/LogSubmissionRequest'
+            examples:
+              valid:
+                value:
+                  service: sirius-ui
+                  level: info
+                  message: user opened dashboard
       responses:
         '201':
           description: Log accepted
@@ -268,13 +278,18 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                required: [message, log_id]
+                properties:
+                  message:
+                    type: string
+                  log_id:
+                    type: string
         '400':
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/ErrorWithDetails'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/ErrorWithDetails'
 
   /api/v1/logs/{logId}:
     put:
@@ -732,6 +747,25 @@ paths:
         - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
+        - name: limit
+          in: query
+          required: false
+          description: |
+            Maximum hosts to return. Handler default is 10. Values above 50 are
+            capped to 50; values below 1 fall back to 10.
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 50
+        - name: refresh
+          in: query
+          required: false
+          description: When exactly "true", invalidate cache before read.
+          schema:
+            type: string
+            default: "false"
+            enum: ["true", "false"]
       responses:
         '200':
           description: Host ranking payload
@@ -746,7 +780,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '500':
-          $ref: '#/components/responses/Error'
+          $ref: '#/components/responses/ErrorWithDetails'
 
   /api/v1/scans/cancel:
     post:
@@ -766,6 +800,7 @@ paths:
               properties:
                 scan_id:
                   type: string
+                  description: Optional; ignored parse errors leave it empty
       responses:
         '200':
           description: Cancel accepted
@@ -776,7 +811,26 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                required: [success, message, status]
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  status:
+                    type: string
+        '400':
+          description: Scan already completed or cancelled
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanError'
+              example:
+                success: false
+                error: Scan is already completed
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -793,9 +847,19 @@ paths:
         - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scan_id:
+                  type: string
+                  description: Optional scan identifier forwarded in the force_cancel command
       responses:
         '200':
-          description: Force-stop accepted
+          description: Force-stop accepted (including already-clean idle state)
           headers:
             X-Request-ID:
               $ref: '#/components/headers/RequestID'
@@ -803,10 +867,17 @@ paths:
             application/json:
               schema:
                 type: object
-                additionalProperties: true
+                required: [success, message, status]
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  status:
+                    type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
-        'default':
+        '500':
           $ref: '#/components/responses/ScanError'
 
   /api/v1/scans/reset:
@@ -959,13 +1030,36 @@ components:
       required: false
       schema:
         type: string
-      description: Optional client correlation ID. Echoed when present; otherwise generated.
+      description: |
+        Optional client correlation ID. Echoed when present; otherwise generated by
+        Fiber `utils.UUID` (RFC4122 v4-formatted seeded counter).
   headers:
     RequestID:
-      description: Request correlation ID (echoed or generated by Fiber requestid middleware).
+      description: |
+        Request correlation ID (echoed client value or Fiber `utils.UUID` generated
+        value). Present on success and error responses.
       schema:
         type: string
   schemas:
+    LogSubmissionRequest:
+      type: object
+      required: [service, level, message]
+      properties:
+        service:
+          type: string
+        subcomponent:
+          type: string
+        level:
+          type: string
+          enum: [debug, info, warn, error]
+        message:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        context:
+          type: object
+          additionalProperties: true
     ErrorMessage:
       type: object
       required: [error]

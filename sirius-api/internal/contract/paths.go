@@ -9,6 +9,7 @@ import (
 // Default artifact locations relative to the sirius-api module root.
 const (
 	DefaultOpenAPIPath         = "contracts/openapi.v1.yaml"
+	DefaultBaselineOpenAPI     = DefaultBaselineOpenAPIPath
 	DefaultClassificationPath  = "contracts/route_classification.yaml"
 	DefaultBreakingOpenAPIPath = "contracts/fixtures/breaking_openapi.missing_operation.yaml"
 	DefaultGoldenPath          = "testdata/community_routes.golden"

@@ -202,6 +202,9 @@ Local task evidence (cycle 1):
   namespace policy and documented auth/correlation/error reality.
 - Blocking validators and breaking fixture land under `sirius-api/internal/contract`
   and the existing API CI job.
+- Review corrections: route shadowing fixes, semantic baseline breaking detection,
+  production middleware test stack, exact `/health` auth bypass, OpenAPI
+  request/response accuracy, Fiber `utils.UUID` request-ID docs/tests.
 - TypeScript client intentionally deferred; no new generated bulk.
 - Bifurcation task 3.2 remains `in_progress` pending live CI.
 

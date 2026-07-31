@@ -19,4 +19,3 @@ func (s *SnapshotRouteSetter) SetupRoutes(app *fiber.App) {
 	stats.Get("/vulnerability-snapshot/:snapshotId", handlers.GetSnapshot)
 	stats.Post("/vulnerability-snapshot", handlers.CreateSnapshot)
 }
-

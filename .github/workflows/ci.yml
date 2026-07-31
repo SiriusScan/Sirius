@@ -299,8 +299,8 @@ jobs:
 
       - name: Verify API module composition contract
         run: |
-          go test . -run 'TestCommunityModuleInventory|TestCommunityRouteInventory|TestExtensionModuleAddsRouteWithoutChangingCommunityComposition|TestLiveRouteContractCoverage|TestUnclassifiedLiveRouteIsRejected' -count=1
-          go test ./internal/contract/ -count=1
+          go test . -run 'TestCommunityModuleInventory|TestCommunityRouteInventory|TestExtensionModuleAddsRouteWithoutChangingCommunityComposition|TestLiveRouteContractCoverage|TestUnclassifiedLiveRouteIsRejected|TestProductionMiddlewareAuthAndRequestID|TestFixedRoutesNotShadowedByParams' -count=1
+          go test ./internal/contract/ ./middleware/ -count=1
         working-directory: sirius-api
 
       - name: Run API tests (non-blocking)

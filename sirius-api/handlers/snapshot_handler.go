@@ -43,8 +43,8 @@ func GetVulnerabilityTrends(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"snapshots":        snapshots,
-		"limit_requested":  limit,
+		"snapshots":          snapshots,
+		"limit_requested":    limit,
 		"snapshots_returned": len(snapshots),
 	})
 }
@@ -134,4 +134,3 @@ func ListSnapshots(c *fiber.Ctx) error {
 		"count":                  len(snapshotIDs),
 	})
 }
-

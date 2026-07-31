@@ -66,7 +66,7 @@ routes:
 - method: GET
   path: /health
   class: public
-  note: "Unauthenticated liveness probe (API key middleware skip path)."
+  note: "Unauthenticated liveness probe (exact GET /health only)."
 - method: GET
   path: /api/v1/system/health
   class: public
@@ -120,11 +120,11 @@ routes:
   class: public
   note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
 - method: GET
-  path: /api/agent-templates/:id
+  path: /api/agent-templates/analytics
   class: public
   note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
 - method: GET
-  path: /api/agent-templates/analytics
+  path: /api/agent-templates/:id
   class: public
   note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
 - method: GET
@@ -133,10 +133,6 @@ routes:
   note: "Legacy Community product surface outside /api/v1; scheduled for future versioned migration."
 - method: GET
   path: /api/v1/events/
-  class: public
-  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
-- method: GET
-  path: /api/v1/events/:id
   class: public
   note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
 - method: GET
@@ -149,6 +145,10 @@ routes:
   note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
 - method: GET
   path: /api/v1/events/by-severity/:severity
+  class: public
+  note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
+- method: GET
+  path: /api/v1/events/:id
   class: public
   note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
 - method: GET

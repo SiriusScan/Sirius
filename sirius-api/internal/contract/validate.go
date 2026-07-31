@@ -146,5 +146,31 @@ func ValidateContract(live []LiveRoute, class *ClassificationFile, spec *OpenAPI
 		result.addf("OpenAPI contract version is empty")
 	}
 
+	deprecated := map[string]struct{}{}
+	for _, route := range class.Routes {
+		if route.Class == ClassDeprecated {
+			deprecated[route.Method+"\t"+route.Path] = struct{}{}
+		}
+	}
+	for _, finding := range FindShadowedFixedRoutes(live) {
+		// Deprecated duplicates may remain for inventory fidelity (e.g. the second
+		// GET /host/source-coverage). Public/internal shadowed routes are defects.
+		shadowedKey := shadowedRouteKey(finding)
+		if _, ok := deprecated[shadowedKey]; ok {
+			continue
+		}
+		result.addf("route shadowing: %s", finding)
+	}
+
 	return result.Err()
+}
+
+func shadowedRouteKey(finding string) string {
+	// finding format: "METHOD\tPATH shadowed by earlier METHOD\tPATH"
+	const marker = " shadowed by earlier "
+	before, _, ok := strings.Cut(finding, marker)
+	if !ok {
+		return finding
+	}
+	return before
 }

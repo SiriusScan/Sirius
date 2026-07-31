@@ -109,6 +109,9 @@ registry logins, organization secrets, or PATs.
 - Recognized nested gzip/zip/tar payloads are inspected with bounded depth/size; encrypted
   or opaque blobs may still hide markers
 - High-confidence credential regexes are intentionally narrow to limit false positives
+- PEM findings require a complete, decodable private-key structure. Public package test
+  keys embedded in compiled shared libraries under system `lib`/`usr/lib` paths are
+  ignored; application paths and key files remain fail-closed.
 - Full image scan requires Docker/buildx and network; local mocked contract tests cover
   index resolution and 12 child pull/scan wiring when Docker is unavailable
 - Compose smoke requires a working Docker engine and network access to public GHCR

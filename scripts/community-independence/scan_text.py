@@ -134,6 +134,17 @@ def contains_private_key_pem(data: bytes) -> bool:
     return False
 
 
+def is_system_shared_library(rel_path: str) -> bool:
+    """Identify public distro shared libraries that may embed non-secret test keys."""
+    rel = norm_rel(rel_path)
+    inner = re.split(r"#(?:tar|zip|gzip)/", rel)[-1]
+    system_prefixes = ("lib/", "lib64/", "usr/lib/", "usr/lib64/")
+    if not inner.startswith(system_prefixes):
+        return False
+    name = PurePosixPath(inner).name
+    return name.endswith(".so") or re.search(r"\.so(?:\.\d+)+$", name) is not None
+
+
 def load_allowlist(path: Path) -> List[str]:
     if not path.is_file():
         raise SystemExit(f"allowlist not found: {path}")
@@ -286,7 +297,7 @@ def match_rules(
                 findings.append(f"{rel_path}: forbidden marker [{rule.rule_id}]")
         elif rule.regex is not None and rule.regex.search(as_text):
             findings.append(f"{rel_path}: forbidden marker [{rule.rule_id}]")
-    if contains_private_key_pem(data):
+    if contains_private_key_pem(data) and not is_system_shared_library(rel_path):
         findings.append(f"{rel_path}: forbidden marker [pem_private_key]")
     return findings
 

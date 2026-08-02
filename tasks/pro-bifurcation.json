@@ -25,7 +25,9 @@
         "details": "ADR-001 public-core/private-extension (export forbidden); ADR-002 SiriusScan public / OpenSecurity-Infosec private repository ownership; ADR-003 capability-based entitlements with signed offline licenses; ADR-004 contracts in go-api + UI registry, compile-time registration; ADR-005 SemVer, exact minor Pro/Core alignment, digest-pinned manifests.",
         "status": "done",
         "priority": "high",
-        "dependencies": ["0.1"],
+        "dependencies": [
+          "0.1"
+        ],
         "testStrategy": "ADRs merged under documentation/dev/architecture/ and referenced from the plan; team sign-off recorded."
       },
       {
@@ -35,7 +37,9 @@
         "details": "Deliver documentation/product/edition-boundary.yaml with capabilities, editions, and limits (e.g. remote_agents community with limits). Publish a public feature matrix. Apply rubric: security fixes, scanner fidelity, and completeness stay public.",
         "status": "done",
         "priority": "high",
-        "dependencies": ["0.2"],
+        "dependencies": [
+          "0.2"
+        ],
         "testStrategy": "Every feature in the current UI/API inventory appears exactly once in the catalog; no 'TBD' classifications remain."
       },
       {
@@ -45,7 +49,9 @@
         "details": "Public relationship statement and DCO contribution note shipped. Commercial Pro license/EULA remain counsel-gated before customer distribution.",
         "status": "done",
         "priority": "medium",
-        "dependencies": ["0.2"],
+        "dependencies": [
+          "0.2"
+        ],
         "testStrategy": "Counsel review scheduled/completed; relationship statement merged to public repo; contribution policy visible in contributing.md."
       }
     ]
@@ -57,7 +63,9 @@
     "details": "Prerequisites discovered in ground-truth review: destructive go-api schema init, migrations skipped in production, unpinned engine components, no release cadence or digest manifest, no SBOM/signing.",
     "status": "done",
     "priority": "high",
-    "dependencies": ["0"],
+    "dependencies": [
+      "0"
+    ],
     "subtasks": [
       {
         "id": "1.1",
@@ -76,7 +84,9 @@
         "details": "sirius-migrate one-shot compose service runs /app/migrate from sirius-api image; API runMigrations calls migrate.UpFromDefault with no silent skip; go-api is pinned to migration hotfix c7c42d4444c8637140ab0e29743184fface5b12f.",
         "status": "done",
         "priority": "high",
-        "dependencies": ["1.1"],
+        "dependencies": [
+          "1.1"
+        ],
         "testStrategy": "docker compose up from clean state applies all migrations and records them; upgrade test from v1.0.0 data succeeds."
       },
       {
@@ -96,7 +106,10 @@
         "details": "Released v1.1.0 from merge commit b61b47b468cfc5c837a5bde50eeafe52df4fe10d. Publish run 30578119633 resolved exact-commit inventory, write-once retagged and verified all six public images, passed the public compose smoke, attached core-manifest.yaml, and published only after task 1.5 attestation checks. Follow-up verification run 30578823485 succeeded.",
         "status": "done",
         "priority": "high",
-        "dependencies": ["1.2", "1.3"],
+        "dependencies": [
+          "1.2",
+          "1.3"
+        ],
         "testStrategy": "v1.1.0 release exists with all six images pullable at the tag, manifest lists sha256 digests matching GHCR, and verify workflow is green."
       },
       {
@@ -106,7 +119,10 @@
         "details": "Proven by v1.1.0 publish run 30578119633: generated and validated 12 platform-scoped Syft CycloneDX assets from exact linux/amd64 and linux/arm64 child digests; keyless-signed and verified all six inventory OCI index digests with the canonical SiriusScan/Sirius@main OIDC identity; re-verified signatures before draft=false. All 12 SBOMs and core-manifest.yaml are published release assets.",
         "status": "done",
         "priority": "high",
-        "dependencies": ["1.2", "1.3"],
+        "dependencies": [
+          "1.2",
+          "1.3"
+        ],
         "testStrategy": "bash scripts/test-core-manifest.sh (includes signing contract); on a real release: cosign verify succeeds for all six inventory digest refs with the canonical OIDC identity; twelve platform-scoped CycloneDX SBOM assets present on the GitHub Release."
       }
     ]
@@ -118,7 +134,9 @@
     "details": "Created sirius-pro, sirius-entitlements, and sirius-release from independent histories; established teams, private GHCR, signed/SBOM-attested publishing, and standing public leakage prevention. GitHub Free governance limitations remain covered by the explicit temporary waiver recorded in task 2.1.",
     "status": "done",
     "priority": "high",
-    "dependencies": ["0"],
+    "dependencies": [
+      "0"
+    ],
     "subtasks": [
       {
         "id": "2.1",
@@ -137,17 +155,21 @@
         "details": "Implemented in OpenSecurity-Infosec/sirius-release through commit c7bbdc65b6d7354839e998f99ca0b56ba1d140a4. Run 30585723325 verified all six Community v1.1.0 lock digests and canonical public Cosign signatures, then published ghcr.io/opensecurity-infosec/sirius-pro-bootstrap@sha256:4ec53af35646f7a93a2fca42aa1a7e0ef94d7343e50414a7034053540a9274e3, generated a CycloneDX SBOM, keyless-signed and attested the exact digest with the canonical private workflow identity, and verified both. Anonymous registry access returns 401; no long-lived signing or registry credential was introduced.",
         "status": "done",
         "priority": "high",
-        "dependencies": ["2.1"],
+        "dependencies": [
+          "2.1"
+        ],
         "testStrategy": "Test image publishes privately, is signed, has an SBOM, and cannot be pulled anonymously."
       },
       {
         "id": "2.3",
         "title": "Standing community-independence and leakage tests",
         "description": "Prove the public edition never needs private access, and public artifacts never contain private references.",
-        "details": "Implemented community-independence.yml + scripts/community-independence/ with path-safe allowlists, secret/boundary rule split, bounded nested archive/binary scanning, exact 12-SBOM checks, and multi-arch image scanning (6 indexes → 12 platform digests). After live-CI corrections for legitimate image links and public system-library fixtures, main run 30604223699 passed source/config checks, the anonymous v1.1.0 source + 12-SBOM + 12-platform image scan, and public Compose smoke.",
+        "details": "Implemented community-independence.yml + scripts/community-independence/ with path-safe allowlists, secret/boundary rule split, bounded nested archive/binary scanning, exact 12-SBOM checks, and multi-arch image scanning (6 indexes \u2192 12 platform digests). After live-CI corrections for legitimate image links and public system-library fixtures, main run 30604223699 passed source/config checks, the anonymous v1.1.0 source + 12-SBOM + 12-platform image scan, and public Compose smoke.",
         "status": "done",
         "priority": "high",
-        "dependencies": ["2.2"],
+        "dependencies": [
+          "2.2"
+        ],
         "testStrategy": "bash scripts/test-community-independence.sh; bash scripts/test-core-manifest.sh; anonymous v1.1.0 source+SBOM scan; CI public-release-scan must prove 12 platform image scans + compose smoke."
       }
     ]
@@ -159,7 +181,9 @@
     "details": "All contracts live in public code (go-api for Go, sirius-ui registry for TypeScript). Compile-time registration; no runtime plugins. Community behavior must be unchanged with zero extensions.",
     "status": "in_progress",
     "priority": "high",
-    "dependencies": ["1"],
+    "dependencies": [
+      "1"
+    ],
     "subtasks": [
       {
         "id": "3.1",
@@ -178,7 +202,9 @@
         "details": "Implemented on feature/openapi-contract and accepted by PR 142 live CI run 30649648210: all 74 routes classified; versioned /api/v1 OpenAPI published; /api/pro/v1 and /api/internal/v1 reserved; protected-base pinned-oasdiff breaking gate with negative fixtures; Fiber route-shadow detection and fixes; production auth/request-ID middleware behavior tests with a no-network logging sink; and audited input/status accuracy. TypeScript client deferred because no deterministic repository consumer exists.",
         "status": "done",
         "priority": "high",
-        "dependencies": ["3.1"],
+        "dependencies": [
+          "3.1"
+        ],
         "testStrategy": "OpenAPI validates vs live route table; oasdiff rejects named breaking classes; protected-baseline bypass tests fail without allow gate; Fiber shadow + middleware no-network tests pass."
       },
       {
@@ -198,7 +224,9 @@
         "details": "Registry supports routes, navigation, dashboard widgets, settings panels, requiredCapabilities. Capability provider context fed by API entitlement endpoint (Community provider returns community capabilities without any license). Pro UI image builds by cloning public sirius-ui at a pinned SHA and overlaying private extension modules, mirroring the engine pin pattern. Deferred relative to the class multi-user cut: not a hard blocker for Phase 5 (thin static capability + targeted Pro UI overlay OK).",
         "status": "pending",
         "priority": "medium",
-        "dependencies": ["3.2"],
+        "dependencies": [
+          "3.2"
+        ],
         "testStrategy": "Community UI renders identical navigation and pages from the registry (visual/E2E regression); a test extension adds a nav item and page gated by a fake capability."
       },
       {
@@ -208,7 +236,9 @@
         "details": "Define interfaces and a registration seam in the engine composition root; no behavior change for Community (empty registries). Deferred relative to the class multi-user cut: not a hard blocker for Phase 5.",
         "status": "pending",
         "priority": "low",
-        "dependencies": ["3.3"],
+        "dependencies": [
+          "3.3"
+        ],
         "testStrategy": "Scan pipeline output unchanged with empty registries; a test enricher mutates results in a controlled integration test."
       },
       {
@@ -218,7 +248,12 @@
         "details": "Golden contract fixtures + versioned schema diffing runnable from both public CI and (later) the Pro pipeline. Tag a core release (v1.2.0) containing all contracts. Deferred relative to the class multi-user cut: not a hard blocker for Phase 5.",
         "status": "pending",
         "priority": "medium",
-        "dependencies": ["3.1", "3.3", "3.4", "3.5"],
+        "dependencies": [
+          "3.1",
+          "3.3",
+          "3.4",
+          "3.5"
+        ],
         "testStrategy": "Harness fails on a synthetic breaking change and passes on an additive change; v1.2.0 released with contracts documented."
       }
     ]
@@ -230,7 +265,10 @@
     "details": "Capability catalog and Community provider are public (go-api). License issuer, signing infrastructure, and customer tooling are private (sirius-entitlements). Licensing is separate from user authorization; both must pass. Full Phase 4 issuer is NOT a hard blocker for the class multi-user cut (Phase 5): thin static identity.multi_user_local grant is acceptable for range; harden issuer in parallel.",
     "status": "pending",
     "priority": "medium",
-    "dependencies": ["2", "3"],
+    "dependencies": [
+      "2",
+      "3"
+    ],
     "subtasks": [
       {
         "id": "4.1",
@@ -249,7 +287,9 @@
         "details": "Issuer private key in KMS (sirius-entitlements); products embed public verification keys with key-ID rotation; cached verified entitlement state; clock-skew and expiration boundary handling. Parallel to class multi-user vertical; not a hard blocker for Phase 5 class cut.",
         "status": "pending",
         "priority": "medium",
-        "dependencies": ["4.1"],
+        "dependencies": [
+          "4.1"
+        ],
         "testStrategy": "Validation succeeds air-gapped; tampered payload and wrong-key signatures fail closed; expiration/grace/skew boundary tests pass; no private key material in any product artifact (leakage scan)."
       },
       {
@@ -259,7 +299,9 @@
         "details": "CAPABILITY_NOT_LICENSED structured error; workers verify entitlement before expensive Pro execution; admin page shows license ID, customer, expiration, capabilities, limits usage, grace status; audit events on license changes. Parallel to class multi-user vertical; not a hard blocker for Phase 5 class cut.",
         "status": "pending",
         "priority": "medium",
-        "dependencies": ["4.2"],
+        "dependencies": [
+          "4.2"
+        ],
         "testStrategy": "Direct API calls to gated routes rejected without entitlement; UI and API report consistent state; expiration leaves core scan data fully accessible."
       }
     ]
@@ -268,17 +310,19 @@
     "id": "5",
     "title": "PHASE 5: First Vertical - Class Multi-User Concurrent Scan Workspaces",
     "description": "Prove the first Pro vertical with local multi-user identity, concurrent owned scans, cancel, and owner-scoped API keys/agents for ~19 class students.",
-    "details": "Capability identity.multi_user_local per documentation/dev-notes/pro-multi-user-isolation-plan.md. Required: concurrent owned scans (~19 students), cancel live job, latest workspace only, single UI replica, student API keys owner-scoped (default agent:enroll), agents visible only to owning student. Host ownership deferred; students Scanner-focused; shared inventory admin-only for students. Enterprise Reporting (reporting.enterprise) deferred to a later vertical. Full Phase 3.3–3.6 and Phase 4.x are NOT hard blockers for this class cut (thin static capability OK; harden contracts/issuer in parallel). Locked defaults: agent:enroll only; one active job/student; 24 workers / 32 target cap; revoke blocks enroll + reconnect.",
+    "details": "Capability identity.multi_user_local per documentation/dev-notes/pro-multi-user-isolation-plan.md. Required: concurrent owned scans (~19 students), cancel live job, latest workspace only, single UI replica, student API keys owner-scoped (default agent:enroll), agents visible only to owning student. Host ownership deferred; students Scanner-focused; shared inventory admin-only for students. Enterprise Reporting (reporting.enterprise) deferred to a later vertical. Full Phase 3.3\u20133.6 and Phase 4.x are NOT hard blockers for this class cut (thin static capability OK; harden contracts/issuer in parallel). Locked defaults: agent:enroll only; one active job/student; 24 workers / 32 target cap; revoke blocks enroll + reconnect.",
     "status": "in_progress",
     "priority": "high",
-    "dependencies": ["2"],
+    "dependencies": [
+      "2"
+    ],
     "subtasks": [
       {
         "id": "5.1",
         "title": "Identity foundation and student policy",
         "description": "Durable subjects, role/active, admin student CRUD, session-bound profile/password, Scanner-only student nav and adminProcedure gates.",
         "details": "Implementation slice 1 from pro-multi-user-isolation-plan.md: admin create/deactivate/reset student users; durable identity + subject_id + role/active; non-admin blank Scanner workspace; deny students shared inventory pages and raw store/queue; capability identity.multi_user_local for user-management UX (static range grant OK).",
-        "status": "in_progress",
+        "status": "done",
         "priority": "high",
         "dependencies": [],
         "testStrategy": "Admin provisions ~19 students; each fresh student login shows blank Scanner workspace; students cannot reach shared inventory or admin-only procedures; Community single-admin path still works."
@@ -287,31 +331,38 @@
         "id": "5.2",
         "title": "Owner-scoped API keys and agents",
         "description": "Student API keys with immutable OwnerSubjectID and agent:enroll default; key-gated enroll; owner-pinned agent tokens and scoped visibility/dispatch.",
-        "details": "Implementation slices 2–3: student create/list/revoke filtered by owner; deny student keys on shared inventory HTTP APIs; enrollment pins owner on AgentTokenMeta; replace global connected_agents student path with agents:connected:<subject>; dispatch/results require agent owner == scan owner; revoke blocks new enroll immediately and fails agents on next reconnect.",
-        "status": "pending",
+        "details": "Implementation slices 2\u20133: student create/list/revoke filtered by owner; deny student keys on shared inventory HTTP APIs; enrollment pins owner on AgentTokenMeta; replace global connected_agents student path with agents:connected:<subject>; dispatch/results require agent owner == scan owner; revoke blocks new enroll immediately and fails agents on next reconnect.",
+        "status": "in_progress",
         "priority": "high",
-        "dependencies": ["5.1"],
+        "dependencies": [
+          "5.1"
+        ],
         "testStrategy": "Students see only their keys/agents; Alice key/agent invisible and unusable to Bob; cross-owner dispatch fails closed; revoke blocks enroll + reconnect."
       },
       {
         "id": "5.3",
         "title": "Concurrent owned scans, Valkey workspace, and cancel",
         "description": "Per-job scanner JobContext registry, keyed Valkey state, owned scan gateway/UI, and exact-ID cancel isolation.",
-        "details": "Implementation slices 4–6: replace global currentScanID with jobs map; bounded shared worker pool (~24) and ~32 expanded-target cap; Valkey scan:latest/owner/state/status model; tRPC startOwnedScan/getLatestOwnedScan/cancelOwnedScan/forceStopOwnedScan/resetOwnedWorkspace; one active job per student with all students concurrent; Alice cancel never touches Bob same-IP job.",
+        "details": "Implementation slices 4\u20136: replace global currentScanID with jobs map; bounded shared worker pool (~24) and ~32 expanded-target cap; Valkey scan:latest/owner/state/status model; tRPC startOwnedScan/getLatestOwnedScan/cancelOwnedScan/forceStopOwnedScan/resetOwnedWorkspace; one active job per student with all students concurrent; Alice cancel never touches Bob same-IP job.",
         "status": "pending",
         "priority": "high",
-        "dependencies": ["5.1"],
+        "dependencies": [
+          "5.1"
+        ],
         "testStrategy": "Alice and Bob start same-IP scans with overlapping execution; each sees only latest owned results; Alice cancel stops only Alice; cross-owner scan_id status/cancel/reset returns NOT_FOUND/FORBIDDEN; 19-user smoke under class worker config."
       },
       {
         "id": "5.4",
         "title": "Pro packaging and class E2E proof",
         "description": "Private Pro composition overlay, Users UX + capability grant, and class acceptance E2E including concurrency and cross-owner probes.",
-        "details": "Implementation slice 7: Pro packaging for identity.multi_user_local; Users admin UX; digest-pinned overlay add/remove without damaging core data; E2E provision Alice/Bob → concurrent same-IP → cancel Alice → Bob completes → key/agent cross-owner probes → refresh workspace → student inventory probe fails. Community independence/leakage remain green.",
+        "details": "Implementation slice 7: Pro packaging for identity.multi_user_local; Users admin UX; digest-pinned overlay add/remove without damaging core data; E2E provision Alice/Bob \u2192 concurrent same-IP \u2192 cancel Alice \u2192 Bob completes \u2192 key/agent cross-owner probes \u2192 refresh workspace \u2192 student inventory probe fails. Community independence/leakage remain green.",
         "status": "pending",
         "priority": "high",
-        "dependencies": ["5.2", "5.3"],
-        "testStrategy": "Class acceptance criteria 1–12 from pro-multi-user-isolation-plan.md pass; Pro overlay add/remove preserves Community + core data; Community regression green against Pro deployment."
+        "dependencies": [
+          "5.2",
+          "5.3"
+        ],
+        "testStrategy": "Class acceptance criteria 1\u201312 from pro-multi-user-isolation-plan.md pass; Pro overlay add/remove preserves Community + core data; Community regression green against Pro deployment."
       }
     ]
   },
@@ -322,7 +373,9 @@
     "details": "core.lock.yaml digest pinning, automated dependency-update PRs, nightly compatibility runs, release manifests, and promotion-by-retag.",
     "status": "pending",
     "priority": "high",
-    "dependencies": ["5"],
+    "dependencies": [
+      "5"
+    ],
     "subtasks": [
       {
         "id": "6.1",
@@ -341,7 +394,9 @@
         "details": "Nightly compatibility failures alert Pro engineering before the next public release; upgrade-path matrix (Community N->N+1, Pro N->N+1, Community->Pro, expired->renewed, Pro->Community-only) runs on release candidates.",
         "status": "pending",
         "priority": "high",
-        "dependencies": ["6.1"],
+        "dependencies": [
+          "6.1"
+        ],
         "testStrategy": "All pipeline stages green on a release candidate; a deliberate contract break on public main is flagged by the nightly run."
       },
       {
@@ -351,7 +406,9 @@
         "details": "Manifest includes versions, digests, SBOM hashes, signatures, schema versions, supported upgrade sources, and compatibility range (Pro 1.x requires Core >=1.x.0 <1.(x+1).0).",
         "status": "pending",
         "priority": "medium",
-        "dependencies": ["6.2"],
+        "dependencies": [
+          "6.2"
+        ],
         "testStrategy": "Production digest matches the candidate-tested digest byte-for-byte; manifest validates against its schema in CI."
       },
       {
@@ -361,7 +418,9 @@
         "details": "Update documentation index, close out task statuses, record deviations, and merge feature/pro-bifurcation.",
         "status": "pending",
         "priority": "medium",
-        "dependencies": ["6.3"],
+        "dependencies": [
+          "6.3"
+        ],
         "testStrategy": "make lint-docs and make lint-index pass; all tasks resolved to done or explicitly deferred with rationale."
       }
     ]

@@ -332,7 +332,7 @@
         "title": "Owner-scoped API keys and agents",
         "description": "Student API keys with immutable OwnerSubjectID and agent:enroll default; key-gated enroll; owner-pinned agent tokens and scoped visibility/dispatch.",
         "details": "Implementation slices 2\u20133: student create/list/revoke filtered by owner; deny student keys on shared inventory HTTP APIs; enrollment pins owner on AgentTokenMeta; replace global connected_agents student path with agents:connected:<subject>; dispatch/results require agent owner == scan owner; revoke blocks new enroll immediately and fails agents on next reconnect.",
-        "status": "in_progress",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "5.1"
@@ -344,7 +344,7 @@
         "title": "Concurrent owned scans, Valkey workspace, and cancel",
         "description": "Per-job scanner JobContext registry, keyed Valkey state, owned scan gateway/UI, and exact-ID cancel isolation.",
         "details": "Implementation slices 4\u20136: replace global currentScanID with jobs map; bounded shared worker pool (~24) and ~32 expanded-target cap; Valkey scan:latest/owner/state/status model; tRPC startOwnedScan/getLatestOwnedScan/cancelOwnedScan/forceStopOwnedScan/resetOwnedWorkspace; one active job per student with all students concurrent; Alice cancel never touches Bob same-IP job.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": [
           "5.1"

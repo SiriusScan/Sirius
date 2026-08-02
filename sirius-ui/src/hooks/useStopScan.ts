@@ -29,11 +29,11 @@ const GRACEFUL_STOP_TIMEOUT = 10_000;
 const FORCE_STOP_TIMEOUT = 5_000;
 
 /**
- * Hook for stopping the currently running scan with three-tier escalation:
+ * Hook for stopping the caller's owned scan with three-tier escalation:
  *
- * Tier 1: Graceful stop (existing cancelScan) — sends cancel via RabbitMQ
- * Tier 2: Force stop — kills processes + directly resets ValKey state
- * Tier 3: Reset dashboard — purely clears ValKey state, no scanner interaction
+ * Tier 1: Graceful stop (cancelOwnedScan) — exact-id cancel via RabbitMQ
+ * Tier 2: Force stop — force_cancel + owned status/state update
+ * Tier 3: Reset workspace — clears scan:latest pointer (blank slate)
  */
 export function useStopScan() {
   const [isStopping, setIsStopping] = useState(false);
@@ -43,7 +43,6 @@ export function useStopScan() {
   const gracefulTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const forceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clean up timeouts on unmount
   useEffect(() => {
     return () => {
       if (gracefulTimeoutRef.current) clearTimeout(gracefulTimeoutRef.current);
@@ -51,34 +50,27 @@ export function useStopScan() {
     };
   }, []);
 
-  // --- Mutations ---
-
-  const cancelScanMutation = api.scanner.cancelScan.useMutation({
+  const cancelScanMutation = api.scanner.cancelOwnedScan.useMutation({
     onSuccess: (data) => {
       if (!data.success) {
         setError(data.error || data.message);
-        // If graceful stop failed, jump straight to force_available
         setStopStage("force_available");
         setIsStopping(false);
       }
-      // On success, keep isStopping true — we're waiting for status polling
-      // to confirm the scan actually stopped. The timeout handles escalation.
     },
     onError: (err) => {
       setError(err.message);
-      // API call itself failed — escalate to force_available immediately
       setStopStage("force_available");
       setIsStopping(false);
     },
   });
 
-  const forceStopMutation = api.scanner.forceStopScan.useMutation({
+  const forceStopMutation = api.scanner.forceStopOwnedScan.useMutation({
     onSuccess: (data) => {
       if (!data.success) {
         setError(data.error || data.message);
         setStopStage("reset_available");
       } else {
-        // Force stop succeeded — state should update via polling
         setError(null);
         setStopStage("idle");
       }
@@ -91,7 +83,7 @@ export function useStopScan() {
     },
   });
 
-  const resetScanMutation = api.scanner.resetScanState.useMutation({
+  const resetScanMutation = api.scanner.resetOwnedWorkspace.useMutation({
     onSuccess: (data) => {
       if (!data.success) {
         setError(data.error || data.message);
@@ -107,11 +99,10 @@ export function useStopScan() {
     },
   });
 
-  // --- Tier 1: Graceful Stop ---
+  const utils = api.useContext();
 
   const stopScan = useCallback(
     async (scanId?: string): Promise<StopScanResult> => {
-      // Clear any previous timeouts
       if (gracefulTimeoutRef.current) clearTimeout(gracefulTimeoutRef.current);
       if (forceTimeoutRef.current) clearTimeout(forceTimeoutRef.current);
 
@@ -119,9 +110,7 @@ export function useStopScan() {
       setError(null);
       setStopStage("stopping");
 
-      // Start the escalation timeout
       gracefulTimeoutRef.current = setTimeout(() => {
-        // If we're still in "stopping" stage after timeout, escalate
         setStopStage((current) => {
           if (current === "stopping") {
             return "force_available";
@@ -134,6 +123,7 @@ export function useStopScan() {
         const result = await cancelScanMutation.mutateAsync(
           scanId ? { scanId } : undefined
         );
+        await utils.scanner.getLatestOwnedScan.invalidate();
 
         return {
           success: result.success,
@@ -153,10 +143,8 @@ export function useStopScan() {
         };
       }
     },
-    [cancelScanMutation]
+    [cancelScanMutation, utils.scanner.getLatestOwnedScan]
   );
-
-  // --- Tier 2: Force Stop ---
 
   const forceStopScan = useCallback(
     async (scanId?: string): Promise<StopScanResult> => {
@@ -183,17 +171,19 @@ export function useStopScan() {
         if (forceTimeoutRef.current) clearTimeout(forceTimeoutRef.current);
 
         if (!result.success) {
-          // Server-side force stop returned failure — fall back to full reset (del)
           try {
             await resetScanMutation.mutateAsync();
+            await utils.scanner.getLatestOwnedScan.invalidate();
             setStopStage("idle");
             setError(null);
             setIsStopping(false);
-            return { success: true, message: "Scan state reset (fallback)" };
+            return { success: true, message: "Owned workspace reset (fallback)" };
           } catch {
-            // Fall through to original error handling
+            // Fall through
           }
         }
+
+        await utils.scanner.getLatestOwnedScan.invalidate();
 
         return {
           success: result.success,
@@ -203,13 +193,13 @@ export function useStopScan() {
       } catch (err) {
         if (forceTimeoutRef.current) clearTimeout(forceTimeoutRef.current);
 
-        // Server-side force stop threw — fall back to full reset (del)
         try {
           await resetScanMutation.mutateAsync();
+          await utils.scanner.getLatestOwnedScan.invalidate();
           setStopStage("idle");
           setError(null);
           setIsStopping(false);
-          return { success: true, message: "Scan state reset (fallback)" };
+          return { success: true, message: "Owned workspace reset (fallback)" };
         } catch {
           const errorMessage =
             err instanceof Error ? err.message : "Failed to force stop scan";
@@ -224,12 +214,8 @@ export function useStopScan() {
         }
       }
     },
-    [forceStopMutation, resetScanMutation]
+    [forceStopMutation, resetScanMutation, utils.scanner.getLatestOwnedScan]
   );
-
-  // --- Tier 3: Reset Dashboard ---
-  // Directly deletes the currentScan key from ValKey via scanner.resetScanState.
-  // Guaranteed to work if ValKey is up.
 
   const resetScan = useCallback(async (): Promise<StopScanResult> => {
     if (gracefulTimeoutRef.current) clearTimeout(gracefulTimeoutRef.current);
@@ -240,6 +226,7 @@ export function useStopScan() {
 
     try {
       const result = await resetScanMutation.mutateAsync();
+      await utils.scanner.getLatestOwnedScan.invalidate();
       if (result.success) {
         setStopStage("idle");
       }
@@ -260,9 +247,7 @@ export function useStopScan() {
         error: errorMessage,
       };
     }
-  }, [resetScanMutation]);
-
-  // --- Reset state when scan transitions away from cancelling ---
+  }, [resetScanMutation, utils.scanner.getLatestOwnedScan]);
 
   const handleScanStatusChange = useCallback(
     (status: string | undefined) => {
@@ -271,7 +256,6 @@ export function useStopScan() {
         status !== "running" &&
         status !== "cancelling"
       ) {
-        // Scan is no longer active — reset stop state
         if (gracefulTimeoutRef.current)
           clearTimeout(gracefulTimeoutRef.current);
         if (forceTimeoutRef.current) clearTimeout(forceTimeoutRef.current);
@@ -288,18 +272,13 @@ export function useStopScan() {
   }, []);
 
   return {
-    // Tier 1: Graceful stop
     stopScan,
-    // Tier 2: Force stop
     forceStopScan,
-    // Tier 3: Reset dashboard
     resetScan,
-    // State
     stopStage,
     isStopping,
     error,
     clearError,
-    // Called by parent when scan status changes (from polling)
     handleScanStatusChange,
     isSuccess: cancelScanMutation.isSuccess && !error,
   };

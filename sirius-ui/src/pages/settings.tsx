@@ -303,8 +303,8 @@ function APIKeysPanel() {
       {/* ── Generate new key form ────────────────────────────────── */}
       <form onSubmit={handleCreate} className="mb-8 max-w-lg">
         <p className="mb-3 text-sm text-gray-400">
-          API keys allow external tools to authenticate with the Sirius API. All
-          keys have full access.
+          API keys are for agent enrollment only. They cannot access inventory
+          or other HTTP API endpoints.
         </p>
         <div className="flex gap-2">
           <Input

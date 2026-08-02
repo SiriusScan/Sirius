@@ -3,7 +3,7 @@ module github.com/SiriusScan/sirius-api
 go 1.24.0
 
 require (
-	github.com/SiriusScan/go-api v0.0.20-0.20260731061449-ebd42f4239ec
+	github.com/SiriusScan/go-api v0.0.20-0.20260802041641-f3173703ebeb
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/gofiber/fiber/v2 v2.49.2
 	github.com/google/uuid v1.6.0
@@ -56,3 +56,5 @@ require (
 	gorm.io/driver/postgres v1.5.11 // indirect
 	gorm.io/gorm v1.25.12 // indirect
 )
+
+replace github.com/SiriusScan/go-api => ../../minor-projects/go-api

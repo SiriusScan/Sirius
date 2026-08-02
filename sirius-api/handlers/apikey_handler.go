@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"regexp"
+	"strings"
 
 	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/gofiber/fiber/v2"
@@ -18,9 +19,13 @@ type APIKeyHandler struct {
 
 // CreateKey generates a new API key, stores its metadata, and returns the raw
 // key exactly once in the response body.
+//
+// Class cut: every session-created key requires owner_subject_id and is always
+// scoped to agent:enroll (client-supplied broader scopes are ignored).
 func (h *APIKeyHandler) CreateKey(c *fiber.Ctx) error {
 	var body struct {
-		Label string `json:"label"`
+		Label          string `json:"label"`
+		OwnerSubjectID string `json:"owner_subject_id"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		body.Label = "Unnamed key"
@@ -29,14 +34,15 @@ func (h *APIKeyHandler) CreateKey(c *fiber.Ctx) error {
 		body.Label = "Unnamed key"
 	}
 
-	// Determine creator from the API key metadata (set by middleware).
-	createdBy := "system"
-	if label, ok := c.Locals("apikey_label").(string); ok && label != "" {
-		createdBy = label
+	ownerSubjectID := strings.TrimSpace(body.OwnerSubjectID)
+	if ownerSubjectID == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "owner_subject_id is required",
+		})
 	}
-	if meta, ok := c.Locals("apikey_meta").(store.APIKeyMeta); ok {
-		createdBy = meta.Label
-	}
+
+	// Use owner subject as created_by for ownership clarity.
+	createdBy := ownerSubjectID
 
 	rawKey, err := store.GenerateAPIKey()
 	if err != nil {
@@ -46,7 +52,10 @@ func (h *APIKeyHandler) CreateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	meta, err := store.StoreAPIKey(context.Background(), h.Store, rawKey, body.Label, createdBy)
+	// Class cut: force agent:enroll for all user-created keys.
+	scopes := []string{store.ScopeAgentEnroll}
+
+	meta, err := store.StoreAPIKey(context.Background(), h.Store, rawKey, body.Label, createdBy, ownerSubjectID, scopes)
 	if err != nil {
 		slog.Error("Failed to store API key", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -54,7 +63,7 @@ func (h *APIKeyHandler) CreateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	slog.Info("API key created", "label", body.Label, "prefix", meta.Prefix)
+	slog.Info("API key created", "label", body.Label, "prefix", meta.Prefix, "owner", ownerSubjectID)
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"key":     rawKey, // Only time the raw key is returned.
@@ -63,9 +72,19 @@ func (h *APIKeyHandler) CreateKey(c *fiber.Ctx) error {
 	})
 }
 
-// ListKeys returns metadata for all stored API keys.
+// ListKeys returns metadata for API keys.
+// When owner_subject_id is provided, only that owner's keys are returned;
+// otherwise all keys are listed (admin path).
 func (h *APIKeyHandler) ListKeys(c *fiber.Ctx) error {
-	keys, err := store.ListAPIKeys(context.Background(), h.Store)
+	ownerSubjectID := strings.TrimSpace(c.Query("owner_subject_id"))
+
+	var keys []store.APIKeyMeta
+	var err error
+	if ownerSubjectID != "" {
+		keys, err = store.ListAPIKeysByOwner(context.Background(), h.Store, ownerSubjectID)
+	} else {
+		keys, err = store.ListAPIKeys(context.Background(), h.Store)
+	}
 	if err != nil {
 		slog.Error("Failed to list API keys", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -79,6 +98,9 @@ func (h *APIKeyHandler) ListKeys(c *fiber.Ctx) error {
 }
 
 // RevokeKey deletes an API key by its hash ID.
+// When owner_subject_id is provided, revoke is allowed only if the key is owned
+// by that subject. Legacy keys with empty OwnerSubjectID may only be revoked
+// via the admin path (owner_subject_id omitted).
 func (h *APIKeyHandler) RevokeKey(c *fiber.Ctx) error {
 	keyID := c.Params("id")
 	if keyID == "" {
@@ -92,11 +114,21 @@ func (h *APIKeyHandler) RevokeKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// Enforce stable response contract: unknown key IDs return 404.
-	if _, err := h.Store.GetValue(context.Background(), "apikey:"+keyID); err != nil {
+	ownerSubjectID := strings.TrimSpace(c.Query("owner_subject_id"))
+
+	meta, err := store.GetAPIKeyMeta(context.Background(), h.Store, keyID)
+	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "api key not found",
 		})
+	}
+
+	if ownerSubjectID != "" {
+		if meta.OwnerSubjectID == "" || meta.OwnerSubjectID != ownerSubjectID {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "not allowed to revoke this API key",
+			})
+		}
 	}
 
 	if err := store.RevokeAPIKey(context.Background(), h.Store, keyID); err != nil {

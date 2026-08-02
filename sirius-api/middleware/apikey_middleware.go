@@ -43,11 +43,27 @@ func APIKeyMiddleware(kvStore store.KVStore, rootKey string) fiber.Handler {
 			})
 		}
 
+		// Scoped keys (e.g. agent:enroll) are for gRPC enrollment, not HTTP APIs.
+		if scopedKeyForbidden(c.Path(), meta) {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "API key scope does not allow this endpoint",
+			})
+		}
+
 		// Store metadata in request locals for downstream handlers.
 		c.Locals("auth_mode", "valkey")
 		c.Locals("apikey_meta", meta)
 		return c.Next()
 	}
+}
+
+// scopedKeyForbidden reports whether a scoped API key must be denied for the
+// given HTTP path. Class cut: any explicitly scoped key is denied on all
+// authenticated HTTP routes (agent:enroll is used via gRPC in a later slice).
+// Legacy unscoped keys (empty Scopes) keep full access.
+func scopedKeyForbidden(path string, meta store.APIKeyMeta) bool {
+	_ = path // reserved for future path allowlists
+	return store.IsScoped(meta)
 }
 
 // isPublicHealthProbe reports the sole unauthenticated Community probe:

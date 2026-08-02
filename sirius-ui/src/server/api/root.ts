@@ -3,6 +3,7 @@ import { vulnerabilityRouter } from "~/server/api/routers/vulnerability";
 import { storeRouter } from "~/server/api/routers/store";
 import { queueRouter } from "~/server/api/routers/queue";
 import { userRouter } from "~/server/api/routers/user";
+import { adminUsersRouter } from "~/server/api/routers/adminUsers";
 import { terminalRouter } from "~/server/api/routers/terminal";
 import { agentRouter } from "~/server/api/routers/agent";
 import { scannerRouter } from "~/server/api/routers/scanner";
@@ -28,6 +29,7 @@ export const appRouter = createTRPCRouter({
   store: storeRouter,
   queue: queueRouter,
   user: userRouter,
+  adminUsers: adminUsersRouter,
   terminal: terminalRouter,
   agent: agentRouter,
   scanner: scannerRouter,

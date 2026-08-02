@@ -1,6 +1,6 @@
 import { z } from "zod";
 import axios from "axios";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import { apiClient } from "~/server/api/shared/apiClient";
 
 /**
@@ -37,7 +37,7 @@ export const eventsRouter = createTRPCRouter({
   /**
    * Get events with optional filters
    */
-  getEvents: protectedProcedure
+  getEvents: staffProcedure
     .input(
       z
         .object({
@@ -97,7 +97,7 @@ export const eventsRouter = createTRPCRouter({
   /**
    * Get event statistics
    */
-  getEventStats: protectedProcedure.query(async () => {
+  getEventStats: staffProcedure.query(async () => {
     try {
       const response = await apiClient.get<EventStats>(
         "/api/v1/events/stats"
@@ -118,7 +118,7 @@ export const eventsRouter = createTRPCRouter({
   /**
    * Get recent events (convenience method)
    */
-  getRecentEvents: protectedProcedure
+  getRecentEvents: staffProcedure
     .input(
       z
         .object({
@@ -160,7 +160,7 @@ export const eventsRouter = createTRPCRouter({
   /**
    * Get events by severity
    */
-  getEventsBySeverity: protectedProcedure
+  getEventsBySeverity: staffProcedure
     .input(
       z.object({
         severity: z.enum(["info", "warning", "error", "critical"]),

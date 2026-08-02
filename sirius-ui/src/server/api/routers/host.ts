@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import { storeMockHosts } from "./shared-mock-data";
 import { type VulnerabilitySeverityCounts } from "~/components/VulnerabilityBarGraph";
 import { apiClient as httpClient } from "~/server/api/shared/apiClient";
@@ -349,7 +349,7 @@ export type PortWithSource = {
 
 export const hostRouter = createTRPCRouter({
   // Create a new host in the environment
-  createHost: protectedProcedure
+  createHost: staffProcedure
     .input(
       z.object({
         ip: z.string().min(1, "IP address is required"),
@@ -410,7 +410,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get a simple list of hosts (IP + hostname) for selectors
-  getHostList: protectedProcedure.query(async () => {
+  getHostList: staffProcedure.query(async () => {
     try {
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostListRaw = response.data;
@@ -430,7 +430,7 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Update an existing host
-  updateHost: protectedProcedure
+  updateHost: staffProcedure
     .input(
       z.object({
         ip: z.string().min(1, "IP address is required"),
@@ -468,7 +468,7 @@ export const hostRouter = createTRPCRouter({
       }
     }),
 
-  getHost: protectedProcedure
+  getHost: staffProcedure
     .input(z.object({ hid: z.string() }))
     .query(async ({ input }) => {
       const { hid } = input;
@@ -488,7 +488,7 @@ export const hostRouter = createTRPCRouter({
       }
     }),
 
-  getHostStatistics: protectedProcedure
+  getHostStatistics: staffProcedure
     .input(z.object({ hid: z.string() }))
     .query(async ({ input }) => {
       const { hid } = input;
@@ -496,7 +496,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Retrieve a EnvironmentTableData[] with the statistics for each host
-  getEnvironmentSummary: protectedProcedure.query(async () => {
+  getEnvironmentSummary: staffProcedure.query(async () => {
     try {
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostListRaw = response.data;
@@ -608,7 +608,7 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Retrieve all host/environment data
-  getAllHosts: protectedProcedure.query(async () => {
+  getAllHosts: staffProcedure.query(async () => {
     try {
       // Call to Go API
       const response = await httpClient.get<SiriusHost[]>("host/");
@@ -663,7 +663,7 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Get source coverage statistics
-  getSourceCoverage: protectedProcedure.query(async () => {
+  getSourceCoverage: staffProcedure.query(async () => {
     try {
       const response = await httpClient.get("host/source-coverage");
       // The API returns { source_coverage_stats: [...], total_sources: n }
@@ -680,7 +680,7 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Get host with source attribution (deduplicated data)
-  getHostWithSources: protectedProcedure
+  getHostWithSources: staffProcedure
     .input(z.object({ ip: z.string() }))
     .query(async ({ input }) => {
       const { ip } = input;
@@ -703,7 +703,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host software inventory (packages)
-  getHostSoftwareInventory: protectedProcedure
+  getHostSoftwareInventory: staffProcedure
     .input(
       z.object({
         ip: z.string(),
@@ -739,7 +739,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host software statistics
-  getHostSoftwareStats: protectedProcedure
+  getHostSoftwareStats: staffProcedure
     .input(z.object({ ip: z.string() }))
     .query(async ({ input }) => {
       const { ip } = input;
@@ -757,7 +757,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host system fingerprint
-  getHostSystemFingerprint: protectedProcedure
+  getHostSystemFingerprint: staffProcedure
     .input(z.object({ ip: z.string() }))
     .query(async ({ input }) => {
       const { ip } = input;
@@ -775,7 +775,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get enhanced host data with SBOM and fingerprint information
-  getEnhancedHostData: protectedProcedure
+  getEnhancedHostData: staffProcedure
     .input(
       z.object({
         ip: z.string(),
@@ -811,7 +811,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host system fingerprint data
-  getHostSystemFingerprint: protectedProcedure
+  getHostSystemFingerprint: staffProcedure
     .input(z.object({ ip: z.string() }))
     .query(async ({ input }) => {
       const { ip } = input;
@@ -829,7 +829,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get enhanced software statistics for environment overview
-  getEnvironmentSoftwareStats: protectedProcedure.query(async () => {
+  getEnvironmentSoftwareStats: staffProcedure.query(async () => {
     try {
       // Get all hosts first
       const hostsResponse = await httpClient.get<SiriusHost[]>("host/");
@@ -913,7 +913,7 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Get template detection results for a host
-  getHostTemplateResults: protectedProcedure
+  getHostTemplateResults: staffProcedure
     .input(z.object({ ip: z.string() }))
     .query(async ({ input }) => {
       const { ip } = input;
@@ -951,7 +951,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get environment-wide software inventory with aggregation and filtering
-  getEnvironmentSoftwareInventory: protectedProcedure
+  getEnvironmentSoftwareInventory: staffProcedure
     .input(
       z.object({
         search: z.string().optional(),
@@ -1145,7 +1145,7 @@ export const hostRouter = createTRPCRouter({
   // ── Host History ──────────────────────────────────────────────────────────
 
   /** Fetch the scan-activity timeline for a single host. */
-  getHostHistory: protectedProcedure
+  getHostHistory: staffProcedure
     .input(z.object({ ip: z.string().min(1) }))
     .query(async ({ input }) => {
       try {
@@ -1171,7 +1171,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   /** Fetch the source history for a specific vulnerability on a host. */
-  getVulnerabilityHistory: protectedProcedure
+  getVulnerabilityHistory: staffProcedure
     .input(
       z.object({
         ip: z.string().min(1),

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import axios from "axios";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import { apiClient } from "~/server/api/shared/apiClient";
 
 /**
@@ -53,7 +53,7 @@ export const statisticsRouter = createTRPCRouter({
   /**
    * Create a snapshot of current vulnerability counts
    */
-  createSnapshot: protectedProcedure.mutation(async () => {
+  createSnapshot: staffProcedure.mutation(async () => {
     try {
       const response = await apiClient.post<{
         message: string;
@@ -79,7 +79,7 @@ export const statisticsRouter = createTRPCRouter({
   /**
    * Get vulnerability trends over time (from snapshots)
    */
-  getVulnerabilityTrends: protectedProcedure
+  getVulnerabilityTrends: staffProcedure
     .input(
       z
         .object({
@@ -122,7 +122,7 @@ export const statisticsRouter = createTRPCRouter({
   /**
    * List all snapshots
    */
-  listSnapshots: protectedProcedure
+  listSnapshots: staffProcedure
     .input(
       z
         .object({
@@ -155,7 +155,7 @@ export const statisticsRouter = createTRPCRouter({
   /**
    * Get most vulnerable hosts
    */
-  getMostVulnerableHosts: protectedProcedure
+  getMostVulnerableHosts: staffProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(20).optional().default(5),

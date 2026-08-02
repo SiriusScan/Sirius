@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
 // Script interfaces
@@ -44,7 +44,7 @@ const scriptSchema = z.object({
 
 export const scriptsRouter = createTRPCRouter({
   // Get all scripts
-  getScripts: protectedProcedure.query(async () => {
+  getScripts: staffProcedure.query(async () => {
     try {
       const response = await apiFetch(`${API_BASE_URL}/scripts`);
 
@@ -61,7 +61,7 @@ export const scriptsRouter = createTRPCRouter({
   }),
 
   // Get a single script by ID (with content)
-  getScript: protectedProcedure
+  getScript: staffProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
       try {
@@ -83,7 +83,7 @@ export const scriptsRouter = createTRPCRouter({
     }),
 
   // Update script content
-  updateScript: protectedProcedure
+  updateScript: staffProcedure
     .input(
       z.object({
         id: z.string(),
@@ -111,7 +111,7 @@ export const scriptsRouter = createTRPCRouter({
     }),
 
   // Create a new custom script
-  createScript: protectedProcedure
+  createScript: staffProcedure
     .input(scriptSchema)
     .mutation(async ({ input }) => {
       try {
@@ -134,7 +134,7 @@ export const scriptsRouter = createTRPCRouter({
     }),
 
   // Delete a custom script
-  deleteScript: protectedProcedure
+  deleteScript: staffProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       try {

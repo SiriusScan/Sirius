@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
 const listInput = z.object({
@@ -13,7 +13,7 @@ const listInput = z.object({
 
 export const logsRouter = createTRPCRouter({
   /** Proxies GET /api/v1/logs with session auth (no internal key in the browser). */
-  list: protectedProcedure.input(listInput).query(async ({ input }) => {
+  list: staffProcedure.input(listInput).query(async ({ input }) => {
     const params = new URLSearchParams();
     if (input.service) params.append("service", input.service);
     if (input.level) params.append("level", input.level);
@@ -37,7 +37,7 @@ export const logsRouter = createTRPCRouter({
     }>;
   }),
 
-  stats: protectedProcedure.query(async () => {
+  stats: staffProcedure.query(async () => {
     const url = `${API_BASE_URL}/api/v1/logs/stats`;
     const res = await apiFetch(url, { method: "GET" });
     if (!res.ok) {

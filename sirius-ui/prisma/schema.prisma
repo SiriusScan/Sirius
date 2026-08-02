@@ -12,24 +12,35 @@ datasource db {
     url      = "file:./dev.db"
 }
 
+/// Application identity (NextAuth). Distinct from host OS account rows in Postgres.
 model User {
-    id       Int    @id @default(autoincrement())
-    name     String @unique
-    email    String @unique
-    password String
+    id                 Int      @id @default(autoincrement())
+    /// Stable opaque subject used for scan/API-key/agent ownership (e.g. local:admin).
+    subjectId          String   @unique @map("subject_id")
+    name               String   @unique
+    email              String   @unique
+    password           String
+    /// admin | student
+    role               String   @default("student")
+    active             Boolean  @default(true)
+    mustChangePassword Boolean  @default(false) @map("must_change_password")
+    /// Incremented on password reset / deactivate to invalidate JWTs.
+    sessionVersion     Int      @default(0) @map("session_version")
+    createdAt          DateTime @default(now()) @map("created_at")
+    updatedAt          DateTime @updatedAt @map("updated_at")
 
     @@map("users")
 }
 
 model Host {
-    id           Int             @id @default(autoincrement())
-    ip           String          @unique
-    hostname     String?
-    os           String?
-    ports        Port[]
+    id              Int             @id @default(autoincrement())
+    ip              String          @unique
+    hostname        String?
+    os              String?
+    ports           Port[]
     vulnerabilities Vulnerability[]
-    createdAt    DateTime        @default(now())
-    updatedAt    DateTime        @updatedAt
+    createdAt       DateTime        @default(now())
+    updatedAt       DateTime        @updatedAt
 
     @@map("hosts")
 }
@@ -49,7 +60,7 @@ model Port {
 
 model Vulnerability {
     id          Int      @id @default(autoincrement())
-    vid         String   // Vulnerability ID (e.g., CVE-2021-1234)
+    vid         String // Vulnerability ID (e.g., CVE-2021-1234)
     title       String
     description String
     severity    String
@@ -65,8 +76,8 @@ model Vulnerability {
 model Scan {
     id        Int      @id @default(autoincrement())
     target    String
-    status    String   // pending, running, completed, failed
-    results   String?  // JSON string of scan results
+    status    String // pending, running, completed, failed
+    results   String? // JSON string of scan results
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 

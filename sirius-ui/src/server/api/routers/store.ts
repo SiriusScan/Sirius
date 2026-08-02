@@ -1,4 +1,4 @@
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import { z } from "zod";
 import { valkey } from "~/server/valkey";
 import { canonicalizeScriptId as normalizeScriptId } from "~/utils/nseScriptIds";
@@ -142,7 +142,7 @@ const DEFAULT_REPOSITORIES = [
 export const storeRouter = createTRPCRouter({
   // Initialize NSE scripts from the sirius-nse repository
   // Read NSE scripts status from ValKey (populated by scanner at startup)
-  initializeNseScripts: protectedProcedure.mutation(async () => {
+  initializeNseScripts: staffProcedure.mutation(async () => {
     try {
       // ✅ CORRECT: Read from ValKey (scanner populates this at startup)
       // The scanner manages the sirius-nse repository and syncs to ValKey
@@ -188,7 +188,7 @@ export const storeRouter = createTRPCRouter({
   }),
 
   // Returns the value of a key in the store
-  getValue: protectedProcedure
+  getValue: staffProcedure
     .input(z.object({ key: z.string() }))
     .query(async ({ input }) => {
       const { key } = input;
@@ -200,7 +200,7 @@ export const storeRouter = createTRPCRouter({
     }),
 
   // Sets the value of a key in the store
-  setValue: protectedProcedure
+  setValue: staffProcedure
     .input(z.object({ key: z.string(), value: z.string() }))
     .mutation(async ({ input }) => {
       const { key, value } = input;
@@ -212,7 +212,7 @@ export const storeRouter = createTRPCRouter({
     }),
 
   // Get NSE scripts from the manifest
-  getNseScripts: protectedProcedure.query(async () => {
+  getNseScripts: staffProcedure.query(async () => {
     try {
       // Get the manifest first
       const manifestData = await valkey.get(NSE_MANIFEST_KEY);
@@ -299,7 +299,7 @@ export const storeRouter = createTRPCRouter({
     }
   }),
 
-  getNseScript: protectedProcedure
+  getNseScript: staffProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
       try {
@@ -358,7 +358,7 @@ export const storeRouter = createTRPCRouter({
       }
     }),
 
-  updateNseScript: protectedProcedure
+  updateNseScript: staffProcedure
     .input(
       z.object({
         id: z.string(),
@@ -423,7 +423,7 @@ export const storeRouter = createTRPCRouter({
     }),
 
   // Create a new NSE script (adds to manifest + stores content)
-  createNseScript: protectedProcedure
+  createNseScript: staffProcedure
     .input(
       z.object({
         id: z.string().min(1, "Script ID is required"),
@@ -498,7 +498,7 @@ export const storeRouter = createTRPCRouter({
     }),
 
   // Delete an NSE script (removes from manifest + deletes content)
-  deleteNseScript: protectedProcedure
+  deleteNseScript: staffProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       try {
@@ -535,7 +535,7 @@ export const storeRouter = createTRPCRouter({
     }),
 
   // Repository management procedures
-  getNseRepositories: protectedProcedure.query(async () => {
+  getNseRepositories: staffProcedure.query(async () => {
     try {
       const repoData = await valkey.get(NSE_REPO_MANIFEST_KEY);
       if (!repoData) {
@@ -551,7 +551,7 @@ export const storeRouter = createTRPCRouter({
     }
   }),
 
-  addNseRepository: protectedProcedure
+  addNseRepository: staffProcedure
     .input(
       z.object({
         name: z.string().min(1, "Repository name is required"),
@@ -597,7 +597,7 @@ export const storeRouter = createTRPCRouter({
       }
     }),
 
-  removeNseRepository: protectedProcedure
+  removeNseRepository: staffProcedure
     .input(
       z.object({
         name: z.string(),
@@ -643,7 +643,7 @@ export const storeRouter = createTRPCRouter({
     }),
 
   // Initialize repositories (if none exist)
-  initializeNseRepositories: protectedProcedure.mutation(async () => {
+  initializeNseRepositories: staffProcedure.mutation(async () => {
     try {
       // Check if repositories already exist
       const repoData = await valkey.get(NSE_REPO_MANIFEST_KEY);

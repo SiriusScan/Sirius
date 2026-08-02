@@ -108,14 +108,58 @@ export const createTRPCRouter = t.router;
 export const publicProcedure = t.procedure;
 
 /** Reusable middleware that enforces users are logged in before running the procedure. */
-const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
+const enforceUserIsAuthed = t.middleware(async ({ ctx, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
+
+  const userId = Number(ctx.session.user.id);
+  if (!Number.isFinite(userId) || userId <= 0) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+
+  const dbUser = await ctx.prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      subjectId: true,
+      role: true,
+      active: true,
+      sessionVersion: true,
+      mustChangePassword: true,
+      name: true,
+      email: true,
+    },
+  });
+
+  if (!dbUser || !dbUser.active) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+
+  if (dbUser.sessionVersion !== (ctx.session.user.sessionVersion ?? 0)) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Session revoked; please sign in again",
+    });
+  }
+
+  const role = dbUser.role === "admin" ? "admin" : "student";
+
   return next({
     ctx: {
-      // infers the `session` as non-nullable
-      session: { ...ctx.session, user: ctx.session.user },
+      session: {
+        ...ctx.session,
+        user: {
+          ...ctx.session.user,
+          id: String(dbUser.id),
+          subjectId: dbUser.subjectId,
+          role,
+          sessionVersion: dbUser.sessionVersion,
+          mustChangePassword: dbUser.mustChangePassword,
+          name: dbUser.name,
+          email: dbUser.email,
+        },
+      },
     },
   });
 });
@@ -129,3 +173,29 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
  * @see https://trpc.io/docs/procedures
  */
 export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);
+
+/** Admin-only procedure (role === admin). */
+export const adminProcedure = t.procedure
+  .use(enforceUserIsAuthed)
+  .use(({ ctx, next }) => {
+    if (ctx.session.user.role !== "admin") {
+      throw new TRPCError({ code: "FORBIDDEN" });
+    }
+    return next({ ctx });
+  });
+
+/**
+ * Authenticated non-student procedure (class cut: inventory/ops are admin-only).
+ * Students use owned-scan procedures instead.
+ */
+export const staffProcedure = t.procedure
+  .use(enforceUserIsAuthed)
+  .use(({ ctx, next }) => {
+    if (ctx.session.user.role === "student") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Not available for student accounts",
+      });
+    }
+    return next({ ctx });
+  });

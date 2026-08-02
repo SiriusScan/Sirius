@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import VulnerabilityIcon from "./icons/VulnerabilityIcon";
 import EnvironmentIcon from "./icons/EnvironmentIcon";
@@ -8,36 +9,49 @@ import ScanIcon from "./icons/ScanIcon";
 import AgentIcon from "./icons/AgentIcon";
 import SiriusIcon from "./icons/SiriusIcon";
 
-const navigationItems = [
+const allNavigationItems = [
   {
     name: "Scanner",
     href: "/scanner",
     matchPaths: ["/scanner"],
     icon: ScanIcon,
+    studentVisible: true,
   },
   {
     name: "Vulnerabilities",
     href: "/vulnerabilities",
     matchPaths: ["/vulnerabilities", "/vulnerability"],
     icon: VulnerabilityIcon,
+    studentVisible: false,
   },
   {
     name: "Environment",
     href: "/environment",
     matchPaths: ["/environment", "/host"],
     icon: EnvironmentIcon,
+    studentVisible: false,
   },
   {
     name: "Terminal",
     href: "/terminal",
     matchPaths: ["/terminal"],
     icon: AgentIcon,
+    studentVisible: false,
   },
 ];
 
 const Sidebar = () => {
   const router = useRouter();
+  const { data: session } = useSession();
   const [mounted, setMounted] = useState(false);
+  const isStudent = session?.user?.role === "student";
+  const navigationItems = useMemo(
+    () =>
+      isStudent
+        ? allNavigationItems.filter((item) => item.studentVisible)
+        : allNavigationItems,
+    [isStudent]
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -49,7 +63,7 @@ const Sidebar = () => {
         {/* Sirius Logo */}
         <Tooltip.Root>
           <Tooltip.Trigger asChild>
-            <Link href="/dashboard" passHref>
+            <Link href={isStudent ? "/scanner" : "/dashboard"} passHref>
               <div
                 className={`
                   group relative mb-2 flex h-16 w-16 cursor-pointer items-center justify-center 
@@ -65,7 +79,9 @@ const Sidebar = () => {
                 }}
               >
                 {/* Clean background for logo - only when selected */}
-                {router.pathname.startsWith("/dashboard") && (
+                {(isStudent
+                  ? router.pathname.startsWith("/scanner")
+                  : router.pathname.startsWith("/dashboard")) && (
                   <>
                     {/* Main background with softer glassmorphism */}
                     <div className="from-violet-500/15 to-purple-600/15 absolute inset-0 rounded-xl bg-gradient-to-br via-violet-600/10 backdrop-blur-sm" />

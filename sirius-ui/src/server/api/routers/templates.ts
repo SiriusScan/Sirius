@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import type { AgentScanConfig } from "~/types/scanTypes";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
@@ -60,7 +60,7 @@ const templateSchema = z.object({
 
 export const templatesRouter = createTRPCRouter({
   // Get all templates
-  getTemplates: protectedProcedure.query(async () => {
+  getTemplates: staffProcedure.query(async () => {
     try {
       const response = await apiFetch(`${API_BASE_URL}/templates`);
 
@@ -77,7 +77,7 @@ export const templatesRouter = createTRPCRouter({
   }),
 
   // Get a single template by ID
-  getTemplate: protectedProcedure
+  getTemplate: staffProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
       try {
@@ -99,7 +99,7 @@ export const templatesRouter = createTRPCRouter({
     }),
 
   // Create a new template
-  createTemplate: protectedProcedure
+  createTemplate: staffProcedure
     .input(templateSchema.omit({ created_at: true, updated_at: true }))
     .mutation(async ({ input }) => {
       try {
@@ -122,7 +122,7 @@ export const templatesRouter = createTRPCRouter({
     }),
 
   // Update an existing template
-  updateTemplate: protectedProcedure
+  updateTemplate: staffProcedure
     .input(templateSchema.partial().extend({ id: z.string() }))
     .mutation(async ({ input }) => {
       try {
@@ -145,7 +145,7 @@ export const templatesRouter = createTRPCRouter({
     }),
 
   // Delete a template
-  deleteTemplate: protectedProcedure
+  deleteTemplate: staffProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       try {

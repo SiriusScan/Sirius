@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   createTRPCRouter,
-  protectedProcedure,
+  staffProcedure,
 } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { handleSendMsg, waitForResponse } from "./queue";
@@ -24,7 +24,7 @@ export type AgentWithHost = {
 
 export const agentRouter = createTRPCRouter({
   // Get list of agents with their associated host information
-  listAgentsWithHosts: protectedProcedure.query(async ({ ctx }) => {
+  listAgentsWithHosts: staffProcedure.query(async ({ ctx }) => {
     try {
       let connectedAgentIds: string[] = [];
       try {
@@ -131,7 +131,7 @@ export const agentRouter = createTRPCRouter({
   }),
 
   // Get detailed information for a specific agent
-  getAgentDetails: protectedProcedure
+  getAgentDetails: staffProcedure
     .input(z.object({ agentId: z.string() }))
     .query(async ({ input }) => {
       try {
@@ -183,7 +183,7 @@ export const agentRouter = createTRPCRouter({
     }),
 
   // Get all templates from the agent
-  getTemplates: protectedProcedure.query(async ({ ctx }) => {
+  getTemplates: staffProcedure.query(async ({ ctx }) => {
     try {
       const message = JSON.stringify({
         action: "list_templates",
@@ -223,7 +223,7 @@ export const agentRouter = createTRPCRouter({
   }),
 
   // Discover templates from all sources
-  discoverTemplates: protectedProcedure.query(async ({ ctx }) => {
+  discoverTemplates: staffProcedure.query(async ({ ctx }) => {
     try {
       const message = JSON.stringify({
         action: "discover_templates",
@@ -276,7 +276,7 @@ export const agentRouter = createTRPCRouter({
   }),
 
   // NEW: Get templates directly from ValKey
-  getTemplatesFromValKey: protectedProcedure.query(async ({ ctx }) => {
+  getTemplatesFromValKey: staffProcedure.query(async ({ ctx }) => {
     try {
       // Import IOValkey client
       const IOValkey = (await import("iovalkey")).default;
@@ -358,7 +358,7 @@ export const agentRouter = createTRPCRouter({
   }),
 
   // NEW: Discover templates directly from ValKey
-  discoverTemplatesFromValKey: protectedProcedure.query(async ({ ctx }) => {
+  discoverTemplatesFromValKey: staffProcedure.query(async ({ ctx }) => {
     try {
       // Import IOValkey client
       const IOValkey = (await import("iovalkey")).default;
@@ -492,7 +492,7 @@ export const agentRouter = createTRPCRouter({
   }),
 
   // NEW: Get individual template with full content
-  getTemplateContent: protectedProcedure
+  getTemplateContent: staffProcedure
     .input(z.object({ templateId: z.string() }))
     .query(async ({ input }) => {
       try {
@@ -554,7 +554,7 @@ export const agentRouter = createTRPCRouter({
     }),
 
   // NEW: Get scripts directly from ValKey
-  getScriptsFromValKey: protectedProcedure.query(async ({ ctx }) => {
+  getScriptsFromValKey: staffProcedure.query(async ({ ctx }) => {
     try {
       // Import IOValkey client
       const IOValkey = (await import("iovalkey")).default;
@@ -634,7 +634,7 @@ export const agentRouter = createTRPCRouter({
   }),
 
   // NEW: Discover scripts directly from ValKey
-  discoverScriptsFromValKey: protectedProcedure.query(async ({ ctx }) => {
+  discoverScriptsFromValKey: staffProcedure.query(async ({ ctx }) => {
     try {
       // Import IOValkey client
       const IOValkey = (await import("iovalkey")).default;
@@ -762,7 +762,7 @@ export const agentRouter = createTRPCRouter({
   }),
 
   // NEW: Get individual script with full content
-  getScriptContent: protectedProcedure
+  getScriptContent: staffProcedure
     .input(z.object({ scriptId: z.string() }))
     .query(async ({ input }) => {
       try {

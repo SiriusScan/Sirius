@@ -5,15 +5,17 @@ import {
   type NextAuthOptions,
   type DefaultSession,
 } from "next-auth";
+import { type JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 
 import { env } from "~/env.mjs";
 import { prisma } from "~/server/db";
 import bcrypt from "bcrypt";
 
+export type UserRole = "admin" | "student";
+
 /**
- * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
- * object and keep type safety.
+ * Module augmentation for `next-auth` types.
  *
  * @see https://next-auth.js.org/getting-started/typescript#module-augmentation
  */
@@ -21,42 +23,31 @@ declare module "next-auth" {
   interface Session extends DefaultSession {
     user: DefaultSession["user"] & {
       id: string;
-      // ...other properties
-      // role: UserRole;
+      subjectId: string;
+      role: UserRole;
+      sessionVersion: number;
+      mustChangePassword: boolean;
     };
   }
 
-  // interface User {
-  //   // ...other properties
-  //   // role: UserRole;
-  // }
+  interface User {
+    subjectId: string;
+    role: UserRole;
+    sessionVersion: number;
+    mustChangePassword: boolean;
+  }
 }
 
-/**
- * Get the appropriate NextAuth URL based on environment
- * This fixes the localhost redirect issue by using the request host
- */
-const getNextAuthUrl = (req?: any): string => {
-  // In production or when NEXTAUTH_URL is explicitly set, use that
-  if (process.env.NEXTAUTH_URL && process.env.NODE_ENV === "production") {
-    return process.env.NEXTAUTH_URL;
+declare module "next-auth/jwt" {
+  interface JWT {
+    subjectId?: string;
+    role?: UserRole;
+    sessionVersion?: number;
+    mustChangePassword?: boolean;
   }
+}
 
-  // For development, try to get the host from the request
-  if (req && req.headers) {
-    const host = req.headers.host;
-    const protocol =
-      req.headers["x-forwarded-proto"] ||
-      (req.connection?.encrypted ? "https" : "http");
-
-    if (host) {
-      return `${protocol}://${host}`;
-    }
-  }
-
-  // Fallback to localhost for local development
-  return process.env.NEXTAUTH_URL || "http://localhost:3000";
-};
+const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60; // 8 hours
 
 /**
  * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
@@ -67,28 +58,69 @@ export const authOptions: NextAuthOptions = {
   secret: env.NEXTAUTH_SECRET || undefined,
   session: {
     strategy: "jwt",
-    maxAge: 100 * 365 * 24 * 60 * 60, // 100 years in seconds - effectively indefinite
+    maxAge: SESSION_MAX_AGE_SECONDS,
   },
   callbacks: {
+    async jwt({ token, user, trigger }): Promise<JWT> {
+      if (user) {
+        token.sub = String(user.id);
+        token.subjectId = user.subjectId;
+        token.role = user.role;
+        token.sessionVersion = user.sessionVersion;
+        token.mustChangePassword = user.mustChangePassword;
+      }
+
+      // Client session.update() — refresh identity flags from DB (e.g. after password change).
+      if (trigger === "update" && token.sub) {
+        const userId = Number(token.sub);
+        if (Number.isFinite(userId) && userId > 0) {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+              subjectId: true,
+              role: true,
+              sessionVersion: true,
+              mustChangePassword: true,
+              active: true,
+              name: true,
+              email: true,
+            },
+          });
+          if (!dbUser || !dbUser.active) {
+            token.sessionVersion = -1;
+            return token;
+          }
+          token.subjectId = dbUser.subjectId;
+          token.role = dbUser.role === "admin" ? "admin" : "student";
+          token.sessionVersion = dbUser.sessionVersion;
+          token.mustChangePassword = dbUser.mustChangePassword;
+          token.name = dbUser.name;
+          token.email = dbUser.email;
+        }
+      }
+
+      return token;
+    },
     session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub;
+        session.user.subjectId = token.subjectId ?? `local:legacy-${token.sub}`;
+        session.user.role = token.role ?? "student";
+        session.user.sessionVersion = token.sessionVersion ?? 0;
+        session.user.mustChangePassword = Boolean(token.mustChangePassword);
       }
       return session;
     },
-    // Fix redirect callback to use proper URL
     async redirect({ url, baseUrl }) {
-      // Allow relative callback URLs
       if (url.startsWith("/")) {
         return `${baseUrl}${url}`;
       }
 
-      // Allow callbacks to the same origin
       if (new URL(url).origin === baseUrl) {
         return url;
       }
 
-      // For other URLs, redirect to dashboard
+      // Default post-login landing; Layout sends students to /scanner.
       return `${baseUrl}/dashboard`;
     },
   },
@@ -102,7 +134,6 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
-          console.log("Missing credentials");
           return null;
         }
 
@@ -111,27 +142,29 @@ export const authOptions: NextAuthOptions = {
             where: { name: credentials.username },
           });
 
-          if (!user) {
-            console.log("User not found:", credentials.username);
+          if (!user || !user.active) {
             return null;
           }
 
-          // Verify the password using bcrypt
           const isValidPassword = await bcrypt.compare(
             credentials.password,
             user.password
           );
 
           if (!isValidPassword) {
-            console.log("Invalid password for user:", credentials.username);
             return null;
           }
 
-          // Return user object that will be passed to JWT
+          const role = (user.role === "admin" ? "admin" : "student") as UserRole;
+
           return {
-            id: user.id,
+            id: String(user.id),
             name: user.name,
             email: user.email,
+            subjectId: user.subjectId,
+            role,
+            sessionVersion: user.sessionVersion,
+            mustChangePassword: user.mustChangePassword,
           };
         } catch (error) {
           console.error("Authentication error:", error);
@@ -139,21 +172,11 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
-    /**
-     * ...add more providers here.
-     *
-     * Most other providers require a bit more work than the Discord provider. For example, the
-     * GitHub provider requires you to add the `refresh_token_expires_in` field to the Account
-     * model. Refer to the NextAuth.js docs for the provider you want to use. Example:
-     *
-     * @see https://next-auth.js.org/providers/github
-     */
   ],
   pages: {
     signIn: "/",
-    error: "/", // Redirect errors back to sign in page
+    error: "/",
   },
-  // Enable debug in development
   debug: process.env.NODE_ENV === "development",
 };
 

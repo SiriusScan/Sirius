@@ -91,8 +91,14 @@ export const withAdminAuth = (
   ) => Promise<any>
 ) => {
   return withAuth(async (context, session) => {
-    // TODO: Add role-based checking here when roles are implemented
-    // For now, any authenticated user can access admin pages
+    if (session.user?.role !== "admin") {
+      return {
+        redirect: {
+          destination: "/scanner",
+          permanent: false,
+        },
+      };
+    }
 
     if (getServerSidePropsFunc) {
       return getServerSidePropsFunc(context, session);

@@ -225,10 +225,10 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
       // Check for return URL in query params
       const returnUrl = router.query.return as string;
       if (returnUrl && returnUrl !== "/") {
-        // Use router.push for smoother client-side navigation
         void router.push(decodeURIComponent(returnUrl));
+      } else if (session.user.role === "student") {
+        void router.push("/scanner");
       } else {
-        // Use router.push instead of window.location.href for smoother transition
         void router.push("/dashboard");
       }
     }

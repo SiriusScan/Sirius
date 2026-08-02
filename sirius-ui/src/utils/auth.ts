@@ -6,6 +6,10 @@ export interface AuthUser {
   id: string;
   name?: string | null;
   email?: string | null;
+  subjectId: string;
+  role: "admin" | "student";
+  sessionVersion: number;
+  mustChangePassword: boolean;
 }
 
 export interface AuthSession extends Session {

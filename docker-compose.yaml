@@ -126,6 +126,9 @@ services:
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
     secrets:
       - sirius_api_key
+    volumes:
+      # Persist NextAuth identity DB across UI restarts (class multi-user).
+      - sirius_ui_prisma:/app/prisma
     depends_on:
       sirius-postgres:
         condition: service_healthy
@@ -284,6 +287,8 @@ volumes:
   valkey_data:
     driver: local
   rabbitmq_data:
+    driver: local
+  sirius_ui_prisma:
     driver: local
 
 secrets:

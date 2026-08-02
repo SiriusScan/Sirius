@@ -23,6 +23,7 @@ import {
   Activity,
   LogOut,
   User,
+  Users,
   ChevronRight,
 } from "lucide-react";
 
@@ -130,6 +131,8 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
     const { data: sessionData } = useSession();
     const router = useRouter();
     const [darkMode, setDarkMode] = useState(false);
+    const isAdmin = sessionData?.user?.role === "admin";
+    const isStudent = sessionData?.user?.role === "student";
 
     useEffect(() => {
       const isDark = document.documentElement.classList.contains("dark");
@@ -210,14 +213,27 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
                 <ChevronRight className="h-4 w-4 text-violet-400/40 transition-all group-hover:translate-x-0.5 group-hover:text-violet-300/60" />
               </DropdownMenuItem>
 
-              <DropdownMenuItem
-                className="group cursor-pointer rounded-md px-3 py-2.5 text-violet-100 transition-colors hover:bg-violet-600/10 focus:bg-violet-600/10"
-                onClick={() => void router.push("/system-monitor")}
-              >
-                <Activity className="mr-3 h-4 w-4 text-violet-300 group-hover:text-violet-200" />
-                <span className="flex-1">System Monitor</span>
-                <ChevronRight className="h-4 w-4 text-violet-400/40 transition-all group-hover:translate-x-0.5 group-hover:text-violet-300/60" />
-              </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem
+                  className="group cursor-pointer rounded-md px-3 py-2.5 text-violet-100 transition-colors hover:bg-violet-600/10 focus:bg-violet-600/10"
+                  onClick={() => void router.push("/admin/users")}
+                >
+                  <Users className="mr-3 h-4 w-4 text-violet-300 group-hover:text-violet-200" />
+                  <span className="flex-1">Users</span>
+                  <ChevronRight className="h-4 w-4 text-violet-400/40 transition-all group-hover:translate-x-0.5 group-hover:text-violet-300/60" />
+                </DropdownMenuItem>
+              )}
+
+              {!isStudent && (
+                <DropdownMenuItem
+                  className="group cursor-pointer rounded-md px-3 py-2.5 text-violet-100 transition-colors hover:bg-violet-600/10 focus:bg-violet-600/10"
+                  onClick={() => void router.push("/system-monitor")}
+                >
+                  <Activity className="mr-3 h-4 w-4 text-violet-300 group-hover:text-violet-200" />
+                  <span className="flex-1">System Monitor</span>
+                  <ChevronRight className="h-4 w-4 text-violet-400/40 transition-all group-hover:translate-x-0.5 group-hover:text-violet-300/60" />
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator className="bg-violet-500/10" />

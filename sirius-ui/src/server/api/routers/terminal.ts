@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { handleSendMsg, waitForResponse } from "./queue";
 import { valkey } from "~/server/valkey";
@@ -114,7 +114,7 @@ async function pollCommandResponse(commandId: string): Promise<string | null> {
 }
 
 export const terminalRouter = createTRPCRouter({
-  executeCommand: protectedProcedure
+  executeCommand: staffProcedure
     .input(
       z.object({
         command: z.string(),
@@ -246,7 +246,7 @@ export const terminalRouter = createTRPCRouter({
   // ── Command History CRUD (Valkey-backed) ──────────────────────────────────
 
   /** Fetch all history entries for the current user */
-  getHistory: protectedProcedure.query(async ({ ctx }) => {
+  getHistory: staffProcedure.query(async ({ ctx }) => {
     const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
     try {
       const raw = await valkey.lrange(key, 0, HISTORY_MAX_ENTRIES - 1);
@@ -261,7 +261,7 @@ export const terminalRouter = createTRPCRouter({
   }),
 
   /** Persist a new history entry (prepend to list, trim to max) */
-  addHistoryEntry: protectedProcedure
+  addHistoryEntry: staffProcedure
     .input(CommandHistoryEntrySchema)
     .mutation(async ({ input, ctx }) => {
       const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
@@ -279,7 +279,7 @@ export const terminalRouter = createTRPCRouter({
     }),
 
   /** Delete a single history entry by id */
-  deleteHistoryEntry: protectedProcedure
+  deleteHistoryEntry: staffProcedure
     .input(z.object({ entryId: z.string() }))
     .mutation(async ({ input, ctx }) => {
       const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
@@ -313,7 +313,7 @@ export const terminalRouter = createTRPCRouter({
     }),
 
   /** Purge all history for the current user */
-  clearHistory: protectedProcedure.mutation(async ({ ctx }) => {
+  clearHistory: staffProcedure.mutation(async ({ ctx }) => {
     const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
     try {
       await valkey.del(key);

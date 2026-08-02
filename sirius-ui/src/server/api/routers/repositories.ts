@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import type { Repository, SyncStatus } from "~/types/repositoryTypes";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
@@ -27,7 +27,7 @@ const repositoryIdSchema = z.object({
 
 export const repositoriesRouter = createTRPCRouter({
   // Get all repositories
-  list: protectedProcedure.query(async (): Promise<Repository[]> => {
+  list: staffProcedure.query(async (): Promise<Repository[]> => {
     try {
       const response = await apiFetch(
         `${API_BASE_URL}/api/agent-templates/repositories`
@@ -46,7 +46,7 @@ export const repositoriesRouter = createTRPCRouter({
   }),
 
   // Add new repository
-  add: protectedProcedure
+  add: staffProcedure
     .input(addRepositorySchema)
     .mutation(async ({ input }): Promise<Repository> => {
       try {
@@ -74,7 +74,7 @@ export const repositoriesRouter = createTRPCRouter({
     }),
 
   // Update repository
-  update: protectedProcedure
+  update: staffProcedure
     .input(updateRepositorySchema)
     .mutation(async ({ input }): Promise<Repository> => {
       try {
@@ -103,7 +103,7 @@ export const repositoriesRouter = createTRPCRouter({
     }),
 
   // Delete repository
-  delete: protectedProcedure
+  delete: staffProcedure
     .input(repositoryIdSchema)
     .mutation(async ({ input }) => {
       try {
@@ -127,7 +127,7 @@ export const repositoriesRouter = createTRPCRouter({
     }),
 
   // Trigger repository sync
-  sync: protectedProcedure
+  sync: staffProcedure
     .input(repositoryIdSchema)
     .mutation(async ({ input }) => {
       try {
@@ -151,7 +151,7 @@ export const repositoriesRouter = createTRPCRouter({
     }),
 
   // Get sync status
-  getSyncStatus: protectedProcedure
+  getSyncStatus: staffProcedure
     .input(repositoryIdSchema)
     .query(async ({ input }): Promise<SyncStatus | null> => {
       try {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { handleSendMsg, waitForResponse } from "./queue";
 import { valkey } from "~/server/valkey";
@@ -143,7 +143,7 @@ export const agentScanRouter = createTRPCRouter({
    * Dispatch agent scans to one or more connected agents.
    * This is called alongside network scan dispatch when a profile has agent_scan enabled.
    */
-  dispatchAgentScan: protectedProcedure
+  dispatchAgentScan: staffProcedure
     .input(
       z.object({
         scanId: z.string(),
@@ -297,7 +297,7 @@ export const agentScanRouter = createTRPCRouter({
    * Get the status of an agent scan dispatch.
    * Used for polling agent scan progress.
    */
-  getAgentScanStatus: protectedProcedure
+  getAgentScanStatus: staffProcedure
     .input(z.object({ scanId: z.string() }))
     .query(async ({ input }): Promise<AgentScanStatusResult | null> => {
       try {

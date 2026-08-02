@@ -30,6 +30,33 @@ const Layout = ({ children, title = "Sirius Scan" }: LayoutProps) => {
     if (!session?.user && router.pathname !== "/") {
       debugRouting(router.pathname, "/", "Unauthenticated user redirect");
       void router.replace("/");
+      return;
+    }
+
+    // Class cut: students are Scanner-only (+ settings for password/API keys)
+    if (session?.user?.role === "student") {
+      if (session.user.mustChangePassword && router.pathname !== "/settings") {
+        debugRouting(
+          router.pathname,
+          "/settings",
+          "Student must change password"
+        );
+        void router.replace("/settings");
+        return;
+      }
+      const studentAllowed =
+        router.pathname === "/scanner" ||
+        router.pathname.startsWith("/scanner/") ||
+        router.pathname === "/settings" ||
+        router.pathname.startsWith("/settings/");
+      if (!studentAllowed) {
+        debugRouting(
+          router.pathname,
+          "/scanner",
+          "Student Scanner-only redirect"
+        );
+        void router.replace("/scanner");
+      }
     }
   }, [session, status, router]);
 

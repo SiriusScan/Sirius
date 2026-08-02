@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
 import { z } from "zod";
 import amqp, { type Connection, type Channel } from "amqplib";
 
@@ -26,7 +26,7 @@ export const QUEUE_OPTIONS = {
 } as const;
 
 export const queueRouter = createTRPCRouter({
-  sendMsg: protectedProcedure
+  sendMsg: staffProcedure
     .input(z.object({ queue: QueueNameSchema, message: z.string().min(1) }))
     .mutation(async ({ input }) => {
       const { queue, message } = input;

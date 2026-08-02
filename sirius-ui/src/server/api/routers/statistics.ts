@@ -1,7 +1,16 @@
 import { z } from "zod";
 import axios from "axios";
-import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  staffProcedure,
+} from "~/server/api/trpc";
 import { apiClient } from "~/server/api/shared/apiClient";
+import {
+  isStudentRole,
+  loadLatestOwnedScan,
+  mostVulnerableHostsFromOwnedScan,
+} from "~/server/api/shared/ownedScanInventory";
 
 /**
  * Statistics router - handles vulnerability statistics, trends, and snapshots
@@ -155,17 +164,42 @@ export const statisticsRouter = createTRPCRouter({
   /**
    * Get most vulnerable hosts
    */
-  getMostVulnerableHosts: staffProcedure
+  getMostVulnerableHosts: protectedProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(20).optional().default(5),
         refresh: z.boolean().optional().default(false),
       })
     )
-    .query(async ({ input }) => {
-      try {
-        const { limit, refresh } = input;
+    .query(async ({ ctx, input }) => {
+      const { limit, refresh } = input;
 
+      if (isStudentRole(ctx.session.user.role)) {
+        const workspace = await loadLatestOwnedScan(
+          ctx.session.user.subjectId,
+          ctx.session.user.role
+        );
+        if (!workspace) {
+          return {
+            hosts: [],
+            total: 0,
+            cached: false,
+            cachedAt: undefined,
+          };
+        }
+        const derived = mostVulnerableHostsFromOwnedScan(
+          workspace.scan,
+          limit
+        );
+        return {
+          hosts: derived.hosts,
+          total: derived.total,
+          cached: false,
+          cachedAt: undefined,
+        };
+      }
+
+      try {
         const response = await apiClient.get<{
           hosts: Array<{
             hostId: string;

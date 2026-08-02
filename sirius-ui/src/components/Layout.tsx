@@ -33,7 +33,7 @@ const Layout = ({ children, title = "Sirius Scan" }: LayoutProps) => {
       return;
     }
 
-    // Class cut: students are Scanner-only (+ settings for password/API keys)
+    // Class cut: students get Scanner + owned-scan inventory views (+ settings)
     if (session?.user?.role === "student") {
       if (session.user.mustChangePassword && router.pathname !== "/settings") {
         debugRouting(
@@ -48,12 +48,19 @@ const Layout = ({ children, title = "Sirius Scan" }: LayoutProps) => {
         router.pathname === "/scanner" ||
         router.pathname.startsWith("/scanner/") ||
         router.pathname === "/settings" ||
-        router.pathname.startsWith("/settings/");
+        router.pathname.startsWith("/settings/") ||
+        router.pathname === "/vulnerabilities" ||
+        router.pathname.startsWith("/vulnerabilities/") ||
+        router.pathname === "/vulnerability" ||
+        router.pathname.startsWith("/vulnerability/") ||
+        router.pathname === "/environment" ||
+        router.pathname.startsWith("/environment/") ||
+        router.pathname.startsWith("/host");
       if (!studentAllowed) {
         debugRouting(
           router.pathname,
           "/scanner",
-          "Student Scanner-only redirect"
+          "Student route allowlist redirect"
         );
         void router.replace("/scanner");
       }

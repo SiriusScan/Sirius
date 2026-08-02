@@ -22,14 +22,14 @@ const allNavigationItems = [
     href: "/vulnerabilities",
     matchPaths: ["/vulnerabilities", "/vulnerability"],
     icon: VulnerabilityIcon,
-    studentVisible: false,
+    studentVisible: true,
   },
   {
     name: "Environment",
     href: "/environment",
     matchPaths: ["/environment", "/host"],
     icon: EnvironmentIcon,
-    studentVisible: false,
+    studentVisible: true,
   },
   {
     name: "Terminal",

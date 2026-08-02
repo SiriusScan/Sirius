@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
+import { TRPCError } from "@trpc/server";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  staffProcedure,
+} from "~/server/api/trpc";
 import { storeMockHosts } from "./shared-mock-data";
 import { type VulnerabilitySeverityCounts } from "~/components/VulnerabilityBarGraph";
 import { apiClient as httpClient } from "~/server/api/shared/apiClient";
@@ -10,6 +15,12 @@ import {
   mockEnvironmentSummaryData,
 } from "~/utils/mock/mockHostData";
 import { type SourceCoverageStats } from "~/types/scanTypes";
+import {
+  environmentSummaryFromOwnedScan,
+  hostWithSourcesFromOwnedScan,
+  isStudentRole,
+  loadLatestOwnedScan,
+} from "~/server/api/shared/ownedScanInventory";
 
 export type SiriusHost = {
   hid: string;
@@ -496,7 +507,16 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Retrieve a EnvironmentTableData[] with the statistics for each host
-  getEnvironmentSummary: staffProcedure.query(async () => {
+  getEnvironmentSummary: protectedProcedure.query(async ({ ctx }) => {
+    if (isStudentRole(ctx.session.user.role)) {
+      const workspace = await loadLatestOwnedScan(
+        ctx.session.user.subjectId,
+        ctx.session.user.role
+      );
+      if (!workspace) return [];
+      return environmentSummaryFromOwnedScan(workspace.scan);
+    }
+
     try {
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostListRaw = response.data;
@@ -680,10 +700,31 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Get host with source attribution (deduplicated data)
-  getHostWithSources: staffProcedure
+  getHostWithSources: protectedProcedure
     .input(z.object({ ip: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const { ip } = input;
+      if (isStudentRole(ctx.session.user.role)) {
+        const workspace = await loadLatestOwnedScan(
+          ctx.session.user.subjectId,
+          ctx.session.user.role
+        );
+        if (!workspace) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Host not in your owned scan workspace",
+          });
+        }
+        const synthesized = hostWithSourcesFromOwnedScan(workspace.scan, ip);
+        if (!synthesized) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Host not in your owned scan workspace",
+          });
+        }
+        return synthesized;
+      }
+
       try {
         if (!ip) {
           throw new Error("No IP provided");
@@ -703,7 +744,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host software inventory (packages)
-  getHostSoftwareInventory: staffProcedure
+  getHostSoftwareInventory: protectedProcedure
     .input(
       z.object({
         ip: z.string(),
@@ -712,7 +753,11 @@ export const hostRouter = createTRPCRouter({
         publisher: z.string().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      if (isStudentRole(ctx.session.user.role)) {
+        return null;
+      }
+
       const { ip, filter, architecture, publisher } = input;
       try {
         if (!ip) {
@@ -739,9 +784,13 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host software statistics
-  getHostSoftwareStats: staffProcedure
+  getHostSoftwareStats: protectedProcedure
     .input(z.object({ ip: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      if (isStudentRole(ctx.session.user.role)) {
+        return null;
+      }
+
       const { ip } = input;
       try {
         if (!ip) {
@@ -752,24 +801,6 @@ export const hostRouter = createTRPCRouter({
         return response.data;
       } catch (error) {
         console.error("Error fetching host software statistics:", error);
-        return null;
-      }
-    }),
-
-  // Get host system fingerprint
-  getHostSystemFingerprint: staffProcedure
-    .input(z.object({ ip: z.string() }))
-    .query(async ({ input }) => {
-      const { ip } = input;
-      try {
-        if (!ip) {
-          throw new Error("No IP provided");
-        }
-
-        const response = await httpClient.get(`host/${ip}/fingerprint`);
-        return response.data;
-      } catch (error) {
-        console.error("Error fetching host system fingerprint:", error);
         return null;
       }
     }),
@@ -811,9 +842,13 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get host system fingerprint data
-  getHostSystemFingerprint: staffProcedure
+  getHostSystemFingerprint: protectedProcedure
     .input(z.object({ ip: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      if (isStudentRole(ctx.session.user.role)) {
+        return null;
+      }
+
       const { ip } = input;
       try {
         if (!ip) {
@@ -829,7 +864,17 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get enhanced software statistics for environment overview
-  getEnvironmentSoftwareStats: staffProcedure.query(async () => {
+  getEnvironmentSoftwareStats: protectedProcedure.query(async ({ ctx }) => {
+    if (isStudentRole(ctx.session.user.role)) {
+      return {
+        total_hosts: 0,
+        total_packages: 0,
+        top_software: [],
+        architecture_distribution: {},
+        publisher_distribution: {},
+      };
+    }
+
     try {
       // Get all hosts first
       const hostsResponse = await httpClient.get<SiriusHost[]>("host/");
@@ -951,7 +996,7 @@ export const hostRouter = createTRPCRouter({
     }),
 
   // Get environment-wide software inventory with aggregation and filtering
-  getEnvironmentSoftwareInventory: staffProcedure
+  getEnvironmentSoftwareInventory: protectedProcedure
     .input(
       z.object({
         search: z.string().optional(),
@@ -963,7 +1008,7 @@ export const hostRouter = createTRPCRouter({
         offset: z.number().optional().default(0),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const {
         search,
         publisher,
@@ -973,6 +1018,15 @@ export const hostRouter = createTRPCRouter({
         limit,
         offset,
       } = input;
+
+      if (isStudentRole(ctx.session.user.role)) {
+        return {
+          packages: [],
+          total_packages: 0,
+          total_hosts: 0,
+          filtered_count: 0,
+        };
+      }
 
       try {
         // Get all hosts first
@@ -1145,9 +1199,17 @@ export const hostRouter = createTRPCRouter({
   // ── Host History ──────────────────────────────────────────────────────────
 
   /** Fetch the scan-activity timeline for a single host. */
-  getHostHistory: staffProcedure
+  getHostHistory: protectedProcedure
     .input(z.object({ ip: z.string().min(1) }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      if (isStudentRole(ctx.session.user.role)) {
+        return {
+          host_ip: input.ip,
+          timeline: [],
+          sources: [],
+        };
+      }
+
       try {
         const response = await httpClient.get(`/host/${input.ip}/history`);
         return response.data as {

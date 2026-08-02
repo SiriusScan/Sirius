@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { api } from "~/utils/api";
 import { type NmapScript } from "./mockScriptsData";
 import { ScriptLibrary } from "./ScriptLibrary";
@@ -15,6 +16,8 @@ const NmapScriptsTab: React.FC<NmapScriptsTabProps> = ({
   onDeleteScript,
 }) => {
   const utils = api.useContext();
+  const { data: session } = useSession();
+  const isStudent = session?.user?.role === "student";
 
   // Fetch scripts from Redis via TRPC
   const {
@@ -36,11 +39,13 @@ const NmapScriptsTab: React.FC<NmapScriptsTabProps> = ({
     });
 
   useEffect(() => {
+    // Staff only — students read the shared catalog, never initialize.
+    if (isStudent) return;
     // Only auto-initialize when we have a clean empty-state response.
     if (!isLoading && !error && scripts && scripts.length === 0) {
       initializeScripts();
     }
-  }, [scripts, isLoading, error, initializeScripts]);
+  }, [isStudent, scripts, isLoading, error, initializeScripts]);
 
   // Use scripts from the canonical store source only.
   const availableScripts: NmapScript[] = useMemo(() => {

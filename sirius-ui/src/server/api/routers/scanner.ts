@@ -16,6 +16,7 @@ import {
   ownedStateKey,
   ownedStatusKey,
 } from "~/server/api/shared/ownedScan";
+import { loadLatestOwnedScan } from "~/server/api/shared/ownedScanInventory";
 
 const AGENT_COMMAND_QUEUE = "agent_commands";
 const AGENT_RESPONSE_QUEUE = "agent_response";
@@ -379,37 +380,10 @@ export const scannerRouter = createTRPCRouter({
    * Poll the caller's latest owned scan workspace (blank for new students).
    */
   getLatestOwnedScan: protectedProcedure.query(async ({ ctx }) => {
-    const subjectId = ctx.session.user.subjectId;
-    const scanId = await valkey.get(ownedLatestKey(subjectId));
-    if (!scanId) {
-      return null;
-    }
-
-    const owner = await valkey.get(ownedOwnerKey(scanId));
-    if (!owner) {
-      return null;
-    }
-    if (owner !== subjectId && ctx.session.user.role !== "admin") {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "Not the owner of this scan",
-      });
-    }
-
-    const stateRaw = await valkey.get(ownedStateKey(scanId));
-    if (!stateRaw) {
-      return null;
-    }
-
-    const state = decodeScanState(stateRaw);
-    const status =
-      (await valkey.get(ownedStatusKey(scanId))) ?? state.status ?? null;
-
-    return {
-      scanId,
-      status,
-      scan: state,
-    };
+    return loadLatestOwnedScan(
+      ctx.session.user.subjectId,
+      ctx.session.user.role
+    );
   }),
 
   cancelOwnedScan: protectedProcedure

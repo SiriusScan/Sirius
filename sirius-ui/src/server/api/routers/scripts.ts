@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  staffProcedure,
+} from "~/server/api/trpc";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
 // Script interfaces
@@ -44,7 +48,7 @@ const scriptSchema = z.object({
 
 export const scriptsRouter = createTRPCRouter({
   // Get all scripts
-  getScripts: staffProcedure.query(async () => {
+  getScripts: protectedProcedure.query(async () => {
     try {
       const response = await apiFetch(`${API_BASE_URL}/scripts`);
 
@@ -61,7 +65,7 @@ export const scriptsRouter = createTRPCRouter({
   }),
 
   // Get a single script by ID (with content)
-  getScript: staffProcedure
+  getScript: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
       try {

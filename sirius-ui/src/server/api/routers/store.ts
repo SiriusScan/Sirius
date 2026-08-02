@@ -1,4 +1,8 @@
-import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  staffProcedure,
+} from "~/server/api/trpc";
 import { z } from "zod";
 import { valkey } from "~/server/valkey";
 import { canonicalizeScriptId as normalizeScriptId } from "~/utils/nseScriptIds";
@@ -212,7 +216,7 @@ export const storeRouter = createTRPCRouter({
     }),
 
   // Get NSE scripts from the manifest
-  getNseScripts: staffProcedure.query(async () => {
+  getNseScripts: protectedProcedure.query(async () => {
     try {
       // Get the manifest first
       const manifestData = await valkey.get(NSE_MANIFEST_KEY);
@@ -299,7 +303,7 @@ export const storeRouter = createTRPCRouter({
     }
   }),
 
-  getNseScript: staffProcedure
+  getNseScript: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ input }) => {
       try {

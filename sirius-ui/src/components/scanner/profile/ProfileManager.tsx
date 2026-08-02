@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import {
   Tabs,
   TabsContent,
@@ -16,6 +17,8 @@ const ProfileManager: React.FC = () => {
   const [editingProfileId, setEditingProfileId] = useState<
     string | undefined
   >();
+  const { data: session } = useSession();
+  const isStudent = session?.user?.role === "student";
 
   const utils = api.useContext();
 
@@ -32,8 +35,9 @@ const ProfileManager: React.FC = () => {
     },
   });
 
-  // Auto-initialize scripts if none exist
+  // Auto-initialize scripts if none exist (staff only — students read catalog)
   React.useEffect(() => {
+    if (isStudent) return;
     if (
       !scriptsLoading &&
       scripts &&
@@ -44,7 +48,7 @@ const ProfileManager: React.FC = () => {
       console.log("Auto-initializing NSE scripts...");
       initializeScripts.mutate();
     }
-  }, [scripts, scriptsLoading, initializeScripts]);
+  }, [isStudent, scripts, scriptsLoading, initializeScripts]);
 
   const handleEditProfile = (profileId: string) => {
     setEditingProfileId(profileId);
@@ -74,8 +78,9 @@ const ProfileManager: React.FC = () => {
             Create and manage scan profiles with custom NSE scripts.
           </p>
         </div>
-        {/* Only show manual initialize button if scripts failed to load or user explicitly wants to reload */}
-        {(scripts?.length === 0 || initializeScripts.isError) &&
+        {/* Staff only — students never initialize the shared NSE catalog */}
+        {!isStudent &&
+          (scripts?.length === 0 || initializeScripts.isError) &&
           !initializeScripts.isLoading && (
             <Button
               onClick={handleInitializeScripts}

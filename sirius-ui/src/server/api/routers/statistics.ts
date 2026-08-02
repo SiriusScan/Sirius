@@ -7,8 +7,10 @@ import {
 } from "~/server/api/trpc";
 import { apiClient } from "~/server/api/shared/apiClient";
 import {
+  fetchOwnedHosts,
   isStudentRole,
   loadLatestOwnedScan,
+  mostVulnerableHostsFromOwnedHosts,
   mostVulnerableHostsFromOwnedScan,
 } from "~/server/api/shared/ownedScanInventory";
 
@@ -175,6 +177,16 @@ export const statisticsRouter = createTRPCRouter({
       const { limit, refresh } = input;
 
       if (isStudentRole(ctx.session.user.role)) {
+        const ownedHosts = await fetchOwnedHosts(ctx.session.user.subjectId);
+        if (ownedHosts && ownedHosts.length > 0) {
+          const derived = mostVulnerableHostsFromOwnedHosts(ownedHosts, limit);
+          return {
+            hosts: derived.hosts,
+            total: derived.total,
+            cached: false,
+            cachedAt: undefined,
+          };
+        }
         const workspace = await loadLatestOwnedScan(
           ctx.session.user.subjectId,
           ctx.session.user.role

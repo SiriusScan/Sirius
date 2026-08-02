@@ -3,7 +3,7 @@ module github.com/SiriusScan/sirius-api
 go 1.24.0
 
 require (
-	github.com/SiriusScan/go-api v0.0.20-0.20260802042704-964d51d84e9e
+	github.com/SiriusScan/go-api v0.0.20-0.20260802151133-cb14626a01af
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/gofiber/fiber/v2 v2.49.2
 	github.com/google/uuid v1.6.0

@@ -125,3 +125,5 @@ gorm.io/driver/postgres v1.5.11 h1:ubBVAfbKEUld/twyKZ0IYn9rSQh448EdelLYk9Mv314=
 gorm.io/driver/postgres v1.5.11/go.mod h1:DX3GReXH+3FPWGrrgffdvCk3DQ1dwDPdmbenSkweRGI=
 gorm.io/gorm v1.25.12 h1:I0u8i2hWQItBq1WfE0o2+WuL9+8L21K9e2HHSTE/0f8=
 gorm.io/gorm v1.25.12/go.mod h1:xh7N7RHfYlNc5EmcI/El95gXusucDrQnHXe0+CgWcLQ=
+github.com/SiriusScan/go-api v0.0.20-0.20260802151133-cb14626a01af h1:buBOfCiV5wcBN7uRgqVefgA1yasV32hx0Z3n6dz74Sc=
+github.com/SiriusScan/go-api v0.0.20-0.20260802151133-cb14626a01af/go.mod h1:OnL5Cp7xjpa0NdaZ5jbG9NKfln2V6gihRaqKJjOKAxw=

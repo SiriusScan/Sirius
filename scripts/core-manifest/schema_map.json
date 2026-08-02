@@ -10,5 +10,9 @@
   "964d51d84e9e23a52d6a5eb9c4108380fda29c73": {
     "ledger_table": "schema_migrations_core",
     "latest_migration": "007_add_vulnerability_stats_indexes"
+  },
+  "cb14626a01af756a88bf21c1c033a598d0f1e00b": {
+    "ledger_table": "schema_migrations_core",
+    "latest_migration": "008_host_owner_subject"
   }
 }

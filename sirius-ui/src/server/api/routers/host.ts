@@ -16,7 +16,11 @@ import {
 } from "~/utils/mock/mockHostData";
 import { type SourceCoverageStats } from "~/types/scanTypes";
 import {
+  environmentSummaryFromOwnedHosts,
   environmentSummaryFromOwnedScan,
+  fetchOwnedHostByIp,
+  fetchOwnedHosts,
+  hostWithSourcesFromOwnedHost,
   hostWithSourcesFromOwnedScan,
   isStudentRole,
   loadLatestOwnedScan,
@@ -509,6 +513,11 @@ export const hostRouter = createTRPCRouter({
   // Retrieve a EnvironmentTableData[] with the statistics for each host
   getEnvironmentSummary: protectedProcedure.query(async ({ ctx }) => {
     if (isStudentRole(ctx.session.user.role)) {
+      const ownedHosts = await fetchOwnedHosts(ctx.session.user.subjectId);
+      if (ownedHosts && ownedHosts.length > 0) {
+        return environmentSummaryFromOwnedHosts(ownedHosts);
+      }
+      // Fallback: in-flight Valkey workspace before Postgres rows land
       const workspace = await loadLatestOwnedScan(
         ctx.session.user.subjectId,
         ctx.session.user.role
@@ -705,6 +714,15 @@ export const hostRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { ip } = input;
       if (isStudentRole(ctx.session.user.role)) {
+        // Prefer owned Postgres (never unscoped /sources — same-IP classmates collide)
+        const ownedHost = await fetchOwnedHostByIp(
+          ctx.session.user.subjectId,
+          ip
+        );
+        if (ownedHost) {
+          return hostWithSourcesFromOwnedHost(ownedHost);
+        }
+
         const workspace = await loadLatestOwnedScan(
           ctx.session.user.subjectId,
           ctx.session.user.role

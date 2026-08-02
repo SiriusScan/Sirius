@@ -70,7 +70,7 @@ RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o sirius-api .
 
 # Build the core schema migrator from the pinned go-api module (one-shot compose service).
-ARG GO_API_COMMIT_SHA=964d51d84e9e23a52d6a5eb9c4108380fda29c73
+ARG GO_API_COMMIT_SHA=cb14626a01af756a88bf21c1c033a598d0f1e00b
 RUN git clone https://github.com/SiriusScan/go-api.git /tmp/go-api && \
     cd /tmp/go-api && \
     git checkout ${GO_API_COMMIT_SHA} && \

@@ -1,10 +1,14 @@
 /**
- * Student inventory adapters backed by the caller's latest owned scan workspace
- * (Valkey). Does not read shared Postgres / Go host inventory.
+ * Student inventory adapters.
+ *
+ * Primary: owned Postgres via Go API `?owner_subject_id=`.
+ * Fallback: latest owned scan workspace in Valkey (in-flight before rows land).
+ * Never reads unscoped shared inventory for students.
  */
 
 import { TRPCError } from "@trpc/server";
 import { valkey } from "~/server/valkey";
+import { apiClient as httpClient } from "~/server/api/shared/apiClient";
 import {
   decodeScanState,
   ownedLatestKey,
@@ -21,6 +25,7 @@ import type {
   EnvironmentTableData,
   HostWithSources,
   PortWithSource,
+  SiriusHost,
   Vulnerability,
   VulnerabilityWithSource,
 } from "~/server/api/routers/host";
@@ -78,6 +83,332 @@ export async function loadLatestOwnedScan(
 
 export function isStudentRole(role: string | undefined): boolean {
   return role === "student";
+}
+
+function isValidIPv4HostIp(ip: string | undefined): boolean {
+  if (!ip) return false;
+  const trimmed = ip.trim();
+  if (!trimmed || trimmed.includes("/") || trimmed.includes("-")) return false;
+  const octets = trimmed.split(".");
+  if (octets.length !== 4) return false;
+  return octets.every((octet) => {
+    if (!/^\d+$/.test(octet)) return false;
+    const value = Number(octet);
+    return value >= 0 && value <= 255;
+  });
+}
+
+/**
+ * Fetch the student's durable inventory from Postgres via Go API.
+ * Returns [] when the owner has no rows yet (caller should Valkey-fallback).
+ * Returns null only on transport/API failure (caller may still Valkey-fallback).
+ */
+export async function fetchOwnedHosts(
+  subjectId: string
+): Promise<SiriusHost[] | null> {
+  const owner = subjectId?.trim();
+  if (!owner) return [];
+
+  try {
+    const response = await httpClient.get<SiriusHost[]>("host/", {
+      params: { owner_subject_id: owner },
+    });
+    const raw = response.data;
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((h) => isValidIPv4HostIp(h.ip));
+  } catch (error) {
+    console.error("fetchOwnedHosts failed:", error);
+    return null;
+  }
+}
+
+/** GET host/:ip?owner_subject_id= — never unscoped for students. */
+export async function fetchOwnedHostByIp(
+  subjectId: string,
+  ip: string
+): Promise<SiriusHost | null> {
+  const owner = subjectId?.trim();
+  const target = ip?.trim();
+  if (!owner || !target) return null;
+
+  try {
+    const response = await httpClient.get<SiriusHost>(`host/${target}`, {
+      params: { owner_subject_id: owner },
+    });
+    const host = response.data;
+    if (!host || !host.ip) return null;
+    return host;
+  } catch (error) {
+    console.error("fetchOwnedHostByIp failed:", target, error);
+    return null;
+  }
+}
+
+export function environmentSummaryFromOwnedHosts(
+  hosts: SiriusHost[]
+): EnvironmentTableData[] {
+  return hosts.map((host) => ({
+    hid: host.hid || `host-${host.ip.replace(/\./g, "-")}`,
+    hostname: host.hostname || "Unknown",
+    ip: host.ip || "0.0.0.0",
+    os: host.os || "Unknown",
+    vulnerabilityCount: host.vulnerabilities?.length ?? 0,
+    groups: host.tags || [],
+    tags: host.tags || [],
+    vulnerabilities: host.vulnerabilities || [],
+    ports: host.ports,
+  }));
+}
+
+export function hostWithSourcesFromOwnedHost(
+  host: SiriusHost
+): HostWithSources {
+  const now = new Date().toISOString();
+  const vulns = host.vulnerabilities ?? [];
+  const ports = host.ports ?? [];
+
+  return {
+    ID: 0,
+    CreatedAt: now,
+    UpdatedAt: now,
+    DeletedAt: null,
+    HID: host.hid || `host-${host.ip.replace(/\./g, "-")}`,
+    OS: host.os || "Unknown",
+    OSVersion: host.osversion || "",
+    IP: host.ip,
+    Hostname: host.hostname || host.ip,
+    Ports: null,
+    Services: null,
+    Vulnerabilities: null,
+    HostVulnerabilities: null,
+    HostPorts: null,
+    CPEs: null,
+    Users: null,
+    Notes: null,
+    AgentID: 0,
+    vulnerability_sources: vulns.map((vuln, index) => ({
+      ID: index + 1,
+      CreatedAt: now,
+      UpdatedAt: now,
+      DeletedAt: null,
+      VID: vuln.vid || vuln.cve || `vuln-${index}`,
+      Description: vuln.description || "",
+      Title: vuln.vid || vuln.cve || "",
+      Hosts: null,
+      HostVulnerabilities: null,
+      RiskScore: vuln.riskScore ?? 0,
+      source: "postgres",
+      source_version: "1.0",
+      first_seen: now,
+      last_seen: now,
+      status: "active",
+      confidence: 0.8,
+    })),
+    port_sources: ports.map((port, index) => ({
+      ID: index + 1,
+      Number: port.number,
+      CreatedAt: now,
+      UpdatedAt: now,
+      DeletedAt: null,
+      Protocol: port.protocol || "tcp",
+      State: port.state || "open",
+      source: "postgres",
+      source_version: "1.0",
+      first_seen: now,
+      last_seen: now,
+      status: "active",
+    })),
+    sources: ["postgres"],
+  };
+}
+
+export function vulnerabilitiesFromOwnedHosts(
+  hosts: SiriusHost[]
+): VulnerabilityListResult {
+  const byId = new Map<
+    string,
+    { vuln: SimpleVulnerability; riskScore: number }
+  >();
+
+  for (const host of hosts) {
+    for (const raw of host.vulnerabilities ?? []) {
+      const id = raw.vid || raw.cve || "unknown";
+      const key = normalizeVulnId(id);
+      const riskScore =
+        typeof raw.riskScore === "number" && raw.riskScore > 0
+          ? raw.riskScore
+          : severityToRiskScore(normalizeSeverity(raw.severity || "info"));
+      const existing = byId.get(key);
+      if (existing) {
+        existing.vuln.hostCount += 1;
+        existing.riskScore = Math.max(existing.riskScore, riskScore);
+        existing.vuln.riskScore = existing.riskScore;
+      } else {
+        byId.set(key, {
+          riskScore,
+          vuln: {
+            vid: key,
+            title: raw.vid || raw.cve || key,
+            hostCount: 1,
+            description: raw.description || "",
+            riskScore,
+          },
+        });
+      }
+    }
+  }
+
+  const vulnerabilities = Array.from(byId.values()).map((v) => v.vuln);
+  const counts = {
+    total: vulnerabilities.length,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    informational: 0,
+  };
+  for (const { riskScore } of byId.values()) {
+    counts[severityBucket(riskScore)]++;
+  }
+
+  return { vulnerabilities, counts };
+}
+
+export function affectedHostsFromOwnedHosts(
+  hosts: SiriusHost[],
+  cveId: string
+): OwnedAffectedHost[] {
+  const today = new Date().toISOString().split("T")[0] ?? "";
+  const target = normalizeVulnId(cveId);
+  const byIp = new Map<string, OwnedAffectedHost>();
+
+  for (const host of hosts) {
+    const match = (host.vulnerabilities ?? []).some((v) => {
+      const candidates = [v.vid, v.cve].filter(Boolean) as string[];
+      return candidates.some((c) => normalizeVulnId(c) === target);
+    });
+    if (!match) continue;
+    const ip = host.ip;
+    if (!ip || byIp.has(ip)) continue;
+    byIp.set(ip, {
+      hostname: host.hostname || ip,
+      ip,
+      os: host.os
+        ? `${host.os}${host.osversion ? ` ${host.osversion}` : ""}`
+        : "Unknown",
+      lastSeen: today,
+    });
+  }
+
+  return Array.from(byIp.values());
+}
+
+export function ownedHostsContainVuln(
+  hosts: SiriusHost[],
+  cveId: string
+): boolean {
+  const target = normalizeVulnId(cveId);
+  return hosts.some((host) =>
+    (host.vulnerabilities ?? []).some((v) => {
+      const candidates = [v.vid, v.cve].filter(Boolean) as string[];
+      return candidates.some((c) => normalizeVulnId(c) === target);
+    })
+  );
+}
+
+export function mostVulnerableHostsFromOwnedHosts(
+  hosts: SiriusHost[],
+  limit: number
+): { hosts: MostVulnerableHostRow[]; total: number } {
+  const rows = environmentSummaryFromOwnedHosts(hosts).map((host) => {
+    const severityCounts = {
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      informational: 0,
+    };
+    let weighted = 0;
+    for (const v of host.vulnerabilities ?? []) {
+      severityCounts[severityBucket(v.riskScore)]++;
+      weighted += v.riskScore;
+    }
+    return {
+      hostId: host.hid,
+      hostIp: host.ip,
+      hostname: host.hostname,
+      totalVulnerabilities: host.vulnerabilityCount,
+      weightedRiskScore: weighted,
+      severityCounts,
+      lastUpdated: new Date().toISOString(),
+    } satisfies MostVulnerableHostRow;
+  });
+
+  rows.sort((a, b) => b.weightedRiskScore - a.weightedRiskScore);
+  return {
+    hosts: rows.slice(0, limit),
+    total: rows.length,
+  };
+}
+
+export function cveItemFromOwnedHosts(
+  hosts: SiriusHost[],
+  id: string
+): CveItem | null {
+  const target = normalizeVulnId(id);
+  for (const host of hosts) {
+    for (const match of host.vulnerabilities ?? []) {
+      const candidates = [match.vid, match.cve].filter(Boolean) as string[];
+      if (!candidates.some((c) => normalizeVulnId(c) === target)) continue;
+
+      const vid = normalizeVulnId(match.vid || match.cve || id);
+      const riskScore =
+        typeof match.riskScore === "number" && match.riskScore > 0
+          ? match.riskScore
+          : severityToRiskScore(normalizeSeverity(match.severity || "info"));
+      const severity = riskScoreToSeverity(riskScore).toUpperCase();
+      const description = match.description || "No description available.";
+
+      return {
+        id: vid,
+        sourceIdentifier: "owned-postgres",
+        vulnStatus: "Analyzed",
+        published: match.published || "",
+        lastModified: "",
+        descriptions: [{ lang: "en", value: description }],
+        references: [],
+        weaknesses: [],
+        configurations: [],
+        vendorComments: [],
+        metrics: {
+          cvssMetricV31: [
+            {
+              source: "owned-postgres",
+              type: "Primary",
+              cvssData: {
+                version: "3.1",
+                vectorString: "",
+                baseScore: riskScore,
+                baseSeverity: severity,
+                attackVector: "NETWORK",
+                attackComplexity: "LOW",
+                privilegesRequired: "NONE",
+                userInteraction: "NONE",
+                scope: "UNCHANGED",
+                confidentialityImpact: "NONE",
+                integrityImpact: "NONE",
+                availabilityImpact: "NONE",
+              },
+            },
+          ],
+          cvssMetricV40: [],
+          cvssMetricV30: [],
+          cvssMetricV2: [],
+        },
+      };
+    }
+  }
+  return null;
 }
 
 function normalizeHostEntry(host: HostEntry | string): HostEntry {

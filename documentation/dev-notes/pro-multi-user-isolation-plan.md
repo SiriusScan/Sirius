@@ -19,21 +19,23 @@ sources:
   - "Parent verification + product feedback 2026-08-02"
   - "Human decisions locked 2026-08-02 (recommended defaults)"
   - "Product override 2026-08-02: student inventory UI via latest owned scan"
+  - "Product override 2026-08-02: personal tour north star — owned Postgres host identity (not Valkey stubs)"
+  - "programs/personal-tour-class/PROGRAM.md"
 ---
 
 # Pro vertical: local multi-user + owner isolation
 
-**Status:** accepted (class concurrent path; human decisions locked)  
+**Status:** accepted (class concurrent path; personal-tour ownership pulled in)  
 **Replaces as first vertical:** Enterprise Reporting (`reporting.enterprise`)  
 **Capability id:** `identity.multi_user_local`
 
 ## Class objective (short-term north star)
 
-Each of ~19 students logs in as a provisioned non-admin, sees a **blank slate**, runs **their own scan concurrently with classmates** (including same IPs), can **cancel their live job**, and sees results only in **their** workspace — including Environment / Vulnerabilities / Host views backed by that workspace. Student-created API keys and agents enrolled with those keys are **owner-scoped**.
+**Personal tour of the tool.** Each of ~19 students logs in as a provisioned non-admin and experiences Sirius as *their* instance: blank slate, concurrent scans (including same IPs), cancel own live job, and full tour surfaces (Scanner, Environment, Host detail with ports, Vulnerabilities, Settings/API keys/agents) showing **only data they generated**. Classmates never see each other's hosts/vulns/scans/keys/agents.
 
-- **Required:** scan ownership, concurrent execution, cancel of own live job, latest workspace only, student API-key + agent isolation, student inventory UI from latest owned scan.
-- **Not required for class:** Postgres host/`owner_subject_id` ownership (students must still not query shared Postgres inventory).
-- Temporary Valkey workspace mode is acceptable; host `owner_subject_id` remains a later upgrade.
+- **Required:** scan ownership, concurrent execution, cancel, student API-key + agent isolation, **owned Postgres inventory** so Environment/Host/Vuln are real (not empty stubs).
+- **Valkey** remains the live scan workspace (progress/cancel/latest).
+- **Rejected as end-state:** UI-only adapters that map thin `ScanResult` into inventory pages without ports/OS persistence.
 
 ## Verdict
 
@@ -42,7 +44,7 @@ Each of ~19 students logs in as a provisioned non-admin, sees a **blank slate**,
 **Concurrent per-job scanner contexts** inside one `app-scanner` process + per-job Valkey state.  
 **Rejected:** serialized single-engine scratchpad broker (product requires simultaneous scans).  
 **Rejected:** UI-only `currentScan` rename (global manager/updater still clobber).  
-**Deferred:** full host `owner_subject_id`.
+**In class cut:** owned host identity for personal inventory (same-IP safe).
 
 ```text
 session subject
@@ -50,7 +52,9 @@ session subject
   → scan:latest / scan:owner / scan:state / scan:status
   → Rabbit scan-v2 { id, owner_subject_id, targets, options }
   → app-scanner jobs[scanID] + bounded shared worker pool (~24)
-  → student UI polls getLatestOwnedScan only
+  → POST /host/with-source { owner_subject_id, host… }  → UpsertHost(owner, ip)
+  → student Environment/Host/Vuln query Postgres filtered by session subject
+  → Valkey getLatestOwnedScan for live progress (fallback until rows land)
 ```
 
 ### Product decisions already accepted
@@ -61,8 +65,8 @@ session subject
 | Cancel live job | **Required** (full Scanner capability for students) |
 | Latest workspace only | OK (no history list) |
 | Single UI replica | OK |
-| Host ownership (Postgres) | Deferred; students never query shared inventory |
-| Student inventory UI | **In class cut** via latest owned scan workspace only |
+| Host ownership (Postgres) | **In class cut** — uniqueness `(owner_subject_id, ip)`; empty owner = legacy/admin global |
+| Student inventory UI | Real Host/Environment/Vuln via owned Postgres (+ Valkey in-flight fallback) |
 | Student API keys | Allowed; **locked to owning student** |
 | Agents | Visible/dispatchable only to key/agent owner |
 
@@ -92,14 +96,14 @@ session subject
 - Per-job Valkey state; one **active job per student** while all students may run concurrently.
 - Student API keys with immutable `OwnerSubjectID`; default scope `agent:enroll` (not general `/host` access).
 - Agent enrollment requires student key; agent token pinned to owner; list/dispatch/results owner-scoped.
-- Student Environment / Vulnerabilities / Host UI: adapters read **latest owned scan** (`scanner.getLatestOwnedScan` / Valkey) only — never shared Postgres.
+- Student Environment / Vulnerabilities / Host UI: **owned Postgres rows** filtered by session `subject_id` (ports/OS/vulns from their scans). Valkey adapters are in-flight fallback only.
+- Scanner persistence must pass job `owner_subject_id` into `/host/with-source` so same-IP classmates do not merge.
 - Shared NSE/script **catalog reads** allowed for authed users; initialize/create/update/delete remain staff-only.
-- Deny students: shared Postgres inventory queries, Terminal, dashboard/system-monitor, raw `store` mutations / `queue`, global `currentScan`, other owners’ keys/agents/scans.
+- Deny students: unscoped shared inventory, Terminal, dashboard/system-monitor, raw `store` mutations / `queue`, global `currentScan`, other owners’ keys/agents/scans/hosts.
 - Capability `identity.multi_user_local` for user-management UX (static range grant OK).
 
 ### Class cut — out of scope / deferred
 
-- Host/finding ownership in Postgres (`owner_subject_id`); durable shared inventory isolation  
 - Scan history lists; SSO/self-reg/teams/full RBAC/HA/multi-UI  
 - General-purpose student API keys for shared HTTP APIs  
 - Durable Rabbit / multi-scanner HA  
@@ -135,10 +139,10 @@ Dedicated procedures (session-derived owner; never trust client owner):
 - `scanner.startOwnedScan` / `getLatestOwnedScan` / `cancelOwnedScan` / `forceStopOwnedScan` / `resetOwnedWorkspace`
 - `apikeys` create/list/revoke filtered by owner (students)
 - `agent.listOwnedAgents` / owned dispatch + status
-- Student inventory adapters (`ownedScanInventory`): `host.getEnvironmentSummary`, `vulnerability.getAllVulnerabilities` / `getVulnerability` / `getAffectedHosts`, `host.getHostWithSources` — role-branch to owned scan for students; Postgres/Go path for staff
-- Soft empty stubs for student software/history chrome (no shared inventory probes)
+- Student inventory: tRPC role-branch → Go/Postgres **`owner_subject_id` filter** for Environment/Host/Vuln (real shapes). Valkey `ownedScanInventory` only while scan is in-flight / before rows land.
+- Soft empty stubs only for chrome that has no owned data yet (e.g. software inventory until agent SBOM lands under owner).
 
-Raw `store` mutations / `queue` → **staff-only**. NSE/script catalog **reads** are `protectedProcedure`. Students do not enrich UI from shared Postgres hosts.
+Raw `store` mutations / `queue` → **staff-only**. NSE/script catalog **reads** are `protectedProcedure`. Students never call unscoped host list APIs.
 
 ### Cancel
 
@@ -156,19 +160,20 @@ Raw `store` mutations / `queue` → **staff-only**. NSE/script catalog **reads**
 - Dispatch/results: agent owner must equal scan owner; mismatch fails closed.
 - Key revoke: block new enroll immediately; existing agents fail on next reconnect (live kill = admin for class).
 
-### Long-term upgrade path
+### Durable inventory (class — now)
 
-Per-job scanner (this cut) → durable `scan_runs` → host `owner_subject_id` + actor assertion into Go inventory.
+Per-job scanner + Valkey live workspace → **`UpsertHost(owner_subject_id, ip)`** into Postgres → student inventory queries assert owner. Legacy rows with empty owner remain admin/global.
 
 ## Implementation slices
 
-1. **Identity + policy** — subjects, role/active, durable auth, admin CRUD, session-bound profile/password, student nav allowlist (Scanner + owned-scan inventory)/`adminProcedure`.
-2. **Owned API keys** — `OwnerSubjectID` + scopes; owner create/list/revoke; deny student keys on shared inventory HTTP APIs.
-3. **Agent enrollment/visibility** — key-gated enroll, owner-pinned tokens, scoped connected lists, owned dispatch checks.
-4. **Concurrent scanner core** — `JobContext` registry, keyed updater, job-local options, bounded pool, completion accounting.
-5. **Owned scan gateway + UI** — server IDs, Valkey model, replace `useStartScan`/`useScanResults`, lock down store/queue.
-6. **Owned cancel** — exact network + agent cancel, force/reset isolation, terminal-write guards.
-7. **Proof + Pro packaging** — 19-user/same-IP concurrency, Alice-cancel/Bob-continues, key/agent cross-owner probes, Users UX + capability grant, docs.
+1. **Identity + policy** — subjects, role/active, durable auth, admin CRUD, session-bound profile/password, student nav allowlist/`adminProcedure`. *(done)*
+2. **Owned API keys** — `OwnerSubjectID` + scopes; owner create/list/revoke. *(done)*
+3. **Agent enrollment/visibility** — key-gated enroll, owner-pinned tokens, scoped lists. *(done)*
+4. **Concurrent scanner core** — `JobContext` registry, keyed updater, bounded pool. *(done)*
+5. **Owned scan gateway + UI** — Valkey model, cancel, student nav + interim Valkey inventory adapters. *(done / interim)*
+6. **Owned Postgres host identity** — schema `(owner_subject_id, ip)`, scanner/API upsert with owner, filtered list/get. *(in progress — personal-tour-class)*
+7. **Student inventory on real APIs** — tRPC → owned Postgres; Valkey fallback in-flight only.
+8. **Proof + Pro packaging** — Alice/Bob same-IP personal tour E2E, 19-user smoke, docs.
 
 ## Acceptance criteria (class)
 
@@ -180,11 +185,12 @@ Per-job scanner (this cut) → durable `scan_runs` → host `owner_subject_id` +
 6. Cross-owner `scan_id` on status/cancel/reset → `NOT_FOUND`/`FORBIDDEN`.
 7. Refresh restores latest owned workspace; new account blank; no history UI.
 8. Students cannot access global `currentScan`, raw store mutations/queue, Terminal, or shared Postgres inventory.
-9. Student Environment / Vulnerabilities / Host pages show only latest owned-scan data (blank if no scan); cross-owner host/vuln IDs → empty/`FORBIDDEN`.
-10. Students create/list/revoke only their API keys (`created_by` is not authz).
-11. Agent on Alice’s key visible/usable only to Alice (and admin); Bob cannot use it.
-12. Agent results merge only into same-owner scans.
-13. Community single-admin + shared Postgres still work; independence/leakage green.
+9. Student Environment / Vulnerabilities / Host show **their** persisted findings (including ports on Host detail); blank before first successful persist; cross-owner → empty/`FORBIDDEN`.
+10. Alice and Bob concurrent same-IP scans produce **two owned host rows**; neither inventory includes the other’s ports/vulns.
+11. Students create/list/revoke only their API keys (`created_by` is not authz).
+12. Agent on Alice’s key visible/usable only to Alice (and admin); Bob cannot use it.
+13. Agent results merge only into same-owner scans.
+14. Community single-admin + legacy empty-owner hosts still work; independence/leakage green.
 
 ## Validation
 

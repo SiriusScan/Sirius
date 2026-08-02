@@ -95,9 +95,9 @@ Owned paths:
 
 Tasks:
 
-- [ ] Schema: per-owner host identity `(owner_subject_id, ip)` + migrate
-- [ ] `UpsertHost` / `AddHostWithSource` accept owner; scanner passes job owner
-- [ ] List/get host APIs support `owner_subject_id` filter (empty = admin/global)
+- [x] Schema: per-owner host identity `(owner_subject_id, ip)` + migrate (`008_host_owner_subject`, go-api `cb14626`)
+- [x] `UpsertHost` / `AddHostWithSource` accept owner; scanner passes job owner (`4bc92c4`)
+- [x] List/get host APIs support `owner_subject_id` filter (Sirius `fa1c23bab`)
 
 ## Stage 3: Student inventory on real APIs
 
@@ -105,13 +105,14 @@ Owned paths:
 
 - `sirius-ui/src/server/api/routers/{host,vulnerability,statistics}.ts`
 - `sirius-ui/src/server/api/shared/ownedScanInventory.ts`
-- `sirius-ui/src/components/{Sidebar,Layout}.tsx` (already mostly done)
+- `sirius-engine/Dockerfile` + `sirius-api/go.mod.prod` (pin go-api `cb14626`, app-scanner `4bc92c4`)
 
 Tasks:
 
-- [ ] Student host/vuln/env procedures call owned Postgres filters (not thin Valkey-only stubs)
-- [ ] In-flight: Valkey fallback; completed: Postgres owned rows
-- [ ] Keep NSE catalog reads; keep Terminal denied
+- [x] Student host/vuln/env procedures call owned Postgres filters (`?owner_subject_id=`) — `9f9930aa0`
+- [x] In-flight: Valkey fallback when Postgres owned list empty; completed: Postgres owned rows
+- [x] Pin engine/API to Stage 2 SHAs (`cb14626` / `4bc92c4`)
+- [x] Keep NSE catalog reads; keep Terminal denied
 
 ## Stage 4: Validate on range
 
@@ -122,9 +123,18 @@ Owned paths:
 
 Tasks:
 
-- [ ] Rebuild/pin engine+api+ui; migrate; deploy
-- [ ] Alice/Bob concurrent same-IP E2E checklist
+- [x] Rebuild/pin engine+api+ui; run migrate `008_host_owner_subject`; deploy (range 2026-08-02)
+- [ ] Alice/Bob concurrent same-IP E2E checklist (operator / next cycle)
 - [ ] Record acceptance decision
+
+### Range deploy receipt (2026-08-02)
+
+| Component | Ref |
+|---|---|
+| UI | `sirius-ui@sha256:e7b3d997…` (community `9f9930aa0`) |
+| API | `sirius-api@sha256:2919440c…` (migrate binary go-api `cb14626`) |
+| Engine | `sirius-engine:multiuser-range` (pins go-api `cb14626`, scanner `4bc92c4`) |
+| DB | `008_host_owner_subject` applied; `idx_hosts_owner_ip` present |
 
 ---
 
@@ -132,22 +142,18 @@ Tasks:
 
 ```yaml
 goal_id: personal-tour-class
-task_id: personal-tour-class.s2.t001
-stage: "2 Owned host persistence"
+task_id: personal-tour-class.s4.t002
+stage: "4 Validate on range"
 cycle: 0
 attempt: 1
-assigned_role: grok
+assigned_role: parent
 owned_paths:
-  - /Users/oz/Projects/Sirius-Project/minor-projects/go-api/sirius/postgres/
-  - /Users/oz/Projects/Sirius-Project/minor-projects/go-api/sirius/host/
-  - /Users/oz/Projects/Sirius-Project/Sirius/sirius-api/handlers/host_handler.go
-  - /Users/oz/Projects/Sirius-Project/minor-projects/app-scanner/internal/scan/
+  - programs/personal-tour-class/PROGRAM.md
 acceptance_criteria:
-  - "Host model supports owner_subject_id; unique (owner_subject_id, ip) for non-empty owners"
-  - "AddHostWithSource / UpsertHost scopes by owner when provided"
-  - "Scanner submits owner_subject_id from JobContext on /host/with-source"
-  - "List/get host APIs accept owner_subject_id filter"
+  - "Alice and Bob concurrent same-IP scans produce two owned host rows"
+  - "Each student Environment/Host shows only their ports/vulns"
+  - "Alice cancel does not affect Bob"
 validation_commands:
-  - "cd minor-projects/go-api && go test ./sirius/host/..."
-next_action: "Implement owned host schema + upsert + scanner/API wiring"
+  - "docker exec sirius-postgres psql -U postgres -d sirius -c \"SELECT owner_subject_id, ip, hostname FROM hosts WHERE owner_subject_id <> '';\""
+next_action: "Run Alice/Bob same-IP personal-tour E2E on http://192.168.123.22:3000"
 ```

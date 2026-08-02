@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
+import { TRPCError } from "@trpc/server";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  staffProcedure,
+} from "~/server/api/trpc";
 import type { AgentScanConfig } from "~/types/scanTypes";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
 
@@ -59,8 +64,8 @@ const templateSchema = z.object({
 });
 
 export const templatesRouter = createTRPCRouter({
-  // Get all templates
-  getTemplates: staffProcedure.query(async () => {
+  // Get all templates (students: system defaults only)
+  getTemplates: protectedProcedure.query(async ({ ctx }) => {
     try {
       const response = await apiFetch(`${API_BASE_URL}/templates`);
 
@@ -69,6 +74,9 @@ export const templatesRouter = createTRPCRouter({
       }
 
       const templates = (await response.json()) as Template[];
+      if (ctx.session.user.role === "student") {
+        return templates.filter((t) => t.type === "system");
+      }
       return templates;
     } catch (error) {
       console.error("Error fetching templates:", error);
@@ -76,10 +84,10 @@ export const templatesRouter = createTRPCRouter({
     }
   }),
 
-  // Get a single template by ID
-  getTemplate: staffProcedure
+  // Get a single template by ID (students: system templates only)
+  getTemplate: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       try {
         const response = await apiFetch(`${API_BASE_URL}/templates/${input.id}`);
 
@@ -91,8 +99,18 @@ export const templatesRouter = createTRPCRouter({
         }
 
         const template = (await response.json()) as Template;
+        if (
+          ctx.session.user.role === "student" &&
+          template.type !== "system"
+        ) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Not available for student accounts",
+          });
+        }
         return template;
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         console.error("Error fetching template:", error);
         throw new Error("Failed to fetch template");
       }

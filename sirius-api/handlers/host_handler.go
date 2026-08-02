@@ -28,9 +28,11 @@ func isValidSingleHostIP(ip string) bool {
 	return net.ParseIP(candidate) != nil
 }
 
-// GetHost handles the GET /host/{id} route with optional enhanced data
+// GetHost handles the GET /host/{id} route with optional enhanced data.
+// Optional query owner_subject_id scopes lookup to that owner's inventory.
 func GetHost(c *fiber.Ctx) error {
 	hostID := c.Params("id")
+	ownerSubjectID := strings.TrimSpace(c.Query("owner_subject_id"))
 
 	// Check for enhanced data query parameters
 	includeParam := c.Query("include", "")
@@ -48,7 +50,17 @@ func GetHost(c *fiber.Ctx) error {
 
 	// Check if client wants enhanced response
 	if includeEnhanced == "true" || len(includeFields) > 0 {
-		// Enhanced response with JSONB fields
+		// Enhanced response with JSONB fields (owner filter via fallback path when set)
+		if ownerSubjectID != "" {
+			hostData, err := host.GetHostOwned(hostID, ownerSubjectID)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+					"error": err.Error(),
+				})
+			}
+			return c.JSON(hostData)
+		}
+
 		enhancedData, err := host.GetHostWithEnhancedData(hostID, includeFields)
 		if err != nil {
 			// Fallback to basic response if enhanced data unavailable
@@ -81,8 +93,14 @@ func GetHost(c *fiber.Ctx) error {
 		return c.JSON(enhancedData)
 	}
 
-	// Use basic GetHost function for backward compatibility
-	hostData, err := host.GetHost(hostID)
+	// Use basic GetHost function for backward compatibility (optional owner scope)
+	var hostData sirius.Host
+	var err error
+	if ownerSubjectID != "" {
+		hostData, err = host.GetHostOwned(hostID, ownerSubjectID)
+	} else {
+		hostData, err = host.GetHost(hostID)
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -111,9 +129,18 @@ func GetHost(c *fiber.Ctx) error {
 	return c.JSON(hostData)
 }
 
-// GetAllHosts handles the GET /host route
+// GetAllHosts handles the GET /host route.
+// Optional query owner_subject_id filters to that owner's inventory when set.
 func GetAllHosts(c *fiber.Ctx) error {
-	hosts, err := host.GetAllHosts()
+	ownerSubjectID := strings.TrimSpace(c.Query("owner_subject_id"))
+
+	var hosts []sirius.Host
+	var err error
+	if ownerSubjectID != "" {
+		hosts, err = host.GetAllHostsOwned(ownerSubjectID)
+	} else {
+		hosts, err = host.GetAllHosts()
+	}
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -259,7 +286,7 @@ func AddHost(c *fiber.Ctx) error {
 
 	// Route to source-aware function if source detected, otherwise use legacy function
 	if source.Name != "unknown" {
-		err = host.AddHostWithSource(newHost, source)
+		err = host.AddHostWithSource(newHost, source, "")
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Error adding host with source: " + err.Error(),
@@ -527,7 +554,7 @@ func UpdateHost(c *fiber.Ctx) error {
 		Config:  "ui-update",
 	}
 
-	err := host.AddHostWithSource(hostUpdate, source)
+	err := host.AddHostWithSource(hostUpdate, source, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Error updating host: " + err.Error(),
@@ -576,14 +603,16 @@ func DeleteHost(c *fiber.Ctx) error {
 
 // AddHostWithSourceRequest represents the request body for source-aware host addition
 type AddHostWithSourceRequest struct {
-	Host   sirius.Host       `json:"host"`
-	Source models.ScanSource `json:"source"`
+	Host           sirius.Host       `json:"host"`
+	Source         models.ScanSource `json:"source"`
+	OwnerSubjectID string            `json:"owner_subject_id,omitempty"`
 }
 
 // EnhancedHostRequest represents the request body for enhanced host data with JSONB fields
 type EnhancedHostRequest struct {
 	Host              sirius.Host            `json:"host"`
 	Source            models.ScanSource      `json:"source"`
+	OwnerSubjectID    string                 `json:"owner_subject_id,omitempty"`
 	SoftwareInventory map[string]interface{} `json:"software_inventory,omitempty"`
 	SystemFingerprint map[string]interface{} `json:"system_fingerprint,omitempty"`
 	AgentMetadata     map[string]interface{} `json:"agent_metadata,omitempty"`
@@ -605,6 +634,7 @@ func AddHostWithSource(c *fiber.Ctx) error {
 		hasEnhancedData = true
 		request.Host = enhancedRequest.Host
 		request.Source = enhancedRequest.Source
+		request.OwnerSubjectID = strings.TrimSpace(enhancedRequest.OwnerSubjectID)
 		slog.Info("Received enhanced host data with JSONB fields", "ip", request.Host.IP)
 	} else {
 		// Fall back to basic request parsing
@@ -614,10 +644,11 @@ func AddHostWithSource(c *fiber.Ctx) error {
 				"error": "Error parsing request body: " + err.Error(),
 			})
 		}
+		request.OwnerSubjectID = strings.TrimSpace(request.OwnerSubjectID)
 		slog.Debug("Received basic host data", "ip", request.Host.IP)
 	}
 
-	slog.Info("Adding host with source", "ip", request.Host.IP, "source", request.Source.Name)
+	slog.Info("Adding host with source", "ip", request.Host.IP, "source", request.Source.Name, "owner", request.OwnerSubjectID)
 	if !isValidSingleHostIP(request.Host.IP) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Host IP must be a single IP address (CIDR/range/domain targets are not allowed)",
@@ -675,7 +706,7 @@ func AddHostWithSource(c *fiber.Ctx) error {
 
 	// Use enhanced source-aware function if we have enhanced data
 	if hasEnhancedData {
-		err := host.AddHostWithSourceAndJSONB(request.Host, request.Source,
+		err := host.AddHostWithSourceAndJSONB(request.Host, request.Source, request.OwnerSubjectID,
 			enhancedRequest.SoftwareInventory,
 			enhancedRequest.SystemFingerprint,
 			enhancedRequest.AgentMetadata)
@@ -689,6 +720,7 @@ func AddHostWithSource(c *fiber.Ctx) error {
 			"message":                "Host added successfully with enhanced SBOM data",
 			"source":                 request.Source.Name,
 			"host_ip":                request.Host.IP,
+			"owner_subject_id":       request.OwnerSubjectID,
 			"enhanced_data_included": true,
 			"software_inventory":     len(enhancedRequest.SoftwareInventory) > 0,
 			"system_fingerprint":     len(enhancedRequest.SystemFingerprint) > 0,
@@ -696,7 +728,7 @@ func AddHostWithSource(c *fiber.Ctx) error {
 		})
 	} else {
 		// Use standard source-aware function
-		err := host.AddHostWithSource(request.Host, request.Source)
+		err := host.AddHostWithSource(request.Host, request.Source, request.OwnerSubjectID)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": "Error adding host with source: " + err.Error(),
@@ -704,9 +736,10 @@ func AddHostWithSource(c *fiber.Ctx) error {
 		}
 
 		return c.JSON(fiber.Map{
-			"message": "Host added successfully with source attribution",
-			"source":  request.Source.Name,
-			"host_ip": request.Host.IP,
+			"message":          "Host added successfully with source attribution",
+			"source":           request.Source.Name,
+			"host_ip":          request.Host.IP,
+			"owner_subject_id": request.OwnerSubjectID,
 		})
 	}
 }

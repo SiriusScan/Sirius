@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createTRPCRouter, staffProcedure } from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 import { handleSendMsg, waitForResponse } from "./queue";
 import { valkey } from "~/server/valkey";
@@ -35,11 +35,26 @@ interface AgentScanStatusResult {
 
 /**
  * Fetches the list of connected agents from ValKey (set by the Go agent server).
- * Falls back to RabbitMQ if ValKey key is not available.
- * Returns an array of agent ID strings.
+ * When ownerSubjectId is set, reads agents:connected:<subject> (student path).
+ * Otherwise reads global connected_agents (admin/staff), with RabbitMQ fallback.
  */
-async function getConnectedAgents(): Promise<string[]> {
+async function getConnectedAgents(ownerSubjectId?: string): Promise<string[]> {
   try {
+    if (ownerSubjectId) {
+      const ownerKey = `agents:connected:${ownerSubjectId}`;
+      const valkeyResult = await valkey.get(ownerKey);
+      if (valkeyResult !== null) {
+        const agents = JSON.parse(valkeyResult);
+        if (Array.isArray(agents)) {
+          console.log(
+            `[AgentScan] Got ${agents.length} owned connected agents from ValKey for ${ownerSubjectId}`
+          );
+          return agents as string[];
+        }
+      }
+      return [];
+    }
+
     let shouldFallbackToRabbitMq = true;
 
     // Primary: read from ValKey (avoids shared RabbitMQ queue race conditions)
@@ -140,35 +155,65 @@ async function dispatchToAgent(
 
 export const agentScanRouter = createTRPCRouter({
   /**
+   * Student-safe list of connected agents for Scanner agent scans.
+   * Students see only agents:connected:<subjectId>; staff see global list.
+   */
+  getConnectedAgents: protectedProcedure.query(async ({ ctx }) => {
+    const role = ctx.session.user.role;
+    const subjectId = ctx.session.user.subjectId;
+    if (role === "student") {
+      return getConnectedAgents(subjectId);
+    }
+    return getConnectedAgents();
+  }),
+
+  /**
    * Dispatch agent scans to one or more connected agents.
    * This is called alongside network scan dispatch when a profile has agent_scan enabled.
+   * Students may only target their owned connected agents.
    */
-  dispatchAgentScan: staffProcedure
+  dispatchAgentScan: protectedProcedure
     .input(
       z.object({
         scanId: z.string(),
-        agentIds: z.array(z.string()), // empty = all connected agents
+        agentIds: z.array(z.string()), // empty = all connected agents (owned for students)
         mode: z.enum(["comprehensive", "templates-only", "scripts-only"]),
         timeout: z.number().default(300),
         concurrency: z.number().default(5),
         templateFilter: z.array(z.string()).optional(),
       })
     )
-    .mutation(async ({ input }): Promise<AgentScanDispatchResult> => {
+    .mutation(async ({ ctx, input }): Promise<AgentScanDispatchResult> => {
       try {
         console.log(
           `[AgentScan] Dispatching agent scan for scanId: ${input.scanId}`
         );
 
+        const isStudent = ctx.session.user.role === "student";
+        const ownedAgents = isStudent
+          ? await getConnectedAgents(ctx.session.user.subjectId)
+          : null;
+        const ownedSet = ownedAgents ? new Set(ownedAgents) : null;
+
         // Determine which agents to target
         let targetAgents = input.agentIds;
 
         if (targetAgents.length === 0) {
-          // Get all connected agents
-          targetAgents = await getConnectedAgents();
+          // Get all connected agents (owner-scoped for students)
+          targetAgents = isStudent
+            ? ownedAgents ?? []
+            : await getConnectedAgents();
           console.log(
             `[AgentScan] Auto-detected ${targetAgents.length} connected agents`
           );
+        } else if (ownedSet) {
+          const forbidden = targetAgents.filter((id) => !ownedSet.has(id));
+          if (forbidden.length > 0) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Cannot dispatch to agents you do not own",
+            });
+          }
         }
 
         if (targetAgents.length === 0) {
@@ -297,7 +342,7 @@ export const agentScanRouter = createTRPCRouter({
    * Get the status of an agent scan dispatch.
    * Used for polling agent scan progress.
    */
-  getAgentScanStatus: staffProcedure
+  getAgentScanStatus: protectedProcedure
     .input(z.object({ scanId: z.string() }))
     .query(async ({ input }): Promise<AgentScanStatusResult | null> => {
       try {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   createTRPCRouter,
+  protectedProcedure,
   staffProcedure,
 } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
@@ -22,7 +23,69 @@ export type AgentWithHost = {
   } | null;
 };
 
+/** Owner-scoped connected agents key written by app-agent sync. */
+function connectedAgentsKeyForOwner(subjectId: string): string {
+  return `agents:connected:${subjectId}`;
+}
+
+async function readConnectedAgentIds(
+  key: string,
+  fallbackToGlobal = false
+): Promise<string[]> {
+  const valkeyResult = await valkey.get(key);
+  if (valkeyResult !== null) {
+    const parsed = JSON.parse(valkeyResult);
+    if (Array.isArray(parsed)) {
+      return parsed as string[];
+    }
+  }
+  if (fallbackToGlobal && key !== "connected_agents") {
+    const global = await valkey.get("connected_agents");
+    if (global !== null) {
+      const parsed = JSON.parse(global);
+      if (Array.isArray(parsed)) {
+        return parsed as string[];
+      }
+    }
+  }
+  return [];
+}
+
 export const agentRouter = createTRPCRouter({
+  /**
+   * Student-safe list of the caller's owned connected agents.
+   * Admins/staff see the global connected_agents list.
+   */
+  listOwnedConnectedAgents: protectedProcedure.query(async ({ ctx }) => {
+    try {
+      const role = ctx.session.user.role;
+      const subjectId = ctx.session.user.subjectId;
+      let connectedAgentIds: string[] = [];
+
+      if (role === "student") {
+        connectedAgentIds = await readConnectedAgentIds(
+          connectedAgentsKeyForOwner(subjectId)
+        );
+      } else {
+        connectedAgentIds = await readConnectedAgentIds("connected_agents");
+      }
+
+      return connectedAgentIds.map((id) => ({
+        id,
+        name: id,
+        status: "online" as const,
+        lastSeen: new Date().toISOString(),
+        host: null,
+      }));
+    } catch (error) {
+      console.error("[Agent] Failed to list owned connected agents:", error);
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to retrieve owned agent information",
+      });
+    }
+  }),
+
   // Get list of agents with their associated host information
   listAgentsWithHosts: staffProcedure.query(async ({ ctx }) => {
     try {

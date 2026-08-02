@@ -7,7 +7,7 @@ acceptance_criteria:
   - "The three private OpenSecurity-Infosec repositories exist with access teams, private GHCR, and leakage prevention; the approved GitHub Free governance waiver remains documented until private branch/tag protection, secret scanning, and least-privilege base access become available."
   - "Versioned public API, event, UI, and engine extension contracts admit a test extension without changing Community behavior."
   - "Capabilities are enforced centrally with offline-verifiable licenses while Community requires no license and existing scan data remains accessible after expiry."
-  - "Enterprise Reporting ships as a private, entitlement-gated vertical and its deployment overlay can be added and removed without damaging core data."
+  - "Class multi-user concurrent scan workspaces ship as the first private Pro vertical (capability identity.multi_user_local): local multi-user identity, concurrent owned scans with cancel, latest workspace only, and owner-scoped student API keys/agents per documentation/dev-notes/pro-multi-user-isolation-plan.md; the Pro overlay can be added and removed without damaging core data."
   - "Pro releases consume core.lock.yaml digests, pass Community regression and compatibility tests, and promote tested artifacts without rebuilding."
 human_gates:
   - "Human approval before pushing branches, opening or merging pull requests, creating or publishing Git tags/releases, or changing GitHub organization settings."
@@ -31,8 +31,10 @@ Non-goals:
 - Do not create a private fork of `SiriusScan/Sirius`.
 - Do not move an existing Community feature behind a Pro entitlement.
 - Do not introduce runtime plugin loading in v1; extension registration is compile-time.
-- Do not add multi-user RBAC or workspace behavior outside the planned Pro contracts
-  and vertical.
+- Do not add general RBAC, SSO, SCIM, multi-tenant workspaces, or org governance.
+  Local multi-user identity, concurrent owned scan workspaces, and owner-scoped API
+  keys/agents ARE in scope for the first Pro vertical per
+  `documentation/dev-notes/pro-multi-user-isolation-plan.md`.
 - Do not deploy to production or distribute customer licenses as an unattended action.
 
 Selected stack and source:
@@ -68,16 +70,23 @@ Dependencies and order:
 2. Phase 1 public-core hardening (complete in Community `v1.1.0`).
 3. Phase 2 private repository and supply-chain foundation.
 4. Phase 3 public extension contracts; depends on Phase 1.
-5. Phase 4 entitlements; depends on Phases 2 and 3.
-6. Phase 5 Enterprise Reporting; depends on Phase 4.
+5. Phase 4 entitlements; depends on Phases 2 and 3 (full issuer may run in parallel
+   with the class vertical).
+6. Phase 5 first vertical: class multi-user concurrent scan workspaces
+   (`identity.multi_user_local`); thin static capability grant is enough for the
+   class cut — full Phase 3.3–3.6 event/UI/engine contracts and full Phase 4
+   entitlements issuer are NOT hard blockers (harden in parallel). Authoritative
+   plan: `documentation/dev-notes/pro-multi-user-isolation-plan.md`.
 7. Phase 6 compatibility, promotion, cleanup, and reconciliation; depends on Phase 5.
+   Enterprise Reporting (`reporting.enterprise`) is deferred to a later vertical.
 
 Accelerated class-ready track (parallel, not a replacement):
 
 - API Module and OpenAPI are sufficient to start a private companion Pro-dev
   API/UI/worker composition for class use.
 - Phase 3.3-3.6 and Phases 4-6 remain required for the integrated Pro product, but do
-  not block the explicitly non-production companion cut.
+  not block the explicitly non-production companion cut or the class multi-user
+  vertical.
 - The class cut, stub boundary, commands, and human gates are recorded in
   `programs/complete-split-deploy-to-range/CLASS_READY_CUT.md`.
 
@@ -619,8 +628,12 @@ Planning/discovery evidence:
 
 Tasks:
 
-- [ ] Complete Phase 4 capability and license platform
-- [ ] Complete Phase 5 Enterprise Reporting vertical
+- [ ] Complete Phase 4 capability and license platform (full issuer may trail the
+  class cut; thin static `identity.multi_user_local` grant is acceptable for range)
+- [ ] Complete Phase 5 class multi-user concurrent scan workspaces vertical
+  (identity, owned scans + cancel, owner-scoped API keys/agents, Pro packaging/E2E)
+  per `documentation/dev-notes/pro-multi-user-isolation-plan.md`
+- [ ] Defer Enterprise Reporting (`reporting.enterprise`) to a later vertical
 
 ## Stage 6: Compatibility, Release, and Closeout
 

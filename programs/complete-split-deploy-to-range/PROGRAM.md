@@ -5,7 +5,7 @@ acceptance_criteria:
   - "The existing bifurcation program completes its public contracts, entitlement platform, first Pro vertical, compatibility automation, and release closeout without weakening the completed Community release or private-foundation controls."
   - "A tagged Community core release remains independently runnable without private credentials, packages, repositories, licenses, or Pro artifacts and passes leakage, upgrade, and regression checks."
   - "A private tagged Pro release consumes Community only through a verified core.lock.yaml of immutable digests and publishes private digest-addressed images with SBOMs, provenance, and verifiable keyless signatures."
-  - "Enterprise Reporting proves the extension seams end to end: licensed Pro API, worker, UI, migrations, PDF/CSV output, scheduling, and audit events function; direct calls fail closed without reporting.enterprise."
+  - "Class multi-user concurrent scan workspaces prove the first Pro vertical end to end (capability identity.multi_user_local): local multi-user identity, concurrent owned scans with cancel, latest workspace only, and owner-scoped student API keys/agents per documentation/dev-notes/pro-multi-user-isolation-plan.md; thin static capability grant is acceptable for the class cut."
   - "The Pro Compose overlay deploys to the approved SIRIUS range host (VMID 220 / 10.0.10.20), passes health and instructor-path E2E checks, and can be removed while Community and core data remain healthy."
   - "License valid, expired, grace, renewed, Community-to-Pro, Pro upgrade, and Pro-to-Community-only lifecycle tests pass with existing scan data retained and readable."
   - "The public repository and artifacts contain no private source, module paths, registry references, credentials, or Pro runtime code after final release and deployment."
@@ -35,8 +35,12 @@ Non-goals:
 - Do not clone or fork Community into a private repository, export private commits to
   public, or make public CI depend on private access.
 - Do not move existing Community features behind entitlements.
-- Do not add runtime plugins, multi-user RBAC, workspaces, SSO, HA, billing, or another
-  Pro vertical beyond Enterprise Reporting.
+- Do not add runtime plugins, general RBAC, SSO, SCIM, multi-tenant workspaces, org
+  governance, HA, billing, or another Pro vertical beyond the class multi-user
+  concurrent scan workspace cut. Local multi-user identity, owned scan workspaces,
+  and owner-scoped API keys/agents ARE in scope per
+  `documentation/dev-notes/pro-multi-user-isolation-plan.md`. Enterprise Reporting
+  is deferred.
 - Do not change the approved GitHub Free governance waiver implicitly; retain it until
   an explicit organization-plan/base-permission decision replaces it.
 
@@ -54,9 +58,13 @@ Selected stack and source:
 
 Dependencies and order:
 
-1. Finish and publish the public extension contracts (current bifurcation Phase 3).
-2. Implement and validate capabilities and offline-verifiable entitlements (Phase 4).
-3. Implement Enterprise Reporting across the private Pro composition (Phase 5).
+1. Finish and publish the public extension contracts (current bifurcation Phase 3);
+   full Phase 3.3–3.6 may harden in parallel with the class vertical.
+2. Implement and validate capabilities and offline-verifiable entitlements (Phase 4);
+   thin static capability grant is enough for the class cut; full issuer is not a
+   hard blocker.
+3. Implement class multi-user concurrent scan workspaces across the private Pro
+   composition (Phase 5 / `identity.multi_user_local`); Enterprise Reporting deferred.
 4. Complete lock, compatibility, promotion, upgrade, and rollback automation (Phase 6).
 5. Publish approved Community and Pro release candidates.
 6. Back up the range data, deploy the digest-pinned Pro overlay, execute E2E/lifecycle
@@ -84,8 +92,8 @@ Repository-native validation:
   signature, Compose, migration, and upgrade test suites.
 - Private repository guardrail, lock verification, contract compatibility, Pro E2E,
   entitlement, SBOM/signature, and anonymous-denial workflows.
-- Range health probes, API/UI/reporting E2E, migration ledger inspection, backup/restore
-  evidence, and Community-only rollback verification.
+- Range health probes, API/UI/multi-user owned-scan E2E, migration ledger inspection,
+  backup/restore evidence, and Community-only rollback verification.
 
 Loop limits and terminal conditions:
 
@@ -165,7 +173,7 @@ Class-ready is an accelerated demonstration milestone only. It does not mark Sta
 2-5 or the program acceptance criteria complete. Optional Pro-dev sidecars on
 `:3100`/`:9101`/`:9102` are not the acceptance signal.
 
-## Stage 3: Entitlements and Enterprise Reporting
+## Stage 3: Entitlements and First Pro Vertical (Class Multi-User)
 
 Owned paths:
 
@@ -176,9 +184,13 @@ Owned paths:
 
 Tasks:
 
-- [ ] Complete capability and offline-license platform
-- [ ] Complete the Enterprise Reporting vertical and fail-closed enforcement
+- [ ] Complete capability and offline-license platform (thin static
+  `identity.multi_user_local` grant OK for class cut; full issuer parallel)
+- [ ] Complete the class multi-user concurrent scan workspace vertical (identity,
+  owned scans + cancel, owner-scoped API keys/agents, Pro packaging/E2E) per
+  `documentation/dev-notes/pro-multi-user-isolation-plan.md`
 - [ ] Prove Community behavior remains unchanged without extensions
+- [ ] Defer Enterprise Reporting (`reporting.enterprise`) to a later vertical
 
 ## Stage 4: Release and Compatibility
 
@@ -207,7 +219,8 @@ Tasks:
 
 - [ ] Obtain deployment approval and capture backup/rollback evidence
 - [ ] Deploy the digest-pinned Pro overlay to the range
-- [ ] Run health, instructor-path, reporting, entitlement, upgrade, and data-integrity E2E
+- [ ] Run health, instructor-path, multi-user owned-scan, entitlement, upgrade, and
+  data-integrity E2E
 - [ ] Remove the overlay and prove Community/data health, then restore accepted Pro state
 - [ ] Reconcile both programs/task tracker and obtain final human acceptance
 

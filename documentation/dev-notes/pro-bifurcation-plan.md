@@ -166,9 +166,9 @@ unchanged with zero extensions loaded.
 ### 4) Entitlement platform (Phase 4)
 
 - Capability catalog defined publicly in `go-api` (e.g. `scanning.core`,
-  `reporting.enterprise`, `identity.sso`, `workspaces.multiple`) with a Community
-  provider that grants community capabilities unconditionally — public code never
-  needs a license.
+  `identity.multi_user_local`, `reporting.enterprise`, `identity.sso`,
+  `workspaces.multiple`) with a Community provider that grants community
+  capabilities unconditionally — public code never needs a license.
 - Signed license format (Ed25519; issuer keeps private key in KMS, products embed
   only public verification keys with key-ID rotation), offline validation, grace
   period, cached entitlement state, structured `CAPABILITY_NOT_LICENSED` errors.
@@ -176,18 +176,27 @@ unchanged with zero extensions loaded.
   License expiration never blocks access to existing scan data.
 - Private `sirius-entitlements` holds the issuer service and customer tooling.
 
-### 5) First vertical: Enterprise Reporting (Phase 5)
+### 5) First vertical: class multi-user concurrent scan workspaces (Phase 5)
 
-One representative Pro feature to prove every seam before scaling out: capability
-`reporting.enterprise`, dedicated `pro` PostgreSQL schema +
-`schema_migrations_pro`, a Pro reporting worker consuming versioned scan-completed
-events, Pro API routes under `/api/pro/v1/reports`, UI extension (navigation +
-pages), scheduled generation, PDF/CSV export, audit events, and
-`docker-compose.pro.yaml` overlay with digest-pinned private images.
+One representative Pro vertical to prove extension seams for the class-ready cut:
+capability `identity.multi_user_local` — local multi-user identity, concurrent
+owner-isolated scan workspaces (including same-IP), cancel of own live job, latest
+workspace only, and owner-scoped student API keys/agents. Authoritative plan:
+`documentation/dev-notes/pro-multi-user-isolation-plan.md`.
 
-Exit criteria include: Community contains no reporting code; the feature is dead
-without entitlement (including direct API calls); removing the Pro overlay returns a
-working Community deployment with core data intact.
+Class-cut notes: host ownership deferred; students are Scanner-focused with shared
+inventory admin-only; thin static capability grant for range is OK; full Phase
+3.3–3.6 event/UI/engine contracts and full Phase 4 entitlements issuer are **not**
+hard blockers (harden in parallel).
+
+**Deferred later vertical:** Enterprise Reporting (`reporting.enterprise`) —
+executive/compliance reporting, scheduled PDF/CSV, dedicated `pro` schema worker,
+and related overlay services — after the class multi-user cut ships.
+
+Exit criteria include: ~19 students run concurrent owned scans with cancel isolation;
+cross-owner key/agent/scan probes fail closed; Community single-admin + shared
+Postgres still work; removing the Pro overlay returns a working Community deployment
+with core data intact.
 
 ### 6) Release integration and compatibility automation (Phase 6)
 
@@ -233,8 +242,10 @@ compliance, governance, enterprise identity/integrations, and HA are Pro.
   released in a tagged core version; test extension passes; Community unchanged.
 - **M4 — Entitlements live**: offline-verifiable signed licenses; central
   enforcement; admin license page; expiration/grace behavior tested.
-- **M5 — First vertical shipped**: enterprise reporting on a tagged core release;
-  Community regression suite green in Pro pipeline; overlay add/remove proven.
+- **M5 — First vertical shipped**: class multi-user concurrent scan workspaces
+  (`identity.multi_user_local`) on a tagged/core-locked Pro composition; Community
+  regression suite green in Pro pipeline; overlay add/remove proven. Enterprise
+  Reporting deferred.
 - **M6 — Release machine**: core.lock automation, nightly compat, promotion-by-retag,
   full release manifests. Definition of Done for the platform foundation met.
 

@@ -185,9 +185,9 @@
         "id": "3.3",
         "title": "Versioned event envelope in go-api queue package",
         "description": "CloudEvents-compatible envelope with type, schema version, source, correlation ID, and idempotency key; wrap existing queues additively.",
-        "details": "Inventory existing queues (scan, scan_control, terminal, engine.commands, agent_commands, agent.template.sync.jobs, ...); define JSON schemas; validate in CI; reserve pro.* queue namespace; document retry and dead-letter behavior.",
+        "details": "Inventory existing queues (scan, scan_control, terminal, engine.commands, agent_commands, agent.template.sync.jobs, ...); define JSON schemas; validate in CI; reserve pro.* queue namespace; document retry and dead-letter behavior. Deferred relative to the class multi-user cut: not a hard blocker for Phase 5 identity.multi_user_local (harden in parallel).",
         "status": "pending",
-        "priority": "high",
+        "priority": "medium",
         "dependencies": [],
         "testStrategy": "Existing producers/consumers pass regression with enveloped messages; schema validation CI rejects an intentionally malformed event."
       },
@@ -195,9 +195,9 @@
         "id": "3.4",
         "title": "UI extension registry and capability provider",
         "description": "Build-time SiriusUIExtension registry; migrate Sidebar navigation and existing pages into registry declarations; add capability-aware rendering.",
-        "details": "Registry supports routes, navigation, dashboard widgets, settings panels, requiredCapabilities. Capability provider context fed by API entitlement endpoint (Community provider returns community capabilities without any license). Pro UI image builds by cloning public sirius-ui at a pinned SHA and overlaying private extension modules, mirroring the engine pin pattern.",
+        "details": "Registry supports routes, navigation, dashboard widgets, settings panels, requiredCapabilities. Capability provider context fed by API entitlement endpoint (Community provider returns community capabilities without any license). Pro UI image builds by cloning public sirius-ui at a pinned SHA and overlaying private extension modules, mirroring the engine pin pattern. Deferred relative to the class multi-user cut: not a hard blocker for Phase 5 (thin static capability + targeted Pro UI overlay OK).",
         "status": "pending",
-        "priority": "high",
+        "priority": "medium",
         "dependencies": ["3.2"],
         "testStrategy": "Community UI renders identical navigation and pages from the registry (visual/E2E regression); a test extension adds a nav item and page gated by a fake capability."
       },
@@ -205,9 +205,9 @@
         "id": "3.5",
         "title": "Engine enrichment and scoring interfaces",
         "description": "ResultEnricher, RiskScorer, and scheduling-policy interfaces in go-api with deterministic ordering and health reporting.",
-        "details": "Define interfaces and a registration seam in the engine composition root; no behavior change for Community (empty registries).",
+        "details": "Define interfaces and a registration seam in the engine composition root; no behavior change for Community (empty registries). Deferred relative to the class multi-user cut: not a hard blocker for Phase 5.",
         "status": "pending",
-        "priority": "medium",
+        "priority": "low",
         "dependencies": ["3.3"],
         "testStrategy": "Scan pipeline output unchanged with empty registries; a test enricher mutates results in a controlled integration test."
       },
@@ -215,9 +215,9 @@
         "id": "3.6",
         "title": "Contract compatibility test harness",
         "description": "Tests that detect incompatible changes to API, event, and UI extension contracts.",
-        "details": "Golden contract fixtures + versioned schema diffing runnable from both public CI and (later) the Pro pipeline. Tag a core release (v1.2.0) containing all contracts.",
+        "details": "Golden contract fixtures + versioned schema diffing runnable from both public CI and (later) the Pro pipeline. Tag a core release (v1.2.0) containing all contracts. Deferred relative to the class multi-user cut: not a hard blocker for Phase 5.",
         "status": "pending",
-        "priority": "high",
+        "priority": "medium",
         "dependencies": ["3.1", "3.3", "3.4", "3.5"],
         "testStrategy": "Harness fails on a synthetic breaking change and passes on an additive change; v1.2.0 released with contracts documented."
       }
@@ -227,18 +227,18 @@
     "id": "4",
     "title": "PHASE 4: Entitlement Platform",
     "description": "Implement licensing once, centrally, before building multiple Pro features.",
-    "details": "Capability catalog and Community provider are public (go-api). License issuer, signing infrastructure, and customer tooling are private (sirius-entitlements). Licensing is separate from user authorization; both must pass.",
+    "details": "Capability catalog and Community provider are public (go-api). License issuer, signing infrastructure, and customer tooling are private (sirius-entitlements). Licensing is separate from user authorization; both must pass. Full Phase 4 issuer is NOT a hard blocker for the class multi-user cut (Phase 5): thin static identity.multi_user_local grant is acceptable for range; harden issuer in parallel.",
     "status": "pending",
-    "priority": "high",
+    "priority": "medium",
     "dependencies": ["2", "3"],
     "subtasks": [
       {
         "id": "4.1",
         "title": "Public capability catalog and Community entitlement provider",
         "description": "Central capability registry in go-api; Community provider grants community capabilities unconditionally.",
-        "details": "Capabilities from edition-boundary.yaml (scanning.core, reporting.enterprise, identity.sso, workspaces.multiple, ...). Explicit Has(capability) checks only; no edition string comparisons.",
+        "details": "Capabilities from edition-boundary.yaml (scanning.core, identity.multi_user_local, reporting.enterprise [deferred], identity.sso, workspaces.multiple, ...). Explicit Has(capability) checks only; no edition string comparisons. Class cut may use a thin static grant before the full issuer lands.",
         "status": "pending",
-        "priority": "high",
+        "priority": "medium",
         "dependencies": [],
         "testStrategy": "Community runs fully with no license present; lint/CI check rejects new code containing edition-string conditionals."
       },
@@ -246,9 +246,9 @@
         "id": "4.2",
         "title": "Signed license format and offline verifier",
         "description": "Ed25519-signed license claims (customer, edition, capabilities, limits, validity window, key ID) with offline validation.",
-        "details": "Issuer private key in KMS (sirius-entitlements); products embed public verification keys with key-ID rotation; cached verified entitlement state; clock-skew and expiration boundary handling.",
+        "details": "Issuer private key in KMS (sirius-entitlements); products embed public verification keys with key-ID rotation; cached verified entitlement state; clock-skew and expiration boundary handling. Parallel to class multi-user vertical; not a hard blocker for Phase 5 class cut.",
         "status": "pending",
-        "priority": "high",
+        "priority": "medium",
         "dependencies": ["4.1"],
         "testStrategy": "Validation succeeds air-gapped; tampered payload and wrong-key signatures fail closed; expiration/grace/skew boundary tests pass; no private key material in any product artifact (leakage scan)."
       },
@@ -256,9 +256,9 @@
         "id": "4.3",
         "title": "Enforcement middleware, UI provider, and admin license page",
         "description": "Authoritative API/worker enforcement with structured errors; informative UI gating; administrator license status page.",
-        "details": "CAPABILITY_NOT_LICENSED structured error; workers verify entitlement before expensive Pro execution; admin page shows license ID, customer, expiration, capabilities, limits usage, grace status; audit events on license changes.",
+        "details": "CAPABILITY_NOT_LICENSED structured error; workers verify entitlement before expensive Pro execution; admin page shows license ID, customer, expiration, capabilities, limits usage, grace status; audit events on license changes. Parallel to class multi-user vertical; not a hard blocker for Phase 5 class cut.",
         "status": "pending",
-        "priority": "high",
+        "priority": "medium",
         "dependencies": ["4.2"],
         "testStrategy": "Direct API calls to gated routes rejected without entitlement; UI and API report consistent state; expiration leaves core scan data fully accessible."
       }
@@ -266,52 +266,52 @@
   },
   {
     "id": "5",
-    "title": "PHASE 5: First Vertical Pro Feature - Enterprise Reporting",
-    "description": "Prove the entire extension model with one feature that crosses UI, API, worker, database, events, licensing, and deployment.",
-    "details": "Capability reporting.enterprise; dedicated 'pro' PostgreSQL schema with schema_migrations_pro; reporting worker consumes versioned scan-completed events; routes under /api/pro/v1/reports; UI extension; docker-compose.pro.yaml overlay with digest-pinned private images.",
-    "status": "pending",
+    "title": "PHASE 5: First Vertical - Class Multi-User Concurrent Scan Workspaces",
+    "description": "Prove the first Pro vertical with local multi-user identity, concurrent owned scans, cancel, and owner-scoped API keys/agents for ~19 class students.",
+    "details": "Capability identity.multi_user_local per documentation/dev-notes/pro-multi-user-isolation-plan.md. Required: concurrent owned scans (~19 students), cancel live job, latest workspace only, single UI replica, student API keys owner-scoped (default agent:enroll), agents visible only to owning student. Host ownership deferred; students Scanner-focused; shared inventory admin-only for students. Enterprise Reporting (reporting.enterprise) deferred to a later vertical. Full Phase 3.3–3.6 and Phase 4.x are NOT hard blockers for this class cut (thin static capability OK; harden contracts/issuer in parallel). Locked defaults: agent:enroll only; one active job/student; 24 workers / 32 target cap; revoke blocks enroll + reconnect.",
+    "status": "in_progress",
     "priority": "high",
-    "dependencies": ["4"],
+    "dependencies": ["2"],
     "subtasks": [
       {
         "id": "5.1",
-        "title": "Pro database schema and migration ownership",
-        "description": "Create the pro schema and schema_migrations_pro ledger with ownership rules.",
-        "details": "Core migrations never depend on pro tables; pro migrations may reference stable core primary keys only; separate least-privilege PostgreSQL roles (sirius_pro_reporting, sirius_migrator_pro).",
-        "status": "pending",
+        "title": "Identity foundation and student policy",
+        "description": "Durable subjects, role/active, admin student CRUD, session-bound profile/password, Scanner-only student nav and adminProcedure gates.",
+        "details": "Implementation slice 1 from pro-multi-user-isolation-plan.md: admin create/deactivate/reset student users; durable identity + subject_id + role/active; non-admin blank Scanner workspace; deny students shared inventory pages and raw store/queue; capability identity.multi_user_local for user-management UX (static range grant OK).",
+        "status": "in_progress",
         "priority": "high",
         "dependencies": [],
-        "testStrategy": "Community boots and operates with the pro schema absent; pro migrations apply cleanly over a populated Community database."
+        "testStrategy": "Admin provisions ~19 students; each fresh student login shows blank Scanner workspace; students cannot reach shared inventory or admin-only procedures; Community single-admin path still works."
       },
       {
         "id": "5.2",
-        "title": "Reporting module, worker, and API routes",
-        "description": "Report templates, scheduling, executive summary generation, PDF/CSV export, delivery configuration, audit history.",
-        "details": "Registers via the Module interface with RequiredCapabilities [reporting.enterprise]; worker consumes scan.completed envelope events; RBAC permission distinct from entitlement.",
+        "title": "Owner-scoped API keys and agents",
+        "description": "Student API keys with immutable OwnerSubjectID and agent:enroll default; key-gated enroll; owner-pinned agent tokens and scoped visibility/dispatch.",
+        "details": "Implementation slices 2–3: student create/list/revoke filtered by owner; deny student keys on shared inventory HTTP APIs; enrollment pins owner on AgentTokenMeta; replace global connected_agents student path with agents:connected:<subject>; dispatch/results require agent owner == scan owner; revoke blocks new enroll immediately and fails agents on next reconnect.",
         "status": "pending",
         "priority": "high",
         "dependencies": ["5.1"],
-        "testStrategy": "Unlicensed deployments reject report API calls; report generation E2E from scan completion to PDF artifact; generated reports pass data-leakage review."
+        "testStrategy": "Students see only their keys/agents; Alice key/agent invisible and unusable to Bob; cross-owner dispatch fails closed; revoke blocks enroll + reconnect."
       },
       {
         "id": "5.3",
-        "title": "Reporting UI extension",
-        "description": "Navigation, report pages, template management, and schedule configuration via the UI registry.",
-        "details": "Built in the Pro UI overlay build; capability-gated navigation hidden in Community; no reporting code present in public sirius-ui.",
+        "title": "Concurrent owned scans, Valkey workspace, and cancel",
+        "description": "Per-job scanner JobContext registry, keyed Valkey state, owned scan gateway/UI, and exact-ID cancel isolation.",
+        "details": "Implementation slices 4–6: replace global currentScanID with jobs map; bounded shared worker pool (~24) and ~32 expanded-target cap; Valkey scan:latest/owner/state/status model; tRPC startOwnedScan/getLatestOwnedScan/cancelOwnedScan/forceStopOwnedScan/resetOwnedWorkspace; one active job per student with all students concurrent; Alice cancel never touches Bob same-IP job.",
         "status": "pending",
         "priority": "high",
-        "dependencies": ["5.2"],
-        "testStrategy": "Public UI bundle and source maps contain no reporting module strings (leakage scan); Pro UI renders reporting pages only when licensed."
+        "dependencies": ["5.1"],
+        "testStrategy": "Alice and Bob start same-IP scans with overlapping execution; each sees only latest owned results; Alice cancel stops only Alice; cross-owner scan_id status/cancel/reset returns NOT_FOUND/FORBIDDEN; 19-user smoke under class worker config."
       },
       {
         "id": "5.4",
-        "title": "Pro deployment overlay and lifecycle tests",
-        "description": "docker-compose.pro.yaml with digest-pinned images; add/remove and upgrade lifecycle proven.",
-        "details": "Overlay swaps sirius-ui/sirius-api for Pro builds and adds sirius-pro-reporting and license validation; Community engine image reused at pinned digest.",
+        "title": "Pro packaging and class E2E proof",
+        "description": "Private Pro composition overlay, Users UX + capability grant, and class acceptance E2E including concurrency and cross-owner probes.",
+        "details": "Implementation slice 7: Pro packaging for identity.multi_user_local; Users admin UX; digest-pinned overlay add/remove without damaging core data; E2E provision Alice/Bob → concurrent same-IP → cancel Alice → Bob completes → key/agent cross-owner probes → refresh workspace → student inventory probe fails. Community independence/leakage remain green.",
         "status": "pending",
         "priority": "high",
-        "dependencies": ["5.3"],
-        "testStrategy": "Install Pro over clean Community preserving data; remove overlay and return to functional Community; Community regression suite green against the Pro deployment."
+        "dependencies": ["5.2", "5.3"],
+        "testStrategy": "Class acceptance criteria 1–12 from pro-multi-user-isolation-plan.md pass; Pro overlay add/remove preserves Community + core data; Community regression green against Pro deployment."
       }
     ]
   },

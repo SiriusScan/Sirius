@@ -3,7 +3,7 @@
 # Rubric: security fixes, scanner fidelity, and operational completeness stay community;
 # organizational scale, enterprise identity, compliance, and governance are pro.
 version: "1.0.0"
-last_updated: "2026-07-29"
+last_updated: "2026-08-02"
 
 editions:
   community:
@@ -37,6 +37,13 @@ capabilities:
     edition: community
     classification: community_feature
     description: Local username/password authentication (NextAuth credentials)
+  # Stable subject IDs and scan-ownership primitives may live in Community/shared
+  # infrastructure; multi-user RBAC and concurrent owned workspaces are Pro
+  # (identity.multi_user_local).
+  identity.subject_primitives:
+    edition: community
+    classification: shared_infrastructure
+    description: Stable subject identifiers and scan-ownership primitives (not multi-user RBAC)
   auth.api_keys:
     edition: community
     classification: community_feature
@@ -132,6 +139,11 @@ capabilities:
     description: Standard list/export of findings already available in Community UI/API
 
   # --- Pro capabilities (commercial; not in Community builds) ---
+  # First Pro vertical (class cut): local multi-user + owned scan workspaces.
+  identity.multi_user_local:
+    edition: pro
+    classification: pro_feature
+    description: Local multi-user accounts with concurrent owner-isolated scan workspaces, cancel, and owner-scoped API keys/agents
   identity.sso:
     edition: pro
     classification: pro_feature
@@ -140,10 +152,11 @@ capabilities:
     edition: pro
     classification: pro_feature
     description: SCIM provisioning and deprovisioning
+  # Deferred: not the first Pro vertical; class cut uses identity.multi_user_local.
   reporting.enterprise:
     edition: pro
     classification: pro_feature
-    description: Executive and compliance reporting, scheduled PDF/CSV
+    description: "Executive and compliance reporting, scheduled PDF/CSV (deferred; first vertical is identity.multi_user_local)"
   integrations.servicenow:
     edition: pro
     classification: pro_feature

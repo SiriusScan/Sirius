@@ -10,18 +10,19 @@ related_docs:
   - "../architecture/ADR.003-entitlement-model.md"
   - "../architecture/README.auth-surface-matrix.md"
   - "../product/edition-boundary.yaml"
-status: proposed
+status: accepted
 sources:
   - "agent-base codex review gpt-5.6-luna/max (explore) — accepted"
   - "agent-base codex review gpt-5.6-sol/high (design) — accepted"
   - "agent-base codex review gpt-5.6-sol/high (class-hack / serialized) — superseded"
   - "agent-base codex review gpt-5.6-sol/high (class concurrent) — accepted"
   - "Parent verification + product feedback 2026-08-02"
+  - "Human decisions locked 2026-08-02 (recommended defaults)"
 ---
 
 # Pro vertical: local multi-user + owner isolation
 
-**Status:** proposed (class concurrent path; awaiting final confirm on remaining decisions)  
+**Status:** accepted (class concurrent path; human decisions locked)  
 **Replaces as first vertical:** Enterprise Reporting (`reporting.enterprise`)  
 **Capability id:** `identity.multi_user_local`
 
@@ -189,15 +190,17 @@ cd private/sirius-pro && make test && make validate-platform
 
 E2E: provision Alice/Bob → concurrent same-IP → cancel Alice → Bob completes → key/agent cross-owner probes → refresh workspace → student inventory probe fails.
 
-## Remaining human decisions (defaults)
+## Human decisions (locked 2026-08-02)
 
-1. **Student key scope:** `agent:enroll` only (recommended) until resources have owners.  
-2. **Per-student live-job limit:** one active job per student; all students concurrent (recommended).  
+Recommended defaults are **locked**; PROGRAM / edition-boundary / task realignment proceeds from this plan.
+
+1. **Student key scope:** `agent:enroll` only until resources have owners.  
+2. **Per-student live-job limit:** one active job per student; all students concurrent.  
 3. **Capacity defaults:** 24 workers, ~32 expanded targets/job; tune after 19-user test.  
-4. **Key revoke:** block enroll immediately; agents die on reconnect (recommended for class).  
-5. **Proceed** with PROGRAM/edition-boundary/task realignment around this class cut?
+4. **Key revoke:** block enroll + reconnect immediately; live kill remains admin for class.  
+5. **PROGRAM realignment:** first Pro vertical = this class cut (not Enterprise Reporting).
 
-## Program doc updates (when approved)
+## Program doc updates
 
 - `programs/bifurcation/PROGRAM.md` / `complete-split-deploy-to-range/PROGRAM.md` — first vertical = class multi-user concurrent scan workspaces; narrow old RBAC non-goal.
 - `documentation/dev-notes/pro-bifurcation-plan.md` Phase 5.

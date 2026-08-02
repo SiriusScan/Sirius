@@ -14,20 +14,45 @@ status: proposed
 sources:
   - "agent-base codex review gpt-5.6-luna/max (explore) — accepted"
   - "agent-base codex review gpt-5.6-sol/high (design) — accepted"
-  - "Parent verification of cited paths 2026-08-01"
+  - "agent-base codex review gpt-5.6-sol/high (class-hack brainstorm) — accepted"
+  - "Parent verification of cited paths 2026-08-01 / 2026-08-02"
 ---
 
 # Pro vertical: local multi-user + owner isolation
 
-**Status:** proposed (awaiting product confirmation of human decisions below)  
+**Status:** proposed (class-cut path refined; awaiting product confirmation)  
 **Replaces as first vertical:** Enterprise Reporting (`reporting.enterprise`)  
 **Capability id:** `identity.multi_user_local`
 
+## Class objective (short-term north star)
+
+Each student logs in as a provisioned non-admin, sees a **blank slate**, runs **their own scan**, and gets results in **their** workspace without pollution from classmates scanning the same IPs.
+
+- **Required now:** ownership scoping on **scans** (and the student-visible workspace derived from them).
+- **Not required for class:** ownership scoping on **hosts** / shared Postgres inventory.
+- Temporary hacks / cache modes are acceptable if they hit the class objective.
+
 ## Verdict
 
-Ship **admin-provisioned local users + API-authoritative owner-scoped visibility** as the first Pro vertical. Community owns identity/ownership *primitives*; Pro owns user-management UX and the private composition that proves the split.
+### Class cut (ship first)
 
-Do **not** block on CloudEvents, full UI registry, or Ed25519 license issuance. Do **not** implement isolation in the UI alone — it would be insecure.
+**Owned Valkey scan workspace + single-engine scratchpad broker** (Sol class-hack option 2):
+
+```text
+student session → scan:job:{id} + currentScan:{subject}
+                → one active job copied to legacy currentScan / RabbitMQ
+                → reconciler mirrors into owner workspace only on ID match
+                → student Scanner UI reads only currentScan:{subject}
+```
+
+- Non-admins are **Scanner-only**; shared Postgres host/vuln inventory stays admin/system (may still get polluted internally — students must not query it).
+- UI-only key renaming is **rejected**: app-scanner hardcodes global `currentScan` and holds global manager state; concurrent Rabbit consumers can clobber each other.
+- Filter-by-`scan_id` over shared hosts is **rejected for class**: history/`scan_id` seam is incomplete; live scanner state stays global.
+- Full `owner_subject_id` on hosts remains the **long-term** upgrade, not the class blocker.
+
+### Long-term (after class)
+
+Per-job scanner context → durable `scan_runs` → host `owner_subject_id` + actor assertion into Go (prior full plan).
 
 ## Current state (evidence)
 
@@ -45,86 +70,71 @@ Do **not** block on CloudEvents, full UI registry, or Ed25519 license issuance. 
 
 ## Product scope
 
-**In scope**
+### Class cut — in scope
 
-- Admin creates/deactivates/resets local users (temporary password + forced change).
-- Each non-admin user sees only data they created (owner-scoped).
-- Same IP may exist once per owner.
-- API + async paths enforce isolation; UI is informative only.
-- Thin capability gate `identity.multi_user_local` for the management surface (static range provider OK).
+- Admin creates/deactivates/resets local student users.
+- Non-admin: blank Scanner workspace; start/status/personal-reset of **owned** scans only.
+- Per-subject Valkey workspace + owned job records; one active engine job (queue the rest).
+- Students denied shared inventory / agents / terminal / raw store+queue.
+- Capability `identity.multi_user_local` for user-management UX (static range grant OK).
 
-**Out of scope (this vertical)**
+### Class cut — out of scope
 
-- SSO / OIDC / SAML / SCIM / self-registration / invites  
-- Full RBAC matrix, teams, orgs, workspaces, sharing  
-- HA / multi-UI-replica session store redesign beyond session_version  
-- Enterprise Reporting  
-- Full CloudEvents platform / full Sidebar registry migration  
-- Customer-facing signed license issuer (defer to ADR-003 later)
+- Host/finding ownership in Postgres; true parallel engine execution; agent scans  
+- Student cancel of the live engine job; long scan history lists  
+- SSO / self-reg / teams / full RBAC / HA / signed license issuer / CloudEvents / full UI registry  
 
-## Architecture (shortest path)
+### Long-term (after class)
 
-```text
-Browser → NextAuth (subject_id in JWT)
-       → tRPC (session + active/session_version)
-       → signed short-lived actor assertion (HMAC) + infra API key
-       → Go API principal middleware
-       → owner-required repositories / aggregates
-       → scan jobs carry owner → engine ingestion stamps owner
-```
+- Concurrent scan execution; host `owner_subject_id`; actor assertion into Go inventory APIs
+
+## Architecture
+
+### Class cut (recommended)
 
 | Layer | Community | Pro (`sirius-pro`) |
 |---|---|---|
-| Identity table `auth_users` + stable `subject_id` | Yes | — |
-| Owner columns + scoped repos/handlers | Yes | Packaging / E2E proof |
-| Actor assertion contract | Yes | Strict actor-required mode on Pro |
-| Users admin UX / create-user flows | Minimal hook only | Private overlay page + routers |
-| Capability `identity.multi_user_local` | Identifier + evaluator seam | Static grant in private image |
-| Licensing issuer | — | Deferred |
+| Identity: durable users, `subject_id`, role/active, shorter sessions | Yes | — |
+| Admin user CRUD primitives | Yes | Polished Users UX overlay |
+| `adminProcedure` + student Scanner-only policy | Yes | Class nav/redirect packaging |
+| Owned scan broker (`scan:job:*`, `currentScan:{subject}`, active lease) | Yes | Class E2E + docs |
+| Legacy `currentScan` as **engine scratchpad only** | Yes | — |
+| Capability `identity.multi_user_local` | Identifier seam | Static grant in private image |
 
-Do **not** trust a plain `X-User-ID` header. Do **not** reuse host-local OS `users` table or `ClientID` for this.
+Fail-closed: missing/corrupt job metadata → empty workspace, **never** fall back to global `currentScan` for a student.
 
-### Isolation defaults (proposed)
+### Why not “just rename the Valkey key”?
 
-- **Owner-scoped:** hosts (+ derived findings), scans/status/control, snapshots, API keys, terminal history, user-created templates.
-- **Shared read-only:** CVE catalog, built-in NSE/system templates.
-- **Admin/system-only initially:** agents, repositories, system logs/events, raw queue/admin ops.
-- **Admin data bypass:** none — admin manages users, not everyone’s scan data.
-- **Legacy backfill owner:** `local:admin`.
+- Scanner updater hardcodes `currentScan` (`app-scanner` updater).
+- Scanner manager holds global scan ID / cancel state.
+- Queue can run concurrent consumers that clobber that global state.
+- Generic `store` / `queue` tRPC lets any logged-in user poke allowed keys / publish scan messages — must be admin-only for students.
 
-### Capability vs security
+### Long-term architecture (deferred)
 
-Losing `identity.multi_user_local` may disable *creating* users; it must **not** merge data, unlock cross-user reads, or lock users out of their own existing data.
+Prior plan: HMAC actor assertion → Go principal → `owner_subject_id` on hosts → owner-required repos. Still valid; not the class path.
 
-## Implementation order (small PRs)
+## Implementation order (class cut)
 
-1. **Docs/program realignment** — first vertical = multi-user isolation; narrow the old “no multi-user RBAC” non-goal; add `identity.multi_user_local`; defer Reporting.
-2. **Auth hardening (Community)** — stop caller-supplied `userId` targeting; shorten sessions; stop seed password overwrite on every boot; active/session_version checks.
-3. **Durable identity (Community)** — move used identity model to Postgres `auth_users`; stable subjects; SQLite import/preflight.
-4. **Ownership schema (go-api + pin)** — `owner_subject_id`, backfill, composite indexes, owner-required host repos/aggregates.
-5. **Actor + API enforcement (Community)** — HMAC actor, principal middleware, owner-bound keys, IDOR tests.
-6. **Async/Valkey (Community)** — owner on scan payloads; namespaced `currentScan`/snapshots; no CloudEvents required.
-7. **Minimal UI extension hook (Community)** — enough for one private page/nav entry (not full registry).
-8. **Private composition (`sirius-pro`)** — real overlay into ephemeral pinned Community checkout (platform build today is stamp-only).
-9. **Pro product** — Users UX, admin ops, static capability provider, strict actor config.
-10. **Range E2E** — two-user isolation suite on digest-pinned Pro images.
+1. **Docs/program realignment** — first vertical = class multi-user scan workspaces; defer host ownership + Reporting.
+2. **Identity + durability (Community)** — subjects, role/active, durable auth DB, session-bound profile/password, admin user CRUD, stop seed password clobber.
+3. **Class surface lock-down (Community)** — deny inventory/agents/terminal/raw store/queue to non-admins; Scanner-only nav/redirect.
+4. **Owned scan broker (Community)** — job/workspace/queue/active lease; `startOwnedScan` / status / personal reset; one job per student; one active engine job.
+5. **Scratchpad reconcile + class UI** — dispatch active job; ID-matched mirror into owner workspace; replace `useStartScan` / `useScanResults` for students; no shared-DB enrichment.
+6. **Pro packaging + two-user E2E** — Users UX, capability grant, Alice/Bob same-IP proof on range.
 
-Do not enable additional users against locked Community `v1.1.0` — it has no owner-aware API.
+Host ownership / actor-into-Go remain a later phase after class.
 
-## Acceptance criteria (testable)
+## Acceptance criteria (class cut)
 
-1. Admin creates Alice and Bob; both log in; disabled users cannot.
-2. Both scan the same IP → distinct owned host records.
-3. Each sees only own hosts/findings/counts/snapshots/scan state/API keys.
-4. Cross-owner detail probes return `404` (no existence leak).
-5. Alice cannot mutate Bob’s profile via legacy id/subject.
-6. Forged/missing actor assertion rejected on user-facing Go routes.
-7. Alice’s dynamic API key cannot read Bob’s data.
-8. Alice cannot cancel/reset Bob’s scan; async results retain owner.
-9. Pre-migration data visible only to `local:admin`; row counts preserved; no null owners.
-10. Capability-off blocks user management; existing users retain owner-scoped access.
-11. Community still runs license-free with one admin; leakage/independence checks green.
-12. Removing private overlay leaves owner-aware Community + data intact.
+1. Admin creates Alice and Bob; both log in as non-admin.
+2. Each lands on Scanner with an empty workspace (no other student’s hosts/findings/progress).
+3. Alice and Bob can each submit a scan of the same IP; each sees only their own progress/results.
+4. Alice’s start/finish/reset never changes Bob’s screen (and vice versa).
+5. Refresh / re-login restores that student’s latest owned workspace; a fresh account stays blank.
+6. Direct tRPC probes from a student to host list / vulns / global `currentScan` / raw queue fail closed.
+7. Instructor/admin can still use inventory and recovery controls.
+8. Community single-admin path still works; independence/leakage checks green.
 
 ## Validation commands
 
@@ -144,18 +154,16 @@ bash scripts/test-core-manifest.sh
 cd private/sirius-pro && make test && make validate-platform
 ```
 
-Plus a two-browser-context E2E covering create users → dual scan → list/detail/aggregate/key/cancel isolation → forged actor → deactivate → capability-off → overlay remove.
+Plus a two-browser-context E2E: create Alice/Bob → both submit same-IP scan → each sees only own workspace → queue promotion → student probes to inventory/`currentScan`/queue fail → refresh restores owned workspace.
 
-## Human decisions (defaults — confirm before coding)
+## Human decisions (class cut — confirm before coding)
 
-1. Owned surface = scan-derived data + snapshots + API keys; global ops admin-only initially.  
-2. Legacy owner = `local:admin`.  
-3. Admin has **no** cross-user data bypass.  
-4. Admin-provisioned only (no self-registration).  
-5. Same target ⇒ duplicate host rows per owner (allowed).  
-6. Session ≈ 8h + DB session_version invalidation (not 100y).  
-7. Static capability provider for range; signed issuer later.  
-8. Import SQLite users if present; abort on ambiguous multi-admin.
+1. **Serialize engine execution** for the class (queue students; one active scan)? Main go/no-go for class size vs scan duration.  
+2. Network-only scans; no student cancel of the live engine job (queued withdraw + clear personal workspace OK)?  
+3. Latest owned workspace + TTL enough (no student scan history list)?  
+4. Class deploy stays single UI replica (broker in UI/tRPC + Valkey), or need a separate broker process?  
+5. Admin-provisioned accounts only; students never see shared inventory pages?  
+6. Proceed with program realignment around this class cut (host ownership deferred)?
 
 ## Program doc updates required (when approved)
 
@@ -169,3 +177,4 @@ Plus a two-browser-context E2E covering create users → dual scan → list/deta
 
 - Luna explore: `/tmp/sirius-pro-auth-plan/artifacts-luna/20260802T013957Z-codex-review-63791/`
 - Sol design: `/tmp/sirius-pro-auth-plan/artifacts-sol/20260802T014001Z-codex-review-64159/`
+- Sol class-hack: `/tmp/sirius-pro-auth-plan/artifacts-sol-class/20260802T033744Z-codex-review-20987/`

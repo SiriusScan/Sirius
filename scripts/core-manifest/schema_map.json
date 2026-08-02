@@ -6,5 +6,9 @@
   "ebd42f4239ec2d0c99e3e7c463a5fc181f57737f": {
     "ledger_table": "schema_migrations_core",
     "latest_migration": "007_add_vulnerability_stats_indexes"
+  },
+  "964d51d84e9e23a52d6a5eb9c4108380fda29c73": {
+    "ledger_table": "schema_migrations_core",
+    "latest_migration": "007_add_vulnerability_stats_indexes"
   }
 }

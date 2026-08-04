@@ -345,17 +345,49 @@ export const scannerRouter = createTRPCRouter({
               const agentSS = current.sub_scans.agent;
               const meta = (agentSS.metadata ?? {}) as Record<string, unknown>;
               meta.dispatched_agents = dispatchedAgents;
-              meta.agent_statuses = dispatchedAgents.map((id) => ({
-                agent_id: id,
-                status: "running",
-                hosts_found: 0,
-                vulnerabilities_found: 0,
-              }));
+              meta.agent_statuses = [
+                ...dispatchedAgents.map((id) => ({
+                  agent_id: id,
+                  status: "running",
+                  hosts_found: 0,
+                  vulnerabilities_found: 0,
+                })),
+                ...failedAgents.map((f) => ({
+                  agent_id: f.id,
+                  status: "failed",
+                  hosts_found: 0,
+                  vulnerabilities_found: 0,
+                  error: f.error,
+                })),
+              ];
               agentSS.metadata = meta;
               agentSS.progress.total = dispatchedAgents.length;
-              if (agentSS.status === "dispatching") {
+              agentSS.progress.completed = 0;
+
+              if (dispatchedAgents.length === 0) {
+                // No reachable agents: finish agent sub-scan (and overall when agent-only).
+                agentSS.status = "failed";
+                agentSS.progress.completed = 0;
+                meta.failure_reason = "No agents connected";
+                agentSS.metadata = meta;
+
+                const otherActive = Object.entries(current.sub_scans ?? {}).some(
+                  ([key, ss]) =>
+                    key !== "agent" &&
+                    ss.enabled &&
+                    ss.status !== "completed" &&
+                    ss.status !== "failed" &&
+                    ss.status !== "cancelled"
+                );
+                if (!otherActive) {
+                  current.status = "failed";
+                  current.end_time = new Date().toISOString();
+                  await valkey.set(ownedStatusKey(scanId), "failed");
+                }
+              } else if (agentSS.status === "dispatching") {
                 agentSS.status = "running";
               }
+
               const updated = encodeScanState(current);
               await valkey.set(ownedStateKey(scanId), updated);
               if (role === "admin") {

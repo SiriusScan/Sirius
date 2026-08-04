@@ -127,6 +127,7 @@ Tasks:
 - [ ] Rebuild/pin engine+api+ui; migrate `008_host_owner_subject`; deploy
 - [ ] Alice/Bob concurrent same-IP E2E checklist
 - [ ] Record acceptance decision
+- [x] Agent-only scan hang fix on range (2026-08-04): app-agent `bb53176` merges into `scan:state`; UI `9c1f2c5ac` fails closed on zero agents; E2E `scan-1785860288935-bu2jmnikf` → completed 1 host / 1/1 agents / 2 vulns
 
 ---
 
@@ -136,7 +137,7 @@ Tasks:
 goal_id: personal-cloud-class
 task_id: personal-cloud-class.s4.t001
 stage: "4 Validate on range"
-cycle: 0
+cycle: 1
 attempt: 1
 assigned_role: grok
 owned_paths:
@@ -148,5 +149,8 @@ acceptance_criteria:
 validation_commands:
   - "rg -n 'cb14626|4bc92c4' sirius-engine/Dockerfile sirius-api/go.mod.prod"
   - "cd sirius-ui && npx tsc --noEmit"
-next_action: "Range deploy + migrate 008; run Alice/Bob acceptance checklist"
+next_action: "Alice/Bob concurrent same-IP E2E checklist (agent-scan hang fixed + UI digest pinned)"
+notes:
+  - "UI pin: ghcr.io/opensecurity-infosec/sirius-ui@sha256:271ec3d06cb4f138dd8f97ad9a1e673faca1de1c076257183eb73c2d3e12e59e"
+  - "Agent hotfix binary on engine: /opt/sirius/bin/agent-server.bb53176; e2e agent e2e-local-eva still connected"
 ```

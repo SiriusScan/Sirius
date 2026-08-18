@@ -1,23 +1,20 @@
 import type React from "react";
+import type {
+  SiriusCapability,
+  SiriusCapabilityProviderDefinition,
+} from "~/contracts/capabilities";
 
-export type SiriusCapability = string;
-
-export interface SiriusPrincipal {
-  subjectId: string;
-  displayName?: string | null;
-  capabilities: readonly SiriusCapability[];
-}
-
-export interface SiriusCapabilitySnapshot {
-  principal: SiriusPrincipal;
-  source: string;
-}
-
-export interface SiriusCapabilityProviderDefinition {
-  id: string;
-  initialSnapshot: SiriusCapabilitySnapshot;
-  load?: () => Promise<SiriusCapabilitySnapshot>;
-}
+/**
+ * The neutral capability/principal primitives are shared with the server
+ * registry, so they live in `~/contracts/capabilities` and are re-exported here
+ * for consumers of the UI extension contract.
+ */
+export type {
+  SiriusCapability,
+  SiriusCapabilityProviderDefinition,
+  SiriusCapabilitySnapshot,
+  SiriusPrincipal,
+} from "~/contracts/capabilities";
 
 export interface SiriusNavigationIconProps {
   className?: string;

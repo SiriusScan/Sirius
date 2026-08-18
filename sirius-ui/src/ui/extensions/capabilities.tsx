@@ -6,6 +6,11 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import {
+  communityCapabilitySnapshot,
+  communityPrincipal,
+  hasRequiredCapabilities,
+} from "~/contracts/capabilities";
 import type {
   SiriusCapability,
   SiriusCapabilityProviderDefinition,
@@ -13,69 +18,20 @@ import type {
   SiriusPrincipal,
 } from "./types";
 
-/**
- * Community capabilities are available without a license or entitlement
- * service. Keep this list aligned with the public edition-boundary catalog.
- */
-export const COMMUNITY_CAPABILITIES: readonly SiriusCapability[] = [
-  "scanning.core",
-  "inventory.hosts",
-  "findings.vulnerabilities",
-  "api.public_rest",
-  "ui.dashboard_shell",
-  "auth.local_users",
-  "auth.api_keys",
-  "messaging.queues",
-  "storage.postgres_core",
-  "storage.valkey",
-  "migrations.core",
-  "extensions.module_registry",
-  "ui.scanner",
-  "ui.vulnerabilities",
-  "ui.environment",
-  "ui.terminal",
-  "api.hosts",
-  "api.vulnerabilities",
-  "api.templates",
-  "api.agent_templates",
-  "api.events",
-  "api.snapshots",
-  "api.statistics",
-  "api.scan_control",
-  "engine.scanner",
-  "engine.agent_runtime",
-  "agents.remote",
-  "reporting.basic_export",
-];
-
-export const communityPrincipal: SiriusPrincipal = {
-  subjectId: "community",
-  displayName: "Community",
-  capabilities: COMMUNITY_CAPABILITIES,
-};
-
-export const communityCapabilitySnapshot: SiriusCapabilitySnapshot = {
-  principal: communityPrincipal,
-  source: "community",
-};
+export {
+  COMMUNITY_CAPABILITIES,
+  anonymousPrincipal,
+  communityCapabilitySnapshot,
+  communityPrincipal,
+  hasRequiredCapabilities,
+  missingCapabilities,
+} from "~/contracts/capabilities";
 
 export const communityCapabilityProvider: SiriusCapabilityProviderDefinition = {
   id: "community",
   initialSnapshot: communityCapabilitySnapshot,
   load: () => Promise.resolve(communityCapabilitySnapshot),
 };
-
-export function hasRequiredCapabilities(
-  availableCapabilities: readonly SiriusCapability[],
-  requiredCapabilities: readonly SiriusCapability[] = [],
-): boolean {
-  if (requiredCapabilities.length === 0) {
-    return true;
-  }
-
-  const available = new Set(availableCapabilities);
-  return requiredCapabilities.every((capability) => available.has(capability));
-}
 
 export interface CapabilityLoadResult {
   snapshot: SiriusCapabilitySnapshot;

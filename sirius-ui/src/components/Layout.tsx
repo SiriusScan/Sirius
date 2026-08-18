@@ -9,6 +9,7 @@ import Sidebar from "./Sidebar";
 import { Toaster } from "~/components/lib/ui/sonner";
 import { debugLog, debugRouting } from "~/utils/debug";
 import { ActiveConstellationV2Loader } from "~/components/loaders";
+import { uiExtensionRegistry, useCapabilities } from "~/ui/extensions";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,6 +19,10 @@ interface LayoutProps {
 const Layout = ({ children, title = "Sirius Scan" }: LayoutProps) => {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { loading: capabilitiesLoading, hasAll } = useCapabilities();
+  const requiredCapabilities =
+    uiExtensionRegistry.getRequiredCapabilitiesForPath(router.pathname);
+  const hasRouteAccess = hasAll(requiredCapabilities);
 
   // Use useEffect to handle redirects to avoid render loops
   useEffect(() => {
@@ -33,12 +38,32 @@ const Layout = ({ children, title = "Sirius Scan" }: LayoutProps) => {
     }
   }, [session, status, router]);
 
-  // Show loading state while session is loading or while redirecting
-  if (status === "loading") {
+  // Show loading state while session or capability state is loading.
+  if (status === "loading" || capabilitiesLoading) {
     debugLog("Layout", "Rendering loading state - session loading");
     return (
       <div className="flex min-h-screen items-center justify-center">
         <ActiveConstellationV2Loader size="full" label="Loading..." />
+      </div>
+    );
+  }
+
+  // Route declarations are the server-independent authorization seam for
+  // build-time UI extensions. A private route can declare capabilities without
+  // adding Pro-specific branches to this shared layout.
+  if (session?.user && !hasRouteAccess) {
+    debugLog("Layout", "Rendering capability-denied state", {
+      pathname: router.pathname,
+      requiredCapabilities,
+    });
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-900 px-6 text-center text-white">
+        <div>
+          <h1 className="text-2xl font-semibold">Access unavailable</h1>
+          <p className="mt-2 text-gray-400">
+            Your account does not have access to this page.
+          </p>
+        </div>
       </div>
     );
   }

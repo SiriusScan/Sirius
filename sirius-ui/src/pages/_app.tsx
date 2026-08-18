@@ -10,6 +10,10 @@ import { ToastProvider } from "~/components/Toast";
 import ErrorBoundary from "~/components/ErrorBoundary";
 import { createRouteMonitor } from "~/utils/debug";
 import { ActiveConstellationV2Loader } from "~/components/loaders";
+import {
+  SiriusCapabilityProvider,
+  uiExtensionRegistry,
+} from "~/ui/extensions";
 
 const MyApp: AppType<{ session: Session | null }> = ({
   Component,
@@ -54,15 +58,19 @@ const MyApp: AppType<{ session: Session | null }> = ({
   return (
     <ErrorBoundary>
       <SessionProvider session={session}>
-        <ToastProvider>
-          {/* Global navigation loading overlay */}
-          {isNavigating && (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900">
-              <ActiveConstellationV2Loader size="full" />
-            </div>
-          )}
-          <Component {...pageProps} />
-        </ToastProvider>
+        <SiriusCapabilityProvider
+          definition={uiExtensionRegistry.capabilityProvider}
+        >
+          <ToastProvider>
+            {/* Global navigation loading overlay */}
+            {isNavigating && (
+              <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900">
+                <ActiveConstellationV2Loader size="full" />
+              </div>
+            )}
+            <Component {...pageProps} />
+          </ToastProvider>
+        </SiriusCapabilityProvider>
       </SessionProvider>
     </ErrorBoundary>
   );

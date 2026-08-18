@@ -2,42 +2,16 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import * as Tooltip from "@radix-ui/react-tooltip";
-import VulnerabilityIcon from "./icons/VulnerabilityIcon";
-import EnvironmentIcon from "./icons/EnvironmentIcon";
-import ScanIcon from "./icons/ScanIcon";
-import AgentIcon from "./icons/AgentIcon";
 import SiriusIcon from "./icons/SiriusIcon";
-
-const navigationItems = [
-  {
-    name: "Scanner",
-    href: "/scanner",
-    matchPaths: ["/scanner"],
-    icon: ScanIcon,
-  },
-  {
-    name: "Vulnerabilities",
-    href: "/vulnerabilities",
-    matchPaths: ["/vulnerabilities", "/vulnerability"],
-    icon: VulnerabilityIcon,
-  },
-  {
-    name: "Environment",
-    href: "/environment",
-    matchPaths: ["/environment", "/host"],
-    icon: EnvironmentIcon,
-  },
-  {
-    name: "Terminal",
-    href: "/terminal",
-    matchPaths: ["/terminal"],
-    icon: AgentIcon,
-  },
-];
+import { uiExtensionRegistry, useCapabilities } from "~/ui/extensions";
 
 const Sidebar = () => {
   const router = useRouter();
+  const { hasAll } = useCapabilities();
   const [mounted, setMounted] = useState(false);
+  const navigationItems = uiExtensionRegistry.navigationItems.filter((item) =>
+    hasAll(item.requiredCapabilities ?? []),
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -114,8 +88,9 @@ const Sidebar = () => {
         <div className="ml-1 space-y-2">
           {navigationItems.map((item, index) => {
             const Icon = item.icon;
-            const isActive = item.matchPaths.some((p) =>
-              router.pathname.startsWith(p),
+            const isActive = item.matchPaths.some((path) =>
+              router.pathname === path ||
+              router.pathname.startsWith(`${path}/`),
             );
 
             return (
@@ -192,7 +167,7 @@ const Sidebar = () => {
                     sideOffset={12}
                     className="animate-fade-in-up z-50 rounded-md border border-violet-500/30 bg-violet-950 px-3 py-2 text-sm font-medium text-white shadow-lg"
                   >
-                    {item.name}
+                    {item.label}
                     <Tooltip.Arrow className="fill-violet-950" />
                   </Tooltip.Content>
                 </Tooltip.Portal>

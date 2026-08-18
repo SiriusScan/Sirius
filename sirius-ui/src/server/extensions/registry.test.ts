@@ -40,6 +40,7 @@ for (const declarationModule of [
   "principal.ts",
   "community.ts",
   "types.ts",
+  "harness/synthetic.ts",
 ]) {
   const source = readFileSync(path.join(__dirname, declarationModule), "utf8");
   assert.doesNotMatch(

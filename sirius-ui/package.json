@@ -10,7 +10,8 @@
     "test:capabilities": "tsx src/contracts/capabilities.test.ts",
     "test:ui-extensions": "tsx src/ui/extensions/registry.test.ts",
     "test:server-extensions": "tsx src/server/extensions/registry.test.ts",
-    "test:extensions": "npm run test:capabilities && npm run test:ui-extensions && npm run test:server-extensions",
+    "test:contract-harness": "tsx scripts/contract-harness.ts",
+    "test:extensions": "npm run test:capabilities && npm run test:ui-extensions && npm run test:server-extensions && npm run test:contract-harness",
     "start": "npx next start"
   },
   "dependencies": {

@@ -111,8 +111,9 @@ interface SiriusCapabilityProviderProps {
  *
  * Community uses a static provider. A private build can supply a provider
  * whose `load` function reads its authenticated entitlement endpoint. A
- * failed load retains the provider's initial snapshot, which lets a Pro
- * provider fail closed by choosing an empty initial capability set.
+ * failed load retains the provider's initial snapshot. API-backed providers
+ * default that snapshot to an empty capability set so provider failures are
+ * fail-closed unless a caller explicitly supplies a different initial state.
  */
 export const SiriusCapabilityProvider = ({
   definition,
@@ -260,19 +261,37 @@ function parseCapabilitySnapshot(
   };
 }
 
+function createFailClosedCapabilitySnapshot(
+  providerID: string,
+): SiriusCapabilitySnapshot {
+  return {
+    principal: {
+      subjectId: "",
+      displayName: null,
+      capabilities: [],
+    },
+    source: providerID,
+  };
+}
+
 /**
  * Helper for a build-time extension that gets its capabilities from an API.
  * The endpoint and its authorization policy remain outside Community.
+ *
+ * API-backed providers default to an empty capability snapshot. If loading
+ * fails, the provider therefore remains fail-closed rather than inheriting
+ * the Community capability catalog.
  */
 export function createApiCapabilityProvider({
   endpoint,
-  initialSnapshot = communityCapabilitySnapshot,
+  initialSnapshot,
 }: ApiCapabilityProviderOptions): SiriusCapabilityProviderDefinition {
   const providerID = `api:${endpoint}`;
 
   return {
     id: providerID,
-    initialSnapshot,
+    initialSnapshot:
+      initialSnapshot ?? createFailClosedCapabilitySnapshot(providerID),
     load: async () => {
       const response = await fetch(endpoint);
       if (!response.ok) {

@@ -16,13 +16,19 @@ import { agentScanRouter } from "~/server/api/routers/agentScan";
 import { apikeysRouter } from "~/server/api/routers/apikeys";
 import { logsRouter } from "~/server/api/routers/logs";
 import { createTRPCRouter } from "~/server/api/trpc";
+import {
+  registeredServerRouters,
+  serverExtensionRegistry,
+} from "~/server/extensions";
 
 /**
  * This is the primary router for your server.
  *
- * All routers added in /api/routers should be manually added here.
+ * Community routers are listed here; a private build contributes additional
+ * namespaces through `registeredServerRouters`. Both are spread as object
+ * literals so tRPC keeps inferring the client-side types for every namespace.
  */
-export const appRouter = createTRPCRouter({
+const routers = {
   host: hostRouter,
   vulnerability: vulnerabilityRouter,
   store: storeRouter,
@@ -40,7 +46,16 @@ export const appRouter = createTRPCRouter({
   agentScan: agentScanRouter,
   apikeys: apikeysRouter,
   logs: logsRouter,
-});
+  ...registeredServerRouters,
+};
+
+// Every composed namespace must be declared by a server extension, and every
+// declared namespace must be composed. This rejects an overlay that ships a
+// router without declaring its capability requirements, or declares a namespace
+// it never serves, at startup rather than at request time.
+serverExtensionRegistry.assertRouterNamespaces(Object.keys(routers));
+
+export const appRouter = createTRPCRouter(routers);
 
 // export type definition of API
 export type AppRouter = typeof appRouter;

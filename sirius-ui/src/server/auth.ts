@@ -9,6 +9,11 @@ import CredentialsProvider from "next-auth/providers/credentials";
 
 import { env } from "~/env.mjs";
 import { prisma } from "~/server/db";
+import {
+  applySessionEnrichers,
+  resolvePrincipal,
+  serverExtensionRegistry,
+} from "~/server/extensions";
 import bcrypt from "bcrypt";
 
 /**
@@ -70,11 +75,28 @@ export const authOptions: NextAuthOptions = {
     maxAge: 100 * 365 * 24 * 60 * 60, // 100 years in seconds - effectively indefinite
   },
   callbacks: {
-    session({ session, token }) {
+    async session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub;
       }
-      return session;
+
+      // Registered extensions may publish their own principal data on the
+      // session. Community registers no enricher, so the session is returned
+      // unchanged.
+      if (serverExtensionRegistry.sessionEnrichers.length === 0) {
+        return session;
+      }
+
+      const principal = await resolvePrincipal(
+        serverExtensionRegistry.principalResolver,
+        { session },
+      );
+
+      return applySessionEnrichers(
+        serverExtensionRegistry.sessionEnrichers,
+        session,
+        principal,
+      );
     },
     // Fix redirect callback to use proper URL
     async redirect({ url, baseUrl }) {

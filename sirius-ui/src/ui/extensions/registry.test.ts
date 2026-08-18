@@ -7,6 +7,7 @@ import {
   createApiCapabilityProvider,
   createUIExtensionRegistry,
   hasRequiredCapabilities,
+  loadCapabilitySnapshot,
 } from "./index";
 import type {
   SiriusCapabilityProviderDefinition,
@@ -172,6 +173,79 @@ const apiProviderFailClosedPage = renderToStaticMarkup(
 assert.match(apiProviderFailClosedPage, /hidden/);
 assert.doesNotMatch(apiProviderFailClosedPage, /visible/);
 
+async function assertFailedCapabilityRequestDeniesContributions(
+  label: string,
+  fetchImplementation: typeof fetch,
+): Promise<void> {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = fetchImplementation;
+
+  try {
+    const result = await loadCapabilitySnapshot(
+      createApiCapabilityProvider({ endpoint: "/api/capabilities" }),
+    );
+
+    assert.ok(result.error instanceof Error, `${label}: expected an error`);
+    assert.deepEqual(
+      result.snapshot.principal.capabilities,
+      [],
+      `${label}: expected an empty capability set`,
+    );
+    assert.equal(
+      hasRequiredCapabilities(result.snapshot.principal.capabilities, [
+        "reporting.enterprise",
+      ]),
+      false,
+      `${label}: expected the capability check to deny`,
+    );
+
+    const deniedPage = renderToStaticMarkup(
+      React.createElement(
+        SiriusCapabilityProvider,
+        { definition: { id: "api-failure", initialSnapshot: result.snapshot } },
+        React.createElement(
+          CapabilityGate,
+          {
+            requiredCapabilities: ["reporting.enterprise"],
+            fallback: React.createElement("span", null, "hidden"),
+          },
+          React.createElement("span", null, "visible"),
+        ),
+      ),
+    );
+
+    assert.match(deniedPage, /hidden/, `${label}: expected the fallback`);
+    assert.doesNotMatch(
+      deniedPage,
+      /visible/,
+      `${label}: expected no gated content`,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+async function assertApiCapabilityProviderFailsClosed(): Promise<void> {
+  await assertFailedCapabilityRequestDeniesContributions("network failure", () =>
+    Promise.reject(new Error("network unreachable")),
+  );
+
+  await assertFailedCapabilityRequestDeniesContributions("HTTP error", () =>
+    Promise.resolve(new Response("nope", { status: 503 })),
+  );
+
+  await assertFailedCapabilityRequestDeniesContributions(
+    "malformed payload",
+    () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ principal: { subjectId: 42 } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+  );
+}
+
 assert.throws(
   () =>
     createUIExtensionRegistry([
@@ -209,4 +283,11 @@ assert.throws(
   /Duplicate UI route path: \/dashboard/,
 );
 
-console.log("UI extension registry contract tests passed");
+assertApiCapabilityProviderFailsClosed()
+  .then(() => {
+    console.log("UI extension registry contract tests passed");
+  })
+  .catch((cause: unknown) => {
+    console.error(cause);
+    process.exit(1);
+  });

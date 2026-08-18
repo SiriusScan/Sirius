@@ -61,6 +61,27 @@ Today the API registers Fiber routes through a `RouteSetter` interface wired in 
   checks to shared components; Community uses its static public capability
   catalog, while a private build may supply an API-backed provider without
   changing `Sidebar.tsx` or `Layout.tsx`.
+- The neutral capability and principal primitives shared by the browser and the
+  server live in `sirius-ui/src/contracts/capabilities.ts`. Both registries import
+  that module so the informative UI gating catalog and the authoritative
+  server-side enforcement catalog cannot drift; a contract test pins the
+  Community catalog to `documentation/product/edition-boundary.yaml`.
+- The server registry lives under `sirius-ui/src/server/extensions/`. A
+  `SiriusServerExtension` declares tRPC namespaces with their
+  `requiredCapabilities`, at most one `SiriusPrincipalResolver`, and optional
+  session enrichers. `registered.ts` is the build-time overlay: its
+  `registeredServerExtensions` carry the declarations the registry validates,
+  while `registeredServerRouters` carries the routers as an object literal so
+  spreading them into `root.ts` preserves tRPC client type inference. `root.ts`
+  cross-checks the two, so a router without a declared namespace (or a declared
+  namespace with no router) fails at startup.
+- `protectedProcedure` enforces the capabilities declared for the procedure's
+  namespace, so a contributed namespace is authorized without the contribution
+  patching Core procedures. Principal resolution fails closed: a resolver that
+  throws yields no principal, and every gated procedure is denied rather than
+  inheriting another edition's capabilities. Community resolves any
+  authenticated session to its static catalog, which leaves Community behavior
+  unchanged.
 - Community `/api/v1` OpenAPI, route classification, and reserved-namespace policy live in
   [README.api-openapi-contract.md](README.api-openapi-contract.md) and
   `sirius-api/contracts/`.

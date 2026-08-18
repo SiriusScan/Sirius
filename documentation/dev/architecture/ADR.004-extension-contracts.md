@@ -79,9 +79,19 @@ Today the API registers Fiber routes through a `RouteSetter` interface wired in 
   namespace, so a contributed namespace is authorized without the contribution
   patching Core procedures. Principal resolution fails closed: a resolver that
   throws yields no principal, and every gated procedure is denied rather than
-  inheriting another edition's capabilities. Community resolves any
-  authenticated session to its static catalog, which leaves Community behavior
-  unchanged.
+  inheriting another edition's capabilities.
+- The single resolver slot is a replacement, not a competition. Community
+  declares no resolver contribution, so the slot stays open and one
+  build-selected resolver becomes authoritative; with no contribution the
+  registry falls back to `communityPrincipalResolver`, which resolves any
+  authenticated session to the static Community catalog. Community behavior with
+  zero extensions is therefore unchanged, and an extended build replaces
+  resolution without editing Community declarations.
+- The server extension contract surface is frozen at v1: `SiriusServerExtension`,
+  `SiriusPrincipalResolver`, `SiriusSessionEnricher`, the `registered.ts` exports,
+  and the capability primitives in `src/contracts/capabilities.ts`. Later changes
+  must be additive and justified by a concrete consumer failure rather than
+  anticipated need.
 - Community `/api/v1` OpenAPI, route classification, and reserved-namespace policy live in
   [README.api-openapi-contract.md](README.api-openapi-contract.md) and
   `sirius-api/contracts/`.

@@ -99,6 +99,13 @@ Today the API registers Fiber routes through a `RouteSetter` interface wired in 
   `src/contracts/capabilities.ts`. Later changes
   must be additive and justified by a concrete consumer failure rather than
   anticipated need.
+- `sirius-ui/scripts/contract-harness.ts` is the early-warning system for the
+  extension surface. It overlays the two registration modules with a synthetic
+  extension, then proves zero-overlay Community behavior, overlay composition,
+  capability enforcement, fail-closed resolution, type inference for contributed
+  namespaces, and source compatibility of a consumer pinned to v1. It needs no
+  access to a private repository, and it restores the registration modules even
+  when a check fails.
 - Community `/api/v1` OpenAPI, route classification, and reserved-namespace policy live in
   [README.api-openapi-contract.md](README.api-openapi-contract.md) and
   `sirius-api/contracts/`.

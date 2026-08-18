@@ -77,6 +77,37 @@ export function hasRequiredCapabilities(
   return requiredCapabilities.every((capability) => available.has(capability));
 }
 
+export interface CapabilityLoadResult {
+  snapshot: SiriusCapabilitySnapshot;
+  error: Error | null;
+}
+
+/**
+ * Resolves a provider's capability snapshot, falling back to its initial
+ * snapshot when the provider fails. API-backed providers default that initial
+ * snapshot to an empty capability set, so a failed load denies capabilities
+ * instead of inheriting another edition's catalog.
+ */
+export async function loadCapabilitySnapshot(
+  definition: SiriusCapabilityProviderDefinition,
+): Promise<CapabilityLoadResult> {
+  if (!definition.load) {
+    return { snapshot: definition.initialSnapshot, error: null };
+  }
+
+  try {
+    return { snapshot: await definition.load(), error: null };
+  } catch (cause) {
+    return {
+      snapshot: definition.initialSnapshot,
+      error:
+        cause instanceof Error
+          ? cause
+          : new Error("Capability provider failed to load"),
+    };
+  }
+}
+
 interface CapabilityContextValue {
   principal: SiriusPrincipal;
   source: string;
@@ -136,28 +167,15 @@ export const SiriusCapabilityProvider = ({
       };
     }
 
-    void definition
-      .load()
-      .then((nextSnapshot) => {
-        if (!active) {
-          return;
-        }
+    void loadCapabilitySnapshot(definition).then((result) => {
+      if (!active) {
+        return;
+      }
 
-        setSnapshot(nextSnapshot);
-        setLoading(false);
-      })
-      .catch((cause: unknown) => {
-        if (!active) {
-          return;
-        }
-
-        setError(
-          cause instanceof Error
-            ? cause
-            : new Error("Capability provider failed to load"),
-        );
-        setLoading(false);
-      });
+      setSnapshot(result.snapshot);
+      setError(result.error);
+      setLoading(false);
+    });
 
     return () => {
       active = false;

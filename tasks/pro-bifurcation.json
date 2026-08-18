@@ -196,7 +196,7 @@
         "title": "UI extension registry and capability provider",
         "description": "Build-time SiriusUIExtension registry; migrate Sidebar navigation and existing pages into registry declarations; add capability-aware rendering.",
         "details": "Registry supports routes, navigation, dashboard widgets, settings panels, requiredCapabilities. Capability provider context fed by API entitlement endpoint (Community provider returns community capabilities without any license). Pro UI image builds by cloning public sirius-ui at a pinned SHA and overlaying private extension modules, mirroring the engine pin pattern.",
-        "status": "pending",
+        "status": "done",
         "priority": "high",
         "dependencies": ["3.2"],
         "testStrategy": "Community UI renders identical navigation and pages from the registry (visual/E2E regression); a test extension adds a nav item and page gated by a fake capability."

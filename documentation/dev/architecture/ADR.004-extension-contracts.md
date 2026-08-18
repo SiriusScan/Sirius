@@ -51,6 +51,16 @@ Today the API registers Fiber routes through a `RouteSetter` interface wired in 
 - Existing seam to build on: `sirius-api/routes/routes.go` `RouteSetter`.
 - Do not publish npm packages on day one; pin+overlay mirrors engine component pins.
 - A test extension adding one API route, one UI page, and one event consumer is the Phase 3 exit criterion.
+- The Community UI registry lives under `sirius-ui/src/ui/extensions/`. Community
+  declarations are registered first; a private build overlays
+  `registered.ts` with additional routes, navigation, widgets, and settings
+  panels. Registry construction rejects duplicate contribution IDs and route
+  patterns before the application renders.
+- UI contributions declare opaque `requiredCapabilities` values. The
+  `SiriusCapabilityProvider` exposes a neutral `SiriusPrincipal` and capability
+  checks to shared components; Community uses its static public capability
+  catalog, while a private build may supply an API-backed provider without
+  changing `Sidebar.tsx` or `Layout.tsx`.
 - Community `/api/v1` OpenAPI, route classification, and reserved-namespace policy live in
   [README.api-openapi-contract.md](README.api-openapi-contract.md) and
   `sirius-api/contracts/`.

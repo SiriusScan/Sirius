@@ -95,11 +95,18 @@ assert.throws(
 assert.throws(
   () =>
     createServerExtensionRegistry([
-      communityServerExtension,
       {
         ...reporting,
         principalResolver: {
           id: "reporting",
+          resolve: () => Promise.resolve(null),
+        },
+      },
+      {
+        id: "identity.server",
+        version: "1.0.0",
+        principalResolver: {
+          id: "identity",
           resolve: () => Promise.resolve(null),
         },
       },
@@ -135,7 +142,8 @@ assert.throws(
   /Declared router namespace .* is missing from the application router/,
 );
 
-// An extension may register its own resolver, and it becomes authoritative.
+// A build-selected resolver replaces the Community fallback while Community
+// namespace declarations remain present. This is the actual Pro composition.
 const overlayResolver: SiriusPrincipalResolver = {
   id: "overlay",
   resolve: () =>
@@ -145,11 +153,18 @@ const overlayResolver: SiriusPrincipalResolver = {
       capabilities: ["reporting.enterprise"],
     }),
 };
-assert.equal(
-  createServerExtensionRegistry([
-    { ...reporting, principalResolver: overlayResolver },
-  ]).principalResolver.id,
-  "overlay",
+const overlayRegistry = createServerExtensionRegistry([
+  communityServerExtension,
+  { ...reporting, principalResolver: overlayResolver },
+]);
+assert.equal(overlayRegistry.principalResolver.id, "overlay");
+assert.deepEqual(
+  overlayRegistry.getRequiredCapabilitiesForProcedure("host.getAllHosts"),
+  ["api.hosts"],
+);
+assert.deepEqual(
+  overlayRegistry.getRequiredCapabilitiesForProcedure("reports.list"),
+  ["reporting.enterprise"],
 );
 
 async function assertCommunityResolverBehavior(): Promise<void> {

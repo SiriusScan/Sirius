@@ -225,8 +225,8 @@
         "id": "3.6",
         "title": "Contract compatibility test harness",
         "description": "Tests that detect incompatible changes to API, event, and UI extension contracts.",
-        "details": "Golden contract fixtures + versioned schema diffing runnable from both public CI and (later) the Pro pipeline. Tag a core release (v1.2.0) containing all contracts.",
-        "status": "pending",
+        "details": "Golden contract fixtures + versioned schema diffing runnable from both public CI and (later) the Pro pipeline. Tag a core release (v1.2.0) containing all contracts. Extension-surface portion started: sirius-ui/scripts/contract-harness.ts compiles and executes a synthetic extension against the v1 surface pinned at Core 823a80f663e585db775da4ce58b27ac0e5dcfbd2. It proves the Community build works with zero overlays, that a private-shaped overlay composes through registered.ts/registered-routers.ts only, that capability enforcement and fail-closed resolution hold, that overlay namespaces stay type-inferred, and that a consumer written against the pinned v1 shapes still compiles (harness/contract-v1.ts). Runs in the blocking UI CI step with no access to any private repository. Remaining: event-envelope and engine-interface contract coverage, which wait on 3.3 and 3.5, plus the v1.2.0 core release tag.",
+        "status": "in_progress",
         "priority": "high",
         "dependencies": ["3.1", "3.3", "3.4", "3.5", "3.7"],
         "testStrategy": "Harness fails on a synthetic breaking change and passes on an additive change; v1.2.0 released with contracts documented."

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import type { Session } from "next-auth";
 import { COMMUNITY_CAPABILITIES } from "~/contracts/capabilities";
 import { communityServerExtension } from "./community";
@@ -25,6 +27,26 @@ async function silenceErrors<T>(run: () => Promise<T>): Promise<T> {
   } finally {
     console.error = original;
   }
+}
+
+// `trpc.ts` imports this registry to enforce capabilities, so a declaration
+// module that imports `trpc.ts` back forms a cycle: the overlay's routers then
+// fail at load with "Cannot access 'createTRPCRouter' before initialization".
+// Routers belong in `registered-routers.ts`, which only `root.ts` imports.
+for (const declarationModule of [
+  "index.ts",
+  "registered.ts",
+  "registry.ts",
+  "principal.ts",
+  "community.ts",
+  "types.ts",
+]) {
+  const source = readFileSync(path.join(__dirname, declarationModule), "utf8");
+  assert.doesNotMatch(
+    source,
+    /from\s+"~\/server\/api\/trpc"/,
+    `${declarationModule} must not import the tRPC root; it would cycle through the registry`,
+  );
 }
 
 const reporting: SiriusServerExtension = {

@@ -16,10 +16,8 @@ import { agentScanRouter } from "~/server/api/routers/agentScan";
 import { apikeysRouter } from "~/server/api/routers/apikeys";
 import { logsRouter } from "~/server/api/routers/logs";
 import { createTRPCRouter } from "~/server/api/trpc";
-import {
-  registeredServerRouters,
-  serverExtensionRegistry,
-} from "~/server/extensions";
+import { serverExtensionRegistry } from "~/server/extensions";
+import { registeredServerRouters } from "~/server/extensions/registered-routers";
 
 /**
  * This is the primary router for your server.

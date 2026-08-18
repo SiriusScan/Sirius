@@ -14,6 +14,13 @@ import superjson from "superjson";
 import { ZodError } from "zod";
 import { getServerAuthSession } from "~/server/auth";
 import { prisma } from "~/server/db";
+import type { SiriusCapability, SiriusPrincipal } from "~/contracts/capabilities";
+import {
+  SiriusCapabilityError,
+  assertPrincipalCapabilities,
+  resolvePrincipal,
+  serverExtensionRegistry,
+} from "~/server/extensions";
 
 /**
  * 1. CONTEXT
@@ -25,6 +32,7 @@ import { prisma } from "~/server/db";
 
 interface CreateContextOptions {
   session: Session | null;
+  principal?: SiriusPrincipal | null;
 }
 
 /**
@@ -37,9 +45,10 @@ interface CreateContextOptions {
  *
  * @see https://create.t3.gg/en/usage/trpc#-serverapitrpcts
  */
-const createInnerTRPCContext = (opts: CreateContextOptions) => {
+export const createInnerTRPCContext = (opts: CreateContextOptions) => {
   return {
     session: opts.session,
+    principal: opts.principal ?? null,
     prisma,
   };
 };
@@ -56,8 +65,17 @@ export const createTRPCContext = async (opts: CreateNextContextOptions) => {
   // Get the session from the server using the getServerSession wrapper function
   const session = await getServerAuthSession({ req, res });
 
+  // The registered principal resolver decides which subject is calling and
+  // which capabilities it holds. It fails closed, so an unresolved principal
+  // reaches the procedures with no capabilities at all.
+  const principal = await resolvePrincipal(
+    serverExtensionRegistry.principalResolver,
+    { session },
+  );
+
   return {
     session,
+    principal,
     prisma,
   };
 };
@@ -120,12 +138,61 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
   });
 });
 
+function assertCapabilities(
+  principal: SiriusPrincipal | null,
+  requiredCapabilities: readonly SiriusCapability[],
+): void {
+  try {
+    assertPrincipalCapabilities(principal, requiredCapabilities);
+  } catch (cause) {
+    if (cause instanceof SiriusCapabilityError) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: cause.message,
+        cause,
+      });
+    }
+
+    throw cause;
+  }
+}
+
+/**
+ * Enforces the capabilities the registry declares for the procedure's
+ * namespace. Community declares its own namespaces, so a Community operator is
+ * unaffected, while a namespace contributed by an extension is authorized
+ * without that extension patching Core procedures.
+ */
+const enforceNamespaceCapabilities = t.middleware(({ ctx, path, next }) => {
+  assertCapabilities(
+    ctx.principal,
+    serverExtensionRegistry.getRequiredCapabilitiesForProcedure(path),
+  );
+
+  return next();
+});
+
 /**
  * Protected (authenticated) procedure
  *
  * If you want a query or mutation to ONLY be accessible to logged in users, use this. It verifies
- * the session is valid and guarantees `ctx.session.user` is not null.
+ * the session is valid and guarantees `ctx.session.user` is not null. It also enforces the
+ * capabilities declared for the procedure's namespace.
  *
  * @see https://trpc.io/docs/procedures
  */
-export const protectedProcedure = t.procedure.use(enforceUserIsAuthed);
+export const protectedProcedure = t.procedure
+  .use(enforceUserIsAuthed)
+  .use(enforceNamespaceCapabilities);
+
+/**
+ * Protected procedure with additional explicit capability requirements, for
+ * procedures that need more than their namespace declares.
+ */
+export const capabilityProcedure = (
+  ...requiredCapabilities: SiriusCapability[]
+) =>
+  protectedProcedure.use(({ ctx, next }) => {
+    assertCapabilities(ctx.principal, requiredCapabilities);
+    return next();
+  });

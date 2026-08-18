@@ -202,6 +202,16 @@
         "testStrategy": "Community UI renders identical navigation and pages from the registry (visual/E2E regression); a test extension adds a nav item and page gated by a fake capability."
       },
       {
+        "id": "3.7",
+        "title": "Server principal resolver and tRPC extension seam",
+        "description": "Build-time SiriusServerExtension registry in sirius-ui: neutral principal resolution, capability-enforcing tRPC procedures, namespace overlay, and session enrichment hooks.",
+        "details": "Completes the server half of the UI/auth extension seam (Sirius #147) that task 3.4 left open. Neutral capability/principal primitives moved to src/contracts/capabilities.ts so the browser registry and the server registry share one catalog, pinned by test to documentation/product/edition-boundary.yaml. src/server/extensions/ declares tRPC namespaces with requiredCapabilities, at most one principal resolver, and optional session enrichers; registered.ts is the private build overlay and root.ts cross-checks declared namespaces against composed routers. protectedProcedure now enforces the namespace capabilities, and principal resolution fails closed when a resolver throws. Community resolves any authenticated session to the static Community catalog, so Community behavior is unchanged. Entitlement/licensing enforcement remains Phase 4.",
+        "status": "done",
+        "priority": "high",
+        "dependencies": ["3.4"],
+        "testStrategy": "Contract tests cover registry ordering, duplicate extension/namespace/enricher rejection, single-resolver enforcement, namespace/router drift in both directions, fail-closed principal resolution, and enricher isolation; an in-process caller proves a community principal reaches a declared namespace while an unresolved principal is denied."
+      },
+      {
         "id": "3.5",
         "title": "Engine enrichment and scoring interfaces",
         "description": "ResultEnricher, RiskScorer, and scheduling-policy interfaces in go-api with deterministic ordering and health reporting.",
@@ -218,7 +228,7 @@
         "details": "Golden contract fixtures + versioned schema diffing runnable from both public CI and (later) the Pro pipeline. Tag a core release (v1.2.0) containing all contracts.",
         "status": "pending",
         "priority": "high",
-        "dependencies": ["3.1", "3.3", "3.4", "3.5"],
+        "dependencies": ["3.1", "3.3", "3.4", "3.5", "3.7"],
         "testStrategy": "Harness fails on a synthetic breaking change and passes on an additive change; v1.2.0 released with contracts documented."
       }
     ]

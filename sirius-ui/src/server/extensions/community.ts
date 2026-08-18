@@ -1,4 +1,3 @@
-import { communityPrincipalResolver } from "./principal";
 import type { SiriusServerExtension } from "./types";
 
 /**
@@ -8,12 +7,17 @@ import type { SiriusServerExtension } from "./types";
  * with the capability a caller needs to reach it. Capability names come from
  * `documentation/product/edition-boundary.yaml`; this file must not invent new
  * ones.
+ *
+ * Community does not register a principal resolver contribution. The server
+ * registry falls back to `communityPrincipalResolver` when no extension
+ * supplies one. That keeps zero-extension Community behavior unchanged while
+ * allowing exactly one build-selected resolver to become authoritative in an
+ * extended distribution.
  */
 export const communityServerExtension: SiriusServerExtension = {
   id: "community.server",
   version: "1.0.0",
   order: 0,
-  principalResolver: communityPrincipalResolver,
   routerNamespaces: [
     { namespace: "host", requiredCapabilities: ["api.hosts"] },
     {

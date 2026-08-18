@@ -80,6 +80,38 @@ interface V1ServerExtension {
   sessionEnrichers?: readonly V1SessionEnricher[];
 }
 
+/**
+ * Object assignment alone does not detect removal of an optional property:
+ * TypeScript permits a source value to contain properties the target type no
+ * longer declares. Pin every v1 key explicitly so optional fields cannot vanish
+ * without failing this fixture.
+ */
+type AssertNoMissingKeys<T extends never> = T;
+type PrincipalMissingV1Keys = AssertNoMissingKeys<
+  Exclude<keyof V1Principal, keyof SiriusPrincipal>
+>;
+type SnapshotMissingV1Keys = AssertNoMissingKeys<
+  Exclude<keyof V1CapabilitySnapshot, keyof SiriusCapabilitySnapshot>
+>;
+type ProviderMissingV1Keys = AssertNoMissingKeys<
+  Exclude<
+    keyof V1CapabilityProviderDefinition,
+    keyof SiriusCapabilityProviderDefinition
+  >
+>;
+type NamespaceMissingV1Keys = AssertNoMissingKeys<
+  Exclude<keyof V1RouterNamespace, keyof SiriusServerRouterNamespace>
+>;
+type ResolverMissingV1Keys = AssertNoMissingKeys<
+  Exclude<keyof V1PrincipalResolver, keyof SiriusPrincipalResolver>
+>;
+type EnricherMissingV1Keys = AssertNoMissingKeys<
+  Exclude<keyof V1SessionEnricher, keyof SiriusSessionEnricher>
+>;
+type ExtensionMissingV1Keys = AssertNoMissingKeys<
+  Exclude<keyof V1ServerExtension, keyof SiriusServerExtension>
+>;
+
 const v1Principal: V1Principal = {
   subjectId: "subject:v1",
   displayName: "V1",
@@ -140,7 +172,16 @@ const allowed: boolean = hasRequiredCapabilities(v1Principal.capabilities, [
   "api.hosts",
 ]);
 
-// Browser contract: the UI extension and capability provider shapes.
+const v1Provider: V1CapabilityProviderDefinition = {
+  id: "v1.provider",
+  initialSnapshot: v1Snapshot,
+  load: () => Promise.resolve(v1Snapshot),
+};
+const provider: SiriusCapabilityProviderDefinition = v1Provider;
+
+// Browser contract: exercise every top-level v1 UI extension property directly
+// against the current interface so removal of an optional contribution slot is
+// a compile-time failure too.
 const v1UIExtension: SiriusUIExtension = {
   id: "v1.ui",
   version: "1.0.0",
@@ -155,15 +196,20 @@ const v1UIExtension: SiriusUIExtension = {
   ],
   dashboardWidgets: [],
   settingsPanels: [],
+  capabilityProvider: provider,
 };
-const v1Provider: V1CapabilityProviderDefinition = {
-  id: "v1.provider",
-  initialSnapshot: v1Snapshot,
-  load: () => Promise.resolve(v1Snapshot),
-};
-const provider: SiriusCapabilityProviderDefinition = v1Provider;
 const apiProvider: SiriusCapabilityProviderDefinition =
   createApiCapabilityProvider({ endpoint: "/api/v1/capabilities" });
+
+export type {
+  EnricherMissingV1Keys,
+  ExtensionMissingV1Keys,
+  NamespaceMissingV1Keys,
+  PrincipalMissingV1Keys,
+  ProviderMissingV1Keys,
+  ResolverMissingV1Keys,
+  SnapshotMissingV1Keys,
+};
 
 export {
   allowed,

@@ -69,12 +69,18 @@ Today the API registers Fiber routes through a `RouteSetter` interface wired in 
 - The server registry lives under `sirius-ui/src/server/extensions/`. A
   `SiriusServerExtension` declares tRPC namespaces with their
   `requiredCapabilities`, at most one `SiriusPrincipalResolver`, and optional
-  session enrichers. `registered.ts` is the build-time overlay: its
-  `registeredServerExtensions` carry the declarations the registry validates,
-  while `registeredServerRouters` carries the routers as an object literal so
-  spreading them into `root.ts` preserves tRPC client type inference. `root.ts`
+  session enrichers. There are two build-time overlay modules:
+  `registered.ts` carries the declarations the registry validates, and
+  `registered-routers.ts` carries the routers as an object literal so spreading
+  them into `root.ts` preserves tRPC client type inference. `root.ts`
   cross-checks the two, so a router without a declared namespace (or a declared
   namespace with no router) fails at startup.
+- The two overlay modules are separate because `trpc.ts` imports the registry to
+  enforce capabilities, while router modules import `createTRPCRouter` from
+  `trpc.ts`. Declaring both in one module cycles, and the overlay's routers then
+  fail at load with `Cannot access 'createTRPCRouter' before initialization`. No
+  module reachable from `registered.ts` may import `~/server/api/trpc`; a
+  contract test enforces that on the Core modules.
 - `protectedProcedure` enforces the capabilities declared for the procedure's
   namespace, so a contributed namespace is authorized without the contribution
   patching Core procedures. Principal resolution fails closed: a resolver that
@@ -88,8 +94,9 @@ Today the API registers Fiber routes through a `RouteSetter` interface wired in 
   zero extensions is therefore unchanged, and an extended build replaces
   resolution without editing Community declarations.
 - The server extension contract surface is frozen at v1: `SiriusServerExtension`,
-  `SiriusPrincipalResolver`, `SiriusSessionEnricher`, the `registered.ts` exports,
-  and the capability primitives in `src/contracts/capabilities.ts`. Later changes
+  `SiriusPrincipalResolver`, `SiriusSessionEnricher`, the `registered.ts` and
+  `registered-routers.ts` exports, and the capability primitives in
+  `src/contracts/capabilities.ts`. Later changes
   must be additive and justified by a concrete consumer failure rather than
   anticipated need.
 - Community `/api/v1` OpenAPI, route classification, and reserved-namespace policy live in

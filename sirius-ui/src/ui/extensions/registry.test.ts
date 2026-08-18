@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   CapabilityGate,
   SiriusCapabilityProvider,
+  createApiCapabilityProvider,
   createUIExtensionRegistry,
   hasRequiredCapabilities,
 } from "./index";
@@ -147,6 +148,29 @@ const hiddenGatedPage = renderToStaticMarkup(
 );
 assert.match(hiddenGatedPage, /hidden/);
 assert.doesNotMatch(hiddenGatedPage, /visible/);
+
+const apiCapabilityProvider = createApiCapabilityProvider({
+  endpoint: "/api/capabilities",
+});
+assert.equal(apiCapabilityProvider.initialSnapshot.principal.subjectId, "");
+assert.deepEqual(apiCapabilityProvider.initialSnapshot.principal.capabilities, []);
+
+const apiProviderFailClosedPage = renderToStaticMarkup(
+  React.createElement(
+    SiriusCapabilityProvider,
+    { definition: apiCapabilityProvider },
+    React.createElement(
+      CapabilityGate,
+      {
+        requiredCapabilities: ["reporting.enterprise"],
+        fallback: React.createElement("span", null, "hidden"),
+      },
+      React.createElement("span", null, "visible"),
+    ),
+  ),
+);
+assert.match(apiProviderFailClosedPage, /hidden/);
+assert.doesNotMatch(apiProviderFailClosedPage, /visible/);
 
 assert.throws(
   () =>

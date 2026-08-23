@@ -36,6 +36,7 @@ import { cn } from "~/components/lib/utils";
 import { scanHostColumns } from "~/components/scanner/ScanHostColumns";
 import { ScanNavigator } from "~/components/scanner/ScanNavigator";
 import { ScanControls } from "~/components/scanner/ScanControls";
+import { CollapsibleScanControls } from "~/components/scanner/CollapsibleScanControls";
 
 const ScannerContent: React.FC = () => {
   const router = useRouter();
@@ -242,15 +243,10 @@ const ScannerContent: React.FC = () => {
       <div className="space-y-6">
         {activeView === "scan" && (
           <>
-            {(!controlsCollapsed || !scanResults.scanResult) && (
-              <div
-                className={cn(
-                  "scanner-section-primary scanner-section-padding space-y-4 overflow-hidden transition-all duration-300 ease-in-out",
-                  controlsCollapsed && scanResults.scanResult
-                    ? "-mt-6 mb-0 max-h-0 py-0 opacity-0"
-                    : "max-h-[800px] opacity-100 animate-in fade-in-50 slide-in-from-top-2"
-                )}
-              >
+            <CollapsibleScanControls
+              collapsed={controlsCollapsed}
+              hasScanResult={Boolean(scanResults.scanResult)}
+            >
                 {/* Collapsible Header - Only show when scan results exist */}
                 {scanResults.scanResult && (
                   <button
@@ -297,8 +293,7 @@ const ScannerContent: React.FC = () => {
                   advancedAgentConfig={advancedAgentConfig}
                   setAdvancedAgentConfig={setAdvancedAgentConfig}
                 />
-              </div>
-            )}
+            </CollapsibleScanControls>
 
             {/* Results Section */}
             {scanResults.scanResult ? (

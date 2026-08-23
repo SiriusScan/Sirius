@@ -180,6 +180,10 @@ jobs:
         run: npm run test:extensions
         working-directory: sirius-ui
 
+      - name: Run scanner control regression tests
+        run: npm run test:scanner-controls
+        working-directory: sirius-ui
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 

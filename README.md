@@ -66,6 +66,10 @@ docker compose -f docker-compose.installer.yaml run --rm sirius-installer --forc
 docker compose up -d --force-recreate
 ```
 
+## One-Click Deploy
+
+[![Deploy on RepoCloud](https://d16t0pc4846x52.cloudfront.net/deploylobe.svg)](https://repocloud.io/details/Sirius%20Scan/)
+
 ## Verify Installation
 
 ```bash

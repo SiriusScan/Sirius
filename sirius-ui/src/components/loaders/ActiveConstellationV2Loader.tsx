@@ -5,6 +5,7 @@ interface ActiveConstellationV2LoaderProps {
   size?: LoaderSize;
   speed?: number;
   className?: string;
+  label?: string;
 }
 
 /**
@@ -13,7 +14,7 @@ interface ActiveConstellationV2LoaderProps {
  */
 export const ActiveConstellationV2Loader: React.FC<
   ActiveConstellationV2LoaderProps
-> = ({ size = "xl", speed = 1, className = "" }) => {
+> = ({ size = "xl", speed = 1, className = "", label = "Loading" }) => {
   // Stars for constellation - various distances and speeds
   const stars = Array.from({ length: 12 }, (_, i) => {
     const angle = (i / 12) * 360;
@@ -35,7 +36,7 @@ export const ActiveConstellationV2Loader: React.FC<
       size={size}
       speed={speed}
       className={className}
-      label="Loading"
+      label={label}
     >
       <div className="relative">
         {/* Wolf with NO pulse - stays steady and bright white */}

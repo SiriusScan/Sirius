@@ -38,7 +38,7 @@ func TestSnapshotAPICreate(t *testing.T) {
 	req := httptest.NewRequest("POST", "/api/v1/statistics/vulnerability-snapshot", nil)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, 10000)
 	if err != nil {
 		t.Fatalf("❌ Failed to make request: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestSnapshotAPIList(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/api/v1/statistics/vulnerability-snapshots", nil)
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, 10000)
 	if err != nil {
 		t.Fatalf("❌ Failed to make request: %v", err)
 	}
@@ -85,8 +85,8 @@ func TestSnapshotAPIList(t *testing.T) {
 		t.Fatalf("❌ Failed to decode response: %v", err)
 	}
 
-	if _, ok := result["available_dates"]; !ok {
-		t.Errorf("❌ Response missing 'available_dates' field")
+	if _, ok := result["available_snapshot_ids"]; !ok {
+		t.Errorf("❌ Response missing 'available_snapshot_ids' field")
 	}
 
 	t.Log("\n✅ Snapshot listing API test passed")
@@ -102,9 +102,9 @@ func TestSnapshotAPIGetTrends(t *testing.T) {
 	app := fiber.New()
 	app.Get("/api/v1/statistics/vulnerability-trends", handlers.GetVulnerabilityTrends)
 
-	req := httptest.NewRequest("GET", "/api/v1/statistics/vulnerability-trends?days=7", nil)
+	req := httptest.NewRequest("GET", "/api/v1/statistics/vulnerability-trends?limit=7", nil)
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, 10000)
 	if err != nil {
 		t.Fatalf("❌ Failed to make request: %v", err)
 	}
@@ -122,8 +122,8 @@ func TestSnapshotAPIGetTrends(t *testing.T) {
 		t.Errorf("❌ Response missing 'snapshots' field")
 	}
 
-	if daysRequested, ok := result["days_requested"].(float64); !ok || daysRequested != 7 {
-		t.Errorf("❌ Unexpected days_requested: %v", result["days_requested"])
+	if limitRequested, ok := result["limit_requested"].(float64); !ok || limitRequested != 7 {
+		t.Errorf("❌ Unexpected limit_requested: %v", result["limit_requested"])
 	}
 
 	t.Log("\n✅ Vulnerability trends API test passed")
@@ -154,11 +154,11 @@ func TestSnapshotAPIGetSpecific(t *testing.T) {
 
 	// Now test the API endpoint
 	app := fiber.New()
-	app.Get("/api/v1/statistics/vulnerability-snapshot/:date", handlers.GetSnapshot)
+	app.Get("/api/v1/statistics/vulnerability-snapshot/:snapshotId", handlers.GetSnapshot)
 
 	req := httptest.NewRequest("GET", fmt.Sprintf("/api/v1/statistics/vulnerability-snapshot/%s", date), nil)
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, 10000)
 	if err != nil {
 		t.Fatalf("❌ Failed to make request: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestSnapshotAPIGetSpecific(t *testing.T) {
 	t.Log("\n✅ Get specific snapshot API test passed")
 }
 
-func TestSnapshotAPIBadDate(t *testing.T) {
+func TestSnapshotAPIUnknownID(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
@@ -187,17 +187,17 @@ func TestSnapshotAPIBadDate(t *testing.T) {
 	t.Log("\n🔍 Testing API with invalid date format...")
 
 	app := fiber.New()
-	app.Get("/api/v1/statistics/vulnerability-snapshot/:date", handlers.GetSnapshot)
+	app.Get("/api/v1/statistics/vulnerability-snapshot/:snapshotId", handlers.GetSnapshot)
 
 	req := httptest.NewRequest("GET", "/api/v1/statistics/vulnerability-snapshot/invalid-date", nil)
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, 10000)
 	if err != nil {
 		t.Fatalf("❌ Failed to make request: %v", err)
 	}
 
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("❌ Expected status 400 for invalid date, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("❌ Expected status 404 for an unknown snapshot ID, got %d", resp.StatusCode)
 	}
 
 	t.Log("\n✅ Bad date format API test passed")

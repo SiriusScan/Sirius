@@ -8,7 +8,8 @@
  * Palette: dark-only v0.4 — no `dark:` prefixes.
  */
 
-import { normalizeSeverity, type Severity } from "~/utils/riskScoreCalculator";
+import { normalizeSeverity } from "~/utils/riskScoreCalculator";
+import type { Severity } from "~/types/agentTemplateTypes";
 
 /* ------------------------------------------------------------------ */
 /*  Canonical severity levels                                          */

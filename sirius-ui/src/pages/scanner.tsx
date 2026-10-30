@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/router";
 import Layout from "~/components/Layout";
 import { parseTargets, type ParsedTarget } from "~/utils/targetParser";
-import { ScanStatus } from "~/components/scanner/ScanStatus";
+import { ScanStatus } from "~/components/scanner/ScanStatusPanel";
 import { EnvironmentDataTable } from "~/components/EnvironmentDataTable";
 
 import {
@@ -292,7 +292,7 @@ const ScannerContent: React.FC = () => {
                   scanResult={scanResults.scanResult ?? null}
                   stopError={stopError ?? null}
                   parsedTargets={parsedTargets}
-                  isProfileAgentEnabled={isProfileAgentEnabled}
+                  isProfileAgentEnabled={isProfileAgentEnabled(selectedProfile)}
                   isProfileAgentOnly={isProfileAgentOnly}
                   advancedAgentConfig={advancedAgentConfig}
                   setAdvancedAgentConfig={setAdvancedAgentConfig}

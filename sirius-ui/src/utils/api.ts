@@ -48,13 +48,15 @@ export const api = createTRPCNext<AppRouter>({
             const controller = new AbortController();
             let timeoutId: NodeJS.Timeout | undefined;
 
+            const requestUrl = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+
             // Set different timeouts based on the endpoint
             if (typeof window !== "undefined") {
               // Check if this is a terminal operation (scan, long-running commands)
-              const isTerminalOperation = url.includes(
+              const isTerminalOperation = requestUrl.includes(
                 "terminal.executeCommand"
               );
-              const isAgentOperation = url.includes("agent.");
+              const isAgentOperation = requestUrl.includes("agent.");
 
               // Use longer timeouts for operations that might take time
               const timeout = isTerminalOperation
@@ -89,13 +91,13 @@ export const api = createTRPCNext<AppRouter>({
             retry: (failureCount, error) => {
               // Don't retry timeout errors from long-running operations
               if (
-                error?.message?.includes("aborted") ||
-                error?.message?.includes("signal")
+                (error instanceof Error ? error.message : "")?.includes("aborted") ||
+                (error instanceof Error ? error.message : "")?.includes("signal")
               ) {
                 return false;
               }
               // Don't retry if navigation is happening
-              if (error?.message?.includes("fetch")) {
+              if ((error instanceof Error ? error.message : "")?.includes("fetch")) {
                 return false;
               }
               return failureCount < 2;
@@ -110,8 +112,8 @@ export const api = createTRPCNext<AppRouter>({
             retry: (failureCount, error) => {
               // Don't retry timeout errors from long-running operations
               if (
-                error?.message?.includes("aborted") ||
-                error?.message?.includes("signal")
+                (error instanceof Error ? error.message : "")?.includes("aborted") ||
+                (error instanceof Error ? error.message : "")?.includes("signal")
               ) {
                 return false;
               }

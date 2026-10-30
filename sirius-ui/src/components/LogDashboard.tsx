@@ -34,19 +34,6 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
   const [levelFilter, setLevelFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Get unique services and levels from logs
-  const availableServices = useMemo(() => {
-    const services = new Set<string>();
-    logs.forEach(log => services.add(log.service));
-    return Array.from(services).sort();
-  }, [logs]);
-
-  const availableLevels = useMemo(() => {
-    const levels = new Set<string>();
-    logs.forEach(log => levels.add(log.level));
-    return Array.from(levels).sort();
-  }, [logs]);
-
   // Build request object
   const request: LogRetrievalRequest = useMemo(() => {
     const req: LogRetrievalRequest = {
@@ -90,6 +77,19 @@ export const LogDashboard: React.FC<LogDashboardProps> = ({ className }) => {
   const loading = logsLoading;
   const error = logsQueryError?.message ?? null;
   const statsTyped = stats as LogStatsResponse | null | undefined;
+
+  // Get unique services and levels from logs
+  const availableServices = useMemo(() => {
+    const services = new Set<string>();
+    logs.forEach(log => services.add(log.service));
+    return Array.from(services).sort();
+  }, [logs]);
+
+  const availableLevels = useMemo(() => {
+    const levels = new Set<string>();
+    logs.forEach(log => levels.add(log.level));
+    return Array.from(levels).sort();
+  }, [logs]);
 
   // Handle pagination
   const handlePreviousPage = () => {

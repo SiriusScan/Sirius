@@ -65,14 +65,14 @@ export const useSourceFiltering = (
             const sourceDate = new Date(source.first_seen);
             return sourceDate < earliest ? sourceDate : earliest;
           },
-          new Date(vulnerability.sources[0].first_seen)
+          new Date(vulnerability.sources[0]!.first_seen)
         );
 
         // Get the latest last_seen date from all sources
         const latestDate = vulnerability.sources.reduce((latest, source) => {
           const sourceDate = new Date(source.last_seen);
           return sourceDate > latest ? sourceDate : latest;
-        }, new Date(vulnerability.sources[0].last_seen));
+        }, new Date(vulnerability.sources[0]!.last_seen));
 
         // Check if the vulnerability's date range overlaps with the filter range
         if (filters.dateRange.start) {

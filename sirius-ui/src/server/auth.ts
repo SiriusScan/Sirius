@@ -151,7 +151,7 @@ export const authOptions: NextAuthOptions = {
 
           // Return user object that will be passed to JWT
           return {
-            id: user.id,
+            id: String(user.id),
             name: user.name,
             email: user.email,
           };

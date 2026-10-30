@@ -51,7 +51,7 @@ export const extractScriptMetadata = (
         .trim();
 
       const match = cleaned.match(/^(\w+):\s*(.+)$/);
-      if (match) {
+      if (match?.[1] && match[2]) {
         const [, key, value] = match;
         metadata[key.toLowerCase()] = value.trim();
       }

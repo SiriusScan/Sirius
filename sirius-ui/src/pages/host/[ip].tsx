@@ -83,7 +83,7 @@ const HostDetailsPage = () => {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-6">
-          <HostForm mode="edit" initialData={editFormData} onCancel={() => setIsEditMode(false)} onSuccess={() => { setIsEditMode(false); void refetch(); }} />
+          <HostForm mode="edit" initialData={editFormData ? { ...editFormData, notes: editFormData.notes ? [editFormData.notes] : undefined } : undefined} onCancel={() => setIsEditMode(false)} onSuccess={() => { setIsEditMode(false); void refetch(); }} />
         </div>
       </Layout>
     );
@@ -101,8 +101,7 @@ const HostDetailsPage = () => {
         {prefs.activeTab === "vulnerabilities" && (
           <div className="scanner-table-wrapper">
             <VulnerabilityTable columns={enhancedColumns} data={vulnerabilities} onRowClick={(vuln) => {
-              const id = vuln.cve || vuln.id;
-              if (id) void router.push(`/vulnerability?id=${encodeURIComponent(id as string)}`);
+              if (vuln.cve) void router.push(`/vulnerability?id=${encodeURIComponent(vuln.cve)}`);
             }} />
           </div>
         )}

@@ -173,7 +173,7 @@ export const HostForm: React.FC<HostFormProps> = ({
   });
 
   const isPending =
-    createHostMutation.isPending || updateHostMutation.isPending;
+    createHostMutation.isLoading || updateHostMutation.isLoading;
 
   const toggleSection = (section: "ports" | "notes" | "vulnerabilities") => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));

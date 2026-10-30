@@ -238,7 +238,7 @@ const TemplateViewer: React.FC<TemplateViewerProps> = ({
               </SelectTrigger>
               <SelectContent className="bg-gray-800 text-white">
                 <SelectItem value="all">All</SelectItem>
-                {sourceOptions.map((source) => (
+                {sourceOptions.filter((source): source is string => typeof source === "string" && source.length > 0).map((source) => (
                   <SelectItem key={source} value={source}>
                     {source}
                   </SelectItem>

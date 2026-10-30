@@ -12,19 +12,20 @@ export const mockHostData: SiriusHost = {
   vulnerabilities: [
     {
       vid: "1",
-      cvss: 7.5,
+      riskScore: 7.5,
       description: "This is a test vulnerability",
       published: "2021-01-01",
       severity: "High",
     },
     {
       vid: "2",
-      cvss: 5.0,
+      riskScore: 5.0,
       description: "This is another test vulnerability",
       published: "2021-01-01",
       severity: "Medium",
     },
   ],
+  ports: [],
   services: [
     {
       id: "1",
@@ -74,6 +75,8 @@ export const mockHostStatistics = {
 
 export const mockEnvironmentSummaryData: EnvironmentTableData[] = [
   {
+    hid: "1",
+    vulnerabilities: [],
     hostname: "host1",
     ip: "192.168.0.1",
     os: "linux",
@@ -82,6 +85,8 @@ export const mockEnvironmentSummaryData: EnvironmentTableData[] = [
     tags: ["tag1", "tag2"],
   },
   {
+    hid: "2",
+    vulnerabilities: [],
     hostname: "host2",
     ip: "192.168.0.2",
     os: "windows",
@@ -90,6 +95,8 @@ export const mockEnvironmentSummaryData: EnvironmentTableData[] = [
     tags: ["tag1", "tag3"],
   },
   {
+    hid: "3",
+    vulnerabilities: [],
     hostname: "test-host",
     ip: "192.168.69.3",
     os: "windows",

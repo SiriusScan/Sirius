@@ -136,11 +136,11 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
   // ── Computed values ────────────────────────────────────────────────────
   const softwarePackages =
     softwareInventory?.package_count || softwareStats?.total_packages || 0;
-  const userAccounts =
-    systemFingerprint?.fingerprint?.users?.users?.length || 0;
+  const accountData = systemFingerprint?.fingerprint?.users;
+  const userAccounts = (Array.isArray(accountData) ? accountData : accountData?.users)?.length ?? 0;
 
   const servicesArray = Array.isArray(systemFingerprint?.fingerprint?.services)
-    ? systemFingerprint.fingerprint.services
+    ? systemFingerprint?.fingerprint.services ?? []
     : [];
   const runningServices = servicesArray.filter(
     (s: { status: string }) =>

@@ -198,10 +198,10 @@ const AgentTemplatesTab: React.FC<AgentTemplatesTabProps> = ({
 
               <Button
                 onClick={handleUpload}
-                disabled={!!uploadError || uploadMutation.isPending}
+                disabled={!!uploadError || uploadMutation.isLoading}
                 
               >
-                {uploadMutation.isPending ? "Uploading..." : "Upload Template"}
+                {uploadMutation.isLoading ? "Uploading..." : "Upload Template"}
               </Button>
             </>
           )}

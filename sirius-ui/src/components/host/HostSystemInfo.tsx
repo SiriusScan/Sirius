@@ -55,8 +55,10 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({
   const metrics = useMemo(() => {
     const packages =
       softwareInventory?.package_count || softwareStats?.total_packages || 0;
-    const users = systemFingerprint?.fingerprint?.users?.users?.length || 0;
-    const groups = systemFingerprint?.fingerprint?.users?.groups?.length || 0;
+    const accountData = systemFingerprint?.fingerprint?.users;
+    const accounts = Array.isArray(accountData) ? accountData : accountData?.users ?? [];
+    const users = accounts.length;
+    const groups = Array.isArray(accountData) ? new Set(accounts.flatMap((user) => user.groups)).size : accountData?.groups?.length ?? 0;
     const networkInterfaces =
       systemFingerprint?.fingerprint?.network?.interfaces?.length || 0;
     const cpuCores = systemFingerprint?.fingerprint?.hardware?.cpu?.cores || 0;
@@ -70,7 +72,7 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({
     const servicesArray = Array.isArray(
       systemFingerprint?.fingerprint?.services,
     )
-      ? systemFingerprint.fingerprint.services
+      ? systemFingerprint?.fingerprint.services ?? []
       : [];
     const runningServices = servicesArray.filter(
       (s: { status: string }) =>

@@ -362,7 +362,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
       newExpanded.add(index);
       // Load logs when expanding
       if (data && data.containers[index]) {
-        const containerName = data.containers[index].name;
+        const containerName = data.containers[index]!.name;
         loadContainerLogs(containerName);
       }
     }

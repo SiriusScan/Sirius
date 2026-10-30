@@ -199,12 +199,7 @@ const VulnerabilitiesOverTimeChart = (props: Props) => {
 };
 
 interface VulnerabilityChartProps {
-  id: string;
-  color: string;
-  data: {
-    x: string;
-    y: number;
-  }[];
+  data: { id: string; color: string; data: { x: string; y: number }[] }[];
   settings: {
     stacked: boolean;
     lineWidth: number;
@@ -278,8 +273,6 @@ const theme = {
 };
 
 const VulnerabilityChart: React.FC<VulnerabilityChartProps> = ({
-  id,
-  color,
   data,
   settings,
 }) => {

@@ -38,7 +38,7 @@ export const convertToYamlForEditing = (contentData: unknown): string => {
 
   // If it's a JSON object, convert to YAML
   if (typeof contentData === "object") {
-    return convertObjectToYaml(contentData);
+    return Array.isArray(contentData) ? JSON.stringify(contentData, null, 2) : convertObjectToYaml(Object.fromEntries(Object.entries(contentData)));
   }
 
   return String(contentData);

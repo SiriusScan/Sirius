@@ -16,7 +16,7 @@ export function generateMockVulnerabilities(count: number): Vulnerability[] {
 
   for (let i = 0; i < count; i++) {
     const severityIndex = Math.floor(Math.random() * severities.length);
-    const severity = severities[severityIndex];
+    const severity = severities[severityIndex] ?? "informational";
 
     vulnerabilities.push({
       vid: `VID-${Math.floor(Math.random() * 10000)}`,

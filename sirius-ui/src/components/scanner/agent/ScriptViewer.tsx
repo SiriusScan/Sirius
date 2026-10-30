@@ -328,7 +328,7 @@ const ScriptViewer: React.FC<ScriptViewerProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                {sourceOptions.map((source) => (
+                {sourceOptions.filter((source): source is string => typeof source === "string" && source.length > 0).map((source) => (
                   <SelectItem key={source} value={source}>
                     {source}
                   </SelectItem>

@@ -1,10 +1,5 @@
-import type {
-  SiriusVulnerability,
-  Cve,
-  VulnerabilitySummary,
-} from "./server/api/routers/vulnerability";
 
-const cveData: Cve = {
+const cveData = {
   CVEDataFormat: "VulnerabilityGPT",
   CVEDataType: "CVE",
   CVEDataVersion: "",
@@ -138,7 +133,7 @@ const cveData: Cve = {
   Tags: null,
 };
 
-export const data: SiriusVulnerability = {
+export const data = {
   vid: "1",
   cvss: 10,
   description:
@@ -148,7 +143,7 @@ export const data: SiriusVulnerability = {
   cve: cveData,
 };
 
-export const mockVulnerabilitySummaryData: VulnerabilitySummary[] =  [
+export const mockVulnerabilitySummaryData =  [
   {
     cve: "CVE-2021-34527",
     count: 1,

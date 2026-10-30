@@ -270,7 +270,7 @@ const VulnerabilityDashboard: React.FC<Props> = ({ className }) => {
               padding={0.3}
               valueScale={{ type: "linear" }}
               indexScale={{ type: "band", round: true }}
-              colors={({ data }) => data.color}
+              colors={({ data }) => String(data.color ?? "#6b7280")}
               borderColor={{
                 from: "color",
                 modifiers: [["darker", 1.6]],
@@ -305,10 +305,8 @@ const VulnerabilityDashboard: React.FC<Props> = ({ className }) => {
               ariaLabel="Vulnerability severity distribution bar chart"
               theme={{
                 background: "transparent",
-                text: {
-                  fontSize: 11,
-                  fill: "#374151",
-                },
+                fontSize: 11,
+                textColor: "#374151",
                 axis: {
                   domain: {
                     line: {
@@ -363,7 +361,7 @@ const VulnerabilityDashboard: React.FC<Props> = ({ className }) => {
               padAngle={0.7}
               cornerRadius={3}
               activeOuterRadiusOffset={8}
-              colors={({ data }) => data.color}
+              colors={{ datum: "data.color" }}
               borderWidth={1}
               borderColor={{
                 from: "color",
@@ -382,10 +380,8 @@ const VulnerabilityDashboard: React.FC<Props> = ({ className }) => {
               enableArcLinkLabels={true}
               theme={{
                 background: "transparent",
-                text: {
-                  fontSize: 11,
-                  fill: "#374151",
-                },
+                fontSize: 11,
+                textColor: "#374151",
                 tooltip: {
                   container: {
                     background: "#1f2937",

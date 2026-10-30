@@ -7,6 +7,7 @@ await import("./src/env.mjs");
 /** @type {import("next").NextConfig} */
 const config = {
   reactStrictMode: true,
+  output: process.env.SIRIUS_STANDALONE_BUILD === "1" ? "standalone" : undefined,
   swcMinify: true,
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
 

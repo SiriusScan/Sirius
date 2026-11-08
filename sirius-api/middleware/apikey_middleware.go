@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"log/slog"
+	"net"
 	"net/url"
 	"strings"
 
@@ -112,15 +113,15 @@ var mcpReadExactPaths = map[string]struct{}{
 //	GET /host/:ip
 //	GET /host/:ip/sources
 //
-// where :ip is one path segment that is not itself a registered static host
-// route. Neighboring GETs such as /host/:id/packages stay denied.
+// where :ip is an IP literal. Neighboring static host routes and GETs such as
+// /host/:id/packages stay denied, including future single-segment routes.
 func mcpReadHostPath(path string) bool {
 	rest, ok := cutPrefixSegment(path, "/host/")
 	if !ok {
 		return false
 	}
 	segment, extra, hasMore := splitNextSegment(rest)
-	if segment == "" || !isSingleSafeSegment(segment) || isReservedHostSegment(segment) {
+	if net.ParseIP(segment) == nil {
 		return false
 	}
 	if !hasMore || extra == "" {
@@ -159,15 +160,6 @@ func mcpReadVulnerabilityPath(path string) bool {
 	return isCVESegment(segment)
 }
 
-func isReservedHostSegment(segment string) bool {
-	switch segment {
-	case "vulnerabilities", "source-coverage", "statistics", "severity", "with-source", "delete":
-		return true
-	default:
-		return false
-	}
-}
-
 // isTemplateSafeID matches handlers.templateIDPattern without importing it.
 func isTemplateSafeID(segment string) bool {
 	if len(segment) == 0 || len(segment) > 128 {
@@ -187,8 +179,8 @@ func isTemplateSafeID(segment string) bool {
 }
 
 // isCVESegment accepts a single CVE id such as CVE-2024-1234. Comparison is
-// case-sensitive: Fiber's default router does not fold case, so CVE-... is the
-// only form the vulnerability handler is expected to see.
+// case-sensitive even when Fiber's router is case-insensitive. The scope
+// deliberately grants only the explicit spelling used by the MCP client.
 func isCVESegment(segment string) bool {
 	const prefix = "CVE-"
 	if !strings.HasPrefix(segment, prefix) {
@@ -214,22 +206,9 @@ func allDigits(s string) bool {
 	return true
 }
 
-// isSingleSafeSegment rejects empty, dot, over-long, and slash-bearing values.
-// The segment is already split, so a slash cannot appear unless decoding failed.
-func isSingleSafeSegment(segment string) bool {
-	if segment == "" || segment == "." || segment == ".." || len(segment) > 253 {
-		return false
-	}
-	if strings.ContainsAny(segment, "/\\?#") {
-		return false
-	}
-	return true
-}
-
 // canonicalRequestPath returns the path the allow-list matches against.
-// Fiber's default config sets UnescapePath, so c.Path() is already decoded
-// once and that decoded path is what the router matches. This function does
-// not decode again and does not collapse "." or ".." — Fiber does not either,
+// c.Path() follows Fiber's configured UnescapePath (false in the running API).
+// This function does not decode again or collapse "." or ".." — Fiber does not either,
 // and collapsing would turn /templates/../host into the allowed path /host.
 // Dot segments, empty segments, backslashes, and a leftover % that still
 // decodes to something else (double-encoding) fail closed.
@@ -238,7 +217,8 @@ func canonicalRequestPath(c *fiber.Ctx) string {
 	if path == "" {
 		path = "/"
 	}
-	// Fiber decodes %2F into a real slash before routing. That must not let an
+	// When configured to decode, Fiber turns %2F into a slash before routing.
+	// That must not let an
 	// encoded slash invent an allowed segment. A decoded path whose slash
 	// structure differs from the raw request (or that contains a backslash)
 	// fails closed. Ordinary encodings such as %2D stay intact.

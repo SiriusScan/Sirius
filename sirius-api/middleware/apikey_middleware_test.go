@@ -107,11 +107,11 @@ func (notFoundError) Error() string { return "not found" }
 
 var errNotFound notFoundError
 
-func newScopedTestApp(t *testing.T, kv store.KVStore) *fiber.App {
+func newScopedTestApp(t *testing.T, kv store.KVStore, unescape ...bool) *fiber.App {
 	t.Helper()
-	// UnescapePath is Fiber's default. Set it explicitly so the test records
-	// the routing behavior the allow-list is aligned to.
-	app := fiber.New(fiber.Config{UnescapePath: true})
+	// Match the production default and also exercise optional path decoding.
+	decode := len(unescape) > 0 && unescape[0]
+	app := fiber.New(fiber.Config{UnescapePath: decode})
 	app.Use(APIKeyMiddleware(kv, "root-key"))
 	app.All("/*", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
@@ -138,6 +138,11 @@ func doRequest(t *testing.T, app *fiber.App, method, path, key string) int {
 }
 
 func TestMCPReadScopeAllowList(t *testing.T) {
+	t.Run("production defaults", func(t *testing.T) { testMCPReadScopeAllowList(t, false) })
+	t.Run("decoded routing", func(t *testing.T) { testMCPReadScopeAllowList(t, true) })
+}
+
+func testMCPReadScopeAllowList(t *testing.T, unescape bool) {
 	kv := newScopeKV()
 	const scopedKey = "sk_mcp_reader_test_key_0001"
 	const legacyKey = "sk_legacy_full_access_key_01"
@@ -147,7 +152,7 @@ func TestMCPReadScopeAllowList(t *testing.T) {
 	if _, err := store.StoreAPIKey(context.Background(), kv, legacyKey, "legacy", "root"); err != nil {
 		t.Fatal(err)
 	}
-	app := newScopedTestApp(t, kv)
+	app := newScopedTestApp(t, kv, unescape)
 
 	allowed := []string{
 		"/host",
@@ -188,6 +193,10 @@ func TestMCPReadScopeAllowList(t *testing.T) {
 		{http.MethodGet, "/host/statistics/10.0.0.8"},
 		{http.MethodGet, "/host/severity/10.0.0.8"},
 		{http.MethodGet, "/host/source-coverage"},
+		{http.MethodGet, "/host/not-an-ip"},
+		{http.MethodGet, "/host/future-admin-route"},
+		{http.MethodGet, "/host/10.0.0.999"},
+		{http.MethodGet, "/host/fe80::1%25eth0"},
 		{http.MethodGet, "/host/vulnerabilities"},
 		{http.MethodGet, "/host/vulnerabilities/all/extra"},
 		{http.MethodGet, "/vulnerability/CVE-2024-1234/sources"},
@@ -239,6 +248,9 @@ func TestMCPReadScopeAllowList(t *testing.T) {
 		"/api/v1/scans/status%2f",
 		"/host/10.0.0.8%2fpackages",
 		"/HOST%2f10.0.0.8",
+		"/host/10.0.0.8%252fsources",
+		"/host//10.0.0.8",
+		"/templates/%252e%252e",
 	}
 	for _, path := range encoded {
 		if got := doRequest(t, app, http.MethodGet, path, scopedKey); got != fiber.StatusForbidden {
@@ -246,9 +258,13 @@ func TestMCPReadScopeAllowList(t *testing.T) {
 		}
 	}
 
-	// A decoded-but-safe character (%2D is '-') still names an allowed template.
-	if got := doRequest(t, app, http.MethodGet, "/templates/nmap%2Dbasic", scopedKey); got != fiber.StatusNoContent {
-		t.Errorf("decoded hyphen template status=%d", got)
+	// Encodings are accepted only when Fiber actually routes the decoded path.
+	wantEncoded := fiber.StatusForbidden
+	if unescape {
+		wantEncoded = fiber.StatusNoContent
+	}
+	if got := doRequest(t, app, http.MethodGet, "/templates/nmap%2Dbasic", scopedKey); got != wantEncoded {
+		t.Errorf("encoded hyphen template status=%d want=%d", got, wantEncoded)
 	}
 
 	// Legacy unrestricted key and the infrastructure root key are not narrowed.

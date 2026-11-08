@@ -31,6 +31,13 @@ func isValidSingleHostIP(ip string) bool {
 // GetHost handles the GET /host/{id} route with optional enhanced data
 func GetHost(c *fiber.Ctx) error {
 	hostID := c.Params("id")
+	if isMCPReadCaller(c) {
+		hostData, err := host.GetHost(hostID)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "error retrieving host"})
+		}
+		return sendHostRead(c, hostData)
+	}
 
 	// Check for enhanced data query parameters
 	includeParam := c.Query("include", "")
@@ -120,7 +127,7 @@ func GetAllHosts(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(hosts)
+	return sendHostListRead(c, hosts)
 }
 
 // GetHostStatistics handles the GET /host/statistics route
@@ -722,7 +729,7 @@ func GetHostWithSources(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.JSON(hostWithSources)
+	return sendHostSourcesRead(c, hostWithSources)
 }
 
 // GetVulnerabilityHistory handles the GET /host/{id}/vulnerability/{vulnId}/history route

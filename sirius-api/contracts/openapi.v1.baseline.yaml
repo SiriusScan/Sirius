@@ -1079,6 +1079,10 @@ paths:
         Optional `scopes` restricts the new key. The only accepted value is
         `mcp:read`, which the server enforces as an exact GET allow-list
         (host inventory, one CVE, templates, scan status, system health).
+        Query parameters are not supported for this scope. Host reads use
+        explicit basic-inventory and source-attributed-finding projections;
+        software inventory, system fingerprints, agent metadata/credentials,
+        users and free-form notes are excluded. Legacy/root responses are unchanged.
         Omit `scopes` or send an empty list to create a legacy unrestricted
         key. Unknown scopes are rejected. A caller whose own key is scoped
         cannot create keys. Scope is enforced server-side from stored key

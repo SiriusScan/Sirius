@@ -78,6 +78,11 @@ func scopeAllowsRequest(meta store.APIKeyMeta, c *fiber.Ctx) bool {
 	if len(meta.Scopes) != 1 {
 		return false
 	}
+	// The initial read contract has no query modes. In particular, host
+	// enhanced/include modes must not widen a scoped response.
+	if c.Request().URI().QueryArgs().Len() != 0 {
+		return false
+	}
 	return methodAndPathAllowed(c.Method(), canonicalRequestPath(c))
 }
 

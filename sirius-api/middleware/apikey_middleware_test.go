@@ -194,6 +194,11 @@ func testMCPReadScopeAllowList(t *testing.T, unescape bool) {
 		{http.MethodGet, "/host/severity/10.0.0.8"},
 		{http.MethodGet, "/host/source-coverage"},
 		{http.MethodGet, "/host/not-an-ip"},
+		{http.MethodGet, "/host/10.0.0.8?enhanced=true"},
+		{http.MethodGet, "/host/10.0.0.8?include=software_inventory,system_fingerprint,agent_metadata"},
+		{http.MethodGet, "/host/10.0.0.8?include_source=true"},
+		{http.MethodGet, "/host/10.0.0.8/sources?enhanced=true"},
+		{http.MethodGet, "/host?include=agent_metadata"},
 		{http.MethodGet, "/host/future-admin-route"},
 		{http.MethodGet, "/host/10.0.0.999"},
 		{http.MethodGet, "/host/fe80::1%25eth0"},
@@ -269,6 +274,9 @@ func testMCPReadScopeAllowList(t *testing.T, unescape bool) {
 
 	// Legacy unrestricted key and the infrastructure root key are not narrowed.
 	for _, key := range []string{legacyKey, "root-key"} {
+		if got := doRequest(t, app, http.MethodGet, "/host/10.0.0.8?enhanced=true", key); got != fiber.StatusNoContent {
+			t.Errorf("legacy/root enhanced read status=%d", got)
+		}
 		if got := doRequest(t, app, http.MethodGet, "/api/v1/system/logs", key); got != fiber.StatusNoContent {
 			t.Errorf("legacy/root GET logs with %q status=%d", key, got)
 		}

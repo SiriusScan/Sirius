@@ -1073,7 +1073,16 @@ paths:
       tags: [keys]
       operationId: createAPIKey
       summary: Create an API key
-      description: Returns the raw key exactly once.
+      description: |
+        Returns the raw key exactly once.
+
+        Optional `scopes` restricts the new key. The only accepted value is
+        `mcp:read`, which the server enforces as an exact GET allow-list
+        (host inventory, one CVE, templates, scan status, system health).
+        Omit `scopes` or send an empty list to create a legacy unrestricted
+        key. Unknown scopes are rejected. A caller whose own key is scoped
+        cannot create keys. Scope is enforced server-side from stored key
+        metadata, not from any client claim.
       security:
         - ApiKeyAuth: []
       parameters:
@@ -1087,6 +1096,14 @@ paths:
               properties:
                 label:
                   type: string
+                scopes:
+                  type: array
+                  description: |
+                    Optional allow-list. Empty or omitted preserves legacy
+                    full access. The only accepted scope is `mcp:read`.
+                  items:
+                    type: string
+                    enum: ["mcp:read"]
       responses:
         '201':
           description: Key created
@@ -1156,7 +1173,9 @@ components:
       name: X-API-Key
       description: |
         Infrastructure root key (SIRIUS_API_KEY_FILE / SIRIUS_API_KEY) or a
-        Valkey-backed user-generated API key.
+        Valkey-backed user-generated API key. Keys stored with empty scopes
+        keep full access. A key stored with scope `mcp:read` is limited to
+        the MCP read GET allow-list; other non-empty scopes fail closed.
   parameters:
     RequestID:
       name: X-Request-ID

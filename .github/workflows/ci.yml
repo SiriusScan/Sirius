@@ -1,6 +1,7 @@
 name: Sirius CI/CD Pipeline
 
 # Canonical CI pipeline. Handles all builds, tests, and canary dispatch.
+# Composition seam changes require a complete release image inventory.
 # deploy.yml is now deployment-only (workflow_dispatch) and does not build images.
 #
 # Multi-arch strategy: each container is built per-platform (amd64 native,

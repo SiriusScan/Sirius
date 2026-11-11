@@ -4,6 +4,7 @@ import { createUIExtensionRegistry } from "./registry";
 
 export * from "./capabilities";
 export * from "./registry";
+export { extensionContractVersions } from "~/contracts/versions";
 export * from "./types";
 
 export const uiExtensionRegistry = createUIExtensionRegistry([

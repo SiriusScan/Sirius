@@ -1,3 +1,4 @@
+import { extensionContractVersions } from "../../contracts/versions";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -306,3 +307,5 @@ runAsyncAssertions()
     console.error(cause);
     process.exit(1);
   });
+
+assert.equal(extensionContractVersions.server_extension, "1.0.0");

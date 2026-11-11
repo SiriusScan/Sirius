@@ -134,7 +134,13 @@ jq '.contracts.rest_api = "invalid"' "${GENERATED}" > "${TMP_DIR}/bad-contract.y
 if bash scripts/validate-core-manifest.sh "${TMP_DIR}/bad-contract.yaml" 2>/dev/null; then
   fail "invalid REST contract version accepted"
 fi
-pass "REST contract version validation"
+[ "$(jq -r '.contracts.resource_scope' "${GENERATED}")" = "1.0" ] || fail "SDK scope contract version mismatch"
+[ "$(jq -r '.contracts.agent_protocol' "${GENERATED}")" = "1.0.0" ] || fail "agent protocol contract version mismatch"
+jq '.contracts.resource_scope = "9.0"' "${GENERATED}" > "${TMP_DIR}/bad-sdk-contract.yaml"
+if bash scripts/validate-core-manifest.sh "${TMP_DIR}/bad-sdk-contract.yaml" 2>/dev/null; then
+  fail "SDK contract mapping mismatch accepted"
+fi
+pass "application contract version validation"
 
 echo "==> verify digests against mock inspect"
 export CORE_MANIFEST_INSPECT_CMD="bash ${MOCK_INSPECT}"

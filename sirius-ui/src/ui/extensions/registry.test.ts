@@ -1,3 +1,4 @@
+import { extensionContractVersions } from "../../contracts/versions";
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -291,3 +292,5 @@ assertApiCapabilityProviderFailsClosed()
     console.error(cause);
     process.exit(1);
   });
+
+assert.equal(extensionContractVersions.ui_extension, "1.0.0");

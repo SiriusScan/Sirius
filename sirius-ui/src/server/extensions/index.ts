@@ -4,6 +4,7 @@ import { createServerExtensionRegistry } from "./registry";
 
 export * from "./principal";
 export * from "./registry";
+export { extensionContractVersions } from "~/contracts/versions";
 export * from "./types";
 export { communityServerExtension } from "./community";
 

@@ -12,20 +12,29 @@
   },
   "schema": {
     "ledger_table": "schema_migrations_core",
-    "latest_migration": "007_add_vulnerability_stats_indexes",
-    "go_api_version": "ebd42f4239ec2d0c99e3e7c463a5fc181f57737f"
+    "latest_migration": "010_host_resource_scope",
+    "go_api_version": "5beb7ee9e1446ef85ad99dce873014ea720b6eb9"
   },
   "contracts": {
-    "rest_api": "1.0.0"
+    "rest_api": "1.0.0",
+    "ui_extension": "1.0.0",
+    "server_extension": "1.0.0",
+    "resource_scope": "1.0",
+    "message_envelope": "1.0",
+    "scan_job": "1.0",
+    "scan_control": "1.0",
+    "api_module": "v1",
+    "agent_protocol": "1.0.0",
+    "agent_admission": "1.0.0"
   },
   "component_pins": {
     "APP_SYSTEM_MONITOR_COMMIT_SHA": "d4780cff46c98d6d030d03a4c73a40a78c7895ae",
     "APP_ADMINISTRATOR_COMMIT_SHA": "142ac93b620ac8a52a033f312fc2cb86c1f2979d",
-    "GO_API_COMMIT_SHA": "ebd42f4239ec2d0c99e3e7c463a5fc181f57737f",
-    "APP_SCANNER_COMMIT_SHA": "a031480cc7e0dc4a1cb09bdcfafedd89fbc61dfd",
+    "GO_API_COMMIT_SHA": "5beb7ee9e1446ef85ad99dce873014ea720b6eb9",
+    "APP_SCANNER_COMMIT_SHA": "e9d74aa56494f97442da9677ece75534fdedc373",
     "APP_TERMINAL_COMMIT_SHA": "5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1",
     "SIRIUS_NSE_COMMIT_SHA": "a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9",
-    "APP_AGENT_COMMIT_SHA": "9311f3805db9cc08740f1b588b6f3bff9191c9dd",
+    "APP_AGENT_COMMIT_SHA": "227f3f8cc1382a60074e73474e4f12ef8b47f589",
     "PINGPP_COMMIT_SHA": "9508a16c40a49746feb7cab4b8c1c358246169b0"
   },
   "images": {

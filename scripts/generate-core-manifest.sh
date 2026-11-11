@@ -28,6 +28,8 @@ INVENTORY_PATH=""
 DOCKERFILE="${DOCKERFILE:-${PROJECT_ROOT}/sirius-engine/Dockerfile}"
 SCHEMA_MAP="${SCHEMA_MAP:-${PROJECT_ROOT}/scripts/core-manifest/schema_map.json}"
 OPENAPI="${OPENAPI:-${PROJECT_ROOT}/sirius-api/contracts/openapi.v1.yaml}"
+UI_VERSIONS="${UI_VERSIONS:-${PROJECT_ROOT}/sirius-ui/src/contracts/versions.json}"
+AGENT_CONTRACTS_MAP="${AGENT_CONTRACTS_MAP:-${PROJECT_ROOT}/scripts/core-manifest/agent_contracts.json}"
 REGISTRY="${REGISTRY:-ghcr.io}"
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-siriusscan}"
 
@@ -68,6 +70,8 @@ while [ "$#" -gt 0 ]; do
     --dockerfile) DOCKERFILE="${2:-}"; shift 2 ;;
     --schema-map) SCHEMA_MAP="${2:-}"; shift 2 ;;
     --openapi) OPENAPI="${2:-}"; shift 2 ;;
+    --ui-versions) UI_VERSIONS="${2:-}"; shift 2 ;;
+    --agent-contracts) AGENT_CONTRACTS_MAP="${2:-}"; shift 2 ;;
     --registry) REGISTRY="${2:-}"; shift 2 ;;
     --namespace) IMAGE_NAMESPACE="${2:-}"; shift 2 ;;
     -h|--help)
@@ -91,6 +95,10 @@ REST_CONTRACT="$(sed -nE 's/^  x-sirius-contract-version: "([0-9]+\.[0-9]+\.[0-9
 [[ "${REST_CONTRACT}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "OpenAPI contract version missing or invalid"
 [ -n "${OUTPUT_PATH}" ] || OUTPUT_PATH="${PROJECT_ROOT}/core-manifest.yaml"
 require_cmd jq
+[ -f "${AGENT_CONTRACTS_MAP}" ] || die "agent contract map missing"
+[ -f "${UI_VERSIONS}" ] || die "UI contract versions not found: ${UI_VERSIONS}"
+jq -e '(keys | sort) == ["server_extension", "ui_extension"] and all(.[]; type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' "${UI_VERSIONS}" >/dev/null || die "invalid UI contract versions"
+UI_CONTRACTS="$(jq -c . "${UI_VERSIONS}")"
 
 extract_pin() {
   local name="$1"
@@ -116,11 +124,14 @@ for pin in "${PIN_NAMES[@]}"; do
 done
 
 GO_API_VERSION=""
+AGENT_COMMIT=""
 i=0
 for pin in "${PIN_NAMES[@]}"; do
   if [ "${pin}" = "GO_API_COMMIT_SHA" ]; then
     GO_API_VERSION="${PIN_VALUES[$i]}"
-    break
+  fi
+  if [ "${pin}" = "APP_AGENT_COMMIT_SHA" ]; then
+    AGENT_COMMIT="${PIN_VALUES[$i]}"
   fi
   i=$((i + 1))
 done
@@ -129,6 +140,8 @@ done
 if ! jq -e --arg v "${GO_API_VERSION}" 'has($v)' "${SCHEMA_MAP}" >/dev/null; then
   die "GO_API_COMMIT_SHA ${GO_API_VERSION} has no entry in ${SCHEMA_MAP}"
 fi
+AGENT_CONTRACTS="$(jq -c --arg v "${AGENT_COMMIT}" '.[$v] // {}' "${AGENT_CONTRACTS_MAP}")"
+SDK_CONTRACTS="$(jq -c --arg v "${GO_API_VERSION}" '.[$v].contracts // {}' "${SCHEMA_MAP}")"
 LEDGER_TABLE="$(jq -r --arg v "${GO_API_VERSION}" '.[$v].ledger_table' "${SCHEMA_MAP}")"
 LATEST_MIGRATION="$(jq -r --arg v "${GO_API_VERSION}" '.[$v].latest_migration' "${SCHEMA_MAP}")"
 [ -n "${LEDGER_TABLE}" ] && [ "${LEDGER_TABLE}" != "null" ] || die "schema map ledger_table missing for ${GO_API_VERSION}"
@@ -177,6 +190,9 @@ jq -n \
   --arg latest_migration "${LATEST_MIGRATION}" \
   --arg go_api_version "${GO_API_VERSION}" \
   --arg rest_contract "${REST_CONTRACT}" \
+  --argjson ui_contracts "${UI_CONTRACTS}" \
+  --argjson sdk_contracts "${SDK_CONTRACTS}" \
+  --argjson agent_contracts "${AGENT_CONTRACTS}" \
   --argjson component_pins "${pins_json}" \
   --argjson images "${images_json}" \
   '{
@@ -196,7 +212,7 @@ jq -n \
       latest_migration: $latest_migration,
       go_api_version: $go_api_version
     },
-    contracts: { rest_api: $rest_contract },
+    contracts: ({ rest_api: $rest_contract } + $ui_contracts + $sdk_contracts + $agent_contracts),
     component_pins: $component_pins,
     images: $images
   }' > "${OUTPUT_PATH}"

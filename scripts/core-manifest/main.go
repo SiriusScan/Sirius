@@ -45,8 +45,9 @@ var requiredPins = []string{
 }
 
 type schemaMapEntry struct {
-	LedgerTable     string `json:"ledger_table"`
-	LatestMigration string `json:"latest_migration"`
+	LedgerTable     string            `json:"ledger_table"`
+	LatestMigration string            `json:"latest_migration"`
+	Contracts       map[string]string `json:"contracts,omitempty"`
 }
 
 type CoreManifest struct {
@@ -201,8 +202,15 @@ func validateManifest(data []byte, opt options) error {
 	}
 
 	if m.Contracts != nil {
-		if err := exactStringKeys(m.Contracts, []string{"rest_api"}, "contracts"); err != nil {
-			return err
+		for name := range m.Contracts {
+			if name != "rest_api" && name != "ui_extension" && name != "server_extension" && name != "resource_scope" && name != "message_envelope" && name != "scan_job" && name != "scan_control" && name != "api_module" && name != "agent_protocol" && name != "agent_admission" {
+				return fmt.Errorf("contracts: unknown contract %q", name)
+			}
+		}
+		for name, version := range m.Contracts {
+			if !regexp.MustCompile(`^(v[0-9]+|[0-9]+\.[0-9]+(\.[0-9]+)?)$`).MatchString(version) {
+				return fmt.Errorf("contracts.%s must be a semantic version", name)
+			}
 		}
 		if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(m.Contracts["rest_api"]) {
 			return fmt.Errorf("contracts.rest_api must be a semantic version")
@@ -232,6 +240,11 @@ func validateManifest(data []byte, opt options) error {
 	}
 	if m.Schema.LedgerTable != entry.LedgerTable {
 		return fmt.Errorf("schema.ledger_table mismatch for %s: got %q want %q", goAPI, m.Schema.LedgerTable, entry.LedgerTable)
+	}
+	for name, expected := range entry.Contracts {
+		if m.Contracts[name] != expected {
+			return fmt.Errorf("contracts.%s mismatch for pinned SDK", name)
+		}
 	}
 	if m.Schema.LatestMigration != entry.LatestMigration {
 		return fmt.Errorf("schema.latest_migration mismatch for %s: got %q want %q", goAPI, m.Schema.LatestMigration, entry.LatestMigration)

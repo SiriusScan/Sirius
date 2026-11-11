@@ -358,12 +358,16 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --inventory "${INV}" \
             --dockerfile release-src/sirius-engine/Dockerfile \
+            --schema-map release-src/scripts/core-manifest/schema_map.json \
             --openapi release-src/sirius-api/contracts/openapi.v1.yaml \
+            --ui-versions release-src/sirius-ui/src/contracts/versions.json \
+            --agent-contracts release-src/scripts/core-manifest/agent_contracts.json \
             --output "${GITHUB_WORKSPACE}/core-manifest.yaml"
           bash scripts/validate-core-manifest.sh \
             --expect-tag "${TARGET_TAG}" \
             --expect-commit "${SOURCE_COMMIT}" \
             --dockerfile release-src/sirius-engine/Dockerfile \
+            --schema-map release-src/scripts/core-manifest/schema_map.json \
             "${GITHUB_WORKSPACE}/core-manifest.yaml"
           bash scripts/assert-release-sbom-assets.sh --tag "${TARGET_TAG}" --dir sboms
 
@@ -459,6 +463,7 @@ jobs:
             --expect-tag "${TARGET_TAG}" \
             --expect-commit "${SOURCE_COMMIT}" \
             --dockerfile release-src/sirius-engine/Dockerfile \
+            --schema-map release-src/scripts/core-manifest/schema_map.json \
             /tmp/release-asset-check/core-manifest.yaml
           bash scripts/validate-core-manifest.sh \
             --expect-tag "${TARGET_TAG}" \

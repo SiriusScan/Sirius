@@ -8,9 +8,13 @@
 
 ![Sirius Scan Dashboard](/documentation/dash-dark.gif)
 
-Sirius is an open-source vulnerability scanner with automated discovery, CVE-based detection, and a modern web UI. Clone, run four commands, start scanning.
+Sirius is an open-source vulnerability scanner with automated discovery, CVE-based detection, and a modern web UI. Clone the repository, configure the agent TLS certificate, and start scanning.
 
 ## Quick Start
+
+Before starting the stack, provision the agent server certificate and key as
+described in [Agent gRPC TLS configuration](documentation/GRPC-TLS.md). The
+installer does not create them.
 
 ```bash
 git clone https://github.com/SiriusScan/Sirius.git
@@ -26,7 +30,7 @@ Open **http://localhost:3000** and log in:
 | **Email** | `admin@example.com` |
 | **Password** | printed by the installer (look for `INITIAL_ADMIN_PASSWORD` in the output) |
 
-That's it. All six services start automatically. The installer generates secure secrets on first run and is safe to re-run.
+All six services start automatically once their required configuration is present. The installer generates application secrets on first run and is safe to re-run.
 
 By default the installer leaves `IMAGE_TAG` unset, so Compose pulls **`latest`** from GHCR. To pin a release (for example `v1.0.0` in `.env`), only do so after that tag exists for **all six** container images; verify with `bash scripts/verify-ghcr-public-access.sh v1.0.0` from a shell that is not logged in to `ghcr.io`.
 

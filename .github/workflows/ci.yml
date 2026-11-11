@@ -837,6 +837,9 @@ jobs:
                 - GO_ENV=production
                 - ENGINE_MAIN_PORT=5174
                 - GRPC_AGENT_PORT=50051
+                - GRPC_TRANSPORT=tls
+                - GRPC_TLS_CERT_FILE=/run/secrets/grpc_server_cert
+                - GRPC_TLS_KEY_FILE=/run/secrets/grpc_server_key
                 - POSTGRES_HOST=sirius-postgres
                 - POSTGRES_USER=postgres
                 - POSTGRES_PASSWORD=postgres
@@ -849,8 +852,12 @@ jobs:
                 - SIRIUS_API_KEY_FILE=/run/secrets/sirius_api_key
                 - SIRIUS_API_URL=http://sirius-api:9001
                 - API_BASE_URL=http://sirius-api:9001
+              ports:
+                - "127.0.0.1:50051:50051"
               secrets:
                 - sirius_api_key
+                - grpc_server_cert
+                - grpc_server_key
               depends_on:
                 sirius-postgres:
                   condition: service_healthy
@@ -870,8 +877,20 @@ jobs:
           secrets:
             sirius_api_key:
               file: ./secrets/sirius_api_key.txt
+            grpc_server_cert:
+              file: ${CI_AGENT_TLS_DIR}/server.crt
+            grpc_server_key:
+              file: ${CI_AGENT_TLS_DIR}/server.key
           EOF
 
+          CI_AGENT_TLS_DIR="$(mktemp -d "${RUNNER_TEMP}/agent-tls.XXXXXX")"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout "${CI_AGENT_TLS_DIR}/server.key" -out "${CI_AGENT_TLS_DIR}/server.crt" \
+            -subj '/CN=sirius-engine' -addext 'subjectAltName=DNS:sirius-engine,DNS:localhost,IP:127.0.0.1' >/dev/null 2>&1
+          # Compose file secrets retain host mode. The containing directory is
+          # private to the CI runner; the non-root engine needs read access.
+          chmod 644 "${CI_AGENT_TLS_DIR}/server.key" "${CI_AGENT_TLS_DIR}/server.crt"
+          echo "CI_AGENT_TLS_DIR=${CI_AGENT_TLS_DIR}" >> "$GITHUB_ENV"
           mkdir -p secrets
           printf '%s\n' 'ci-placeholder-api-key' > secrets/sirius_api_key.txt
           chmod 644 secrets/sirius_api_key.txt
@@ -969,6 +988,11 @@ jobs:
             echo "::error::One or more services failed their health check"
             exit 1
           fi
+          if [[ " $SERVICES_TO_TEST " == *" sirius-engine "* ]]; then
+            openssl s_client -connect 127.0.0.1:50051 -servername sirius-engine \
+              -verify_hostname sirius-engine -verify_return_error \
+              -CAfile "${CI_AGENT_TLS_DIR}/server.crt" </dev/null >/dev/null
+          fi
           echo "All health checks passed"
 
       - name: Capture diagnostics on failure
@@ -1010,6 +1034,7 @@ jobs:
         if: always()
         run: |
           docker compose -f docker-compose.test.yml down --volumes --remove-orphans 2>/dev/null || true
+          [ -z "${CI_AGENT_TLS_DIR:-}" ] || rm -rf -- "$CI_AGENT_TLS_DIR"
 
   # Local/fixture validation for core-manifest tooling (no GHCR required).
   core-manifest-tests:

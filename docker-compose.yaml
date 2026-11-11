@@ -229,6 +229,9 @@ services:
       - GO_ENV=${GO_ENV:-production}
       - ENGINE_MAIN_PORT=${ENGINE_MAIN_PORT:-5174}
       - GRPC_AGENT_PORT=${GRPC_AGENT_PORT:-50051}
+      - GRPC_TRANSPORT=tls
+      - GRPC_TLS_CERT_FILE=/run/secrets/grpc_server_cert
+      - GRPC_TLS_KEY_FILE=/run/secrets/grpc_server_key
       - POSTGRES_HOST=${POSTGRES_HOST:-sirius-postgres}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required for sirius-engine. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
@@ -249,6 +252,8 @@ services:
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-/run/secrets/sirius_api_key}
     secrets:
       - sirius_api_key
+      - grpc_server_cert
+      - grpc_server_key
     depends_on:
       sirius-rabbitmq:
         condition: service_healthy
@@ -291,6 +296,10 @@ volumes:
 secrets:
   sirius_api_key:
     file: ./secrets/sirius_api_key.txt
+  grpc_server_cert:
+    file: ${GRPC_TLS_CERT_HOST_PATH:-${HOME}/.local/state/sirius/grpc-server.crt}
+  grpc_server_key:
+    file: ${GRPC_TLS_KEY_HOST_PATH:-${HOME}/.local/state/sirius/grpc-server.key}
 
 networks:
   default:

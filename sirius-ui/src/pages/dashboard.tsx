@@ -178,7 +178,7 @@ const Dashboard: NextPage = () => {
                   )}% online`
                 : "No hosts discovered"
             }
-            cta={{ label: "View Hosts", href: "/host" }}
+            cta={{ label: "View Hosts", href: "/environment" }}
             variant="default"
           />
         </div>
@@ -321,7 +321,7 @@ const Dashboard: NextPage = () => {
                   icon={<Server className="h-5 w-5" />}
                   title="View All Hosts"
                   description="Browse discovered hosts"
-                  onClick={() => router.push("/host")}
+                  onClick={() => router.push("/environment")}
                 />
                 <ActionButton
                   icon={

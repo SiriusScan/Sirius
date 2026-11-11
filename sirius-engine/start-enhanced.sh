@@ -116,10 +116,18 @@ validate_required_binary() {
 validate_postgres_connection() {
     local max_attempts=30
     local attempt=0
+    local postgres_port="${POSTGRES_PORT:-5432}"
+
+    # Match Compose's default and reject invalid values before retrying.
+    # Limit digits before arithmetic to avoid overflow; parse leading zeros as decimal.
+    if [[ ! "$postgres_port" =~ ^[0-9]{1,5}$ ]] || (( 10#$postgres_port < 1 || 10#$postgres_port > 65535 )); then
+        echo "Error: POSTGRES_PORT must be an integer between 1 and 65535."
+        exit 1
+    fi
 
     echo "Validating PostgreSQL connectivity with runtime credentials..."
     while [ "$attempt" -lt "$max_attempts" ]; do
-        if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1" >/dev/null 2>&1; then
+        if PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$POSTGRES_HOST" -p "$postgres_port" -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT 1" >/dev/null 2>&1; then
             echo "PostgreSQL connectivity validated."
             return 0
         fi

@@ -151,7 +151,10 @@ FROM golang:1.24-bullseye AS builder
 
 WORKDIR /build
 
-RUN apt-get update && \
+# Bullseye security packages have moved to the Debian archive. Keep this
+# builder on the older glibc required by the Ubuntu 22.04 runtime.
+RUN sed -i "s|deb.debian.org/debian-security|archive.debian.org/debian-security|g" /etc/apt/sources.list && \
+    apt-get -o Acquire::Check-Valid-Until=false update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
         git \
         ca-certificates \
@@ -170,11 +173,11 @@ RUN apt-get update && \
 #     CI fallback, and SHA-AUDIT-2026-04.md (or its successor) in one PR.
 #
 # Audit doc: documentation/dev-notes/SHA-AUDIT-2026-04.md
-ARG GO_API_COMMIT_SHA=ebd42f4239ec2d0c99e3e7c463a5fc181f57737f
-ARG APP_SCANNER_COMMIT_SHA=a031480cc7e0dc4a1cb09bdcfafedd89fbc61dfd
+ARG GO_API_COMMIT_SHA=5beb7ee9e1446ef85ad99dce873014ea720b6eb9
+ARG APP_SCANNER_COMMIT_SHA=e9d74aa56494f97442da9677ece75534fdedc373
 ARG APP_TERMINAL_COMMIT_SHA=5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1
 ARG SIRIUS_NSE_COMMIT_SHA=a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9
-ARG APP_AGENT_COMMIT_SHA=9311f3805db9cc08740f1b588b6f3bff9191c9dd
+ARG APP_AGENT_COMMIT_SHA=227f3f8cc1382a60074e73474e4f12ef8b47f589
 ARG PINGPP_COMMIT_SHA=9508a16c40a49746feb7cab4b8c1c358246169b0
 
 WORKDIR /repos

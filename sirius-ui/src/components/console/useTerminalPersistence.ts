@@ -10,39 +10,19 @@ import type {
   OutputAnnotation,
 } from "./types";
 
+import { parseTerminalState } from "./terminalState";
+
 const STORAGE_KEY = "terminal_state_v1";
 const DEBOUNCE_MS = 500;
 
-const DEFAULT_STATE: TerminalPersistenceState = {
-  version: 1,
-  commandHistory: [],
-  selectedTarget: { type: "engine" },
-  activeView: "terminal",
-  fontSize: 14,
-  sidebarWidth: 288, // w-72 = 18rem = 288px
-  sidebarCollapsed: false,
-  timestampMode: false,
-  concurrencyLimit: 50,
-  agentTags: {},
-  agentGroups: [],
-  agentNotes: {},
-  savedFilters: [],
-  tabs: [{ id: "main", name: "Main", target: { type: "engine" } }],
-  activeTabId: "main",
-  groupingMode: "flat",
-  annotations: [],
-};
-
 function loadState(): TerminalPersistenceState {
-  if (typeof window === "undefined") return DEFAULT_STATE;
+  if (typeof window === "undefined") return parseTerminalState(undefined);
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_STATE;
-    const parsed = JSON.parse(raw) as Partial<TerminalPersistenceState>;
-    if (parsed.version !== 1) return DEFAULT_STATE;
-    return { ...DEFAULT_STATE, ...parsed };
+    if (!raw) return parseTerminalState(undefined);
+    return parseTerminalState(JSON.parse(raw));
   } catch {
-    return DEFAULT_STATE;
+    return parseTerminalState(undefined);
   }
 }
 

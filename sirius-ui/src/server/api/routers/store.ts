@@ -1,12 +1,13 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { z } from "zod";
+import { isProtectedNseKey, mutateNseScript, parseNseManifest, readNseScriptContent } from "~/server/nseMutations";
+import { DEFAULT_REPOSITORIES, NSE_REPO_MANIFEST_KEY, mutateNseRepository } from "~/server/nseRepositories";
 import { valkey } from "~/server/valkey";
 import { canonicalizeScriptId as normalizeScriptId } from "~/utils/nseScriptIds";
 
 // Key constants to match backend
 const NSE_MANIFEST_KEY = "nse:manifest";
-const NSE_REPO_MANIFEST_KEY = "nse:repo-manifest";
-const NSE_SCRIPT_PREFIX = "nse:script:";
 const ALLOWED_KEY_PREFIXES = ["nse:", "currentScan", "agent_scan:"] as const;
 
 function isAllowedKey(key: string): boolean {
@@ -15,75 +16,23 @@ function isAllowedKey(key: string): boolean {
 
 type ManifestScriptInfo = {
   id: string;
+  rawId: string;
   name: string;
   path: string;
   protocol: string;
 };
 
 function parseManifestScripts(manifest: unknown): ManifestScriptInfo[] {
-  if (!manifest || typeof manifest !== "object") return [];
-
-  const root = manifest as { scripts?: unknown };
-  const scripts = root.scripts;
-  if (!scripts) return [];
-
-  const out: ManifestScriptInfo[] = [];
-
-  const fromRaw = (rawId: string, raw: unknown): ManifestScriptInfo | null => {
-    const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-    const pathFromObj = typeof obj.path === "string" ? obj.path : "";
-    const normalizedId = normalizeScriptId(rawId) || normalizeScriptId(pathFromObj);
-    const id = normalizedId || rawId;
-    if (!id) return null;
+  const parsed = parseNseManifest(JSON.stringify(manifest));
+  return Object.entries(parsed.scripts).map(([rawId, info]) => {
+    const id = normalizeScriptId(rawId);
     return {
-      id,
-      name: (typeof obj.name === "string" && obj.name.trim()) || id,
-      path:
-        pathFromObj ||
-        (typeof obj.id === "string" && obj.id.includes("/")
-          ? obj.id
-          : `scripts/${id}.nse`),
-      protocol:
-        (typeof obj.protocol === "string" && obj.protocol.trim()) || "*",
+      id, rawId,
+      name: typeof info.name === "string" && info.name ? info.name : id,
+      path: typeof info.path === "string" && info.path ? info.path : `scripts/${id}.nse`,
+      protocol: typeof info.protocol === "string" && info.protocol ? info.protocol : "*",
     };
-  };
-
-  if (Array.isArray(scripts)) {
-    scripts.forEach((item, index) => {
-      if (typeof item === "string") {
-        const id = normalizeScriptId(item) || `script_${index}`;
-        out.push({
-          id,
-          name: id,
-          path: item.includes("/") ? item : `scripts/${id}.nse`,
-          protocol: "*",
-        });
-        return;
-      }
-
-      if (item && typeof item === "object") {
-        const itemObj = item as Record<string, unknown>;
-        const rawId =
-          (typeof itemObj.id === "string" && itemObj.id) ||
-          (typeof itemObj.path === "string" && itemObj.path) ||
-          `script_${index}`;
-        const parsed = fromRaw(rawId, itemObj);
-        if (parsed) out.push(parsed);
-      }
-    });
-  } else if (typeof scripts === "object") {
-    Object.entries(scripts as Record<string, unknown>).forEach(([rawId, rawInfo]) => {
-      const parsed = fromRaw(rawId, rawInfo);
-      if (parsed) out.push(parsed);
-    });
-  }
-
-  // De-duplicate by canonical id (first one wins).
-  const unique = new Map<string, ManifestScriptInfo>();
-  out.forEach((entry) => {
-    if (!unique.has(entry.id)) unique.set(entry.id, entry);
   });
-  return Array.from(unique.values());
 }
 
 // Define schemas for repositories
@@ -131,14 +80,6 @@ const NmapScriptSchema = z.object({
 export type NmapScript = z.infer<typeof NmapScriptSchema>;
 export type Repository = z.infer<typeof RepositorySchema>;
 
-// Default repository to use if none exists
-const DEFAULT_REPOSITORIES = [
-  {
-    name: "sirius-nse",
-    url: "https://github.com/SiriusScan/sirius-nse.git",
-  },
-];
-
 export const storeRouter = createTRPCRouter({
   // Initialize NSE scripts from the sirius-nse repository
   // Read NSE scripts status from ValKey (populated by scanner at startup)
@@ -178,7 +119,10 @@ export const storeRouter = createTRPCRouter({
             : "No scripts found. The scanner will sync scripts when it starts.",
       };
     } catch (error) {
-      console.error("Failed to read NSE scripts from ValKey:", error);
+      console.error(
+        "Failed to read NSE scripts from ValKey:",
+        safeErrorForLogging(error)
+      );
       return {
         success: false,
         error: String(error),
@@ -204,8 +148,8 @@ export const storeRouter = createTRPCRouter({
     .input(z.object({ key: z.string(), value: z.string() }))
     .mutation(async ({ input }) => {
       const { key, value } = input;
-      if (!isAllowedKey(key)) {
-        throw new Error(`Write denied for key: ${key}`);
+      if (!isAllowedKey(key) || isProtectedNseKey(key) || key === NSE_REPO_MANIFEST_KEY) {
+        throw new Error(`Write denied for key: ${key}; use the NSE mutations`);
       }
       await valkey.set(key, value);
       return true;
@@ -232,34 +176,7 @@ export const storeRouter = createTRPCRouter({
       const scriptPromises = manifestScripts.map(
         async (scriptInfo) => {
           try {
-            const contentKeys = [
-              `${NSE_SCRIPT_PREFIX}${scriptInfo.id}`,
-              `${NSE_SCRIPT_PREFIX}${normalizeScriptId(scriptInfo.path)}`,
-            ];
-            let scriptContentData: string | null = null;
-            for (const key of contentKeys) {
-              scriptContentData = await valkey.get(key);
-              if (scriptContentData) break;
-            }
-            let scriptContent: {
-              content: string;
-              metadata?: {
-                author?: string;
-                tags?: string[];
-                description?: string;
-              };
-            } = {
-              content: "-- No code available",
-              metadata: undefined,
-            };
-
-            if (scriptContentData) {
-              try {
-                scriptContent = JSON.parse(scriptContentData);
-              } catch (parseError) {
-                console.warn(`Failed to parse script content for ${scriptInfo.id}`);
-              }
-            }
+            const scriptContent = await readNseScriptContent(valkey, scriptInfo.rawId);
 
             return {
               id: scriptInfo.id,
@@ -276,7 +193,10 @@ export const storeRouter = createTRPCRouter({
               path: scriptInfo.path || `scripts/${scriptInfo.id}.nse`,
             };
           } catch (error) {
-            console.error(`Error processing script ${scriptInfo.id}:`, error);
+            console.error(
+              `Error processing script ${scriptInfo.id}:`,
+              safeErrorForLogging(error)
+            );
             return {
               id: scriptInfo.id,
               name: scriptInfo.name || scriptInfo.id,
@@ -294,7 +214,7 @@ export const storeRouter = createTRPCRouter({
       const results = await Promise.all(scriptPromises);
       return results.filter((script) => !!script.id && !!script.name);
     } catch (error) {
-      console.error("Failed to fetch NSE scripts:", error);
+      console.error("Failed to fetch NSE scripts:", safeErrorForLogging(error));
       return [];
     }
   }),
@@ -317,29 +237,14 @@ export const storeRouter = createTRPCRouter({
         const scriptInfo = manifestScripts.find(
           (script) =>
             script.id === id ||
-            script.id === normalizedRequestedId ||
-            normalizeScriptId(script.path) === normalizedRequestedId
+            script.id === normalizedRequestedId
         );
 
         if (!scriptInfo) {
           throw new Error(`Script with ID ${id} not found in manifest`);
         }
 
-        // Get the script content
-        const contentKeys = [
-          `${NSE_SCRIPT_PREFIX}${scriptInfo.id}`,
-          `${NSE_SCRIPT_PREFIX}${normalizedRequestedId}`,
-        ];
-        let scriptContentData: string | null = null;
-        for (const key of contentKeys) {
-          scriptContentData = await valkey.get(key);
-          if (scriptContentData) break;
-        }
-        if (!scriptContentData) {
-          throw new Error(`Script content for ${scriptInfo.id} not found`);
-        }
-
-        const scriptContent = JSON.parse(scriptContentData);
+        const scriptContent = await readNseScriptContent(valkey, scriptInfo.rawId);
 
         return {
           id: scriptInfo.id,
@@ -353,7 +258,10 @@ export const storeRouter = createTRPCRouter({
           path: scriptInfo.path || `scripts/${scriptInfo.id}.nse`,
         };
       } catch (error) {
-        console.error(`Failed to fetch NSE script ${input.id}:`, error);
+        console.error(
+          `Failed to fetch NSE script ${input.id}:`,
+          safeErrorForLogging(error)
+        );
         throw error;
       }
     }),
@@ -374,50 +282,14 @@ export const storeRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        const { id, code, metadata } = input;
-
-        // Get current script content
-        const scriptContentData = await valkey.get(`${NSE_SCRIPT_PREFIX}${id}`);
-        if (!scriptContentData) {
-          throw new Error(`Script content for ${id} not found`);
-        }
-
-        let scriptContent = JSON.parse(scriptContentData);
-
-        // Update the code
-        scriptContent.content = code;
-
-        // Update metadata if provided
-        if (metadata) {
-          if (!scriptContent.metadata) {
-            scriptContent.metadata = {};
-          }
-
-          if (metadata.author) {
-            scriptContent.metadata.author = metadata.author;
-          }
-
-          if (metadata.tags) {
-            scriptContent.metadata.tags = metadata.tags;
-          }
-
-          if (metadata.description) {
-            scriptContent.metadata.description = metadata.description;
-          }
-        }
-
-        // Update timestamp
-        scriptContent.updatedAt = Date.now();
-
-        // Save back to ValKey
-        await valkey.set(
-          `${NSE_SCRIPT_PREFIX}${id}`,
-          JSON.stringify(scriptContent)
-        );
+        await mutateNseScript(valkey, { type: "update", ...input });
 
         return { success: true };
       } catch (error) {
-        console.error(`Failed to update NSE script ${input.id}:`, error);
+        console.error(
+          `Failed to update NSE script ${input.id}:`,
+          safeErrorForLogging(error)
+        );
         return { success: false, error: String(error) };
       }
     }),
@@ -441,58 +313,14 @@ export const storeRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        const { id, name, code, protocol, metadata } = input;
-
-        // Get or create the manifest
-        let manifest: { scripts: Record<string, any> } = { scripts: {} };
-        const manifestData = await valkey.get(NSE_MANIFEST_KEY);
-        if (manifestData) {
-          manifest = JSON.parse(manifestData);
-          if (!manifest.scripts) {
-            manifest.scripts = {};
-          }
-        }
-
-        // Check if script ID already exists
-        if (manifest.scripts[id]) {
-          return {
-            success: false,
-            error: `Script with ID '${id}' already exists`,
-          };
-        }
-
-        // Add to manifest
-        manifest.scripts[id] = {
-          name,
-          path: `scripts/custom/${id}.nse`,
-          protocol: protocol || "*",
-        };
-
-        // Store script content
-        const scriptContent = {
-          content: code,
-          metadata: {
-            author: metadata?.author || "User",
-            tags: metadata?.tags || [],
-            description: metadata?.description || "",
-          },
-          updatedAt: Date.now(),
-          createdAt: Date.now(),
-          custom: true, // Flag to distinguish user-created scripts
-        };
-
-        // Write both in parallel
-        await Promise.all([
-          valkey.set(NSE_MANIFEST_KEY, JSON.stringify(manifest)),
-          valkey.set(
-            `${NSE_SCRIPT_PREFIX}${id}`,
-            JSON.stringify(scriptContent)
-          ),
-        ]);
+        const id = await mutateNseScript(valkey, { type: "create", ...input });
 
         return { success: true, id };
       } catch (error) {
-        console.error("Failed to create NSE script:", error);
+        console.error(
+          "Failed to create NSE script:",
+          safeErrorForLogging(error)
+        );
         return { success: false, error: String(error) };
       }
     }),
@@ -502,34 +330,14 @@ export const storeRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ input }) => {
       try {
-        const { id } = input;
-
-        // Get the manifest
-        const manifestData = await valkey.get(NSE_MANIFEST_KEY);
-        if (!manifestData) {
-          return { success: false, error: "No NSE manifest found" };
-        }
-
-        const manifest = JSON.parse(manifestData);
-        if (!manifest.scripts || !manifest.scripts[id]) {
-          return {
-            success: false,
-            error: `Script '${id}' not found in manifest`,
-          };
-        }
-
-        // Remove from manifest
-        delete manifest.scripts[id];
-
-        // Delete content and update manifest in parallel
-        await Promise.all([
-          valkey.set(NSE_MANIFEST_KEY, JSON.stringify(manifest)),
-          valkey.del(`${NSE_SCRIPT_PREFIX}${id}`),
-        ]);
+        await mutateNseScript(valkey, { type: "delete", ...input });
 
         return { success: true };
       } catch (error) {
-        console.error(`Failed to delete NSE script ${input.id}:`, error);
+        console.error(
+          `Failed to delete NSE script ${input.id}:`,
+          safeErrorForLogging(error)
+        );
         return { success: false, error: String(error) };
       }
     }),
@@ -546,7 +354,10 @@ export const storeRouter = createTRPCRouter({
       const repoManifest = JSON.parse(repoData);
       return repoManifest;
     } catch (error) {
-      console.error("Failed to fetch NSE repositories:", error);
+      console.error(
+        "Failed to fetch NSE repositories:",
+        safeErrorForLogging(error)
+      );
       return { repositories: DEFAULT_REPOSITORIES };
     }
   }),
@@ -560,39 +371,14 @@ export const storeRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        const { name, url } = input;
-
-        // Get current repositories
-        const repoData = await valkey.get(NSE_REPO_MANIFEST_KEY);
-        let repoManifest;
-
-        if (!repoData) {
-          repoManifest = { repositories: [] };
-        } else {
-          repoManifest = JSON.parse(repoData);
-        }
-
-        // Check if repository with this name already exists
-        const exists = repoManifest.repositories.some(
-          (repo: Repository) => repo.name === name
-        );
-
-        if (exists) {
-          return {
-            success: false,
-            error: `Repository '${name}' already exists`,
-          };
-        }
-
-        // Add the new repository
-        repoManifest.repositories.push({ name, url });
-
-        // Save back to ValKey
-        await valkey.set(NSE_REPO_MANIFEST_KEY, JSON.stringify(repoManifest));
+        await mutateNseRepository(valkey, { type: "add", ...input });
 
         return { success: true };
       } catch (error) {
-        console.error("Failed to add NSE repository:", error);
+        console.error(
+          "Failed to add NSE repository:",
+          safeErrorForLogging(error)
+        );
         return { success: false, error: String(error) };
       }
     }),
@@ -605,39 +391,14 @@ export const storeRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       try {
-        const { name } = input;
-
-        // Get current repositories
-        const repoData = await valkey.get(NSE_REPO_MANIFEST_KEY);
-        if (!repoData) {
-          return {
-            success: false,
-            error: "No repository manifest found",
-          };
-        }
-
-        const repoManifest = JSON.parse(repoData);
-
-        // Filter out the repository to remove
-        const initialCount = repoManifest.repositories.length;
-        repoManifest.repositories = repoManifest.repositories.filter(
-          (repo: Repository) => repo.name !== name
-        );
-
-        // If nothing was removed, return an error
-        if (initialCount === repoManifest.repositories.length) {
-          return {
-            success: false,
-            error: `Repository '${name}' not found`,
-          };
-        }
-
-        // Save back to ValKey
-        await valkey.set(NSE_REPO_MANIFEST_KEY, JSON.stringify(repoManifest));
+        await mutateNseRepository(valkey, { type: "remove", ...input });
 
         return { success: true };
       } catch (error) {
-        console.error("Failed to remove NSE repository:", error);
+        console.error(
+          "Failed to remove NSE repository:",
+          safeErrorForLogging(error)
+        );
         return { success: false, error: String(error) };
       }
     }),
@@ -645,32 +406,18 @@ export const storeRouter = createTRPCRouter({
   // Initialize repositories (if none exist)
   initializeNseRepositories: protectedProcedure.mutation(async () => {
     try {
-      // Check if repositories already exist
-      const repoData = await valkey.get(NSE_REPO_MANIFEST_KEY);
-      if (repoData) {
-        return {
-          success: true,
-          message: "Repositories already initialized",
-        };
-      }
-
-      // Create default repository list
-      const defaultRepoManifest = {
-        repositories: DEFAULT_REPOSITORIES,
-      };
-
-      // Save to ValKey
-      await valkey.set(
-        NSE_REPO_MANIFEST_KEY,
-        JSON.stringify(defaultRepoManifest)
-      );
-
+      const initialized = await mutateNseRepository(valkey, { type: "initialize" });
       return {
         success: true,
-        message: "Successfully initialized repository manifest",
+        message: initialized
+          ? "Successfully initialized repository manifest"
+          : "Repositories already initialized",
       };
     } catch (error) {
-      console.error("Failed to initialize repositories:", error);
+      console.error(
+        "Failed to initialize repositories:",
+        safeErrorForLogging(error)
+      );
       return { success: false, error: String(error) };
     }
   }),

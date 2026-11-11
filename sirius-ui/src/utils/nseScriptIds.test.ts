@@ -10,7 +10,7 @@ import {
 
 void test("canonicalizeScriptId strips paths and extensions", () => {
   assert.equal(canonicalizeScriptId("scripts/http-title.nse"), "http-title");
-  assert.equal(canonicalizeScriptId(" vulners "), "vulners");
+  assert.equal(canonicalizeScriptId(" vulners "), " vulners ");
   assert.equal(canonicalizeScriptId(ALL_NSE_SCRIPTS), ALL_NSE_SCRIPTS);
 });
 
@@ -51,4 +51,12 @@ void test("summarizeScriptRefs expands wildcard to all available scripts", () =>
       hasWildcard: true,
     }
   );
+});
+
+void test("canonicalization matches Go suffix case, whitespace and trailing slash semantics", () => {
+  assert.equal(canonicalizeScriptId("scripts/demo.NSE"), "demo.NSE");
+  assert.equal(canonicalizeScriptId("scripts/demo.nse"), "demo");
+  assert.equal(canonicalizeScriptId("demo/"), "");
+  assert.equal(canonicalizeScriptId("demo.nse "), "demo.nse ");
+  assert.deepEqual(canonicalizeScriptIds(["demo.nse", "demo.NSE"]), ["demo", "demo.NSE"]);
 });

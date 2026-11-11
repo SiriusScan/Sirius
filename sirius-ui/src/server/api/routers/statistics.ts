@@ -1,3 +1,4 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import { z } from "zod";
 import axios from "axios";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -66,7 +67,7 @@ export const statisticsRouter = createTRPCRouter({
         snapshot: response.data.snapshot,
       };
     } catch (error) {
-      console.error("Error creating snapshot:", error);
+      console.error("Error creating snapshot:", safeErrorForLogging(error));
       if (axios.isAxiosError(error)) {
         throw new Error(
           error.response?.data?.error || "Failed to create snapshot"
@@ -108,7 +109,10 @@ export const statisticsRouter = createTRPCRouter({
           days: limit,
         };
       } catch (error) {
-        console.error("Error fetching vulnerability trends:", error);
+        console.error(
+          "Error fetching vulnerability trends:",
+          safeErrorForLogging(error)
+        );
         if (axios.isAxiosError(error)) {
           throw new Error(
             error.response?.data?.error ||
@@ -142,7 +146,7 @@ export const statisticsRouter = createTRPCRouter({
           total: response.data.count,
         };
       } catch (error) {
-        console.error("Error listing snapshots:", error);
+        console.error("Error listing snapshots:", safeErrorForLogging(error));
         if (axios.isAxiosError(error)) {
           throw new Error(
             error.response?.data?.error || "Failed to list snapshots"
@@ -197,7 +201,10 @@ export const statisticsRouter = createTRPCRouter({
           cachedAt: response.data.cachedAt,
         };
       } catch (error) {
-        console.error("Error fetching most vulnerable hosts:", error);
+        console.error(
+          "Error fetching most vulnerable hosts:",
+          safeErrorForLogging(error)
+        );
         if (axios.isAxiosError(error)) {
           throw new Error(
             error.response?.data?.error ||

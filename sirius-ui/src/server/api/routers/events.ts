@@ -1,3 +1,4 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import { z } from "zod";
 import axios from "axios";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -84,7 +85,7 @@ export const eventsRouter = createTRPCRouter({
           offset: response.data.offset,
         };
       } catch (error) {
-        console.error("Error fetching events:", error);
+        console.error("Error fetching events:", safeErrorForLogging(error));
         if (axios.isAxiosError(error)) {
           throw new Error(
             error.response?.data?.error || "Failed to fetch events"
@@ -105,7 +106,10 @@ export const eventsRouter = createTRPCRouter({
 
       return response.data;
     } catch (error) {
-      console.error("Error fetching event statistics:", error);
+      console.error(
+        "Error fetching event statistics:",
+        safeErrorForLogging(error)
+      );
       if (axios.isAxiosError(error)) {
         throw new Error(
           error.response?.data?.error || "Failed to fetch event statistics"
@@ -147,7 +151,10 @@ export const eventsRouter = createTRPCRouter({
           total: response.data.total,
         };
       } catch (error) {
-        console.error("Error fetching recent events:", error);
+        console.error(
+          "Error fetching recent events:",
+          safeErrorForLogging(error)
+        );
         if (axios.isAxiosError(error)) {
           throw new Error(
             error.response?.data?.error || "Failed to fetch recent events"
@@ -185,7 +192,10 @@ export const eventsRouter = createTRPCRouter({
           severity: response.data.severity,
         };
       } catch (error) {
-        console.error("Error fetching events by severity:", error);
+        console.error(
+          "Error fetching events by severity:",
+          safeErrorForLogging(error)
+        );
         if (axios.isAxiosError(error)) {
           throw new Error(
             error.response?.data?.error ||

@@ -1,3 +1,4 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { Repository, SyncStatus } from "~/types/repositoryTypes";
@@ -40,7 +41,7 @@ export const repositoriesRouter = createTRPCRouter({
 
       return (await response.json()) as Repository[];
     } catch (error) {
-      console.error("Error fetching repositories:", error);
+      console.error("Error fetching repositories:", safeErrorForLogging(error));
       return [];
     }
   }),
@@ -68,7 +69,7 @@ export const repositoriesRouter = createTRPCRouter({
 
         return (await response.json()) as Repository;
       } catch (error) {
-        console.error("Error adding repository:", error);
+        console.error("Error adding repository:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -97,7 +98,7 @@ export const repositoriesRouter = createTRPCRouter({
 
         return (await response.json()) as Repository;
       } catch (error) {
-        console.error("Error updating repository:", error);
+        console.error("Error updating repository:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -121,7 +122,7 @@ export const repositoriesRouter = createTRPCRouter({
 
         return await response.json();
       } catch (error) {
-        console.error("Error deleting repository:", error);
+        console.error("Error deleting repository:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -145,7 +146,7 @@ export const repositoriesRouter = createTRPCRouter({
 
         return await response.json();
       } catch (error) {
-        console.error("Error starting sync:", error);
+        console.error("Error starting sync:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -168,7 +169,10 @@ export const repositoriesRouter = createTRPCRouter({
 
         return (await response.json()) as SyncStatus;
       } catch (error) {
-        console.error("Error fetching sync status:", error);
+        console.error(
+          "Error fetching sync status:",
+          safeErrorForLogging(error)
+        );
         return null;
       }
     }),

@@ -1,7 +1,6 @@
 // src/hooks/useStartScan.ts
 import { useState } from "react";
 import { api } from "~/utils/api";
-import { b64Decode } from "~/utils/std";
 import {
   type ScanResult,
   type AgentScanConfig,
@@ -44,7 +43,7 @@ export const useStartScan = () => {
   const initiateScan = async (
     targets: Target[],
     templateId: string,
-    priority: number = 3,
+    priority = 3,
     agentScanConfig?: AgentScanConfig,
     skipNetworkScan?: boolean
   ) => {
@@ -117,7 +116,7 @@ export const useStartScan = () => {
       // Dispatch agent scan if enabled
       if (hasAgentScan && agentScanConfig) {
         try {
-          const agentResult = await dispatchAgentScan.mutateAsync({
+          await dispatchAgentScan.mutateAsync({
             scanId,
             agentIds: agentScanConfig.agent_ids,
             mode: agentScanConfig.mode,
@@ -126,113 +125,14 @@ export const useStartScan = () => {
             templateFilter: agentScanConfig.template_filter,
           });
 
-          // Update the agent sub-scan with dispatch info
-          if (agentResult.totalDispatched > 0) {
-            // Re-read current scan from ValKey to merge, not overwrite
-            try {
-              const currentData = await utils.store.getValue.fetch({ key: "currentScan" });
-              if (currentData) {
-                const currentDecoded = b64Decode(currentData);
-                if (currentDecoded && currentDecoded.id === scanId && currentDecoded.sub_scans) {
-                  const agentSS = currentDecoded.sub_scans.agent;
-                  if (agentSS) {
-                    // Only update frontend-owned dispatch fields
-                    const existingMeta = (agentSS.metadata ?? {}) as Record<string, unknown>;
-                    existingMeta.dispatched_agents = agentResult.dispatchedAgents;
-                    existingMeta.agent_statuses = agentResult.dispatchedAgents.map(
-                      (id: string) => ({
-                        agent_id: id,
-                        status: "running",
-                        hosts_found: 0,
-                        vulnerabilities_found: 0,
-                      })
-                    );
-                    agentSS.metadata = existingMeta;
-                    agentSS.progress.total = agentResult.totalDispatched;
-
-                    // Only update status if Go hasn't already progressed
-                    if (agentSS.status === "dispatching") {
-                      agentSS.status = "running";
-                    }
-                    // Preserve progress.completed from Go server
-                  } else {
-                    // Agent sub-scan wasn't present — create it
-                    currentDecoded.sub_scans.agent = {
-                      type: "agent",
-                      enabled: true,
-                      status: "running",
-                      progress: {
-                        completed: 0,
-                        total: agentResult.totalDispatched,
-                        label: "agents",
-                      },
-                      metadata: {
-                        mode: agentScanConfig.mode,
-                        dispatched_agents: agentResult.dispatchedAgents,
-                        agent_statuses: agentResult.dispatchedAgents.map(
-                          (id: string) => ({
-                            agent_id: id,
-                            status: "running",
-                            hosts_found: 0,
-                            vulnerabilities_found: 0,
-                          })
-                        ),
-                      },
-                    };
-                  }
-                  await updateScan.mutateAsync({
-                    key: "currentScan",
-                    value: btoa(JSON.stringify(currentDecoded)),
-                  });
-                }
-              }
-            } catch (readErr) {
-              // Never overwrite currentScan with the stale local `scan` snapshot (drops network hosts/vulns).
-              console.error(
-                "[useStartScan] Failed to merge agent dispatch into currentScan; leaving Valkey state unchanged",
-                readErr
-              );
-              try {
-                const retry = await utils.store.getValue.fetch({
-                  key: "currentScan",
-                });
-                if (retry) {
-                  const rd = b64Decode(retry);
-                  if (rd?.id === scanId && rd.sub_scans?.agent) {
-                    const agentSS = rd.sub_scans.agent;
-                    const meta = (agentSS.metadata ?? {}) as Record<string, unknown>;
-                    meta.dispatched_agents = agentResult.dispatchedAgents;
-                    meta.agent_statuses = agentResult.dispatchedAgents.map(
-                      (id: string) => ({
-                        agent_id: id,
-                        status: "running",
-                        hosts_found: 0,
-                        vulnerabilities_found: 0,
-                      })
-                    );
-                    agentSS.metadata = meta;
-                    agentSS.progress.total = agentResult.totalDispatched;
-                    if (agentSS.status === "dispatching") {
-                      agentSS.status = "running";
-                    }
-                    await updateScan.mutateAsync({
-                      key: "currentScan",
-                      value: btoa(JSON.stringify(rd)),
-                    });
-                  }
-                }
-              } catch (retryErr) {
-                console.error(
-                  "[useStartScan] Retry merge after read failure also failed",
-                  retryErr
-                );
-              }
-            }
-          }
+          // Dispatch initialization and sealing are server-owned CAS updates.
+          // Do not write a browser snapshot over results received during dispatch.
         } catch (agentErr) {
-          console.error(
-            "[useStartScan] Agent scan dispatch failed:",
-            agentErr
+          console.error("[useStartScan] Agent scan dispatch failed:", agentErr);
+          setError(
+            agentErr instanceof Error
+              ? agentErr.message
+              : "Agent scan dispatch failed"
           );
           // Don't fail the entire scan if agent dispatch fails
           // The network scan will continue

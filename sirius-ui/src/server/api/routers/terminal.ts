@@ -1,8 +1,14 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { handleSendMsg, waitForResponse } from "./queue";
+import { handleSendMsg, waitForResponse, requestAgentResponse } from "./queue";
 import { valkey } from "~/server/valkey";
+import {
+  CommandHistoryEntrySchema,
+  deleteHistoryEntry,
+  parseHistoryEntries,
+} from "~/server/terminalHistory";
 
 // Define target types
 const TargetType = z.enum(["engine", "agent"]);
@@ -12,42 +18,10 @@ type TargetType = z.infer<typeof TargetType>;
 const ENGINE_COMMAND_QUEUE = "terminal";
 const ENGINE_RESPONSE_QUEUE = "terminal_response";
 const AGENT_COMMAND_QUEUE = "agent_commands";
-const AGENT_RESPONSE_QUEUE = "agent_response";
 
 // ── Command History persistence (Valkey) ──────────────────────────────────────
 const HISTORY_KEY_PREFIX = "terminal:history:";
 const HISTORY_MAX_ENTRIES = 500;
-
-/** Zod schema matching CommandHistoryEntry for validation */
-const CommandHistoryEntrySchema = z.object({
-  id: z.string(),
-  timestamp: z.string(), // ISO string, converted to Date on the client
-  command: z.string(),
-  target: z.object({
-    type: TargetType,
-    id: z.string().optional(),
-    name: z.string().optional(),
-  }),
-  output: z.string(),
-  success: z.boolean(),
-  durationMs: z.number().optional(),
-  multiExec: z
-    .object({
-      agentCount: z.number(),
-      succeeded: z.number(),
-      failed: z.number(),
-      cancelled: z.number(),
-      results: z.array(
-        z.object({
-          agentId: z.string(),
-          agentName: z.string().optional(),
-          output: z.string(),
-          success: z.boolean(),
-        })
-      ),
-    })
-    .optional(),
-});
 
 interface CommandMessage {
   command: string;
@@ -99,7 +73,7 @@ async function pollCommandResponse(commandId: string): Promise<string | null> {
     } catch (error) {
       console.error(
         `[Terminal:pollCommandResponse] Error getting key ${valkeyKey} from Valkey:`,
-        error
+        safeErrorForLogging(error)
       );
       // Decide if we should stop polling on error or just log and continue
       // For now, let's continue polling
@@ -150,7 +124,6 @@ export const terminalRouter = createTRPCRouter({
         } else {
           // Agent command
           queueName = AGENT_COMMAND_QUEUE;
-          responseQueue = AGENT_RESPONSE_QUEUE; // Expect initial ack here
           message = {
             command: input.command,
             userId: ctx.session.user.id,
@@ -161,12 +134,13 @@ export const terminalRouter = createTRPCRouter({
         }
 
         console.log(`[Terminal] Sending message to ${queueName}:`, message);
-        await handleSendMsg(queueName, JSON.stringify(message));
-        console.log(
-          `[Terminal] Message sent, waiting for response on ${responseQueue}`
-        );
-
-        const response = await waitForResponse(responseQueue);
+        let response: string;
+        if (input.target.type === "agent") {
+          response = await requestAgentResponse({ ...message });
+        } else {
+          await handleSendMsg(queueName, JSON.stringify(message));
+          response = await waitForResponse(ENGINE_RESPONSE_QUEUE);
+        }
         if (!response) {
           throw new Error("Command acknowledgement timed out");
         }
@@ -176,9 +150,12 @@ export const terminalRouter = createTRPCRouter({
         }
 
         // Agent command: Parse acknowledgement and poll Valkey
-        const responseObj = JSON.parse(response);
-        if (responseObj.error) {
-          throw new Error(`Command rejected: ${responseObj.error}`);
+        const responseObj = z.object({
+          success: z.boolean(),
+          error: z.string().optional(),
+        }).parse(JSON.parse(response));
+        if (!responseObj.success || responseObj.error) {
+          throw new Error(`Command rejected: ${responseObj.error ?? "Unknown error"}`);
         }
 
         // Acknowledegement received, now poll Valkey for actual output
@@ -195,7 +172,11 @@ export const terminalRouter = createTRPCRouter({
           // Assume output in Valkey is the final, plain text response
           // Parse the JSON response string from Valkey
           try {
-            const parsedResponse = JSON.parse(output);
+            const parsedResponse = z.object({
+              status: z.string(),
+              output: z.string().optional(),
+              error: z.string().optional(),
+            }).parse(JSON.parse(output));
 
             // Check the status and extract relevant field
             if (parsedResponse.status === "completed") {
@@ -222,7 +203,7 @@ export const terminalRouter = createTRPCRouter({
           } catch (parseError) {
             console.error(
               "[Terminal] Failed to parse Valkey response JSON:",
-              parseError,
+              safeErrorForLogging(parseError),
               "Raw data:",
               output
             );
@@ -236,7 +217,10 @@ export const terminalRouter = createTRPCRouter({
           };
         }
       } catch (error) {
-        console.error("[Terminal] Failed to execute command:", error);
+        console.error(
+          "[Terminal] Failed to execute command:",
+          safeErrorForLogging(error)
+        );
         const message =
           error instanceof Error ? error.message : "Failed to execute command";
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
@@ -250,13 +234,16 @@ export const terminalRouter = createTRPCRouter({
     const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
     try {
       const raw = await valkey.lrange(key, 0, HISTORY_MAX_ENTRIES - 1);
-      return raw.map((json) => {
-        const parsed = JSON.parse(json) as z.infer<typeof CommandHistoryEntrySchema>;
-        return parsed;
-      });
+      return parseHistoryEntries(raw);
     } catch (error) {
-      console.error("[Terminal:getHistory] Failed to load history:", error);
-      return [];
+      console.error(
+        "[Terminal:getHistory] Failed to load history:",
+        safeErrorForLogging(error)
+      );
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to load command history",
+      });
     }
   }),
 
@@ -266,11 +253,20 @@ export const terminalRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
       try {
-        await valkey.lpush(key, JSON.stringify(input));
-        await valkey.ltrim(key, 0, HISTORY_MAX_ENTRIES - 1);
+        const results = await valkey
+          .multi()
+          .lpush(key, JSON.stringify(input))
+          .ltrim(key, 0, HISTORY_MAX_ENTRIES - 1)
+          .exec();
+        if (!results || results.some(([error]) => error !== null)) {
+          throw new Error("History transaction failed");
+        }
         return { success: true };
       } catch (error) {
-        console.error("[Terminal:addHistoryEntry] Failed to save:", error);
+        console.error(
+          "[Terminal:addHistoryEntry] Failed to save:",
+          safeErrorForLogging(error)
+        );
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to save history entry",
@@ -284,27 +280,13 @@ export const terminalRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       const key = `${HISTORY_KEY_PREFIX}${ctx.session.user.id}`;
       try {
-        // Read all, filter out the target, rewrite.
-        // This is acceptable for a capped list of <=500 entries.
-        const raw = await valkey.lrange(key, 0, -1);
-        const remaining = raw.filter((json) => {
-          try {
-            const entry = JSON.parse(json) as { id?: string };
-            return entry.id !== input.entryId;
-          } catch {
-            return true;
-          }
-        });
-        // Atomic replace
-        const pipeline = valkey.pipeline();
-        pipeline.del(key);
-        if (remaining.length > 0) {
-          pipeline.rpush(key, ...remaining);
-        }
-        await pipeline.exec();
+        await deleteHistoryEntry(valkey, key, input.entryId);
         return { success: true };
       } catch (error) {
-        console.error("[Terminal:deleteHistoryEntry] Failed:", error);
+        console.error(
+          "[Terminal:deleteHistoryEntry] Failed:",
+          safeErrorForLogging(error)
+        );
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to delete history entry",
@@ -319,7 +301,10 @@ export const terminalRouter = createTRPCRouter({
       await valkey.del(key);
       return { success: true };
     } catch (error) {
-      console.error("[Terminal:clearHistory] Failed:", error);
+      console.error(
+        "[Terminal:clearHistory] Failed:",
+        safeErrorForLogging(error)
+      );
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to clear history",

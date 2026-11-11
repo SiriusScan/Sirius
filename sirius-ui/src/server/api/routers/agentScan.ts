@@ -1,12 +1,14 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { handleSendMsg, waitForResponse } from "./queue";
+import { requestAgentResponse } from "./queue";
 import { valkey } from "~/server/valkey";
-
-// Queue constants (shared with terminal.ts)
-const AGENT_COMMAND_QUEUE = "agent_commands";
-const AGENT_RESPONSE_QUEUE = "agent_response";
+import {
+  assertAgentDispatchActive,
+  updateAgentDispatch,
+} from "~/server/agentScanDispatchState";
 
 // ValKey key prefixes
 const AGENT_SCAN_KEY_PREFIX = "agent_scan:";
@@ -20,7 +22,13 @@ interface AgentScanDispatchResult {
 
 interface AgentScanStatusResult {
   scanId: string;
-  status: "pending" | "running" | "completed" | "partial" | "failed";
+  status:
+    | "pending"
+    | "dispatching"
+    | "running"
+    | "completed"
+    | "cancelled"
+    | "failed";
   totalAgents: number;
   completedAgents: number;
   failedAgents: number;
@@ -45,38 +53,58 @@ async function getConnectedAgents(): Promise<string[]> {
     // Primary: read from ValKey (avoids shared RabbitMQ queue race conditions)
     const valkeyResult = await valkey.get("connected_agents");
     if (valkeyResult !== null) {
-      const agents = JSON.parse(valkeyResult);
-      if (Array.isArray(agents)) {
+      const agents: unknown = JSON.parse(valkeyResult);
+      if (
+        Array.isArray(agents) &&
+        agents.every(
+          (agent) => typeof agent === "string" && agent.trim().length > 0
+        )
+      ) {
         shouldFallbackToRabbitMq = false;
-        console.log(`[AgentScan] Got ${agents.length} connected agents from ValKey`);
+        console.log(
+          `[AgentScan] Got ${agents.length} connected agents from ValKey`
+        );
         return agents as string[];
       }
+      throw new Error("Invalid connected agent roster");
     }
 
     // Fallback: use RabbitMQ only when ValKey state is missing.
     if (shouldFallbackToRabbitMq) {
-      console.log("[AgentScan] ValKey connected_agents not found, falling back to RabbitMQ");
-      const message = JSON.stringify({
+      console.log(
+        "[AgentScan] ValKey connected_agents not found, falling back to RabbitMQ"
+      );
+      const message = {
         action: "list_agents",
         userId: "system",
         timestamp: new Date().toISOString(),
-      });
+      };
 
-      await handleSendMsg(AGENT_COMMAND_QUEUE, message);
-      const response = await waitForResponse(AGENT_RESPONSE_QUEUE);
+      const response = await requestAgentResponse(message);
 
-      const agents = JSON.parse(response);
-      if (!Array.isArray(agents)) {
-        console.error("[AgentScan] Invalid agent list response format:", response);
-        return [];
+      const agents: unknown = JSON.parse(response);
+      if (
+        !Array.isArray(agents) ||
+        !agents.every(
+          (agent) => typeof agent === "string" && agent.trim().length > 0
+        )
+      ) {
+        console.error(
+          "[AgentScan] Invalid agent list response format:",
+          response
+        );
+        throw new Error("Invalid connected agent roster");
       }
       return agents as string[];
     }
 
     return [];
   } catch (error) {
-    console.error("[AgentScan] Failed to list agents:", error);
-    return [];
+    console.error(
+      "[AgentScan] Failed to list agents:",
+      safeErrorForLogging(error)
+    );
+    throw error;
   }
 }
 
@@ -86,7 +114,7 @@ async function getConnectedAgents(): Promise<string[]> {
 async function dispatchToAgent(
   agentId: string,
   scanId: string,
-  mode: string,
+  _mode: string,
   concurrency: number,
   timeout: number,
   templateFilter?: string[]
@@ -102,7 +130,7 @@ async function dispatchToAgent(
       command += ` --templates=${templateFilter.join(",")}`;
     }
 
-    const message = JSON.stringify({
+    const message = {
       command,
       userId: "system",
       timestamp: new Date().toISOString(),
@@ -110,20 +138,20 @@ async function dispatchToAgent(
         type: "agent",
         id: agentId,
       },
-    });
+    };
 
-    console.log(
-      `[AgentScan] Dispatching to agent ${agentId}: ${command}`
-    );
+    console.log(`[AgentScan] Dispatching to agent ${agentId}: ${command}`);
 
-    await handleSendMsg(AGENT_COMMAND_QUEUE, message);
+    const response = await requestAgentResponse(message);
+    const responseObj = z
+      .object({ success: z.boolean(), error: z.string().optional() })
+      .parse(JSON.parse(response));
 
-    // Wait for acknowledgement
-    const response = await waitForResponse(AGENT_RESPONSE_QUEUE);
-    const responseObj = JSON.parse(response);
-
-    if (responseObj.error) {
-      return { success: false, error: responseObj.error };
+    if (!responseObj.success || responseObj.error) {
+      return {
+        success: false,
+        error: responseObj.error ?? "Agent command rejected",
+      };
     }
 
     return { success: true };
@@ -132,7 +160,7 @@ async function dispatchToAgent(
       error instanceof Error ? error.message : "Unknown dispatch error";
     console.error(
       `[AgentScan] Failed to dispatch to agent ${agentId}:`,
-      error
+      safeErrorForLogging(error)
     );
     return { success: false, error: message };
   }
@@ -146,8 +174,8 @@ export const agentScanRouter = createTRPCRouter({
   dispatchAgentScan: protectedProcedure
     .input(
       z.object({
-        scanId: z.string(),
-        agentIds: z.array(z.string()), // empty = all connected agents
+        scanId: z.string().trim().min(1),
+        agentIds: z.array(z.string().trim().min(1)), // empty = all connected agents
         mode: z.enum(["comprehensive", "templates-only", "scripts-only"]),
         timeout: z.number().default(300),
         concurrency: z.number().default(5),
@@ -160,50 +188,48 @@ export const agentScanRouter = createTRPCRouter({
           `[AgentScan] Dispatching agent scan for scanId: ${input.scanId}`
         );
 
-        // Determine which agents to target
-        let targetAgents = input.agentIds;
-
-        if (targetAgents.length === 0) {
-          // Get all connected agents
-          targetAgents = await getConnectedAgents();
-          console.log(
-            `[AgentScan] Auto-detected ${targetAgents.length} connected agents`
-          );
-        }
-
-        if (targetAgents.length === 0) {
-          console.warn("[AgentScan] No agents connected, skipping agent scan");
-          // Store empty status in ValKey
-          const statusKey = AGENT_SCAN_KEY_PREFIX + input.scanId;
-          await valkey.set(
-            statusKey,
-            JSON.stringify({
-              scanId: input.scanId,
-              status: "completed",
-              totalAgents: 0,
-              completedAgents: 0,
-              failedAgents: 0,
-              agentStatuses: [],
-              message: "No agents connected",
-            }),
-            "EX",
-            3600 // 1 hour TTL
-          );
-
-          return {
+        const dispatchId = randomUUID();
+        let targetAgents: string[];
+        try {
+          targetAgents = [
+            ...new Set(
+              input.agentIds.length > 0
+                ? input.agentIds
+                : await getConnectedAgents()
+            ),
+          ];
+        } catch (error) {
+          // Discovery failure is not a successful zero-agent scan.
+          await updateAgentDispatch(valkey, {
             scanId: input.scanId,
-            dispatchedAgents: [],
-            failedAgents: [],
-            totalDispatched: 0,
-          };
+            dispatchId,
+            mode: input.mode,
+            targetAgents: [],
+            phase: "discovery_failed",
+            error:
+              error instanceof Error ? error.message : "Agent discovery failed",
+          });
+          throw error;
         }
+
+        // Register the entire roster before any command can produce a callback.
+        // The server owns both representations; the browser never writes a
+        // post-dispatch snapshot back over concurrent results.
+        await updateAgentDispatch(valkey, {
+          scanId: input.scanId,
+          dispatchId,
+          mode: input.mode,
+          targetAgents,
+          phase: "prepare",
+        });
 
         const dispatchedAgents: string[] = [];
         const failedAgents: { id: string; error: string }[] = [];
 
-        // Dispatch to each agent sequentially to avoid queue conflicts
+        // Dispatch sequentially; each acknowledgement has a private reply queue.
         // Retry once on "not connected" errors (transient stream reconnection)
         for (const agentId of targetAgents) {
+          await assertAgentDispatchActive(valkey, input.scanId, dispatchId);
           let result = await dispatchToAgent(
             agentId,
             input.scanId,
@@ -219,6 +245,7 @@ export const agentScanRouter = createTRPCRouter({
               `[AgentScan] Retrying dispatch to ${agentId} after transient disconnect`
             );
             await new Promise((r) => setTimeout(r, 1000)); // Wait 1s for reconnection
+            await assertAgentDispatchActive(valkey, input.scanId, dispatchId);
             result = await dispatchToAgent(
               agentId,
               input.scanId,
@@ -234,44 +261,21 @@ export const agentScanRouter = createTRPCRouter({
           } else {
             failedAgents.push({
               id: agentId,
-              error: result.error || "Unknown error",
+              error: result.error ?? "Unknown error",
             });
           }
         }
 
-        // Store dispatch metadata in ValKey
-        const statusKey = AGENT_SCAN_KEY_PREFIX + input.scanId;
-        const initialStatus = {
+        // Seal even an empty roster or all-failed dispatch. This merges fast
+        // results and only closes the whole scan when every enabled subscan ends.
+        await updateAgentDispatch(valkey, {
           scanId: input.scanId,
-          status: dispatchedAgents.length > 0 ? "running" : "failed",
+          dispatchId,
           mode: input.mode,
-          totalAgents: dispatchedAgents.length,
-          completedAgents: 0,
-          failedAgents: failedAgents.length,
-          agentStatuses: [
-            ...dispatchedAgents.map((id) => ({
-              agentId: id,
-              status: "running",
-              hostsFound: 0,
-              vulnerabilitiesFound: 0,
-            })),
-            ...failedAgents.map((f) => ({
-              agentId: f.id,
-              status: "failed",
-              hostsFound: 0,
-              vulnerabilitiesFound: 0,
-              error: f.error,
-            })),
-          ],
-          dispatchedAt: new Date().toISOString(),
-        };
-
-        await valkey.set(
-          statusKey,
-          JSON.stringify(initialStatus),
-          "EX",
-          3600 // 1 hour TTL
-        );
+          targetAgents,
+          phase: "seal",
+          failedAgents,
+        });
 
         console.log(
           `[AgentScan] Dispatched to ${dispatchedAgents.length} agents, ${failedAgents.length} failed`
@@ -284,7 +288,10 @@ export const agentScanRouter = createTRPCRouter({
           totalDispatched: dispatchedAgents.length,
         };
       } catch (error) {
-        console.error("[AgentScan] Failed to dispatch agent scan:", error);
+        console.error(
+          "[AgentScan] Failed to dispatch agent scan:",
+          safeErrorForLogging(error)
+        );
         const message =
           error instanceof Error
             ? error.message
@@ -311,7 +318,10 @@ export const agentScanRouter = createTRPCRouter({
         const status = JSON.parse(statusStr) as AgentScanStatusResult;
         return status;
       } catch (error) {
-        console.error("[AgentScan] Failed to get agent scan status:", error);
+        console.error(
+          "[AgentScan] Failed to get agent scan status:",
+          safeErrorForLogging(error)
+        );
         return null;
       }
     }),

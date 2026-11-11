@@ -164,7 +164,7 @@ export interface TemplateDeploymentRequest {
 }
 
 export interface TemplateTestRequest {
-  agent_id: string;
+  agentId: string;
 }
 
 // Form data types for template creation

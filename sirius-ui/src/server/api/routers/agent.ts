@@ -1,10 +1,11 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import { z } from "zod";
 import {
   createTRPCRouter,
   protectedProcedure,
 } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { handleSendMsg, waitForResponse } from "./queue";
+import { requestAgentResponse } from "./queue";
 import { apiClient as httpClient } from "~/server/api/shared/apiClient";
 import { valkey } from "~/server/valkey";
 
@@ -42,14 +43,13 @@ export const agentRouter = createTRPCRouter({
 
         // Fallback: RabbitMQ legacy list_agents path when Valkey state is missing.
         if (shouldFallbackToRabbitMq) {
-          const message = JSON.stringify({
+          const message = {
             action: "list_agents",
             userId: ctx.session.user.id,
             timestamp: new Date().toISOString(),
-          });
+          };
 
-          await handleSendMsg("agent_commands", message);
-          const response = await waitForResponse("agent_response");
+          const response = await requestAgentResponse(message);
 
           connectedAgentIds = JSON.parse(response);
           if (!Array.isArray(connectedAgentIds)) {
@@ -61,7 +61,10 @@ export const agentRouter = createTRPCRouter({
           }
         }
       } catch (error) {
-        console.error("[Agent] Failed to parse agent list response:", error);
+        console.error(
+          "[Agent] Failed to parse agent list response:",
+          safeErrorForLogging(error)
+        );
         connectedAgentIds = [];
       }
 
@@ -110,7 +113,10 @@ export const agentRouter = createTRPCRouter({
 
         return agentsWithHosts;
       } catch (hostError) {
-        console.error("[Agent] Failed to fetch host data:", hostError);
+        console.error(
+          "[Agent] Failed to fetch host data:",
+          safeErrorForLogging(hostError)
+        );
 
         // Fallback: return basic agent info without host data
         return connectedAgentIds.map((id) => ({
@@ -122,7 +128,10 @@ export const agentRouter = createTRPCRouter({
         }));
       }
     } catch (error) {
-      console.error("[Agent] Failed to list agents with hosts:", error);
+      console.error(
+        "[Agent] Failed to list agents with hosts:",
+        safeErrorForLogging(error)
+      );
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to retrieve agent information",
@@ -174,7 +183,10 @@ export const agentRouter = createTRPCRouter({
           host: null,
         };
       } catch (error) {
-        console.error("[Agent] Failed to get agent details:", error);
+        console.error(
+          "[Agent] Failed to get agent details:",
+          safeErrorForLogging(error)
+        );
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to retrieve agent details",
@@ -185,14 +197,13 @@ export const agentRouter = createTRPCRouter({
   // Get all templates from the agent
   getTemplates: protectedProcedure.query(async ({ ctx }) => {
     try {
-      const message = JSON.stringify({
+      const message = {
         action: "list_templates",
         userId: ctx.session.user.id,
         timestamp: new Date().toISOString(),
-      });
+      };
 
-      await handleSendMsg("agent_commands", message);
-      const response = await waitForResponse("agent_response");
+      const response = await requestAgentResponse(message);
 
       try {
         // First parse the CommandResponse wrapper
@@ -210,11 +221,17 @@ export const agentRouter = createTRPCRouter({
         const templates = JSON.parse(commandResponse.message || "[]");
         return Array.isArray(templates) ? templates : [];
       } catch (error) {
-        console.error("[Agent] Failed to parse templates response:", error);
+        console.error(
+          "[Agent] Failed to parse templates response:",
+          safeErrorForLogging(error)
+        );
         return [];
       }
     } catch (error) {
-      console.error("[Agent] Failed to get templates:", error);
+      console.error(
+        "[Agent] Failed to get templates:",
+        safeErrorForLogging(error)
+      );
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to retrieve templates",
@@ -225,14 +242,13 @@ export const agentRouter = createTRPCRouter({
   // Discover templates from all sources
   discoverTemplates: protectedProcedure.query(async ({ ctx }) => {
     try {
-      const message = JSON.stringify({
+      const message = {
         action: "discover_templates",
         userId: ctx.session.user.id,
         timestamp: new Date().toISOString(),
-      });
+      };
 
-      await handleSendMsg("agent_commands", message);
-      const response = await waitForResponse("agent_response");
+      const response = await requestAgentResponse(message);
 
       try {
         // First parse the CommandResponse wrapper
@@ -250,7 +266,10 @@ export const agentRouter = createTRPCRouter({
         const discoveryResult = JSON.parse(commandResponse.message || "{}");
         return discoveryResult;
       } catch (error) {
-        console.error("[Agent] Failed to parse discovery response:", error);
+        console.error(
+          "[Agent] Failed to parse discovery response:",
+          safeErrorForLogging(error)
+        );
         return {
           templates: [],
           sources: {},
@@ -267,7 +286,10 @@ export const agentRouter = createTRPCRouter({
         };
       }
     } catch (error) {
-      console.error("[Agent] Failed to discover templates:", error);
+      console.error(
+        "[Agent] Failed to discover templates:",
+        safeErrorForLogging(error)
+      );
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to discover templates",
@@ -317,7 +339,7 @@ export const agentRouter = createTRPCRouter({
                 } catch (contentError) {
                   console.warn(
                     `Failed to parse template content for ${templateId}:`,
-                    contentError
+                    safeErrorForLogging(contentError)
                   );
                 }
               }
@@ -342,7 +364,10 @@ export const agentRouter = createTRPCRouter({
               });
             }
           } catch (error) {
-            console.warn(`Failed to load template ${metaKey}:`, error);
+            console.warn(
+              `Failed to load template ${metaKey}:`,
+              safeErrorForLogging(error)
+            );
             // Continue with other templates
           }
         }
@@ -352,7 +377,10 @@ export const agentRouter = createTRPCRouter({
         client.disconnect();
       }
     } catch (error) {
-      console.error("[ValKey] Failed to get templates:", error);
+      console.error(
+        "[ValKey] Failed to get templates:",
+        safeErrorForLogging(error)
+      );
       return [];
     }
   }),
@@ -418,7 +446,7 @@ export const agentRouter = createTRPCRouter({
                 } catch (contentError) {
                   console.warn(
                     `Failed to parse template content for ${templateId}:`,
-                    contentError
+                    safeErrorForLogging(contentError)
                   );
                 }
               }
@@ -445,7 +473,10 @@ export const agentRouter = createTRPCRouter({
               });
             }
           } catch (error) {
-            console.warn(`Failed to load template ${metaKey}:`, error);
+            console.warn(
+              `Failed to load template ${metaKey}:`,
+              safeErrorForLogging(error)
+            );
           }
         }
 
@@ -473,7 +504,10 @@ export const agentRouter = createTRPCRouter({
         client.disconnect();
       }
     } catch (error) {
-      console.error("[ValKey] Failed to discover templates:", error);
+      console.error(
+        "[ValKey] Failed to discover templates:",
+        safeErrorForLogging(error)
+      );
       return {
         templates: [],
         sources: {},
@@ -544,7 +578,7 @@ export const agentRouter = createTRPCRouter({
       } catch (error) {
         console.error(
           `[ValKey] Failed to get template content for ${input.templateId}:`,
-          error
+          safeErrorForLogging(error)
         );
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -594,7 +628,7 @@ export const agentRouter = createTRPCRouter({
                 } catch (contentError) {
                   console.warn(
                     `Failed to parse script content for ${scriptId}:`,
-                    contentError
+                    safeErrorForLogging(contentError)
                   );
                 }
               }
@@ -618,7 +652,10 @@ export const agentRouter = createTRPCRouter({
               });
             }
           } catch (error) {
-            console.warn(`Failed to load script ${metaKey}:`, error);
+            console.warn(
+              `Failed to load script ${metaKey}:`,
+              safeErrorForLogging(error)
+            );
             // Continue with other scripts
           }
         }
@@ -628,7 +665,10 @@ export const agentRouter = createTRPCRouter({
         client.disconnect();
       }
     } catch (error) {
-      console.error("[ValKey] Failed to get scripts:", error);
+      console.error(
+        "[ValKey] Failed to get scripts:",
+        safeErrorForLogging(error)
+      );
       return [];
     }
   }),
@@ -693,7 +733,7 @@ export const agentRouter = createTRPCRouter({
                 } catch (contentError) {
                   console.warn(
                     `Failed to parse script content for ${scriptId}:`,
-                    contentError
+                    safeErrorForLogging(contentError)
                   );
                 }
               }
@@ -719,7 +759,10 @@ export const agentRouter = createTRPCRouter({
               });
             }
           } catch (error) {
-            console.warn(`Failed to load script ${metaKey}:`, error);
+            console.warn(
+              `Failed to load script ${metaKey}:`,
+              safeErrorForLogging(error)
+            );
           }
         }
 
@@ -745,7 +788,10 @@ export const agentRouter = createTRPCRouter({
         client.disconnect();
       }
     } catch (error) {
-      console.error("[ValKey] Failed to discover scripts:", error);
+      console.error(
+        "[ValKey] Failed to discover scripts:",
+        safeErrorForLogging(error)
+      );
       return {
         scripts: [],
         statistics: {
@@ -796,7 +842,7 @@ export const agentRouter = createTRPCRouter({
           } catch (parseError) {
             console.warn(
               `Failed to parse script content for ${scriptId}:`,
-              parseError
+              safeErrorForLogging(parseError)
             );
           }
 
@@ -825,7 +871,7 @@ export const agentRouter = createTRPCRouter({
       } catch (error) {
         console.error(
           `[ValKey] Failed to get script content for ${input.scriptId}:`,
-          error
+          safeErrorForLogging(error)
         );
         throw new TRPCError({
           code: "NOT_FOUND",

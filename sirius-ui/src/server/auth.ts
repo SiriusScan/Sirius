@@ -1,3 +1,4 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { type GetServerSidePropsContext } from "next";
 import {
@@ -156,7 +157,7 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
           };
         } catch (error) {
-          console.error("Authentication error:", error);
+          console.error("Authentication error:", safeErrorForLogging(error));
           return null;
         }
       },

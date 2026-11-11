@@ -32,7 +32,7 @@ const FORCE_STOP_TIMEOUT = 5_000;
  * Hook for stopping the currently running scan with three-tier escalation:
  *
  * Tier 1: Graceful stop (existing cancelScan) — sends cancel via RabbitMQ
- * Tier 2: Force stop — kills processes + directly resets ValKey state
+ * Tier 2: Force stop — requests process cancellation and marks ValKey state cancelled
  * Tier 3: Reset dashboard — purely clears ValKey state, no scanner interaction
  */
 export function useStopScan() {
@@ -56,7 +56,7 @@ export function useStopScan() {
   const cancelScanMutation = api.scanner.cancelScan.useMutation({
     onSuccess: (data) => {
       if (!data.success) {
-        setError(data.error || data.message);
+        setError(data.error ?? data.message);
         // If graceful stop failed, jump straight to force_available
         setStopStage("force_available");
         setIsStopping(false);
@@ -75,7 +75,7 @@ export function useStopScan() {
   const forceStopMutation = api.scanner.forceStopScan.useMutation({
     onSuccess: (data) => {
       if (!data.success) {
-        setError(data.error || data.message);
+        setError(data.error ?? data.message);
         setStopStage("reset_available");
       } else {
         // Force stop succeeded — state should update via polling
@@ -94,7 +94,7 @@ export function useStopScan() {
   const resetScanMutation = api.scanner.resetScanState.useMutation({
     onSuccess: (data) => {
       if (!data.success) {
-        setError(data.error || data.message);
+        setError(data.error ?? data.message);
       } else {
         setError(null);
         setStopStage("idle");
@@ -182,19 +182,8 @@ export function useStopScan() {
 
         if (forceTimeoutRef.current) clearTimeout(forceTimeoutRef.current);
 
-        if (!result.success) {
-          // Server-side force stop returned failure — fall back to full reset (del)
-          try {
-            await resetScanMutation.mutateAsync();
-            setStopStage("idle");
-            setError(null);
-            setIsStopping(false);
-            return { success: true, message: "Scan state reset (fallback)" };
-          } catch {
-            // Fall through to original error handling
-          }
-        }
-
+        // A failure may mean the requested scan was replaced. Never escalate
+        // implicitly to a global reset that could delete the newer scan.
         return {
           success: result.success,
           message: result.message,
@@ -203,33 +192,24 @@ export function useStopScan() {
       } catch (err) {
         if (forceTimeoutRef.current) clearTimeout(forceTimeoutRef.current);
 
-        // Server-side force stop threw — fall back to full reset (del)
-        try {
-          await resetScanMutation.mutateAsync();
-          setStopStage("idle");
-          setError(null);
-          setIsStopping(false);
-          return { success: true, message: "Scan state reset (fallback)" };
-        } catch {
-          const errorMessage =
-            err instanceof Error ? err.message : "Failed to force stop scan";
-          setError(errorMessage);
-          setStopStage("reset_available");
-          setIsStopping(false);
-          return {
-            success: false,
-            message: errorMessage,
-            error: errorMessage,
-          };
-        }
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to force stop scan";
+        setError(errorMessage);
+        setStopStage("reset_available");
+        setIsStopping(false);
+        return {
+          success: false,
+          message: errorMessage,
+          error: errorMessage,
+        };
       }
     },
-    [forceStopMutation, resetScanMutation]
+    [forceStopMutation]
   );
 
   // --- Tier 3: Reset Dashboard ---
   // Directly deletes the currentScan key from ValKey via scanner.resetScanState.
-  // Guaranteed to work if ValKey is up.
+  // Only invoked by an explicit reset action, never as an automatic fallback.
 
   const resetScan = useCallback(async (): Promise<StopScanResult> => {
     if (gracefulTimeoutRef.current) clearTimeout(gracefulTimeoutRef.current);

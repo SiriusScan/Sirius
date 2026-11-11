@@ -1,12 +1,11 @@
 export const ALL_NSE_SCRIPTS = "*";
 
 export function canonicalizeScriptId(value: string | null | undefined): string {
-  const trimmed = value?.trim() ?? "";
-  if (!trimmed) return "";
-  if (trimmed === ALL_NSE_SCRIPTS) return ALL_NSE_SCRIPTS;
-
-  const lastSegment = trimmed.split("/").filter(Boolean).pop() ?? trimmed;
-  return lastSegment.replace(/\.nse$/i, "");
+  // Match Go templates.CanonicalScriptID: no whitespace trimming, and only
+  // the lowercase suffix is removed. A trailing slash has an empty basename.
+  const raw = value ?? "";
+  if (!raw || raw === ALL_NSE_SCRIPTS) return raw;
+  return raw.slice(raw.lastIndexOf("/") + 1).replace(/\.nse$/, "");
 }
 
 export function canonicalizeScriptIds(

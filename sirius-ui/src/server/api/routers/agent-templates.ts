@@ -1,3 +1,4 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type {
@@ -32,7 +33,7 @@ const updateTemplateSchema = z.object({
 
 const testTemplateSchema = z.object({
   templateId: z.string(),
-  agentId: z.string(),
+  agentId: z.string().trim().min(1).max(128),
 });
 
 const deployTemplateSchema = z.object({
@@ -50,7 +51,10 @@ export const agentTemplatesRouter = createTRPCRouter({
       }
       return (await response.json()) as AgentTemplate[];
     } catch (error) {
-      console.error("Error fetching agent templates:", error);
+      console.error(
+        "Error fetching agent templates:",
+        safeErrorForLogging(error)
+      );
       return [];
     }
   }),
@@ -71,7 +75,10 @@ export const agentTemplatesRouter = createTRPCRouter({
         }
         return (await response.json()) as AgentTemplate;
       } catch (error) {
-        console.error("Error fetching agent template:", error);
+        console.error(
+          "Error fetching agent template:",
+          safeErrorForLogging(error)
+        );
         return null;
       }
     }),
@@ -104,7 +111,7 @@ export const agentTemplatesRouter = createTRPCRouter({
 
         return await response.json();
       } catch (error) {
-        console.error("Error uploading template:", error);
+        console.error("Error uploading template:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -131,7 +138,7 @@ export const agentTemplatesRouter = createTRPCRouter({
 
         return (await response.json()) as ValidationResult;
       } catch (error) {
-        console.error("Error validating template:", error);
+        console.error("Error validating template:", safeErrorForLogging(error));
         return {
           valid: false,
           errors: ["Failed to validate template"],
@@ -167,7 +174,7 @@ export const agentTemplatesRouter = createTRPCRouter({
 
         return await response.json();
       } catch (error) {
-        console.error("Error updating template:", error);
+        console.error("Error updating template:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -191,7 +198,7 @@ export const agentTemplatesRouter = createTRPCRouter({
 
         return await response.json();
       } catch (error) {
-        console.error("Error deleting template:", error);
+        console.error("Error deleting template:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -208,7 +215,7 @@ export const agentTemplatesRouter = createTRPCRouter({
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ agent_id: input.agentId }),
+            body: JSON.stringify({ agentId: input.agentId }),
           }
         );
 
@@ -219,7 +226,7 @@ export const agentTemplatesRouter = createTRPCRouter({
 
         return await response.json();
       } catch (error) {
-        console.error("Error testing template:", error);
+        console.error("Error testing template:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -247,7 +254,7 @@ export const agentTemplatesRouter = createTRPCRouter({
 
         return await response.json();
       } catch (error) {
-        console.error("Error deploying template:", error);
+        console.error("Error deploying template:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -265,7 +272,10 @@ export const agentTemplatesRouter = createTRPCRouter({
 
       return (await response.json()) as TemplateAnalytics;
     } catch (error) {
-      console.error("Error fetching template analytics:", error);
+      console.error(
+        "Error fetching template analytics:",
+        safeErrorForLogging(error)
+      );
       return {
         top_templates: [],
         execution_stats: {
@@ -293,7 +303,10 @@ export const agentTemplatesRouter = createTRPCRouter({
 
         return await response.json();
       } catch (error) {
-        console.error("Error fetching template results:", error);
+        console.error(
+          "Error fetching template results:",
+          safeErrorForLogging(error)
+        );
         return {
           template_id: input.id,
           results: [],

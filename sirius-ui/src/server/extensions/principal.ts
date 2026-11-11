@@ -1,3 +1,4 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import {
   COMMUNITY_CAPABILITIES,
   missingCapabilities,
@@ -69,7 +70,7 @@ export async function resolvePrincipal(
   } catch (cause) {
     console.error(
       `Capability principal resolver ${resolver.id} failed; denying capabilities`,
-      cause,
+      safeErrorForLogging(cause),
     );
     return null;
   }
@@ -106,7 +107,10 @@ export async function applySessionEnrichers(
     try {
       enriched = await enricher.enrich(enriched, principal);
     } catch (cause) {
-      console.error(`Session enricher ${enricher.id} failed`, cause);
+      console.error(
+        `Session enricher ${enricher.id} failed`,
+        safeErrorForLogging(cause)
+      );
     }
   }
 

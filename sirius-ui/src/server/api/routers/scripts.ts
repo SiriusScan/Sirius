@@ -1,3 +1,4 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
@@ -55,7 +56,7 @@ export const scriptsRouter = createTRPCRouter({
       const scripts = (await response.json()) as Script[];
       return scripts;
     } catch (error) {
-      console.error("Error fetching scripts:", error);
+      console.error("Error fetching scripts:", safeErrorForLogging(error));
       throw new Error("Failed to fetch scripts");
     }
   }),
@@ -77,7 +78,7 @@ export const scriptsRouter = createTRPCRouter({
         const script = (await response.json()) as Script;
         return script;
       } catch (error) {
-        console.error("Error fetching script:", error);
+        console.error("Error fetching script:", safeErrorForLogging(error));
         throw new Error("Failed to fetch script");
       }
     }),
@@ -105,7 +106,7 @@ export const scriptsRouter = createTRPCRouter({
         const result = await response.json();
         return result;
       } catch (error) {
-        console.error("Error updating script:", error);
+        console.error("Error updating script:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -128,7 +129,7 @@ export const scriptsRouter = createTRPCRouter({
         const script = (await response.json()) as Script;
         return script;
       } catch (error) {
-        console.error("Error creating script:", error);
+        console.error("Error creating script:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -149,7 +150,7 @@ export const scriptsRouter = createTRPCRouter({
 
         return { success: true };
       } catch (error) {
-        console.error("Error deleting script:", error);
+        console.error("Error deleting script:", safeErrorForLogging(error));
         throw error;
       }
     }),

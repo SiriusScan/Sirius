@@ -1,3 +1,5 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
+import { isIP } from "node:net";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { storeMockHosts } from "./shared-mock-data";
@@ -74,17 +76,12 @@ export interface EnvironmentTableData {
   ports?: Port[];
 }
 
-function isValidIPv4HostIp(ip: string | undefined): boolean {
-  if (!ip) return false;
+function isValidHostIp(ip: unknown): boolean {
+  if (typeof ip !== "string") return false;
   const trimmed = ip.trim();
-  if (!trimmed || trimmed.includes("/") || trimmed.includes("-")) return false;
-  const octets = trimmed.split(".");
-  if (octets.length !== 4) return false;
-  return octets.every((octet) => {
-    if (!/^\d+$/.test(octet)) return false;
-    const value = Number(octet);
-    return value >= 0 && value <= 255;
-  });
+  // Match the Go API's net.ParseIP contract: a single IPv4 or IPv6 address,
+  // without a zone identifier, CIDR prefix, range, hostname, or port.
+  return !trimmed.includes("%") && isIP(trimmed) !== 0;
 }
 
 export type HostStatistics = {
@@ -168,7 +165,7 @@ async function fetchHostStatistics(
   } catch (error) {
     console.error(
       `Error fetching host statistics (routers/host.ts): ${hid}`,
-      error
+      safeErrorForLogging(error)
     );
     // Return default empty statistics
     return {
@@ -407,7 +404,7 @@ export const hostRouter = createTRPCRouter({
         });
         return response.data as { message: string; host_ip?: string };
       } catch (error) {
-        console.error("Error creating host:", error);
+        console.error("Error creating host:", safeErrorForLogging(error));
         if (error instanceof Error) {
           throw new Error(`Failed to create host: ${error.message}`);
         }
@@ -421,7 +418,7 @@ export const hostRouter = createTRPCRouter({
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostListRaw = response.data;
       if (!hostListRaw || !Array.isArray(hostListRaw)) return [];
-      const hostList = hostListRaw.filter((h) => isValidIPv4HostIp(h.ip));
+      const hostList = hostListRaw.filter((h) => isValidHostIp(h?.ip));
       if (!hostList || !Array.isArray(hostList)) return [];
       return hostList.map((h) => ({
         ip: h.ip,
@@ -430,7 +427,7 @@ export const hostRouter = createTRPCRouter({
         vulnCount: h.vulnerabilities?.length ?? 0,
       }));
     } catch (error) {
-      console.error("Error fetching host list:", error);
+      console.error("Error fetching host list:", safeErrorForLogging(error));
       return [];
     }
   }),
@@ -466,7 +463,7 @@ export const hostRouter = createTRPCRouter({
         });
         return response.data as { message: string; host_ip?: string };
       } catch (error) {
-        console.error("Error updating host:", error);
+        console.error("Error updating host:", safeErrorForLogging(error));
         if (error instanceof Error) {
           throw new Error(`Failed to update host: ${error.message}`);
         }
@@ -507,7 +504,7 @@ export const hostRouter = createTRPCRouter({
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostListRaw = response.data;
       const hostList = Array.isArray(hostListRaw)
-        ? hostListRaw.filter((h) => isValidIPv4HostIp(h.ip))
+        ? hostListRaw.filter((h) => isValidHostIp(h?.ip))
         : [];
 
       // Ensure hostList is an array, default to empty array if null/undefined
@@ -620,7 +617,7 @@ export const hostRouter = createTRPCRouter({
       const response = await httpClient.get<SiriusHost[]>("host/");
       const hostListRaw = response.data;
       const hostList = Array.isArray(hostListRaw)
-        ? hostListRaw.filter((h) => isValidIPv4HostIp(h.ip))
+        ? hostListRaw.filter((h) => isValidHostIp(h?.ip))
         : [];
 
       // Ensure hostList is an array, default to empty array if null/undefined
@@ -663,7 +660,7 @@ export const hostRouter = createTRPCRouter({
       }
     } catch (error) {
       // Handle the error accordingly
-      console.error("Error fetching hosts:", error);
+      console.error("Error fetching hosts:", safeErrorForLogging(error));
       return [];
     }
   }),
@@ -679,7 +676,10 @@ export const hostRouter = createTRPCRouter({
       }
       return response.data;
     } catch (error) {
-      console.error("Error fetching source coverage stats:", error);
+      console.error(
+        "Error fetching source coverage stats:",
+        safeErrorForLogging(error)
+      );
       // Return empty array instead of mock data
       return [];
     }
@@ -703,7 +703,10 @@ export const hostRouter = createTRPCRouter({
 
         return hostWithSources;
       } catch (error) {
-        console.error("Error fetching host with sources:", error);
+        console.error(
+          "Error fetching host with sources:",
+          safeErrorForLogging(error)
+        );
         return null;
       }
     }),
@@ -739,7 +742,10 @@ export const hostRouter = createTRPCRouter({
         const response = await httpClient.get(url);
         return response.data;
       } catch (error) {
-        console.error("Error fetching host software inventory:", error);
+        console.error(
+          "Error fetching host software inventory:",
+          safeErrorForLogging(error)
+        );
         return null;
       }
     }),
@@ -757,7 +763,10 @@ export const hostRouter = createTRPCRouter({
         const response = await httpClient.get(`host/${ip}/software-stats`);
         return response.data;
       } catch (error) {
-        console.error("Error fetching host software statistics:", error);
+        console.error(
+          "Error fetching host software statistics:",
+          safeErrorForLogging(error)
+        );
         return null;
       }
     }),
@@ -775,7 +784,10 @@ export const hostRouter = createTRPCRouter({
         const response = await httpClient.get<NonNullable<EnhancedHostData["system_fingerprint"]>>(`host/${ip}/fingerprint`);
         return response.data;
       } catch (error) {
-        console.error("Error fetching host system fingerprint:", error);
+        console.error(
+          "Error fetching host system fingerprint:",
+          safeErrorForLogging(error)
+        );
         return null;
       }
     }),
@@ -811,7 +823,10 @@ export const hostRouter = createTRPCRouter({
         const response = await httpClient.get<EnhancedHostData>(url);
         return response.data;
       } catch (error) {
-        console.error("Error fetching enhanced host data:", error);
+        console.error(
+          "Error fetching enhanced host data:",
+          safeErrorForLogging(error)
+        );
         return null;
       }
     }),
@@ -889,7 +904,10 @@ export const hostRouter = createTRPCRouter({
         publisher_distribution: publisherDistribution,
       };
     } catch (error) {
-      console.error("Error fetching environment software stats:", error);
+      console.error(
+        "Error fetching environment software stats:",
+        safeErrorForLogging(error)
+      );
       return {
         total_hosts: 0,
         total_packages: 0,
@@ -929,7 +947,10 @@ export const hostRouter = createTRPCRouter({
           scan_date: null,
         };
       } catch (error) {
-        console.error("Error fetching host template results:", error);
+        console.error(
+          "Error fetching host template results:",
+          safeErrorForLogging(error)
+        );
         return {
           host_ip: ip,
           template_results: [],
@@ -986,7 +1007,10 @@ export const hostRouter = createTRPCRouter({
               inventory: response.data,
             };
           } catch (error) {
-            console.log(`Failed to get inventory for host ${host.ip}:`, error);
+            console.log(
+              `Failed to get inventory for host ${host.ip}:`,
+              safeErrorForLogging(error)
+            );
             return {
               host_ip: host.ip,
               hostname: host.hostname,
@@ -1120,7 +1144,10 @@ export const hostRouter = createTRPCRouter({
           },
         };
       } catch (error) {
-        console.error("Error fetching environment software inventory:", error);
+        console.error(
+          "Error fetching environment software inventory:",
+          safeErrorForLogging(error)
+        );
         return {
           packages: [],
           total_packages: 0,
@@ -1149,7 +1176,10 @@ export const hostRouter = createTRPCRouter({
           sources: string[];
         };
       } catch (error) {
-        console.error("Error fetching host history:", error);
+        console.error(
+          "Error fetching host history:",
+          safeErrorForLogging(error)
+        );
         return {
           host_ip: input.ip,
           timeline: [],
@@ -1184,7 +1214,10 @@ export const hostRouter = createTRPCRouter({
           }>;
         };
       } catch (error) {
-        console.error("Error fetching vulnerability history:", error);
+        console.error(
+          "Error fetching vulnerability history:",
+          safeErrorForLogging(error)
+        );
         return {
           host_ip: input.ip,
           vulnerability_id: input.vulnId,

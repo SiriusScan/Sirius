@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { AgentTemplateRunDialog } from "./AgentTemplateRunDialog";
 import { api } from "~/utils/api";
 import { TemplateLibrary } from "../templates/TemplateLibrary";
 import { TemplateBuilder } from "../templates/TemplateBuilder";
@@ -28,7 +29,9 @@ const AgentTemplatesTab: React.FC = () => {
   const uploadMutation = api.agentTemplates.uploadTemplate.useMutation();
   const updateMutation = api.agentTemplates.updateTemplate.useMutation();
   const deleteMutation = api.agentTemplates.deleteTemplate.useMutation();
-  const testMutation = api.agentTemplates.testTemplate.useMutation();
+  const [runningTemplate, setRunningTemplate] = useState<AgentTemplate | null>(
+    null
+  );
   const utils = api.useContext();
 
   const handleCreateNew = () => {
@@ -74,17 +77,17 @@ const AgentTemplatesTab: React.FC = () => {
     }
   };
 
-  const handleRun = async (template: AgentTemplate) => {
-    try {
-      await testMutation.mutateAsync({
-        templateId: template.id,
-        agentId: "all",
-      });
-      alert(`Template "${template.name}" execution initiated on all agents`);
-    } catch (error) {
-      alert("Failed to run template");
-    }
+  const handleRun = (template: AgentTemplate) => {
+    setRunningTemplate(template);
   };
+
+  const runDialog = runningTemplate ? (
+    <AgentTemplateRunDialog
+      key={runningTemplate.id}
+      template={runningTemplate}
+      onClose={() => setRunningTemplate(null)}
+    />
+  ) : null;
 
   const handleDelete = async (template: AgentTemplate) => {
     if (
@@ -144,15 +147,20 @@ const AgentTemplatesTab: React.FC = () => {
   // Render based on current view
   if (currentView === "viewer" && viewingTemplate) {
     return (
-      <TemplateViewer
-        template={viewingTemplate}
-        onClose={() => {
-          setCurrentView("library");
-          setViewingTemplate(null);
-        }}
-        onEdit={handleEdit}
-        onRun={handleRun}
-      />
+      <>
+        {runDialog}
+        <TemplateViewer
+          template={viewingTemplate}
+          onClose={() => {
+            setCurrentView("library");
+            setViewingTemplate(null);
+          }}
+          onEdit={(template) => {
+            void handleEdit(template);
+          }}
+          onRun={handleRun}
+        />
+      </>
     );
   }
 
@@ -168,14 +176,21 @@ const AgentTemplatesTab: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {runDialog}
       {/* Template Library */}
       <TemplateLibrary
-        templates={templates || []}
+        templates={templates ?? []}
         onCreateNew={handleCreateNew}
-        onView={handleView}
-        onEdit={handleEdit}
+        onView={(template) => {
+          void handleView(template);
+        }}
+        onEdit={(template) => {
+          void handleEdit(template);
+        }}
         onRun={handleRun}
-        onDelete={handleDelete}
+        onDelete={(template) => {
+          void handleDelete(template);
+        }}
         isLoading={isLoading}
       />
 

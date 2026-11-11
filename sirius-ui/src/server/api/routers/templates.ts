@@ -1,3 +1,4 @@
+import { safeErrorForLogging } from "~/server/safeErrorForLogging";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { AgentScanConfig } from "~/types/scanTypes";
@@ -71,7 +72,7 @@ export const templatesRouter = createTRPCRouter({
       const templates = (await response.json()) as Template[];
       return templates;
     } catch (error) {
-      console.error("Error fetching templates:", error);
+      console.error("Error fetching templates:", safeErrorForLogging(error));
       throw new Error("Failed to fetch templates");
     }
   }),
@@ -93,7 +94,7 @@ export const templatesRouter = createTRPCRouter({
         const template = (await response.json()) as Template;
         return template;
       } catch (error) {
-        console.error("Error fetching template:", error);
+        console.error("Error fetching template:", safeErrorForLogging(error));
         throw new Error("Failed to fetch template");
       }
     }),
@@ -116,7 +117,7 @@ export const templatesRouter = createTRPCRouter({
         const template = (await response.json()) as Template;
         return template;
       } catch (error) {
-        console.error("Error creating template:", error);
+        console.error("Error creating template:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -139,7 +140,7 @@ export const templatesRouter = createTRPCRouter({
         const template = (await response.json()) as Template;
         return template;
       } catch (error) {
-        console.error("Error updating template:", error);
+        console.error("Error updating template:", safeErrorForLogging(error));
         throw error;
       }
     }),
@@ -160,7 +161,7 @@ export const templatesRouter = createTRPCRouter({
 
         return { success: true };
       } catch (error) {
-        console.error("Error deleting template:", error);
+        console.error("Error deleting template:", safeErrorForLogging(error));
         throw error;
       }
     }),

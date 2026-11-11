@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -59,5 +61,51 @@ func TestValidateManifestFixture(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("fixture validation failed: %v", err)
+	}
+}
+
+func TestComponentDependencyTamperingRejected(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "testing", "fixtures", "core-manifest", "core-manifest.fixture.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := options{schemaMapPath: "schema_map.json", skipDockerfilePins: true}
+	for _, change := range []struct {
+		name  string
+		apply func(*CoreManifest)
+	}{
+		{"scanner source", func(m *CoreManifest) {
+			d := m.ComponentDependencies["app-scanner"]
+			d.SourceCommit = strings.Repeat("a", 40)
+			m.ComponentDependencies["app-scanner"] = d
+		}},
+		{"agent SDK version", func(m *CoreManifest) {
+			d := m.ComponentDependencies["app-agent"]
+			d.GoAPIVersion = "v0.0.26"
+			m.ComponentDependencies["app-agent"] = d
+		}},
+		{"agent SDK commit", func(m *CoreManifest) {
+			d := m.ComponentDependencies["app-agent"]
+			d.GoAPICommit = strings.Repeat("b", 40)
+			m.ComponentDependencies["app-agent"] = d
+		}},
+		{"missing agent", func(m *CoreManifest) { delete(m.ComponentDependencies, "app-agent") }},
+		{"wrong agent contract", func(m *CoreManifest) { m.Contracts["agent_protocol"] = "2.0.0" }},
+		{"missing agent contract", func(m *CoreManifest) { delete(m.Contracts, "agent_admission") }},
+	} {
+		t.Run(change.name, func(t *testing.T) {
+			var m CoreManifest
+			if err := json.Unmarshal(data, &m); err != nil {
+				t.Fatal(err)
+			}
+			change.apply(&m)
+			b, err := json.Marshal(m)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := validateManifest(b, opts); err == nil {
+				t.Fatal("tampering accepted")
+			}
+		})
 	}
 }

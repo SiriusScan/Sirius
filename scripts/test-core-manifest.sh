@@ -55,10 +55,10 @@ inventory_block="$(awk '
   grab && /^  [a-zA-Z0-9_-]+:/ {exit}
   grab {print}
 ' .github/workflows/ci.yml)"
-printf '%s\n' "${inventory_block}" | grep -q "result == 'skipped'" \
+grep -q "result == 'skipped'" <<<"${inventory_block}" \
   && fail "core-build-inventory must not accept skipped build or merge jobs"
 for dependency in build-ui build-api build-engine build-infra merge-ui merge-api merge-engine merge-infra test; do
-  printf '%s\n' "${inventory_block}" | grep -q "needs.${dependency}.result == 'success'" \
+  grep -q "needs.${dependency}.result == 'success'" <<<"${inventory_block}" \
     || fail "core-build-inventory must require ${dependency} success"
 done
 pass "release inventory requires commit-built images"

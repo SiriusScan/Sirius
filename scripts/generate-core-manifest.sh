@@ -30,6 +30,8 @@ SCHEMA_MAP="${SCHEMA_MAP:-${PROJECT_ROOT}/scripts/core-manifest/schema_map.json}
 OPENAPI="${OPENAPI:-${PROJECT_ROOT}/sirius-api/contracts/openapi.v1.yaml}"
 UI_VERSIONS="${UI_VERSIONS:-${PROJECT_ROOT}/sirius-ui/src/contracts/versions.json}"
 AGENT_CONTRACTS_MAP="${AGENT_CONTRACTS_MAP:-${PROJECT_ROOT}/scripts/core-manifest/agent_contracts.json}"
+COMPONENT_DEPENDENCIES="${COMPONENT_DEPENDENCIES:-${PROJECT_ROOT}/scripts/core-manifest/component_dependencies.json}"
+API_GO_MOD="${API_GO_MOD:-${PROJECT_ROOT}/sirius-api/go.mod.prod}"
 REGISTRY="${REGISTRY:-ghcr.io}"
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-siriusscan}"
 
@@ -72,6 +74,8 @@ while [ "$#" -gt 0 ]; do
     --openapi) OPENAPI="${2:-}"; shift 2 ;;
     --ui-versions) UI_VERSIONS="${2:-}"; shift 2 ;;
     --agent-contracts) AGENT_CONTRACTS_MAP="${2:-}"; shift 2 ;;
+    --component-dependencies) COMPONENT_DEPENDENCIES="${2:-}"; shift 2 ;;
+    --api-go-mod) API_GO_MOD="${2:-}"; shift 2 ;;
     --registry) REGISTRY="${2:-}"; shift 2 ;;
     --namespace) IMAGE_NAMESPACE="${2:-}"; shift 2 ;;
     -h|--help)
@@ -125,10 +129,14 @@ done
 
 GO_API_VERSION=""
 AGENT_COMMIT=""
+SCANNER_COMMIT=""
 i=0
 for pin in "${PIN_NAMES[@]}"; do
   if [ "${pin}" = "GO_API_COMMIT_SHA" ]; then
     GO_API_VERSION="${PIN_VALUES[$i]}"
+  fi
+  if [ "${pin}" = "APP_SCANNER_COMMIT_SHA" ]; then
+    SCANNER_COMMIT="${PIN_VALUES[$i]}"
   fi
   if [ "${pin}" = "APP_AGENT_COMMIT_SHA" ]; then
     AGENT_COMMIT="${PIN_VALUES[$i]}"
@@ -140,7 +148,21 @@ done
 if ! jq -e --arg v "${GO_API_VERSION}" 'has($v)' "${SCHEMA_MAP}" >/dev/null; then
   die "GO_API_COMMIT_SHA ${GO_API_VERSION} has no entry in ${SCHEMA_MAP}"
 fi
-AGENT_CONTRACTS="$(jq -c --arg v "${AGENT_COMMIT}" '.[$v] // {}' "${AGENT_CONTRACTS_MAP}")"
+jq -e --arg v "${AGENT_COMMIT}" '.[$v] | type == "object" and (.agent_protocol | type == "string") and (.agent_admission | type == "string")' "${AGENT_CONTRACTS_MAP}" >/dev/null || die "agent contract mapping missing for ${AGENT_COMMIT}"
+AGENT_CONTRACTS="$(jq -c --arg v "${AGENT_COMMIT}" '.[$v]' "${AGENT_CONTRACTS_MAP}")"
+[ -f "${COMPONENT_DEPENDENCIES}" ] || die "component dependencies missing"
+[ -f "${API_GO_MOD}" ] || die "API production go.mod missing"
+API_SDK_VERSION="$(awk '$1 == "github.com/SiriusScan/go-api" { print $2 }' "${API_GO_MOD}")"
+[[ "${API_SDK_VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "API production go-api version missing or not a release"
+# The API binary uses go.mod.prod while its migrator is built from this pin.
+# Fail if the release tag mapping is missing or does not describe that pin.
+API_SDK_COMMIT="$(jq -r --arg v "${API_SDK_VERSION}" '.sdk_releases[$v] // empty' "${COMPONENT_DEPENDENCIES}")"
+[ "${API_SDK_COMMIT}" = "${GO_API_VERSION}" ] || die "API go-api release does not match migrator pin"
+COMPONENT_SDKS="$(jq -ce --arg source "${SOURCE_COMMIT}" --arg sdk "${API_SDK_VERSION}" --arg sdkcommit "${API_SDK_COMMIT}" --arg scanner "${SCANNER_COMMIT}" --arg agent "${AGENT_COMMIT}" '
+  . as $root | ($root["app-scanner"][$scanner] // error("unknown scanner source")) as $s |
+  ($root["app-agent"][$agent] // error("unknown agent source")) as $a |
+  {"sirius-api": {source_commit:$source, go_api_version:$sdk, go_api_commit:$sdkcommit},
+   "app-scanner": ($s + {source_commit:$scanner}), "app-agent": ($a + {source_commit:$agent})}' "${COMPONENT_DEPENDENCIES}")"
 SDK_CONTRACTS="$(jq -c --arg v "${GO_API_VERSION}" '.[$v].contracts // {}' "${SCHEMA_MAP}")"
 LEDGER_TABLE="$(jq -r --arg v "${GO_API_VERSION}" '.[$v].ledger_table' "${SCHEMA_MAP}")"
 LATEST_MIGRATION="$(jq -r --arg v "${GO_API_VERSION}" '.[$v].latest_migration' "${SCHEMA_MAP}")"
@@ -193,6 +215,7 @@ jq -n \
   --argjson ui_contracts "${UI_CONTRACTS}" \
   --argjson sdk_contracts "${SDK_CONTRACTS}" \
   --argjson agent_contracts "${AGENT_CONTRACTS}" \
+  --argjson component_sdks "${COMPONENT_SDKS}" \
   --argjson component_pins "${pins_json}" \
   --argjson images "${images_json}" \
   '{
@@ -213,6 +236,7 @@ jq -n \
       go_api_version: $go_api_version
     },
     contracts: ({ rest_api: $rest_contract } + $ui_contracts + $sdk_contracts + $agent_contracts),
+    component_dependencies: $component_sdks,
     component_pins: $component_pins,
     images: $images
   }' > "${OUTPUT_PATH}"

@@ -17,5 +17,16 @@
       "scan_control": "1.0",
       "api_module": "v1"
     }
+  },
+  "9456ba96c01890290ce054e819e7c5ba479e7481": {
+    "ledger_table": "schema_migrations_core",
+    "latest_migration": "010_host_resource_scope",
+    "contracts": {
+      "resource_scope": "1.0",
+      "message_envelope": "1.0",
+      "scan_job": "1.0",
+      "scan_control": "1.0",
+      "api_module": "v1"
+    }
   }
 }

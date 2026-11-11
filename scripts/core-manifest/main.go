@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -51,13 +52,20 @@ type schemaMapEntry struct {
 }
 
 type CoreManifest struct {
-	APIVersion    string            `json:"apiVersion"`
-	Kind          string            `json:"kind"`
-	Metadata      ManifestMetadata  `json:"metadata"`
-	Schema        ManifestSchema    `json:"schema"`
-	Contracts     map[string]string `json:"contracts,omitempty"`
-	ComponentPins map[string]string `json:"component_pins"`
-	Images        map[string]Image  `json:"images"`
+	APIVersion            string                         `json:"apiVersion"`
+	Kind                  string                         `json:"kind"`
+	Metadata              ManifestMetadata               `json:"metadata"`
+	Schema                ManifestSchema                 `json:"schema"`
+	Contracts             map[string]string              `json:"contracts,omitempty"`
+	ComponentDependencies map[string]ComponentDependency `json:"component_dependencies,omitempty"`
+	ComponentPins         map[string]string              `json:"component_pins"`
+	Images                map[string]Image               `json:"images"`
+}
+
+type ComponentDependency struct {
+	SourceCommit string `json:"source_commit"`
+	GoAPIVersion string `json:"go_api_version"`
+	GoAPICommit  string `json:"go_api_commit"`
 }
 
 type ManifestMetadata struct {
@@ -225,6 +233,88 @@ func validateManifest(data []byte, opt options) error {
 			return fmt.Errorf("component_pins.%s is empty", pin)
 		}
 	}
+	if supportsDependencyMetadata(m.Metadata.ReleaseTag) {
+		for _, name := range []string{"rest_api", "ui_extension", "server_extension", "resource_scope", "message_envelope", "scan_job", "scan_control", "api_module", "agent_protocol", "agent_admission"} {
+			if m.Contracts[name] == "" {
+				return fmt.Errorf("contracts.%s is required", name)
+			}
+		}
+	}
+	if _, hasScope := m.Contracts["resource_scope"]; hasScope && (m.ComponentDependencies != nil || supportsDependencyMetadata(m.Metadata.ReleaseTag)) {
+		if err := exactDependencyKeys(m.ComponentDependencies); err != nil {
+			return err
+		}
+		for name, pin := range map[string]string{"sirius-api": m.Metadata.Source.Commit, "app-scanner": m.ComponentPins["APP_SCANNER_COMMIT_SHA"], "app-agent": m.ComponentPins["APP_AGENT_COMMIT_SHA"]} {
+			d := m.ComponentDependencies[name]
+			if d.SourceCommit != pin || !reGitSHA.MatchString(d.GoAPICommit) || !reSemVer.MatchString(d.GoAPIVersion) {
+				return fmt.Errorf("component_dependencies.%s does not match source or pinned SDK format", name)
+			}
+		}
+		if m.ComponentDependencies["sirius-api"].GoAPICommit != m.ComponentPins["GO_API_COMMIT_SHA"] {
+			return fmt.Errorf("API dependency differs from migrator pin")
+		}
+		mapPath := filepath.Join(filepath.Dir(opt.schemaMapPath), "component_dependencies.json")
+		if opt.schemaMapPath == "" {
+			mapPath = "component_dependencies.json"
+		}
+		var known struct {
+			Releases map[string]string `json:"sdk_releases"`
+			Scanner  map[string]struct {
+				Version string `json:"go_api_version"`
+				Commit  string `json:"go_api_commit"`
+			} `json:"app-scanner"`
+			Agent map[string]struct {
+				Version string `json:"go_api_version"`
+				Commit  string `json:"go_api_commit"`
+			} `json:"app-agent"`
+		}
+		agentPath := filepath.Join(filepath.Dir(mapPath), "agent_contracts.json")
+		var agentVersions map[string]map[string]string
+		agentData, err := os.ReadFile(agentPath)
+		if err != nil {
+			return fmt.Errorf("read agent contracts: %w", err)
+		}
+		if err := rejectDuplicateKeys(agentData); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(agentData, &agentVersions); err != nil {
+			return fmt.Errorf("decode agent contracts: %w", err)
+		}
+		for _, key := range []string{"agent_protocol", "agent_admission"} {
+			want := agentVersions[m.ComponentPins["APP_AGENT_COMMIT_SHA"]][key]
+			if want == "" || m.Contracts[key] != want {
+				return fmt.Errorf("contracts.%s mismatch for pinned agent", key)
+			}
+		}
+		mapping, err := os.ReadFile(mapPath)
+		if err != nil {
+			return fmt.Errorf("read component dependencies: %w", err)
+		}
+		if err := rejectDuplicateKeys(mapping); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(mapping, &known); err != nil {
+			return fmt.Errorf("decode component dependencies: %w", err)
+		}
+		for name, dep := range m.ComponentDependencies {
+			if known.Releases[dep.GoAPIVersion] != dep.GoAPICommit {
+				return fmt.Errorf("component_dependencies.%s SDK release mismatch", name)
+			}
+		}
+		for name, expected := range map[string]struct {
+			Version string
+			Commit  string
+		}{
+			"app-scanner": {known.Scanner[m.ComponentDependencies["app-scanner"].SourceCommit].Version, known.Scanner[m.ComponentDependencies["app-scanner"].SourceCommit].Commit},
+			"app-agent":   {known.Agent[m.ComponentDependencies["app-agent"].SourceCommit].Version, known.Agent[m.ComponentDependencies["app-agent"].SourceCommit].Commit},
+		} {
+			dep := m.ComponentDependencies[name]
+			if dep.GoAPIVersion != expected.Version || dep.GoAPICommit != expected.Commit {
+				return fmt.Errorf("component_dependencies.%s source mapping mismatch", name)
+			}
+		}
+
+	}
 	goAPI := m.ComponentPins["GO_API_COMMIT_SHA"]
 	if m.Schema.GoAPIVersion != goAPI {
 		return fmt.Errorf("schema.go_api_version must equal component_pins.GO_API_COMMIT_SHA")
@@ -385,6 +475,28 @@ func inspectDigest(inspectCmd, imageRef string) (string, error) {
 		return "", fmt.Errorf("invalid live digest for %s: %q", imageRef, payload.Manifest.Digest)
 	}
 	return payload.Manifest.Digest, nil
+}
+
+func supportsDependencyMetadata(tag string) bool {
+	parts := strings.Split(strings.TrimPrefix(tag, "v"), ".")
+	if len(parts) != 3 {
+		return false
+	}
+	major, err1 := strconv.Atoi(parts[0])
+	minor, err2 := strconv.Atoi(parts[1])
+	return err1 == nil && err2 == nil && (major > 1 || (major == 1 && minor >= 2))
+}
+
+func exactDependencyKeys(m map[string]ComponentDependency) error {
+	if len(m) != 3 {
+		return fmt.Errorf("component_dependencies must include API, scanner and agent")
+	}
+	for _, k := range []string{"sirius-api", "app-scanner", "app-agent"} {
+		if _, ok := m[k]; !ok {
+			return fmt.Errorf("component_dependencies missing %s", k)
+		}
+	}
+	return nil
 }
 
 func loadSchemaMap(path string) (map[string]schemaMapEntry, error) {

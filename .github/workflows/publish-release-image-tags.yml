@@ -362,6 +362,8 @@ jobs:
             --openapi release-src/sirius-api/contracts/openapi.v1.yaml \
             --ui-versions release-src/sirius-ui/src/contracts/versions.json \
             --agent-contracts release-src/scripts/core-manifest/agent_contracts.json \
+            --component-dependencies release-src/scripts/core-manifest/component_dependencies.json \
+            --api-go-mod release-src/sirius-api/go.mod.prod \
             --output "${GITHUB_WORKSPACE}/core-manifest.yaml"
           bash scripts/validate-core-manifest.sh \
             --expect-tag "${TARGET_TAG}" \
@@ -370,6 +372,12 @@ jobs:
             --schema-map release-src/scripts/core-manifest/schema_map.json \
             "${GITHUB_WORKSPACE}/core-manifest.yaml"
           bash scripts/assert-release-sbom-assets.sh --tag "${TARGET_TAG}" --dir sboms
+
+      - name: Verify component dependency and contract metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/core-manifest/verify-component-sources.sh core-manifest.yaml release-src
 
       - name: Immediate pre-publish digest recheck
         env:

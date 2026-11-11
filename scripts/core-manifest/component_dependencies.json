@@ -1,0 +1,19 @@
+{
+  "app-scanner": {
+    "15e25fbeb2d54c26c4790330b3f5ada9e90b2f4e": {
+      "go_api_version": "v0.0.26",
+      "go_api_commit": "5beb7ee9e1446ef85ad99dce873014ea720b6eb9"
+    }
+  },
+  "app-agent": {
+    "227f3f8cc1382a60074e73474e4f12ef8b47f589": {
+      "go_api_version": "v0.0.24",
+      "go_api_commit": "2d98e281fd0a37c278e8122c1e5f7543c44ba4c7"
+    }
+  },
+  "sdk_releases": {
+    "v0.0.26": "5beb7ee9e1446ef85ad99dce873014ea720b6eb9",
+    "v0.0.24": "2d98e281fd0a37c278e8122c1e5f7543c44ba4c7",
+    "v0.0.27": "9456ba96c01890290ce054e819e7c5ba479e7481"
+  }
+}

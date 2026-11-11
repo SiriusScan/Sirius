@@ -56,19 +56,19 @@ pass "canonical identity constants"
 
 echo "==> workflow trust root + SBOM/signing helpers"
 wf="$(cat "${WORKFLOW}")"
-printf '%s\n' "${wf}" | grep -Eq 'SiriusScan/Sirius' \
+grep -Eq 'SiriusScan/Sirius' <<<"${wf}" \
   || fail "workflow must hard-require SiriusScan/Sirius"
-printf '%s\n' "${wf}" | grep -Eq 'refs/heads/main' \
+grep -Eq 'refs/heads/main' <<<"${wf}" \
   || fail "workflow must hard-require refs/heads/main"
-printf '%s\n' "${wf}" | grep -Fq "${CANONICAL_IDENTITY_RE}" \
+grep -Fq "${CANONICAL_IDENTITY_RE}" <<<"${wf}" \
   || fail "workflow must pin exact canonical Cosign identity regexp"
-printf '%s\n' "${wf}" | grep -Eq 'generate-release-sboms\.sh' \
+grep -Eq 'generate-release-sboms\.sh' <<<"${wf}" \
   || fail "workflow must invoke generate-release-sboms.sh"
-printf '%s\n' "${wf}" | grep -Eq 'sign-verify-release-images\.sh' \
+grep -Eq 'sign-verify-release-images\.sh' <<<"${wf}" \
   || fail "workflow must invoke sign-verify-release-images.sh"
-printf '%s\n' "${wf}" | grep -Eq 'assert-release-sbom-assets\.sh' \
+grep -Eq 'assert-release-sbom-assets\.sh' <<<"${wf}" \
   || fail "workflow must invoke assert-release-sbom-assets.sh"
-printf '%s\n' "${wf}" | grep -Eq 'install-release-attest-tools\.sh' \
+grep -Eq 'install-release-attest-tools\.sh' <<<"${wf}" \
   || fail "workflow must install pinned Syft/Cosign tools"
 pass "workflow trust root + helpers"
 
@@ -99,14 +99,14 @@ publish_block="$(awk '
   grab && /^  [a-zA-Z0-9_-]+:/ {exit}
   grab {print}
 ' "${WORKFLOW}")"
-printf '%s\n' "${publish_block}" | grep -Eq 'needs:.*attest-release-images' \
+grep -Eq 'needs:.*attest-release-images' <<<"${publish_block}" \
   || fail "publish-github-release must need attest-release-images"
-printf '%s\n' "${publish_block}" | grep -Eq 'packages:\s*read' \
+grep -Eq 'packages:\s*read' <<<"${publish_block}" \
   || fail "publish job requires packages: read for Cosign verify"
-if printf '%s\n' "${publish_block}" | grep -Eq 'id-token:'; then
+if grep -Eq 'id-token:' <<<"${publish_block}"; then
   fail "publish job must not request id-token"
 fi
-printf '%s\n' "${publish_block}" | grep -Eq -- '--mode[[:space:]]+verify' \
+grep -Eq -- '--mode[[:space:]]+verify' <<<"${publish_block}" \
   || fail "publish job must re-verify with --mode verify"
 verify_line="$(printf '%s\n' "${publish_block}" | grep -n -- '--mode verify' | head -1 | cut -d: -f1)"
 publish_line="$(printf '%s\n' "${publish_block}" | grep -n 'draft=false' | head -1 | cut -d: -f1)"
@@ -115,15 +115,15 @@ assert_line="$(printf '%s\n' "${publish_block}" | grep -n 'assert-release-sbom-a
   || fail "publish ordering markers missing"
 [ "${assert_line}" -lt "${verify_line}" ] || fail "SBOM assert must precede final Cosign verify"
 [ "${verify_line}" -lt "${publish_line}" ] || fail "final Cosign verify must precede draft=false"
-printf '%s\n' "${publish_block}" | grep -Eq 'exactly twelve|SBOM files before upload, got|linux-\*\.cdx\.json' \
+grep -Eq 'exactly twelve|SBOM files before upload, got|linux-\*\.cdx\.json' <<<"${publish_block}" \
   || fail "publish job must expect twelve platform SBOM assets"
 pass "fail-closed publish ordering"
 
 echo "==> pinning policy for Syft/Cosign installers"
 install_script="$(cat scripts/install-release-attest-tools.sh)"
-printf '%s\n' "${install_script}" | grep -Eq 'SYFT_SHA256=' || fail "Syft SHA256 pin missing"
-printf '%s\n' "${install_script}" | grep -Eq 'COSIGN_SHA256=' || fail "Cosign SHA256 pin missing"
-printf '%s\n' "${install_script}" | grep -Eq -- '--tools' || fail "install script must support --tools selection"
+grep -Eq 'SYFT_SHA256=' <<<"${install_script}" || fail "Syft SHA256 pin missing"
+grep -Eq 'COSIGN_SHA256=' <<<"${install_script}" || fail "Cosign SHA256 pin missing"
+grep -Eq -- '--tools' <<<"${install_script}" || fail "install script must support --tools selection"
 pass "tool pins + checksums"
 
 echo "==> fixture: platform SBOM generation from mock index inspect + mock syft"

@@ -8,14 +8,21 @@
 
 ![Sirius Scan Dashboard](/documentation/dash-dark.gif)
 
-Sirius is an open-source vulnerability scanner with automated discovery, CVE-based detection, and a modern web UI. Clone, run four commands, start scanning.
+Sirius is an open-source vulnerability scanner with automated discovery, CVE-based detection, and a modern web UI. Provision gRPC TLS, run the installer, and start scanning.
 
 ## Quick Start
+
+**Before starting or upgrading the TLS-enabled engine:** provision its certificate
+chain and private key, then configure agent trust as described in
+[gRPC TLS setup and upgrade](documentation/GRPC-TLS.md). The installer does not
+generate these credentials. Default host paths are `secrets/grpc/server-chain.pem`
+and `secrets/grpc/server-key.pem`; absent files prevent engine startup.
 
 ```bash
 git clone https://github.com/SiriusScan/Sirius.git
 cd Sirius
 docker compose -f docker-compose.installer.yaml run --rm sirius-installer
+# Provision TLS files and agent trust first; see documentation/GRPC-TLS.md.
 docker compose up -d
 ```
 
@@ -26,7 +33,7 @@ Open **http://localhost:3000** and log in:
 | **Email** | `admin@example.com` |
 | **Password** | printed by the installer (look for `INITIAL_ADMIN_PASSWORD` in the output) |
 
-That's it. All six services start automatically. The installer generates secure secrets on first run and is safe to re-run.
+With TLS files in place, all six services start automatically. The installer generates secure secrets on first run and is safe to re-run.
 
 By default the installer leaves `IMAGE_TAG` unset, so Compose pulls **`latest`** from GHCR. To pin a release (for example `v1.0.0` in `.env`), only do so after that tag exists for **all six** container images; verify with `bash scripts/verify-ghcr-public-access.sh v1.0.0` from a shell that is not logged in to `ghcr.io`.
 
@@ -43,7 +50,8 @@ By default the installer leaves `IMAGE_TAG` unset, so Compose pulls **`latest`**
 
 ## Deployment Options
 
-The installer step is always the same. Only the `docker compose up` command changes.
+The installer and TLS provisioning steps are the same for every mode. Only the
+`docker compose up` command changes. All overlays inherit the base TLS mounts.
 
 | Mode | Command | Use case |
 |------|---------|----------|

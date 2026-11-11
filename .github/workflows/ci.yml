@@ -120,6 +120,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate secure gRPC Compose configuration
+        run: python3 scripts/test-grpc-tls-compose.py
+
       - name: Fail on typoed GHCR namespace
         run: |
           set -e

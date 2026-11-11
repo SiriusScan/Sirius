@@ -27,6 +27,14 @@
     "agent_protocol": "1.0.0",
     "agent_admission": "1.0.0"
   },
+  "deployment": {
+    "schema_version": "1.0.0",
+    "ui_port": 3000,
+    "api_port": 9001,
+    "ui_build_target": "production",
+    "api_build_target": "runner",
+    "api_module_build_tag": "pro"
+  },
   "component_dependencies": {
     "sirius-api": {
       "source_commit": "0123456789abcdef0123456789abcdef01234567",

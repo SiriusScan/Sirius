@@ -51,7 +51,17 @@ type schemaMapEntry struct {
 	Contracts       map[string]string `json:"contracts,omitempty"`
 }
 
+type Deployment struct {
+	SchemaVersion     string `json:"schema_version"`
+	UIPort            int    `json:"ui_port"`
+	APIPort           int    `json:"api_port"`
+	UIBuildTarget     string `json:"ui_build_target"`
+	APIBuildTarget    string `json:"api_build_target"`
+	APIModuleBuildTag string `json:"api_module_build_tag"`
+}
+
 type CoreManifest struct {
+	Deployment            *Deployment                    `json:"deployment,omitempty"`
 	APIVersion            string                         `json:"apiVersion"`
 	Kind                  string                         `json:"kind"`
 	Metadata              ManifestMetadata               `json:"metadata"`
@@ -209,6 +219,12 @@ func validateManifest(data []byte, opt options) error {
 		return fmt.Errorf("expected commit %s, got %s", opt.expectCommit, m.Metadata.Source.Commit)
 	}
 
+	if m.Deployment != nil {
+		d := m.Deployment
+		if d.SchemaVersion != "1.0.0" || d.UIPort != 3000 || d.APIPort != 9001 || d.UIBuildTarget != "production" || d.APIBuildTarget != "runner" || d.APIModuleBuildTag != "pro" {
+			return fmt.Errorf("unsupported deployment metadata")
+		}
+	}
 	if m.Contracts != nil {
 		for name := range m.Contracts {
 			if name != "rest_api" && name != "ui_extension" && name != "server_extension" && name != "resource_scope" && name != "message_envelope" && name != "scan_job" && name != "scan_control" && name != "api_module" && name != "agent_protocol" && name != "agent_admission" {

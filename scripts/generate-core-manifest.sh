@@ -236,6 +236,7 @@ jq -n \
       go_api_version: $go_api_version
     },
     contracts: ({ rest_api: $rest_contract } + $ui_contracts + $sdk_contracts + $agent_contracts),
+    deployment: {schema_version: "1.0.0", ui_port: 3000, api_port: 9001, ui_build_target: "production", api_build_target: "runner", api_module_build_tag: "pro"},
     component_dependencies: $component_sdks,
     component_pins: $component_pins,
     images: $images

@@ -64,8 +64,14 @@ docker compose pull
 echo "Starting public compose stack..."
 docker compose up -d
 
-echo "Verifying agent gRPC TLS..."
-timeout 120 bash -c 'until openssl s_client -connect 127.0.0.1:50051 -servername sirius-engine -verify_hostname sirius-engine -verify_return_error -CAfile "$GRPC_TLS_CERT_HOST_PATH" </dev/null >/dev/null 2>&1; do sleep 2; done'
+# v1.1.0 predates TLS support in the agent server. Keep its independent
+# release smoke useful while requiring TLS for every newer/other image tag.
+if [ "${IMAGE_TAG_VALUE}" = "v1.1.0" ]; then
+  echo "Historical v1.1.0 agent listener uses plaintext; skipping TLS handshake."
+else
+  echo "Verifying agent gRPC TLS..."
+  timeout 120 bash -c 'until openssl s_client -connect 127.0.0.1:50051 -servername sirius-engine -verify_hostname sirius-engine -verify_return_error -CAfile "$GRPC_TLS_CERT_HOST_PATH" </dev/null >/dev/null 2>&1; do sleep 2; done'
+fi
 
 echo "Verifying runtime auth contract..."
 bash scripts/verify-runtime-auth-contract.sh

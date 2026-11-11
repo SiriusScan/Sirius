@@ -905,6 +905,10 @@ grep -Eq -- '--platform' "${CI_DIR}/scan_images.sh" || fail "image scanner must 
 grep -Eq 'scanned=.*12|expected 12' "${CI_DIR}/scan_images.sh" || fail "image scanner must require 12 scans"
 pass "six images / twelve platform scans contract"
 
+echo "==> public Compose TLS smoke compatibility"
+bash "${PROJECT_ROOT}/scripts/test-public-compose-tls-smoke.sh"
+pass "historical plaintext and current TLS smoke behavior"
+
 echo "==> current tracked public source passes leakage scan"
 bash "${CI_DIR}/scan.sh" --mode source --root "${PROJECT_ROOT}" --tag v1.1.0
 pass "tracked source clean"

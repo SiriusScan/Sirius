@@ -358,6 +358,7 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --inventory "${INV}" \
             --dockerfile release-src/sirius-engine/Dockerfile \
+            --openapi release-src/sirius-api/contracts/openapi.v1.yaml \
             --output "${GITHUB_WORKSPACE}/core-manifest.yaml"
           bash scripts/validate-core-manifest.sh \
             --expect-tag "${TARGET_TAG}" \

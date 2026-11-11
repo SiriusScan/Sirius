@@ -45,7 +45,7 @@ residual_risk:
 
 The accelerated class-ready planning/discovery handoff is accepted. A later
 correction on the same program paths reframes class success: private
-`OpenSecurity-Infosec/sirius-pro` must become the sole mutable Compose/build root
+`the private downstream repository` must become the sole mutable Compose/build root
 at `/home/agi/sirius-pro`, consuming Community only through `core.lock.yaml`
 immutable digests (`v1.1.0`), with Pro ownership of `:3000`/`:9001` and
 `/home/agi/Sirius` retired from the development path. Companion sidecars on

@@ -129,6 +129,12 @@ pass "generate from inventory"
 echo "==> strict validate generated manifest"
 bash scripts/validate-core-manifest.sh --expect-tag v1.1.0 --expect-commit "${FAKE_COMMIT}" "${GENERATED}"
 pass "validate structure"
+[ "$(jq -r '.contracts.rest_api' "${GENERATED}")" = "1.0.0" ] || fail "REST contract version mismatch"
+jq '.contracts.rest_api = "invalid"' "${GENERATED}" > "${TMP_DIR}/bad-contract.yaml"
+if bash scripts/validate-core-manifest.sh "${TMP_DIR}/bad-contract.yaml" 2>/dev/null; then
+  fail "invalid REST contract version accepted"
+fi
+pass "REST contract version validation"
 
 echo "==> verify digests against mock inspect"
 export CORE_MANIFEST_INSPECT_CMD="bash ${MOCK_INSPECT}"

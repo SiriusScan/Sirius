@@ -79,14 +79,14 @@ attest_block="$(awk '
   grab {print}
 ' "${WORKFLOW}")"
 [ -n "${attest_block}" ] || fail "missing attest-release-images job"
-printf '%s\n' "${attest_block}" | grep -Eq -- '--mode[[:space:]]+sign-and-verify' \
+grep -Eq -- '--mode[[:space:]]+sign-and-verify' <<<"${attest_block}" \
   || fail "attest job must use --mode sign-and-verify"
-if printf '%s\n' "${attest_block}" | grep -Eq -- '--mode[[:space:]]+sign([[:space:]]|$)'; then
+if grep -Eq -- '--mode[[:space:]]+sign([[:space:]]|$)' <<<"${attest_block}"; then
   fail "--mode sign alone is forbidden; require --mode sign-and-verify"
 fi
-printf '%s\n' "${attest_block}" | grep -Eq 'id-token:\s*write' \
+grep -Eq 'id-token:[[:space:]]*write' <<<"${attest_block}" \
   || fail "attest-release-images requires id-token: write"
-printf '%s\n' "${attest_block}" | grep -Eq 'packages:\s*write' \
+grep -Eq 'packages:[[:space:]]*write' <<<"${attest_block}" \
   || fail "attest-release-images requires packages: write"
 if printf '%s\n' "${attest_block}" | grep -vE '^\s*#' | grep -Eq '(:latest|source_tag:\s*latest|image_tag:\s*latest)'; then
   fail "attest-release-images must not use mutable latest inputs"

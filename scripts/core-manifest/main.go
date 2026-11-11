@@ -54,6 +54,7 @@ type CoreManifest struct {
 	Kind          string            `json:"kind"`
 	Metadata      ManifestMetadata  `json:"metadata"`
 	Schema        ManifestSchema    `json:"schema"`
+	Contracts     map[string]string `json:"contracts,omitempty"`
 	ComponentPins map[string]string `json:"component_pins"`
 	Images        map[string]Image  `json:"images"`
 }
@@ -197,6 +198,15 @@ func validateManifest(data []byte, opt options) error {
 	}
 	if opt.expectCommit != "" && m.Metadata.Source.Commit != opt.expectCommit {
 		return fmt.Errorf("expected commit %s, got %s", opt.expectCommit, m.Metadata.Source.Commit)
+	}
+
+	if m.Contracts != nil {
+		if err := exactStringKeys(m.Contracts, []string{"rest_api"}, "contracts"); err != nil {
+			return err
+		}
+		if !regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`).MatchString(m.Contracts["rest_api"]) {
+			return fmt.Errorf("contracts.rest_api must be a semantic version")
+		}
 	}
 
 	if err := exactStringKeys(m.ComponentPins, requiredPins, "component_pins"); err != nil {

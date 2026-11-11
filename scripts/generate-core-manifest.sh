@@ -27,6 +27,7 @@ OUTPUT_PATH=""
 INVENTORY_PATH=""
 DOCKERFILE="${DOCKERFILE:-${PROJECT_ROOT}/sirius-engine/Dockerfile}"
 SCHEMA_MAP="${SCHEMA_MAP:-${PROJECT_ROOT}/scripts/core-manifest/schema_map.json}"
+OPENAPI="${OPENAPI:-${PROJECT_ROOT}/sirius-api/contracts/openapi.v1.yaml}"
 REGISTRY="${REGISTRY:-ghcr.io}"
 IMAGE_NAMESPACE="${IMAGE_NAMESPACE:-siriusscan}"
 
@@ -66,6 +67,7 @@ while [ "$#" -gt 0 ]; do
     --inventory) INVENTORY_PATH="${2:-}"; shift 2 ;;
     --dockerfile) DOCKERFILE="${2:-}"; shift 2 ;;
     --schema-map) SCHEMA_MAP="${2:-}"; shift 2 ;;
+    --openapi) OPENAPI="${2:-}"; shift 2 ;;
     --registry) REGISTRY="${2:-}"; shift 2 ;;
     --namespace) IMAGE_NAMESPACE="${2:-}"; shift 2 ;;
     -h|--help)
@@ -84,6 +86,9 @@ is_git_sha "${SOURCE_COMMIT}" || die "commit must be a full 40-char git SHA (got
 [ -f "${INVENTORY_PATH}" ] || die "inventory not found: ${INVENTORY_PATH}"
 [ -f "${DOCKERFILE}" ] || die "Dockerfile not found: ${DOCKERFILE}"
 [ -f "${SCHEMA_MAP}" ] || die "schema map not found: ${SCHEMA_MAP}"
+[ -f "${OPENAPI}" ] || die "OpenAPI contract not found: ${OPENAPI}"
+REST_CONTRACT="$(sed -nE 's/^  x-sirius-contract-version: "([0-9]+\.[0-9]+\.[0-9]+)"$/\1/p' "${OPENAPI}")"
+[[ "${REST_CONTRACT}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "OpenAPI contract version missing or invalid"
 [ -n "${OUTPUT_PATH}" ] || OUTPUT_PATH="${PROJECT_ROOT}/core-manifest.yaml"
 require_cmd jq
 
@@ -171,6 +176,7 @@ jq -n \
   --arg ledger_table "${LEDGER_TABLE}" \
   --arg latest_migration "${LATEST_MIGRATION}" \
   --arg go_api_version "${GO_API_VERSION}" \
+  --arg rest_contract "${REST_CONTRACT}" \
   --argjson component_pins "${pins_json}" \
   --argjson images "${images_json}" \
   '{
@@ -190,6 +196,7 @@ jq -n \
       latest_migration: $latest_migration,
       go_api_version: $go_api_version
     },
+    contracts: { rest_api: $rest_contract },
     component_pins: $component_pins,
     images: $images
   }' > "${OUTPUT_PATH}"

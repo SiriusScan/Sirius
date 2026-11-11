@@ -5,13 +5,13 @@ Date: 2026-07-31
 This is an accelerated, non-production track inside the existing bifurcation
 program. It does not replace or weaken the full Community/Pro acceptance criteria.
 It establishes a private Pro working-tree / Compose build root on the range so that
-development mutations stay in `OpenSecurity-Infosec/sirius-pro`, while Community is
+development mutations stay in `the private downstream repository`, while Community is
 consumed only as immutable digests. Full contract, entitlement, Reporting, and
 release tracks continue separately.
 
 ## Decision
 
-**Success for this cut** is that private `OpenSecurity-Infosec/sirius-pro` is the
+**Success for this cut** is that private `the private downstream repository` is the
 **sole mutable Compose and build root** on the approved range host, checked out at
 `/home/agi/sirius-pro`. Community is consumed only through `core.lock.yaml`
 immutable digests for tag `v1.1.0`. Canonical operator ports `:3000` (UI) and

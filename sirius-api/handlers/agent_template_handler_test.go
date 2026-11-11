@@ -1,8 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"github.com/SiriusScan/go-api/sirius/store"
+	"github.com/gofiber/fiber/v2"
+	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -190,4 +196,258 @@ func equalStrings(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+const completeAgentTemplateYAML = `# Preserve author-independent template content.
+id: test-cve-2026-0001
+x-extension:
+  enabled: true
+  values: [1, 2]
+info:
+  name: Test CVE 2026-0001
+  author: original-author
+  severity: high
+  vulnerability_id: CVE-2026-0001
+  risk_score: 9.1
+  cvss_score: 8.1
+  cvss_vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
+  cve: [CVE-2026-0001]
+  cwe: [CWE-79]
+  references: [https://example.invalid/advisory]
+  remediation: Upgrade the affected package.
+  x-info: {future: supported}
+detection:
+  logic: any
+  x-detection: {threshold: 2}
+  steps:
+    - type: command_version
+      platforms: [linux, darwin]
+      config:
+        command: [example, --version]
+        regex: vulnerable
+        x-future: {nested: [one, two]}
+    - type: file_content
+      config:
+        path: /example/fixture
+        regex: vulnerable
+`
+
+type agentTemplateStoreFake struct {
+	store.KVStore
+	values map[string]string
+	writes int
+}
+
+func (s *agentTemplateStoreFake) GetValue(_ context.Context, key string) (store.ValkeyResponse, error) {
+	return store.ValkeyResponse{Message: store.ValkeyValue{Value: s.values[key]}}, nil
+}
+func (s *agentTemplateStoreFake) SetValue(_ context.Context, key, value string) error {
+	s.values[key] = value
+	s.writes++
+	return nil
+}
+func (s *agentTemplateStoreFake) DeleteValue(_ context.Context, key string) error {
+	delete(s.values, key)
+	return nil
+}
+func (s *agentTemplateStoreFake) Close() error { return nil }
+
+func exerciseAgentTemplate(t *testing.T, method, path string, handler fiber.Handler, body interface{}) (int, map[string]interface{}) {
+	t.Helper()
+	app := fiber.New()
+	app.Add(method, "/api/agent-templates/:id?", handler)
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(method, path, strings.NewReader(string(encoded)))
+	req.Header.Set("Content-Type", "application/json")
+	response, err := app.Test(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var result map[string]interface{}
+	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	return response.StatusCode, result
+}
+
+func TestAgentTemplateSavePreservesYAML(t *testing.T) {
+	for _, update := range []bool{false, true} {
+		for _, author := range []string{"", "replacement-author"} {
+			t.Run(fmt.Sprintf("update=%v/author=%q", update, author), func(t *testing.T) {
+				storeFake := &agentTemplateStoreFake{values: map[string]string{}}
+				created := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
+				if update {
+					record := &templates.TemplateRecord{ID: "test-cve-2026-0001", Created: created, IsCustom: false}
+					metadata, err := templates.EncodeMeta(record)
+					if err != nil {
+						t.Fatal(err)
+					}
+					storeFake.values[templates.AgentTemplateMetaKey(record.ID)] = string(metadata)
+				}
+				notifications := 0
+				h := agentTemplateHandler{
+					newStore: func() (store.KVStore, error) { return storeFake, nil },
+					notify: func(id, source string) error {
+						if id != "test-cve-2026-0001" || source != "sirius-api" {
+							t.Errorf("unexpected notification: %s %s", id, source)
+						}
+						notifications++
+						return nil
+					},
+				}
+				method, path, handler := "POST", "/api/agent-templates", h.UploadAgentTemplate
+				if update {
+					method, path, handler = "PUT", path+"/test-cve-2026-0001", h.UpdateAgentTemplate
+				}
+				status, response := exerciseAgentTemplate(t, method, path, handler, map[string]string{"content": completeAgentTemplateYAML, "author": author})
+				if status != 200 {
+					t.Fatalf("response = %d %v", status, response)
+				}
+				record, err := templates.ReadTemplate(context.Background(), storeFake, "test-cve-2026-0001")
+				if err != nil || record == nil {
+					t.Fatalf("missing persisted envelope: %v", err)
+				}
+				var expected, actual map[string]interface{}
+				if err := yaml.Unmarshal([]byte(completeAgentTemplateYAML), &expected); err != nil {
+					t.Fatal(err)
+				}
+				if author != "" {
+					expected["info"].(map[string]interface{})["author"] = author
+				}
+				if err := yaml.Unmarshal(record.Content, &actual); err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(actual, expected) {
+					t.Fatalf("persisted YAML changed beyond author:\ngot: %#v\nwant: %#v", actual, expected)
+				}
+				if author == "" && string(record.Content) != completeAgentTemplateYAML {
+					t.Fatal("no author override must preserve exact bytes")
+				}
+				if !strings.Contains(string(record.Content), "# Preserve author-independent template content.") {
+					t.Fatal("lost YAML comment")
+				}
+				if record.Author != expected["info"].(map[string]interface{})["author"] {
+					t.Fatalf("metadata author = %q", record.Author)
+				}
+				if record.Checksum != templates.SHA256Hex(record.Content) || response["checksum"] != record.Checksum || record.Size != int64(len(record.Content)) {
+					t.Fatal("stored checksum or size does not match preserved content")
+				}
+				if update && (!record.Created.Equal(created) || record.IsCustom) {
+					t.Fatal("update changed built-in identity or creation time")
+				}
+				if storeFake.writes != 2 || notifications != 1 {
+					t.Fatalf("writes=%d notifications=%d", storeFake.writes, notifications)
+				}
+			})
+		}
+	}
+}
+
+func TestAgentTemplateAuthorLegacyAndAliases(t *testing.T) {
+	for _, content := range []string{
+		"id: legacy\nname: Legacy\nseverity: low\ndetection: {logic: any}\n",
+		"defaults: &details {name: Test, severity: high, author: original}\nid: aliased\ninfo: *details\ndetection: {logic: any}\n",
+		"defaults: &details {name: Test, severity: high, author: original}\nid: merged\ninfo: {<<: *details}\ndetection: {logic: any}\n",
+		"id: anchored-author\ninfo: {name: Test, severity: high, author: &author original}\nother-author: *author\ndetection: {logic: any}\n",
+		"id: anchored-info\ninfo: &details {name: Test, severity: high, author: original}\ndefaults: *details\ndetection: {logic: any}\n",
+		"base: &base {info: {name: Test, severity: high, author: original}}\n<<: *base\nid: merged-root\ndetection: {logic: any}\n",
+	} {
+		raw, err := templateContentWithAuthor(content, "replacement")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var value map[string]interface{}
+		if err := yaml.Unmarshal(raw, &value); err != nil {
+			t.Fatal(err)
+		}
+		if value["info"].(map[string]interface{})["author"] != "replacement" {
+			t.Fatalf("missing replacement author: %s", raw)
+		}
+		if value["detection"].(map[string]interface{})["logic"] != "any" {
+			t.Fatalf("lost detection logic: %s", raw)
+		}
+		if defaults, ok := value["defaults"].(map[string]interface{}); ok && defaults["author"] != "original" {
+			t.Fatal("changed source of alias")
+		}
+		if other, ok := value["other-author"]; ok && other != "original" {
+			t.Fatal("changed an alias of the original author")
+		}
+		if value["id"] != "legacy" && value["info"].(map[string]interface{})["name"] != "Test" {
+			t.Fatal("lost inherited info fields")
+		}
+	}
+}
+
+func TestAgentTemplateTestTargetsConnectedAgent(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		body   map[string]interface{}
+		status int
+		sends  int
+	}{
+		{"selected agent", map[string]interface{}{"agentId": " agent-one "}, 200, 1},
+		{"missing agent", map[string]interface{}{}, 400, 0},
+		{"wrong casing", map[string]interface{}{"agent_id": "agent-one"}, 400, 0},
+		{"all is not an agent", map[string]interface{}{"agentId": "all"}, 400, 0},
+		{"disconnected agent", map[string]interface{}{"agentId": "offline"}, 400, 0},
+		{"wrong type", map[string]interface{}{"agentId": 123}, 400, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &agentTemplateStoreFake{values: map[string]string{"connected_agents": `["agent-one","agent-two"]`}}
+			sends := 0
+			h := agentTemplateHandler{newStore: func() (store.KVStore, error) { return s, nil }, send: func(queue, body string) error {
+				sends++
+				if queue != "agent_commands" {
+					t.Errorf("wrong queue: %s", queue)
+				}
+				var command map[string]interface{}
+				if err := json.Unmarshal([]byte(body), &command); err != nil {
+					t.Fatal(err)
+				}
+				if command["agentId"] != "agent-one" || command["template_id"] != "test-cve-2026-0001" || command["command"] != "internal:template-scan --template-id=test-cve-2026-0001" {
+					t.Errorf("wrong dispatch: %v", command)
+				}
+				if command["noReply"] != true || command["responseQueue"] != nil || command["correlationId"] != nil {
+					t.Errorf("queued template test must not leave an unconsumed ACK: %v", command)
+				}
+				target, ok := command["target"].(map[string]interface{})
+				if !ok || target["type"] != "agent" || target["id"] != "agent-one" {
+					t.Errorf("invalid agent-server target: %v", command["target"])
+				}
+				return nil
+			}}
+			status, response := exerciseAgentTemplate(t, "POST", "/api/agent-templates/test-cve-2026-0001", h.TestAgentTemplate, tc.body)
+			if status != tc.status || sends != tc.sends {
+				t.Fatalf("status=%d response=%v sends=%d", status, response, sends)
+			}
+			if s.writes != 0 {
+				t.Fatal("test must not modify templates")
+			}
+		})
+	}
+}
+
+func TestAgentTemplateTestRejectsFlagInjection(t *testing.T) {
+	h := agentTemplateHandler{newStore: func() (store.KVStore, error) {
+		t.Fatal("invalid template ID reached store")
+		return nil, nil
+	}}
+	for _, path := range []string{"/api/agent-templates", "/api/agent-templates/id%20--all", "/api/agent-templates/id%09--directory"} {
+		app := fiber.New(fiber.Config{UnescapePath: true})
+		app.Post("/api/agent-templates/:id?", h.TestAgentTemplate)
+		req := httptest.NewRequest("POST", path, strings.NewReader(`{"agentId":"agent-one"}`))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 400 {
+			t.Fatalf("path %q status=%d", path, resp.StatusCode)
+		}
+	}
 }

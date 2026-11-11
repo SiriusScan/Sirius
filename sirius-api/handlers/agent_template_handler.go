@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/SiriusScan/go-api/sirius/queue"
 	"github.com/SiriusScan/go-api/sirius/store"
@@ -45,8 +46,9 @@ type AgentTemplateJSON struct {
 	VulnerabilityIDs []string `json:"vulnerability_ids"`
 }
 
-// AgentTemplateYAML represents the decoded YAML content structure
-// Supports both old format (metadata at root) and new format (metadata under info)
+// AgentTemplateYAML is a metadata projection, never a serialization model.
+// Supports legacy root metadata and metadata under info. Save the original
+// document so newer detection and info fields survive author updates.
 type AgentTemplateYAML struct {
 	ID          string   `yaml:"id"`
 	Name        string   `yaml:"name"`        // Legacy: at root level
@@ -66,6 +68,92 @@ type AgentTemplateYAML struct {
 	Detection struct {
 		Steps []map[string]interface{} `yaml:"steps"`
 	} `yaml:"detection"`
+}
+
+// templateContentWithAuthor changes only info.author in the original YAML tree.
+// Marshaling AgentTemplateYAML would silently discard detection.logic, risk
+// scores, vulnerability details, and any fields added by newer agents.
+func templateContentWithAuthor(content, author string) ([]byte, error) {
+	if author == "" {
+		return []byte(content), nil
+	}
+	var document yaml.Node
+	if err := yaml.Unmarshal([]byte(content), &document); err != nil {
+		return nil, err
+	}
+	if len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("template must be a YAML mapping")
+	}
+	root := document.Content[0]
+	// Expand aliases before editing so changing an anchored author/info does not
+	// also change unrelated fields or leave dangling references. This also
+	// preserves an info mapping inherited through a root-level merge.
+	if templateYAMLHasAliases(root) {
+		var fields map[string]interface{}
+		if err := document.Decode(&fields); err != nil {
+			return nil, err
+		}
+		info, ok := fields["info"].(map[string]interface{})
+		if !ok {
+			if _, exists := fields["info"]; exists {
+				return nil, fmt.Errorf("template info must be a YAML mapping")
+			}
+			info = map[string]interface{}{}
+			fields["info"] = info
+		}
+		info["author"] = author
+		return yaml.Marshal(fields)
+	}
+	var info *yaml.Node
+	for i := 0; i < len(root.Content); i += 2 {
+		if root.Content[i].Value == "info" {
+			info = root.Content[i+1]
+			break
+		}
+	}
+	if info == nil {
+		info = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "info"}, info)
+	}
+	if info.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("template info must be a YAML mapping")
+	}
+	authorNode := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: author}
+	for i := 0; i < len(info.Content); i += 2 {
+		if info.Content[i].Value == "author" {
+			// Keep comments attached to the author field, too.
+			authorNode.HeadComment = info.Content[i+1].HeadComment
+			authorNode.LineComment = info.Content[i+1].LineComment
+			authorNode.FootComment = info.Content[i+1].FootComment
+			info.Content[i+1] = authorNode
+			return yaml.Marshal(&document)
+		}
+	}
+	info.Content = append(info.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "author"}, authorNode)
+	return yaml.Marshal(&document)
+}
+
+func templateYAMLHasAliases(node *yaml.Node) bool {
+	if node.Kind == yaml.AliasNode {
+		return true
+	}
+	for _, child := range node.Content {
+		if templateYAMLHasAliases(child) {
+			return true
+		}
+	}
+	return false
+}
+
+// Dependencies are scoped per handler so tests never need a live store or queue.
+type agentTemplateHandler struct {
+	newStore func() (store.KVStore, error)
+	notify   func(string, string) error
+	send     func(string, string) error
+}
+
+func newAgentTemplateHandler() agentTemplateHandler {
+	return agentTemplateHandler{newStore: store.NewValkeyStore, notify: publishNotifyAgents, send: queue.Send}
 }
 
 // GetName returns name from info section or root level
@@ -351,6 +439,10 @@ func GetAgentTemplate(c *fiber.Ctx) error {
 
 // UploadAgentTemplate uploads a new custom template
 func UploadAgentTemplate(c *fiber.Ctx) error {
+	return newAgentTemplateHandler().UploadAgentTemplate(c)
+}
+
+func (h agentTemplateHandler) UploadAgentTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	type UploadRequest struct {
@@ -381,14 +473,15 @@ func UploadAgentTemplate(c *fiber.Ctx) error {
 		})
 	}
 
+	rawYAML, err := templateContentWithAuthor(request.Content, request.Author)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Failed to update template author",
+		})
+	}
 	if request.Author != "" {
 		yamlTemplate.Info.Author = request.Author
-		updatedYAML, mErr := yaml.Marshal(yamlTemplate)
-		if mErr == nil {
-			request.Content = string(updatedYAML)
-		}
 	}
-	rawYAML := []byte(request.Content)
 
 	rec, checksum, err := buildTemplateRecord(&yamlTemplate, rawYAML, true, time.Time{})
 	if err != nil {
@@ -398,7 +491,7 @@ func UploadAgentTemplate(c *fiber.Ctx) error {
 		})
 	}
 
-	kvStore, err := store.NewValkeyStore()
+	kvStore, err := h.newStore()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to connect to database",
@@ -413,7 +506,7 @@ func UploadAgentTemplate(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := publishNotifyAgents(yamlTemplate.ID, "sirius-api"); err != nil {
+	if err := h.notify(yamlTemplate.ID, "sirius-api"); err != nil {
 		slog.Warn("Failed to publish notify_agents", "id", yamlTemplate.ID, "error", err)
 	}
 
@@ -506,7 +599,16 @@ func DeleteAgentTemplate(c *fiber.Ctx) error {
 
 // TestAgentTemplate runs a template on a specific agent
 func TestAgentTemplate(c *fiber.Ctx) error {
-	templateID := c.Params("id")
+	return newAgentTemplateHandler().TestAgentTemplate(c)
+}
+
+func (h agentTemplateHandler) TestAgentTemplate(c *fiber.Ctx) error {
+	templateID := strings.TrimSpace(c.Params("id"))
+	if templateID == "" || strings.IndexFunc(templateID, unicode.IsSpace) >= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Template id must be a non-empty value without whitespace",
+		})
+	}
 
 	type TestRequest struct {
 		AgentID string `json:"agentId"`
@@ -531,7 +633,7 @@ func TestAgentTemplate(c *fiber.Ctx) error {
 	}
 
 	// Validate the requested agent is currently known/connected.
-	kvStore, err := store.NewValkeyStore()
+	kvStore, err := h.newStore()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to connect to store",
@@ -566,25 +668,27 @@ func TestAgentTemplate(c *fiber.Ctx) error {
 		})
 	}
 
-	// Send command to agent
+	// Use app-agent's shared command queue and explicit target contract. Agents
+	// are connected over gRPC; there is no per-agent RabbitMQ command consumer.
 	message := map[string]interface{}{
-		"command":     fmt.Sprintf("internal:template-scan --template %s", templateID),
+		"command":     fmt.Sprintf("internal:template-scan --template-id=%s", templateID),
 		"template_id": templateID,
-		"agent_id":    request.AgentID,
-		"timestamp":   time.Now().Format(time.RFC3339),
+		"agentId":     request.AgentID,
+		"userId":      "sirius-api",
+		"noReply":     true, // This queued-only endpoint has no ACK consumer.
+		"target":      map[string]string{"type": "agent", "id": request.AgentID},
+		"timestamp":   time.Now().UTC().Format(time.RFC3339Nano),
 	}
 
 	msgBytes, _ := json.Marshal(message)
-	agentQueue := fmt.Sprintf("agent.%s.commands", request.AgentID)
-
-	if err := queue.Send(agentQueue, string(msgBytes)); err != nil {
+	if err := h.send("agent_commands", string(msgBytes)); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to send test command",
 		})
 	}
 
 	return c.JSON(fiber.Map{
-		"message":     "Template test initiated",
+		"message":     "Template test queued",
 		"agent_id":    request.AgentID,
 		"template_id": templateID,
 	})
@@ -597,6 +701,10 @@ func TestAgentTemplate(c *fiber.Ctx) error {
 // meta record are preserved so we never silently flip a built-in into
 // a custom one (or vice versa) just because someone hit Save.
 func UpdateAgentTemplate(c *fiber.Ctx) error {
+	return newAgentTemplateHandler().UpdateAgentTemplate(c)
+}
+
+func (h agentTemplateHandler) UpdateAgentTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 	templateID := strings.TrimSpace(c.Params("id"))
 	if templateID == "" {
@@ -637,16 +745,17 @@ func UpdateAgentTemplate(c *fiber.Ctx) error {
 		})
 	}
 
+	rawYAML, err := templateContentWithAuthor(request.Content, request.Author)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Failed to update template author",
+		})
+	}
 	if request.Author != "" {
 		yamlTemplate.Info.Author = request.Author
-		updatedYAML, mErr := yaml.Marshal(yamlTemplate)
-		if mErr == nil {
-			request.Content = string(updatedYAML)
-		}
 	}
-	rawYAML := []byte(request.Content)
 
-	kvStore, err := store.NewValkeyStore()
+	kvStore, err := h.newStore()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to connect to database",
@@ -679,7 +788,7 @@ func UpdateAgentTemplate(c *fiber.Ctx) error {
 		})
 	}
 
-	if err := publishNotifyAgents(templateID, "sirius-api"); err != nil {
+	if err := h.notify(templateID, "sirius-api"); err != nil {
 		slog.Warn("Failed to publish notify_agents", "id", templateID, "error", err)
 	}
 

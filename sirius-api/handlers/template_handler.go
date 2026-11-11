@@ -114,12 +114,20 @@ func normalizeTemplate(template *Template) {
 	template.EnabledScripts = normalizeTemplateEnabledScripts(template.EnabledScripts)
 }
 
+type scanTemplateHandler struct {
+	newStore func() (store.KVStore, error)
+}
+
 // GetTemplates returns all templates
 func GetTemplates(c *fiber.Ctx) error {
+	return (scanTemplateHandler{newStore: store.NewValkeyStore}).GetTemplates(c)
+}
+
+func (h scanTemplateHandler) GetTemplates(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	// Get ValKey store
-	kvStore, err := store.NewValkeyStore()
+	kvStore, err := h.newStore()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to connect to store",
@@ -171,16 +179,20 @@ func GetTemplates(c *fiber.Ctx) error {
 
 // GetTemplate returns a single template by ID
 func GetTemplate(c *fiber.Ctx) error {
+	return (scanTemplateHandler{newStore: store.NewValkeyStore}).GetTemplate(c)
+}
+
+func (h scanTemplateHandler) GetTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 	templateID := c.Params("id")
-	if !templateIDPattern.MatchString(templateID) {
+	if err := validateScanTemplateID(templateID); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid template id format",
+			"error": err.Error(),
 		})
 	}
 
 	// Get ValKey store
-	kvStore, err := store.NewValkeyStore()
+	kvStore, err := h.newStore()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to connect to store",
@@ -205,6 +217,10 @@ func GetTemplate(c *fiber.Ctx) error {
 
 // CreateTemplate creates a new custom template
 func CreateTemplate(c *fiber.Ctx) error {
+	return (scanTemplateHandler{newStore: store.NewValkeyStore}).CreateTemplate(c)
+}
+
+func (h scanTemplateHandler) CreateTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 
 	var template Template
@@ -231,7 +247,7 @@ func CreateTemplate(c *fiber.Ctx) error {
 	template.UpdatedAt = now
 
 	// Get ValKey store
-	kvStore, err := store.NewValkeyStore()
+	kvStore, err := h.newStore()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to connect to store",
@@ -266,11 +282,15 @@ func CreateTemplate(c *fiber.Ctx) error {
 
 // UpdateTemplate updates an existing template
 func UpdateTemplate(c *fiber.Ctx) error {
+	return (scanTemplateHandler{newStore: store.NewValkeyStore}).UpdateTemplate(c)
+}
+
+func (h scanTemplateHandler) UpdateTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 	templateID := c.Params("id")
-	if !templateIDPattern.MatchString(templateID) {
+	if err := validateScanTemplateID(templateID); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid template id format",
+			"error": err.Error(),
 		})
 	}
 
@@ -293,7 +313,7 @@ func UpdateTemplate(c *fiber.Ctx) error {
 	}
 
 	// Get ValKey store
-	kvStore, err := store.NewValkeyStore()
+	kvStore, err := h.newStore()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to connect to store",
@@ -335,16 +355,20 @@ func UpdateTemplate(c *fiber.Ctx) error {
 
 // DeleteTemplate deletes a template
 func DeleteTemplate(c *fiber.Ctx) error {
+	return (scanTemplateHandler{newStore: store.NewValkeyStore}).DeleteTemplate(c)
+}
+
+func (h scanTemplateHandler) DeleteTemplate(c *fiber.Ctx) error {
 	ctx := context.Background()
 	templateID := c.Params("id")
-	if !templateIDPattern.MatchString(templateID) {
+	if err := validateScanTemplateID(templateID); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid template id format",
+			"error": err.Error(),
 		})
 	}
 
 	// Get ValKey store
-	kvStore, err := store.NewValkeyStore()
+	kvStore, err := h.newStore()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to connect to store",
@@ -388,6 +412,9 @@ func DeleteTemplate(c *fiber.Ctx) error {
 // Helper functions
 
 func getTemplateByID(ctx context.Context, kvStore store.KVStore, id string) (*Template, error) {
+	if err := validateScanTemplateID(id); err != nil {
+		return nil, err
+	}
 	key := templateKeyPrefix + id
 	resp, err := kvStore.GetValue(ctx, key)
 	if err != nil {
@@ -404,6 +431,9 @@ func getTemplateByID(ctx context.Context, kvStore store.KVStore, id string) (*Te
 }
 
 func storeTemplate(ctx context.Context, kvStore store.KVStore, template *Template) error {
+	if err := validateScanTemplateID(template.ID); err != nil {
+		return err
+	}
 	normalizeTemplate(template)
 	templateJSON, err := json.Marshal(template)
 	if err != nil {
@@ -418,12 +448,24 @@ func storeTemplate(ctx context.Context, kvStore store.KVStore, template *Templat
 	return nil
 }
 
-func validateTemplate(template *Template) error {
-	if template.ID == "" {
+// validateScanTemplateID preserves existing document keys and IDs, except the
+// reserved ID whose document key would overwrite the shared template index.
+func validateScanTemplateID(id string) error {
+	if id == "" {
 		return fmt.Errorf("template ID is required")
 	}
-	if !templateIDPattern.MatchString(template.ID) {
+	if !templateIDPattern.MatchString(id) {
 		return fmt.Errorf("template ID format is invalid")
+	}
+	if templateKeyPrefix+id == templateListKey {
+		return fmt.Errorf("template ID %q is reserved", id)
+	}
+	return nil
+}
+
+func validateTemplate(template *Template) error {
+	if err := validateScanTemplateID(template.ID); err != nil {
+		return err
 	}
 	if template.Name == "" {
 		return fmt.Errorf("template name is required")
@@ -438,6 +480,9 @@ func validateTemplate(template *Template) error {
 }
 
 func addToTemplateList(ctx context.Context, kvStore store.KVStore, id string) error {
+	if err := validateScanTemplateID(id); err != nil {
+		return err
+	}
 	var templateList TemplateList
 	resp, err := kvStore.GetValue(ctx, templateListKey)
 	if err != nil {
@@ -476,6 +521,9 @@ func addToTemplateList(ctx context.Context, kvStore store.KVStore, id string) er
 }
 
 func removeFromTemplateList(ctx context.Context, kvStore store.KVStore, id string) error {
+	if err := validateScanTemplateID(id); err != nil {
+		return err
+	}
 	resp, err := kvStore.GetValue(ctx, templateListKey)
 	if err != nil {
 		return fmt.Errorf("failed to get template list: %w", err)

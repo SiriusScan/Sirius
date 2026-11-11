@@ -173,7 +173,7 @@ RUN sed -i "s|deb.debian.org/debian-security|archive.debian.org/debian-security|
 #     CI fallback, and SHA-AUDIT-2026-04.md (or its successor) in one PR.
 #
 # Audit doc: documentation/dev-notes/SHA-AUDIT-2026-04.md
-ARG GO_API_COMMIT_SHA=5beb7ee9e1446ef85ad99dce873014ea720b6eb9
+ARG GO_API_COMMIT_SHA=9456ba96c01890290ce054e819e7c5ba479e7481
 ARG APP_SCANNER_COMMIT_SHA=15e25fbeb2d54c26c4790330b3f5ada9e90b2f4e
 ARG APP_TERMINAL_COMMIT_SHA=5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1
 ARG SIRIUS_NSE_COMMIT_SHA=a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9

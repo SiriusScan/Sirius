@@ -240,6 +240,8 @@ services:
       - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
       # Agent/scanner legacy name; always mirror SIRIUS_API_URL to avoid URL/key drift
       - API_BASE_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
+      # Only configure for an authenticated, scope-authorizing ingestion service.
+      - SIRIUS_SCOPED_HOST_INGEST_URL=${SIRIUS_SCOPED_HOST_INGEST_URL:-}
       - AGENT_ID=${AGENT_ID:-sirius-engine}
       - HOST_ID=${HOST_ID:-sirius-engine}
       - ENABLE_SCRIPTING=${ENABLE_SCRIPTING:-true}

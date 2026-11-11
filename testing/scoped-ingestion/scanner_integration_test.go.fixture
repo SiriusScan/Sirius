@@ -1,0 +1,101 @@
+package scan
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+	"testing"
+
+	"github.com/SiriusScan/go-api/sirius"
+	"github.com/SiriusScan/go-api/sirius/contracts/message"
+	"github.com/SiriusScan/go-api/sirius/host"
+	"github.com/SiriusScan/go-api/sirius/identity"
+	"github.com/SiriusScan/go-api/sirius/migrate"
+	"github.com/SiriusScan/go-api/sirius/scope"
+	"github.com/SiriusScan/sirius-api/handlers"
+	"github.com/gofiber/fiber/v2"
+)
+
+func TestScannerToScopedHandlerPostgres(t *testing.T) {
+	if err := migrate.UpFromDefault(); err != nil {
+		t.Fatal(err)
+	}
+	app := fiber.New()
+	app.Post("/scoped", handlers.ScopedHostIngest(func(c *fiber.Ctx) (scope.ResourceScope, error) {
+		if c.Get("X-API-Key") != "fixture-key" {
+			return scope.Global(), fmt.Errorf("invalid service credential")
+		}
+		subject := c.Get("X-Sirius-Resource-Subject")
+		if subject != "alice" && subject != "bob" {
+			return scope.Global(), fmt.Errorf("invalid subject")
+		}
+		return scope.ForSubject(identity.SubjectID(subject)), nil
+	}))
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = app.Listener(listener) }()
+	defer app.Shutdown()
+	t.Setenv("SIRIUS_API_KEY_FILE", "")
+	t.Setenv("SIRIUS_API_KEY", "fixture-key")
+	for _, tc := range []struct {
+		subject string
+		port    int
+	}{{"alice", 80}, {"bob", 443}} {
+		kv := &fakeKVStore{data: map[string]string{"scan:" + tc.subject: encodeScopedScan(t, tc.subject, tc.subject)}}
+		mgr := &ScanManager{ctx: context.Background(), kvStore: kv, scopedIngestURL: "http://" + listener.Addr().String() + "/scoped", apiBaseURL: "http://127.0.0.1:1", apiHTTPClient: &http.Client{}}
+		job := message.ScanJob{ScanID: tc.subject, Targets: []message.ScanTarget{{Value: "192.0.2.1", Type: "single_ip"}}, StateMode: "keyed"}
+		msg, err := decodeScanMessage(envelopeTestData(t, message.ScanRequested, job, tc.subject))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = mgr.validateScanMessage(&msg); err != nil {
+			t.Fatal(err)
+		}
+		run, err := mgr.newKeyedRunForSubject(msg.ID, msg.ResourceScope.OwnerSubjectID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = run.submitHostWithSource(sirius.Host{IP: "192.0.2.1", Ports: []sirius.Port{{Number: tc.port, Protocol: "tcp", State: "open"}}}, "test"); err != nil {
+			t.Fatal(err)
+		}
+		run.finishKeyedRun()
+	}
+	for _, tc := range []struct {
+		subject string
+		port    int
+	}{{"alice", 80}, {"bob", 443}} {
+		h, err := host.GetHostScoped(scope.ForSubject(identity.SubjectID(tc.subject)), "192.0.2.1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(h.Ports) != 1 || h.Ports[0].Number != tc.port {
+			t.Fatalf("scope %s ports %+v", tc.subject, h.Ports)
+		}
+	}
+	// A rejected credential must fail the scan and must not fall back to global ingestion.
+	t.Setenv("SIRIUS_API_KEY", "wrong-key")
+	kv := &fakeKVStore{data: map[string]string{"scan:denied": encodeScopedScan(t, "denied", "alice")}}
+	mgr := &ScanManager{ctx: context.Background(), kvStore: kv, scopedIngestURL: "http://" + listener.Addr().String() + "/scoped", apiBaseURL: "http://127.0.0.1:1", apiHTTPClient: &http.Client{}}
+	run, err := mgr.newKeyedRunForSubject("denied", "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = run.submitHostWithSource(sirius.Host{IP: "192.0.2.2"}, "test"); err == nil {
+		t.Fatal("invalid service credential accepted")
+	}
+	if _, err := host.GetHost("192.0.2.2"); err == nil {
+		t.Fatal("global fallback after denied scoped request")
+	}
+	if _, err := host.GetHostScoped(scope.ForSubject("alice"), "192.0.2.2"); err == nil {
+		t.Fatal("denied scoped request persisted")
+	}
+	if _, err := host.GetHost("192.0.2.1"); err == nil {
+		t.Fatal("global lookup exposed scoped host")
+	}
+	if _, err := host.GetHostScoped(scope.ForSubject("charlie"), "192.0.2.1"); err == nil {
+		t.Fatal("cross-scope fallback")
+	}
+}

@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Disposable, opt-in cross-repository scoped ingestion integration test.
+set -euo pipefail
+
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+test_dir=$(mktemp -d)
+container_id=""
+cleanup() {
+  if [[ -n "$container_id" ]]; then docker stop "$container_id" >/dev/null 2>&1 || true; fi
+  rm -rf -- "$test_dir"
+}
+trap cleanup EXIT
+
+# These are immutable public revisions. Update only after reviewing compatibility.
+scanner_commit=15e25fbeb2d54c26c4790330b3f5ada9e90b2f4e
+ping_commit=9508a16c40a49746feb7cab4b8c1c358246169b0
+
+git clone --quiet --no-checkout https://github.com/SiriusScan/app-scanner.git "$test_dir/scanner"
+git -C "$test_dir/scanner" checkout --quiet --detach "$scanner_commit"
+git clone --quiet --no-checkout https://github.com/SiriusScan/pingpp.git "$test_dir/pingpp"
+git -C "$test_dir/pingpp" checkout --quiet --detach "$ping_commit"
+cp "$repo_root/testing/scoped-ingestion/scanner_integration_test.go.fixture" "$test_dir/scanner/internal/scan/crossrepo_integration_test.go"
+(
+  cd "$test_dir/scanner"
+  GOWORK=off go mod edit -require=github.com/SiriusScan/sirius-api@v0.0.0
+  GOWORK=off go mod edit "-replace=github.com/SiriusScan/sirius-api=$repo_root/sirius-api"
+)
+cat > "$test_dir/go.work" <<WORKSPACE
+go 1.24.0
+
+use (
+ $test_dir/scanner
+ $repo_root/sirius-api
+)
+replace github.com/SiriusScan/ping++ => $test_dir/pingpp
+WORKSPACE
+
+# Random host port and trust authentication are confined to this disposable DB.
+container_id=$(docker run -d --rm -e POSTGRES_HOST_AUTH_METHOD=trust -e POSTGRES_DB=sirius -p 127.0.0.1::5432 postgres:16)
+for attempt in {1..30}; do
+  if docker exec "$container_id" pg_isready -U postgres >/dev/null 2>&1; then break; fi
+  if [[ "$attempt" == 30 ]]; then echo 'Postgres did not become ready' >&2; exit 1; fi
+  sleep 1
+done
+port=$(docker port "$container_id" 5432/tcp | sed 's/.*://')
+(
+  cd "$test_dir/scanner"
+  DB_HOST=127.0.0.1 DB_PORT="$port" DB_USER=postgres DB_NAME=sirius DB_SSLMODE=disable \
+    GOWORK="$test_dir/go.work" go test -race ./internal/scan -run '^TestScannerToScopedHandlerPostgres$' -count=1
+)

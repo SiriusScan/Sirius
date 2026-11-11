@@ -91,8 +91,8 @@ jobs:
               echo "sirius_infra_changes=true" >> $GITHUB_OUTPUT
             fi
 
-            # Dockerfile or CI changes trigger a full rebuild
-            if grep -q -E "(Dockerfile|\.github/|docker-compose)" changed_files.txt; then
+            # Dockerfile, CI, or release metadata tooling changes require a full inventory
+            if grep -q -E "(Dockerfile|\.github/|docker-compose|^scripts/(core-manifest/|generate-core-manifest\.sh|snapshot-core-build-inventory\.sh))" changed_files.txt; then
               echo "Docker or CI changes detected, rebuilding everything"
               echo "sirius_ui_changes=true" >> $GITHUB_OUTPUT
               echo "sirius_api_changes=true" >> $GITHUB_OUTPUT

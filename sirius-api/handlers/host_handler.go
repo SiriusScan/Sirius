@@ -2,18 +2,19 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net"
 	"strconv"
 	"strings"
 
-	"github.com/SiriusScan/go-api/nvd"
 	"github.com/SiriusScan/go-api/sirius"
 	"github.com/SiriusScan/go-api/sirius/host"
 	"github.com/SiriusScan/go-api/sirius/postgres"
 	"github.com/SiriusScan/go-api/sirius/postgres/models"
 	"github.com/SiriusScan/go-api/sirius/vulnerability"
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 func isValidSingleHostIP(ip string) bool {
@@ -164,14 +165,8 @@ func GetHostVulnerabilitySeverityCounts(c *fiber.Ctx) error {
 // post-processed SQL results and only retained rows where host_count == 1, which hid CVEs
 // affecting multiple hosts and could yield an empty list while host views still showed vulns.
 func GetAllVulnerabilities(c *fiber.Ctx) error {
-	db := postgres.GetDB()
 	var rows []host.VulnerabilitySummary
-	err := db.Model(&models.Vulnerability{}).
-		Select("vulnerabilities.v_id, vulnerabilities.title, vulnerabilities.description, vulnerabilities.risk_score, count(host_vulnerabilities.host_id) as host_count").
-		Joins("LEFT JOIN host_vulnerabilities ON host_vulnerabilities.vulnerability_id = vulnerabilities.id").
-		Group("vulnerabilities.id").
-		Having("count(host_vulnerabilities.host_id) > 0").
-		Scan(&rows).Error
+	err := allHostVulnerabilitiesQuery(postgres.GetDB()).Scan(&rows).Error
 	if err != nil {
 		slog.Error("GetAllVulnerabilities failed", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -185,6 +180,17 @@ func GetAllVulnerabilities(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(rows)
+}
+
+// Keep this query compatible with older SDK versions while counting current
+// affected hosts, not source-attribution rows. Inner joins omit unobserved CVEs.
+func allHostVulnerabilitiesQuery(db *gorm.DB) *gorm.DB {
+	return db.Table("vulnerabilities").
+		Select("vulnerabilities.v_id, vulnerabilities.title, vulnerabilities.description, vulnerabilities.risk_score, COUNT(DISTINCT hosts.id) AS host_count").
+		Joins("JOIN host_vulnerabilities ON host_vulnerabilities.vulnerability_id = vulnerabilities.id AND host_vulnerabilities.status = ?", "active").
+		Joins("JOIN hosts ON hosts.id = host_vulnerabilities.host_id").
+		Where("hosts.deleted_at IS NULL AND vulnerabilities.deleted_at IS NULL").
+		Group("vulnerabilities.id, vulnerabilities.v_id, vulnerabilities.title, vulnerabilities.description, vulnerabilities.risk_score")
 }
 
 // AddHost handles the POST /host route
@@ -215,60 +221,28 @@ func AddHost(c *fiber.Ctx) error {
 	source := detectSourceFromRequest(c)
 	slog.Info("Detected source", "name", source.Name, "version", source.Version)
 
-	// Check all host vulns to confirm that they all exist in the database. If they do not, add them.
+	report := host.Report{Host: newHost, Source: source}
+	if source.Name == "unknown" {
+		report.Source = models.ScanSource{Name: "legacy", Version: "unknown", Config: "backward_compatibility"}
+	}
+	if err := host.ValidateReport(report); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	enrichmentCtx, cancelEnrichment := newNVDEnrichmentContext(c)
+	defer cancelEnrichment()
+	// Enrichment is read-only until the complete report is committed. Keep
+	// enriched catalog data separate from the original scanner evidence.
 	for _, vuln := range newHost.Vulnerabilities {
 		if !vulnerability.CheckVulnerabilityExists(vuln.VID) {
-			slog.Info("Vulnerability not in database, adding", "vid", vuln.VID)
-
-			cve, err := nvd.GetCVE(vuln.VID)
-			if err != nil {
-				slog.Warn("Failed to get CVE data", "vid", vuln.VID, "error", err)
-				// Use provided vulnerability data as fallback
-				vuln = sirius.Vulnerability{
-					VID:         vuln.VID,
-					Description: vuln.Description,
-					Title:       vuln.Title,
-					RiskScore:   vuln.RiskScore,
-				}
-			} else {
-				// Safely extract CVE data with fallbacks
-				description := vuln.Description
-				if len(cve.Descriptions) > 0 {
-					description = cve.Descriptions[0].Value
-				}
-
-				title := vuln.Title
-				if cve.ID != "" {
-					title = cve.ID
-				}
-
-				riskScore := vuln.RiskScore
-				if len(cve.Metrics.CvssMetricV31) > 0 {
-					riskScore = cve.Metrics.CvssMetricV31[0].CvssData.BaseScore
-				}
-
-				vuln = sirius.Vulnerability{
-					VID:         vuln.VID,
-					Description: description,
-					Title:       title,
-					RiskScore:   riskScore,
-				}
-			}
-
-			err = vulnerability.AddVulnerability(vuln)
-			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Error adding vulnerability: " + err.Error(),
-				})
-			}
+			report.Catalog = append(report.Catalog, enrichHostVulnerability(enrichmentCtx, vuln))
 		}
 	}
 
 	// Route to source-aware function if source detected, otherwise use legacy function
 	if source.Name != "unknown" {
-		err = host.AddHostWithSource(newHost, source)
+		err = host.AddReport(report)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			return c.Status(hostReportErrorStatus(err)).JSON(fiber.Map{
 				"error": "Error adding host with source: " + err.Error(),
 			})
 		}
@@ -291,9 +265,9 @@ func AddHost(c *fiber.Ctx) error {
 		return c.JSON(response)
 	} else {
 		// Fallback to legacy function for backward compatibility
-		err = host.AddHost(newHost)
+		err = host.AddReport(report)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			return c.Status(hostReportErrorStatus(err)).JSON(fiber.Map{
 				"error": "Error adding host: " + err.Error(),
 			})
 		}
@@ -631,63 +605,26 @@ func AddHostWithSource(c *fiber.Ctx) error {
 		})
 	}
 
-	// Ensure vulnerabilities exist in database (same logic as original AddHost)
+	report := host.Report{Host: request.Host, Source: request.Source,
+		SoftwareInventory: enhancedRequest.SoftwareInventory,
+		SystemFingerprint: enhancedRequest.SystemFingerprint,
+		AgentMetadata:     enhancedRequest.AgentMetadata}
+	if err := host.ValidateReport(report); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	enrichmentCtx, cancelEnrichment := newNVDEnrichmentContext(c)
+	defer cancelEnrichment()
 	for _, vuln := range request.Host.Vulnerabilities {
 		if !vulnerability.CheckVulnerabilityExists(vuln.VID) {
-			slog.Info("Vulnerability not in database, adding", "vid", vuln.VID)
-
-			cve, err := nvd.GetCVE(vuln.VID)
-			if err != nil {
-				slog.Warn("Failed to get CVE data", "vid", vuln.VID, "error", err)
-				// Use provided vulnerability data as fallback
-				vuln = sirius.Vulnerability{
-					VID:         vuln.VID,
-					Description: vuln.Description,
-					Title:       vuln.Title,
-					RiskScore:   vuln.RiskScore,
-				}
-			} else {
-				// Safely extract CVE data with fallbacks
-				description := vuln.Description
-				if len(cve.Descriptions) > 0 {
-					description = cve.Descriptions[0].Value
-				}
-
-				title := vuln.Title
-				if cve.ID != "" {
-					title = cve.ID
-				}
-
-				riskScore := vuln.RiskScore
-				if len(cve.Metrics.CvssMetricV31) > 0 {
-					riskScore = cve.Metrics.CvssMetricV31[0].CvssData.BaseScore
-				}
-
-				vuln = sirius.Vulnerability{
-					VID:         vuln.VID,
-					Description: description,
-					Title:       title,
-					RiskScore:   riskScore,
-				}
-			}
-
-			err = vulnerability.AddVulnerability(vuln)
-			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Error adding vulnerability: " + err.Error(),
-				})
-			}
+			report.Catalog = append(report.Catalog, enrichHostVulnerability(enrichmentCtx, vuln))
 		}
 	}
 
 	// Use enhanced source-aware function if we have enhanced data
 	if hasEnhancedData {
-		err := host.AddHostWithSourceAndJSONB(request.Host, request.Source,
-			enhancedRequest.SoftwareInventory,
-			enhancedRequest.SystemFingerprint,
-			enhancedRequest.AgentMetadata)
+		err := host.AddReport(report)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			return c.Status(hostReportErrorStatus(err)).JSON(fiber.Map{
 				"error": "Error adding host with enhanced data: " + err.Error(),
 			})
 		}
@@ -703,9 +640,9 @@ func AddHostWithSource(c *fiber.Ctx) error {
 		})
 	} else {
 		// Use standard source-aware function
-		err := host.AddHostWithSource(request.Host, request.Source)
+		err := host.AddReport(report)
 		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			return c.Status(hostReportErrorStatus(err)).JSON(fiber.Map{
 				"error": "Error adding host with source: " + err.Error(),
 			})
 		}
@@ -1005,4 +942,12 @@ func GetHostSoftwareStats(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(response)
+}
+
+// Validation failures are caller errors; persistence/commit failures remain 500.
+func hostReportErrorStatus(err error) int {
+	if errors.Is(err, host.ErrInvalidReport) {
+		return fiber.StatusBadRequest
+	}
+	return fiber.StatusInternalServerError
 }

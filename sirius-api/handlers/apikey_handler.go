@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"regexp"
+	"strings"
 
 	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/gofiber/fiber/v2"
@@ -24,15 +25,17 @@ func (h *APIKeyHandler) CreateKey(c *fiber.Ctx) error {
 		OwnerSubjectID string   `json:"owner_subject_id"`
 		Scopes         []string `json:"scopes"`
 	}
-	if err := c.BodyParser(&body); err != nil {
-		body.Label = "Unnamed key"
+	if len(c.Body()) > 0 {
+		if err := c.BodyParser(&body); err != nil {
+			return c.SendStatus(fiber.StatusBadRequest)
+		}
 	}
 	if body.Label == "" {
 		body.Label = "Unnamed key"
 	}
 
 	scopes, err := store.NormalizeAPIKeyScopes(body.Scopes)
-	if err != nil || (body.OwnerSubjectID != "" && len(scopes) == 0) {
+	if err != nil || strings.TrimSpace(body.OwnerSubjectID) != body.OwnerSubjectID || (body.OwnerSubjectID != "" && len(scopes) == 0) {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid key scope"})
 	}
 	if meta, ok := c.Locals("apikey_meta").(store.APIKeyMeta); ok && !meta.AllowsUnrestricted() {

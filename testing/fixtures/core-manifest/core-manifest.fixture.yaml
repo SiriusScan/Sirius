@@ -13,7 +13,7 @@
   "schema": {
     "ledger_table": "schema_migrations_core",
     "latest_migration": "010_host_resource_scope",
-    "go_api_version": "9456ba96c01890290ce054e819e7c5ba479e7481"
+    "go_api_version": "2ceb0951105d9f322b9825210e84086632b624b3"
   },
   "contracts": {
     "rest_api": "1.0.0",
@@ -38,8 +38,8 @@
   "component_dependencies": {
     "sirius-api": {
       "source_commit": "0123456789abcdef0123456789abcdef01234567",
-      "go_api_version": "v0.0.27",
-      "go_api_commit": "9456ba96c01890290ce054e819e7c5ba479e7481"
+      "go_api_version": "v0.0.29",
+      "go_api_commit": "2ceb0951105d9f322b9825210e84086632b624b3"
     },
     "app-scanner": {
       "go_api_version": "v0.0.26",
@@ -55,7 +55,7 @@
   "component_pins": {
     "APP_SYSTEM_MONITOR_COMMIT_SHA": "d4780cff46c98d6d030d03a4c73a40a78c7895ae",
     "APP_ADMINISTRATOR_COMMIT_SHA": "142ac93b620ac8a52a033f312fc2cb86c1f2979d",
-    "GO_API_COMMIT_SHA": "9456ba96c01890290ce054e819e7c5ba479e7481",
+    "GO_API_COMMIT_SHA": "2ceb0951105d9f322b9825210e84086632b624b3",
     "APP_SCANNER_COMMIT_SHA": "15e25fbeb2d54c26c4790330b3f5ada9e90b2f4e",
     "APP_TERMINAL_COMMIT_SHA": "5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1",
     "SIRIUS_NSE_COMMIT_SHA": "a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9",

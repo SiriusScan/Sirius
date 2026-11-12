@@ -9,6 +9,7 @@ import {
   SiriusCapabilityError,
   applySessionEnrichers,
   assertPrincipalCapabilities,
+  checkCredentialGate,
   communityPrincipalResolver,
   resolvePrincipal,
 } from "./principal";
@@ -292,11 +293,73 @@ async function assertSessionEnrichmentIsIsolated(): Promise<void> {
   assert.equal(session.user.name, "admin", "enrichment must not mutate input");
 }
 
+async function assertCredentialGateBehavior(): Promise<void> {
+  const input = { accountId: "7", accountName: "admin" };
+  assert.equal(await checkCredentialGate(null, input), true, "no gate admits");
+  assert.equal(
+    await checkCredentialGate({ id: "allow", check: () => Promise.resolve(true) }, input),
+    true,
+  );
+  assert.equal(
+    await checkCredentialGate({ id: "deny", check: () => Promise.resolve(false) }, input),
+    false,
+  );
+  assert.equal(
+    await silenceErrors(() =>
+      checkCredentialGate(
+        { id: "boom", check: () => Promise.reject(new Error("store down")) },
+        input,
+      ),
+    ),
+    false,
+    "a throwing gate must deny the sign-in",
+  );
+
+  const gated: SiriusServerExtension = {
+    id: "gated.server",
+    version: "1.0.0",
+    credentialGate: { id: "gated", check: () => Promise.resolve(true) },
+    sessionMaxAgeSeconds: 28800,
+  };
+  const registry = createServerExtensionRegistry([communityServerExtension, gated]);
+  assert.equal(registry.credentialGate?.id, "gated");
+  assert.equal(registry.sessionMaxAgeSeconds, 28800);
+
+  const communityOnly = createServerExtensionRegistry([communityServerExtension]);
+  assert.equal(communityOnly.credentialGate, null);
+  assert.equal(communityOnly.sessionMaxAgeSeconds, null);
+
+  assert.throws(
+    () =>
+      createServerExtensionRegistry([
+        gated,
+        { ...gated, id: "gated.two", credentialGate: { id: "two", check: () => Promise.resolve(true) }, sessionMaxAgeSeconds: undefined },
+      ]),
+    /Only one credential gate/,
+  );
+  assert.throws(
+    () =>
+      createServerExtensionRegistry([
+        { id: "a.server", version: "1.0.0", sessionMaxAgeSeconds: 60 },
+        { id: "b.server", version: "1.0.0", sessionMaxAgeSeconds: 120 },
+      ]),
+    /Only one session lifetime/,
+  );
+  assert.throws(
+    () =>
+      createServerExtensionRegistry([
+        { id: "bad.server", version: "1.0.0", sessionMaxAgeSeconds: 0 },
+      ]),
+    /positive number of seconds/,
+  );
+}
+
 async function runAsyncAssertions(): Promise<void> {
   await assertCommunityResolverBehavior();
   await assertPrincipalResolutionFailsClosed();
   await assertCommunityPrincipalCannotReachOverlayNamespace();
   await assertSessionEnrichmentIsIsolated();
+  await assertCredentialGateBehavior();
 }
 
 runAsyncAssertions()
@@ -308,4 +371,4 @@ runAsyncAssertions()
     process.exit(1);
   });
 
-assert.equal(extensionContractVersions.server_extension, "1.0.0");
+assert.equal(extensionContractVersions.server_extension, "1.1.0");

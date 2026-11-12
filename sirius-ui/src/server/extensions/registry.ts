@@ -1,6 +1,7 @@
 import type { SiriusCapability } from "~/contracts/capabilities";
 import { communityPrincipalResolver } from "./principal";
 import type {
+  SiriusCredentialGate,
   SiriusPrincipalResolver,
   SiriusServerExtension,
   SiriusServerRouterNamespace,
@@ -12,6 +13,8 @@ export interface SiriusServerExtensionRegistry {
   readonly routerNamespaces: readonly SiriusServerRouterNamespace[];
   readonly principalResolver: SiriusPrincipalResolver;
   readonly sessionEnrichers: readonly SiriusSessionEnricher[];
+  readonly credentialGate: SiriusCredentialGate | null;
+  readonly sessionMaxAgeSeconds: number | null;
   getRequiredCapabilitiesForNamespace: (
     namespace: string,
   ) => readonly SiriusCapability[];
@@ -104,6 +107,33 @@ export function createServerExtensionRegistry(
     );
   }
 
+  const credentialGates = orderedExtensions
+    .map((extension) => extension.credentialGate)
+    .filter(
+      (gate): gate is SiriusCredentialGate => gate !== undefined,
+    );
+
+  if (credentialGates.length > 1) {
+    throw new Error("Only one credential gate may be registered in a build");
+  }
+
+  const sessionMaxAges = orderedExtensions
+    .map((extension) => extension.sessionMaxAgeSeconds)
+    .filter((value): value is number => value !== undefined);
+
+  if (sessionMaxAges.length > 1) {
+    throw new Error(
+      "Only one session lifetime may be registered in a build",
+    );
+  }
+
+  if (
+    sessionMaxAges.length === 1 &&
+    (!Number.isFinite(sessionMaxAges[0]) || (sessionMaxAges[0] as number) <= 0)
+  ) {
+    throw new Error("Session lifetime must be a positive number of seconds");
+  }
+
   const capabilitiesByNamespace = new Map<string, readonly SiriusCapability[]>(
     routerNamespaces.map((entry) => [
       entry.namespace,
@@ -116,6 +146,8 @@ export function createServerExtensionRegistry(
     routerNamespaces: Object.freeze([...routerNamespaces]),
     principalResolver: principalResolvers[0] ?? communityPrincipalResolver,
     sessionEnrichers: Object.freeze([...sessionEnrichers]),
+    credentialGate: credentialGates[0] ?? null,
+    sessionMaxAgeSeconds: sessionMaxAges[0] ?? null,
     getRequiredCapabilitiesForNamespace: (namespace) =>
       capabilitiesByNamespace.get(namespace) ?? [],
     getRequiredCapabilitiesForProcedure: (path) =>

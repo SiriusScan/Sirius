@@ -11,6 +11,7 @@ import { env } from "~/env.mjs";
 import { prisma } from "~/server/db";
 import {
   applySessionEnrichers,
+  checkCredentialGate,
   resolvePrincipal,
   serverExtensionRegistry,
 } from "~/server/extensions";
@@ -72,7 +73,11 @@ export const authOptions: NextAuthOptions = {
   secret: env.NEXTAUTH_SECRET || undefined,
   session: {
     strategy: "jwt",
-    maxAge: 100 * 365 * 24 * 60 * 60, // 100 years in seconds - effectively indefinite
+    // A registered extension may bound the lifetime for its build;
+    // Community keeps its historical effectively-indefinite default.
+    maxAge:
+      serverExtensionRegistry.sessionMaxAgeSeconds ??
+      100 * 365 * 24 * 60 * 60,
   },
   callbacks: {
     async session({ session, token }) {
@@ -146,6 +151,18 @@ export const authOptions: NextAuthOptions = {
 
           if (!isValidPassword) {
             console.log("Invalid password for user:", credentials.username);
+            return null;
+          }
+
+          // A registered credential gate makes the final sign-in decision
+          // for this build. Community registers none.
+          const gateAllows = await checkCredentialGate(
+            serverExtensionRegistry.credentialGate,
+            { accountId: String(user.id), accountName: user.name ?? null }
+          );
+
+          if (!gateAllows) {
+            console.log("Sign-in refused by credential gate for user:", credentials.username);
             return null;
           }
 

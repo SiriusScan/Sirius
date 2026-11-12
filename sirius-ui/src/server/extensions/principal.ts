@@ -4,6 +4,8 @@ import {
 } from "~/contracts/capabilities";
 import type { SiriusCapability, SiriusPrincipal } from "~/contracts/capabilities";
 import type {
+  SiriusCredentialGate,
+  SiriusCredentialGateInput,
   SiriusPrincipalResolutionInput,
   SiriusPrincipalResolver,
   SiriusSessionEnricher,
@@ -111,4 +113,28 @@ export async function applySessionEnrichers(
   }
 
   return enriched;
+}
+
+/**
+ * Runs the registered credential gate, failing closed. With no gate
+ * registered the sign-in proceeds; a gate that refuses or throws denies it,
+ * so an unreachable edition identity store never admits a sign-in.
+ */
+export async function checkCredentialGate(
+  gate: SiriusCredentialGate | null,
+  input: SiriusCredentialGateInput,
+): Promise<boolean> {
+  if (!gate) {
+    return true;
+  }
+
+  try {
+    return await gate.check(input);
+  } catch (cause) {
+    console.error(
+      `Credential gate ${gate.id} failed; denying sign-in`,
+      cause,
+    );
+    return false;
+  }
 }

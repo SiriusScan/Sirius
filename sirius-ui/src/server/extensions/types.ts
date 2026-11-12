@@ -48,6 +48,28 @@ export interface SiriusSessionEnricher {
   ) => Session | Promise<Session>;
 }
 
+export interface SiriusCredentialGateInput {
+  /** Opaque Core account id of the record whose password already verified. */
+  accountId: string;
+  /** Login name on that account record, for the gate's own records only. */
+  accountName: string | null;
+}
+
+/**
+ * Final sign-in decision for the local credentials provider.
+ *
+ * Core verifies the password first; a registered gate may then refuse the
+ * sign-in (for example because the calling edition deactivated the account).
+ * Returning `false` or throwing denies the sign-in. Community registers no
+ * gate, so its sign-in behavior is unchanged. The gate receives only the
+ * matched account's opaque id and name; authorization stays with the
+ * principal resolver, which runs per request.
+ */
+export interface SiriusCredentialGate {
+  id: string;
+  check: (input: SiriusCredentialGateInput) => Promise<boolean>;
+}
+
 /**
  * A compile-time server extension contribution.
  *
@@ -62,4 +84,7 @@ export interface SiriusServerExtension {
   routerNamespaces?: readonly SiriusServerRouterNamespace[];
   principalResolver?: SiriusPrincipalResolver;
   sessionEnrichers?: readonly SiriusSessionEnricher[];
+  credentialGate?: SiriusCredentialGate;
+  /** Overrides the session lifetime (seconds) for this build, if set. */
+  sessionMaxAgeSeconds?: number;
 }

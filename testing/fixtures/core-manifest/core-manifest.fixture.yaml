@@ -17,7 +17,7 @@
   },
   "contracts": {
     "rest_api": "1.0.0",
-    "ui_extension": "1.0.0",
+    "ui_extension": "1.1.0",
     "server_extension": "1.1.0",
     "resource_scope": "1.0",
     "message_envelope": "1.0",

@@ -91,6 +91,7 @@ jobs:
               echo "sirius_infra_changes=true" >> $GITHUB_OUTPUT
             fi
 
+            # Release publication requires all six images from the same commit.
             # Dockerfile, CI, or release metadata tooling changes require a full inventory
             if grep -q -E "(Dockerfile|\.github/|docker-compose|^testing/fixtures/core-manifest/|^scripts/(core-manifest/|generate-core-manifest\.sh|snapshot-core-build-inventory\.sh))" changed_files.txt; then
               echo "Docker or CI changes detected, rebuilding everything"

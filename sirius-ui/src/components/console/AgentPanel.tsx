@@ -327,7 +327,7 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({
       {/* Agent List Header with Search + Filters */}
       <div className="border-b border-violet-500/20 px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+          <span className="text-sm font-semibold text-gray-200">
             Agents
           </span>
           <div className="flex items-center gap-1">
@@ -499,7 +499,7 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({
 
       {/* Virtualized Agent List */}
       <div ref={parentRef} className="flex-1 overflow-y-auto">
-        {isLoading && !agents && (
+        {isLoading && !agents && !error && (
           <div className="py-8 text-center text-xs text-gray-500">
             Loading agents...
           </div>

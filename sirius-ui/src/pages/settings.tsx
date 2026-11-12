@@ -142,8 +142,8 @@ const Settings: NextPage = () => {
                   <Input
                     type="email"
                     value={sessionData?.user?.email ?? ""}
-                    disabled
-                    className="border-gray-700 bg-gray-800/50 text-gray-500 opacity-60"
+                    readOnly
+                    className="border-gray-700 bg-gray-800/50 text-gray-300"
                   />
                 </div>
 
@@ -154,7 +154,7 @@ const Settings: NextPage = () => {
                     placeholder="Enter your user name"
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
-                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-500"
+                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
                   />
                   {profile?.name === userName && (
                     <p className="text-xs text-gray-500">Current user name</p>
@@ -182,7 +182,7 @@ const Settings: NextPage = () => {
                     placeholder="Enter current password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-500"
+                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
                   />
                 </div>
 
@@ -193,7 +193,7 @@ const Settings: NextPage = () => {
                     placeholder="Enter new password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-500"
+                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
                   />
                 </div>
 
@@ -206,7 +206,7 @@ const Settings: NextPage = () => {
                     placeholder="Confirm new password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-500"
+                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
                   />
                 </div>
 
@@ -312,7 +312,7 @@ function APIKeysPanel() {
             placeholder="Key label (e.g. CI Pipeline)"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-500"
+            className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
           />
           <Button
             type="submit"

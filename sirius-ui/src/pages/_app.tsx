@@ -1,5 +1,5 @@
 import { type Session } from "next-auth";
-import { SessionProvider } from "next-auth/react";
+import { SessionProvider, useSession } from "next-auth/react";
 import { type AppType } from "next/app";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
@@ -14,6 +14,14 @@ import {
   SiriusCapabilityProvider,
   uiExtensionRegistry,
 } from "~/ui/extensions";
+
+// Reload the capability snapshot whenever authentication changes. In particular,
+// a provider mounted on the sign-in page must not retain its anonymous snapshot.
+const SessionCapabilities = ({ children }: { children: React.ReactNode }) => {
+  const { data: session, status } = useSession();
+  const identity = session?.user?.id ?? "anonymous";
+  return <SiriusCapabilityProvider key={`${status}:${identity}`} definition={uiExtensionRegistry.capabilityProvider}>{children}</SiriusCapabilityProvider>;
+};
 
 const MyApp: AppType<{ session: Session | null }> = ({
   Component,
@@ -58,9 +66,7 @@ const MyApp: AppType<{ session: Session | null }> = ({
   return (
     <ErrorBoundary>
       <SessionProvider session={session}>
-        <SiriusCapabilityProvider
-          definition={uiExtensionRegistry.capabilityProvider}
-        >
+        <SessionCapabilities>
           <ToastProvider>
             {/* Global navigation loading overlay */}
             {isNavigating && (
@@ -70,7 +76,7 @@ const MyApp: AppType<{ session: Session | null }> = ({
             )}
             <Component {...pageProps} />
           </ToastProvider>
-        </SiriusCapabilityProvider>
+        </SessionCapabilities>
       </SessionProvider>
     </ErrorBoundary>
   );

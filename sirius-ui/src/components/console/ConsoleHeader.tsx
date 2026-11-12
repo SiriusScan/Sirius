@@ -2,12 +2,14 @@ import React from "react";
 import { cn } from "~/components/lib/utils";
 import { Terminal, Clock, UserCog, Wifi, WifiOff } from "lucide-react";
 import type { ConsoleView } from "./types";
+import type { SiriusConsoleView } from "~/ui/extensions";
 
 interface ConsoleHeaderProps {
   activeView: ConsoleView;
   onViewChange: (view: ConsoleView) => void;
-  agentCount: number;
-  onlineCount: number;
+  agentCount?: number;
+  onlineCount?: number;
+  extraViews?: readonly SiriusConsoleView[];
 }
 
 const VIEW_TABS: {
@@ -25,12 +27,13 @@ export const ConsoleHeader: React.FC<ConsoleHeaderProps> = ({
   onViewChange,
   agentCount,
   onlineCount,
+  extraViews = [],
 }) => {
-  const offlineCount = agentCount - onlineCount;
+  const offlineCount = agentCount === undefined || onlineCount === undefined ? 0 : agentCount - onlineCount;
 
   return (
     <div className="sticky top-2 z-30 mb-4 border-b border-violet-500/20 bg-gray-900/95 px-4 pb-4 pt-3 shadow-lg shadow-black/20 backdrop-blur-sm md:px-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         {/* Icon + Title group */}
         <div className="flex shrink-0 items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10 ring-2 ring-violet-500/20">
@@ -42,11 +45,12 @@ export const ConsoleHeader: React.FC<ConsoleHeaderProps> = ({
         </div>
 
         {/* Tabs with icons */}
-        <nav className="ml-1 flex shrink-0 items-center gap-1">
-          {VIEW_TABS.map(({ id, label, icon: Icon }) => (
+        <nav aria-label="Console views" className="ml-1 flex flex-wrap items-center gap-1">
+          {[...VIEW_TABS, ...extraViews].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => onViewChange(id)}
+              aria-current={activeView === id ? "page" : undefined}
               className={cn(
                 "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
                 activeView === id
@@ -65,12 +69,12 @@ export const ConsoleHeader: React.FC<ConsoleHeaderProps> = ({
 
         {/* Status indicators -- right side (pr-14 to avoid avatar overlap) */}
         <div className="flex shrink-0 items-center gap-3 pr-14">
-          <div className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
+          {onlineCount !== undefined && <div className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
             <Wifi className="h-4 w-4 text-emerald-400" />
             <span className="text-sm font-semibold text-emerald-300">
               {onlineCount} online
             </span>
-          </div>
+          </div>}
 
           {offlineCount > 0 && (
             <div className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5">
@@ -81,14 +85,14 @@ export const ConsoleHeader: React.FC<ConsoleHeaderProps> = ({
             </div>
           )}
 
-          <div className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5">
+          {agentCount !== undefined && <div className="flex items-center gap-2 whitespace-nowrap rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5">
             <span className="text-sm font-semibold text-white">
               {agentCount}
             </span>
             <span className="text-xs text-violet-300/60">
               agent{agentCount !== 1 ? "s" : ""}
             </span>
-          </div>
+          </div>}
         </div>
       </div>
     </div>

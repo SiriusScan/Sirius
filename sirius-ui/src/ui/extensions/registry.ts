@@ -1,6 +1,7 @@
 import { communityCapabilityProvider } from "./capabilities";
 import type {
   SiriusCapabilityProviderDefinition,
+  SiriusConsoleView,
   SiriusUIDashboardWidget,
   SiriusUIExtension,
   SiriusUINavigationItem,
@@ -14,6 +15,7 @@ export interface SiriusUIExtensionRegistry {
   readonly routes: readonly SiriusUIRoute[];
   readonly dashboardWidgets: readonly SiriusUIDashboardWidget[];
   readonly settingsPanels: readonly SiriusUISettingsPanel[];
+  readonly consoleViews: readonly SiriusConsoleView[];
   readonly capabilityProvider: SiriusCapabilityProviderDefinition;
   getRouteForPath: (path: string) => SiriusUIRoute | undefined;
   getRequiredCapabilitiesForPath: (
@@ -115,9 +117,11 @@ export function createUIExtensionRegistry(
   const orderedExtensions = sorted(extensions);
   assertUnique(orderedExtensions, "UI extension");
 
-  const navigationItems = orderedExtensions.flatMap(
+  const allNavigationItems = orderedExtensions.flatMap(
     (extension) => extension.navigation ?? [],
   );
+  const hiddenNavigationIds = new Set(orderedExtensions.flatMap((extension) => extension.hiddenNavigationIds ?? []));
+  const navigationItems = allNavigationItems.filter((item) => !hiddenNavigationIds.has(item.id));
   const routes = orderedExtensions.flatMap(
     (extension) => extension.routes ?? [],
   );
@@ -128,7 +132,17 @@ export function createUIExtensionRegistry(
     (extension) => extension.settingsPanels ?? [],
   );
 
-  assertUnique(navigationItems, "navigation contribution");
+  const consoleViews = orderedExtensions.flatMap((extension) => extension.consoleViews ?? []);
+  assertUnique(consoleViews, "console view");
+  for (const view of consoleViews) {
+    requireNonEmpty(view.label, `Console view ${view.id} label`);
+    if (["terminal", "history", "agent"].includes(view.id)) throw new Error(`Reserved console view id: ${view.id}`);
+  }
+
+  assertUnique(allNavigationItems, "navigation contribution");
+  for (const id of hiddenNavigationIds) {
+    if (!allNavigationItems.some((item) => item.id === id)) throw new Error(`Unknown hidden navigation id: ${id}`);
+  }
   assertUnique(routes, "route contribution");
   assertUnique(dashboardWidgets, "dashboard widget contribution");
   assertUnique(settingsPanels, "settings panel contribution");
@@ -155,6 +169,7 @@ export function createUIExtensionRegistry(
     routes: Object.freeze(sorted(routes)),
     dashboardWidgets: Object.freeze(sorted(dashboardWidgets)),
     settingsPanels: Object.freeze(sorted(settingsPanels)),
+    consoleViews: Object.freeze(sorted(consoleViews)),
     capabilityProvider:
       capabilityProviders[0] ?? communityCapabilityProvider,
     getRouteForPath: (path) => {

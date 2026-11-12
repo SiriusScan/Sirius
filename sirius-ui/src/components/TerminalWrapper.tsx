@@ -23,7 +23,7 @@ if (typeof window !== "undefined") {
   setTimeout(preloadConsole, 100);
 }
 
-export default function TerminalWrapper() {
+export default function TerminalWrapper({ initialView }: { initialView?: string }) {
   return (
     <Suspense
       fallback={
@@ -35,7 +35,7 @@ export default function TerminalWrapper() {
         </div>
       }
     >
-      <OperatorConsole />
+      <OperatorConsole initialView={initialView} />
     </Suspense>
   );
 }

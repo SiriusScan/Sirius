@@ -40,6 +40,8 @@ type OsFilter = "all" | "darwin" | "windows" | "linux" | "stale";
 interface AgentPanelProps {
   agents: Agent[] | undefined;
   isLoading: boolean;
+  error: boolean;
+  onRetry: () => void;
   selectedAgentId: string | null;
   agentDetails: DisplayedAgentDetails | null;
   isDetailsLoading: boolean;
@@ -93,6 +95,8 @@ function getOsCategory(os: string | undefined): string {
 export const AgentPanel: React.FC<AgentPanelProps> = ({
   agents,
   isLoading,
+  error,
+  onRetry,
   selectedAgentId,
   agentDetails,
   isDetailsLoading,
@@ -296,8 +300,7 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({
       <div className="border-b border-violet-500/20 px-4 py-2">
         <div className="flex items-center justify-between text-[10px]">
           <span className="font-semibold text-gray-300">
-            {stats.online}
-            <span className="text-gray-400"> / {stats.total} online</span>
+            {agents ? <>{stats.online}<span className="text-gray-400"> / {stats.total} online</span></> : "Agent status unavailable"}
           </span>
           <div className="flex items-center gap-2 text-gray-500">
             {stats.windows > 0 && <span>{stats.windows} Win</span>}
@@ -501,7 +504,8 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({
             Loading agents...
           </div>
         )}
-        {!isLoading && filteredAgents.length === 0 && (
+        {error && !agents && <div role="alert" className="p-4 text-sm text-red-300">Unable to load agents. <button onClick={onRetry} className="underline">Retry</button></div>}
+        {!isLoading && !error && filteredAgents.length === 0 && (
           <div className="py-8 text-center text-xs text-gray-500">
             {searchTerm || osFilter !== "all"
               ? "No matching agents"

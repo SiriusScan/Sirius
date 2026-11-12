@@ -41,7 +41,7 @@ export const CommandToolbar: React.FC<CommandToolbarProps> = ({
   onOpenSearch,
 }) => {
   return (
-    <div className="flex items-center justify-between border-b border-violet-500/20 bg-gray-900/30 px-4 py-2">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-violet-500/20 bg-gray-900/30 px-4 py-3">
       {/* Target indicator */}
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
@@ -62,7 +62,7 @@ export const CommandToolbar: React.FC<CommandToolbarProps> = ({
           )}
           {target.type === "engine"
             ? "Engine"
-            : target.name ?? target.id ?? "Agent"}
+            : target.name ?? "Agent"}
         </div>
 
         {multiExecMode && multiExecCount > 0 && (
@@ -74,7 +74,7 @@ export const CommandToolbar: React.FC<CommandToolbarProps> = ({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Timestamp toggle */}
         <button
           onClick={onTimestampToggle}
@@ -82,7 +82,7 @@ export const CommandToolbar: React.FC<CommandToolbarProps> = ({
             "flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors",
             timestampMode
               ? "bg-violet-500/20 text-violet-300"
-              : "text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+              : "text-gray-300 hover:bg-gray-800 hover:text-gray-300"
           )}
           title={timestampMode ? "Disable timestamps" : "Enable timestamps"}
         >
@@ -93,17 +93,17 @@ export const CommandToolbar: React.FC<CommandToolbarProps> = ({
         <div className="flex items-center gap-0.5">
           <button
             onClick={() => onFontSizeChange(-1)}
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+            className="rounded p-1 text-gray-300 transition-colors hover:bg-gray-800 hover:text-gray-300"
             title="Decrease font size (Ctrl+Shift+-)"
           >
             <Minus className="h-3 w-3" />
           </button>
-          <span className="min-w-[24px] text-center text-[10px] text-gray-500">
+          <span className="min-w-[24px] text-center text-[10px] text-gray-300">
             {fontSize}
           </span>
           <button
             onClick={() => onFontSizeChange(1)}
-            className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+            className="rounded p-1 text-gray-300 transition-colors hover:bg-gray-800 hover:text-gray-300"
             title="Increase font size (Ctrl+Shift+=)"
           >
             <Plus className="h-3 w-3" />
@@ -131,12 +131,12 @@ export const CommandToolbar: React.FC<CommandToolbarProps> = ({
             "flex items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors",
             multiExecMode
               ? "bg-violet-500/20 text-violet-300"
-              : "text-gray-500 hover:bg-gray-800 hover:text-gray-300"
+              : "text-gray-300 hover:bg-gray-800 hover:text-gray-300"
           )}
           title={multiExecMode ? "Exit multi-exec" : "Multi-exec mode"}
         >
           <Users className="h-3 w-3" />
-          Multi
+          Multi-select
         </button>
       </div>
     </div>
@@ -151,7 +151,7 @@ const ToolbarButton: React.FC<{
 }> = ({ icon: Icon, label, onClick, title }) => (
   <button
     onClick={onClick}
-    className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+    className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-300 transition-colors hover:bg-gray-800 hover:text-gray-300"
     title={title ?? label}
   >
     <Icon className="h-3 w-3" />

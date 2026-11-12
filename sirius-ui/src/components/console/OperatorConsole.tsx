@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/router";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { api } from "~/utils/api";
+import { uiExtensionRegistry, useCapabilities } from "~/ui/extensions";
 import { toast } from "sonner";
 import { XTermEmulator, type XTermEmulatorHandle } from "./XTermEmulator";
 import { AgentPanel } from "./AgentPanel";
@@ -120,10 +121,19 @@ const LOCAL_COMMANDS: Record<
 };
 
 // ─── OperatorConsole ───────────────────────────────────────────────────────────
-export default function OperatorConsole() {
+export default function OperatorConsole({ initialView }: { initialView?: string }) {
   const router = useRouter();
   const persistence = useTerminalPersistence();
   const { state: ps } = persistence;
+  const { hasAll } = useCapabilities();
+  const extraViews = uiExtensionRegistry.consoleViews.filter((view) => hasAll(view.requiredCapabilities ?? []));
+  const extraView = extraViews.find((view) => view.id === ps.activeView);
+  const activeView = ["terminal", "history", "agent"].includes(ps.activeView) || extraView ? ps.activeView : "terminal";
+  useEffect(() => {
+    if (initialView && extraViews.some((view) => view.id === initialView)) persistence.setActiveView(initialView);
+    // Only select the requested initial view when the component mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialView]);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const xtermRef = useRef<XTermEmulatorHandle>(null);
@@ -191,7 +201,14 @@ export default function OperatorConsole() {
   const agentsQuery = api.agent.listAgentsWithHosts.useQuery(undefined, {
     refetchInterval: 10000,
     refetchOnWindowFocus: false,
+    retry: false,
   });
+  const [agentsSlow, setAgentsSlow] = useState(false);
+  useEffect(() => {
+    if (!agentsQuery.isFetching || agentsQuery.data) { setAgentsSlow(false); return; }
+    const timer = setTimeout(() => setAgentsSlow(true), 12_000);
+    return () => clearTimeout(timer);
+  }, [agentsQuery.isFetching, agentsQuery.data]);
   const agentDetailsQuery = api.agent.getAgentDetails.useQuery(
     { agentId: selectedAgentId || "" },
     { enabled: !!selectedAgentId, refetchInterval: 10000 }
@@ -364,20 +381,7 @@ export default function OperatorConsole() {
   // ── Terminal ready handler ─────────────────────────────────────────────────
   const handleTerminalReady = useCallback(
     (term: XTerm) => {
-      // Welcome message
-      term.writeln(
-        "\x1b[38;2;203;166;247m╭────────────────────────────────╮"
-      );
-      term.writeln(
-        "\x1b[38;2;203;166;247m│\x1b[0m Welcome to the Sirius Terminal \x1b[38;2;203;166;247m│"
-      );
-      term.writeln(
-        "\x1b[38;2;203;166;247m╰────────────────────────────────╯\x1b[0m"
-      );
-      term.writeln("\x1b[38;2;166;227;161mHack the planet!\x1b[0m");
-      term.writeln(
-        "\x1b[38;2;137;180;250mType 'help' for available commands or use the sidebar\x1b[0m"
-      );
+      term.writeln("Type help for available commands.");
       writePrompt(term);
 
       // Check for pending re-execute command (from history view)
@@ -1620,14 +1624,15 @@ export default function OperatorConsole() {
     <div className="relative z-20 -mt-14 flex h-[calc(100%+3.5rem)] min-h-0 flex-col">
       {/* Header */}
       <ConsoleHeader
-        activeView={ps.activeView}
+        activeView={activeView}
+        extraViews={extraViews}
         onViewChange={persistence.setActiveView}
-        agentCount={agentsQuery.data?.length ?? 0}
-        onlineCount={onlineCount}
+        agentCount={agentsQuery.data?.length}
+        onlineCount={agentsQuery.data ? onlineCount : undefined}
       />
 
       {/* Terminal Tabs (Phase 4.1) */}
-      {ps.activeView === "terminal" && ps.tabs.length > 1 && (
+      {activeView === "terminal" && ps.tabs.length > 1 && (
         <TerminalTabs
           tabs={ps.tabs}
           activeTabId={ps.activeTabId}
@@ -1641,14 +1646,16 @@ export default function OperatorConsole() {
       {/* Main content */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Sidebar with resize (Phase 6.1) */}
-        <div
+        {!extraView && <div
           className="relative flex-shrink-0 border-r border-violet-500/10 bg-gray-950/50"
           style={{ width: effectiveSidebarWidth }}
         >
           {!sidebarCollapsed ? (
             <AgentPanel
               agents={agentsQuery.data}
-              isLoading={agentsQuery.isLoading}
+              isLoading={agentsQuery.isLoading && !agentsSlow}
+              error={agentsQuery.isError || agentsSlow}
+              onRetry={() => void agentsQuery.refetch()}
               selectedAgentId={selectedAgentId}
               agentDetails={combinedAgentDetails}
               isDetailsLoading={agentDetailsQuery.isLoading}
@@ -1702,9 +1709,12 @@ export default function OperatorConsole() {
           />
         </div>
 
+        }
+
         {/* Content area */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {ps.activeView === "terminal" && (
+          {extraView && <extraView.component />}
+          {activeView === "terminal" && (
             <>
               {/* Execution Progress (Phase 3.1) */}
               {multiExecProgress.isRunning && (
@@ -1745,7 +1755,7 @@ export default function OperatorConsole() {
             </>
           )}
 
-          {ps.activeView === "history" && (
+          {activeView === "history" && (
             <OutputHistory
               entries={commandHistory}
               onReExecute={handleReExecute}
@@ -1754,7 +1764,7 @@ export default function OperatorConsole() {
             />
           )}
 
-          {ps.activeView === "agent" && (
+          {activeView === "agent" && (
             <AgentDetailView
               agentId={selectedAgentId}
               details={combinedAgentDetails}

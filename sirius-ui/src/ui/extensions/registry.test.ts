@@ -293,4 +293,10 @@ assertApiCapabilityProviderFailsClosed()
     process.exit(1);
   });
 
-assert.equal(extensionContractVersions.ui_extension, "1.0.0");
+const view = { id: "extension.chat", label: "Chat", icon: TestIcon, component: () => null };
+const withView = createUIExtensionRegistry([community, { id: "extra", version: "1", consoleViews: [view], hiddenNavigationIds: ["community.dashboard"] }]);
+assert.deepEqual(withView.consoleViews.map((item) => item.id), ["extension.chat"]);
+assert.equal(withView.navigationItems.length, 0);
+assert.throws(() => createUIExtensionRegistry([{ id: "x", version: "1", consoleViews: [{ ...view, id: "terminal" }] }]), /Reserved/);
+assert.throws(() => createUIExtensionRegistry([{ id: "x", version: "1", hiddenNavigationIds: ["missing"] }]), /Unknown/);
+assert.equal(extensionContractVersions.ui_extension, "1.1.0");

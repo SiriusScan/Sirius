@@ -61,6 +61,21 @@ export interface SiriusUISettingsPanel {
 }
 
 /**
+ * An optional content view hosted in the existing operator console. IDs must
+ * be unique and cannot use the built-in terminal, history, or agent IDs.
+ * A view renders only for principals with all required capabilities; server
+ * procedures remain responsible for authoritative authorization.
+ */
+export interface SiriusConsoleView {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  component: React.ComponentType;
+  requiredCapabilities?: readonly SiriusCapability[];
+  order?: number;
+}
+
+/**
  * A compile-time UI extension contribution.
  *
  * Community registers its own declarations, while a Pro build overlays
@@ -75,5 +90,8 @@ export interface SiriusUIExtension {
   routes?: readonly SiriusUIRoute[];
   dashboardWidgets?: readonly SiriusUIDashboardWidget[];
   settingsPanels?: readonly SiriusUISettingsPanel[];
+  consoleViews?: readonly SiriusConsoleView[];
+  /** Hide existing navigation contributions by id in this assembled build. */
+  hiddenNavigationIds?: readonly string[];
   capabilityProvider?: SiriusCapabilityProviderDefinition;
 }

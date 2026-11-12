@@ -36,7 +36,7 @@ export type ParsedAgentStatus = {
   goroutines?: string;
 };
 
-export type ConsoleView = "terminal" | "history" | "agent";
+export type ConsoleView = string;
 
 export interface CommandHistoryEntry {
   id: string;

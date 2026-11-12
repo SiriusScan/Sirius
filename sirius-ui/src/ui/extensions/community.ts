@@ -44,7 +44,7 @@ export const communityUIExtension: SiriusUIExtension = {
     },
     {
       id: "community.terminal",
-      label: "Terminal",
+      label: "Operator Console",
       href: "/terminal",
       matchPaths: ["/terminal"],
       icon: AgentIcon,

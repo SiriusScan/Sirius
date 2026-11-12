@@ -10,6 +10,8 @@ github.com/SiriusScan/go-api v0.0.26 h1:UEw5cR8iJGGwfbuT82keSG3Id86knCrD0cW0PIYT
 github.com/SiriusScan/go-api v0.0.26/go.mod h1:PsWy9dXy6m+bgJMG+b7u9N+4OS0EsJS4pqnTdzHbV+Q=
 github.com/SiriusScan/go-api v0.0.27 h1:h/fM4YNIeKh6W2+7hJxUoa+obf4knPJn86sVa7G5po4=
 github.com/SiriusScan/go-api v0.0.27/go.mod h1:PsWy9dXy6m+bgJMG+b7u9N+4OS0EsJS4pqnTdzHbV+Q=
+github.com/SiriusScan/go-api v0.0.29 h1:kfNeJxNurk7uSLVldhgmtqBv4cTc/4bWf6Pr5XTPnRo=
+github.com/SiriusScan/go-api v0.0.29/go.mod h1:PsWy9dXy6m+bgJMG+b7u9N+4OS0EsJS4pqnTdzHbV+Q=
 github.com/TwiN/go-color v1.4.1 h1:mqG0P/KBgHKVqmtL5ye7K0/Gr4l6hTksPgTgMk3mUzc=
 github.com/TwiN/go-color v1.4.1/go.mod h1:WcPf/jtiW95WBIsEeY1Lc/b8aaWoiqQpu5cf8WFxu+s=
 github.com/andybalholm/brotli v1.0.5 h1:8uQZIdzKmjc/iuPu7O2ioW48L81FgatrcpfFmiq/cCs=

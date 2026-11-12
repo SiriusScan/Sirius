@@ -20,7 +20,9 @@ type APIKeyHandler struct {
 // key exactly once in the response body.
 func (h *APIKeyHandler) CreateKey(c *fiber.Ctx) error {
 	var body struct {
-		Label string `json:"label"`
+		Label          string   `json:"label"`
+		OwnerSubjectID string   `json:"owner_subject_id"`
+		Scopes         []string `json:"scopes"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		body.Label = "Unnamed key"
@@ -29,6 +31,13 @@ func (h *APIKeyHandler) CreateKey(c *fiber.Ctx) error {
 		body.Label = "Unnamed key"
 	}
 
+	scopes, err := store.NormalizeAPIKeyScopes(body.Scopes)
+	if err != nil || (body.OwnerSubjectID != "" && len(scopes) == 0) {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid key scope"})
+	}
+	if meta, ok := c.Locals("apikey_meta").(store.APIKeyMeta); ok && !meta.AllowsUnrestricted() {
+		return c.SendStatus(403)
+	}
 	// Determine creator from the API key metadata (set by middleware).
 	createdBy := "system"
 	if label, ok := c.Locals("apikey_label").(string); ok && label != "" {
@@ -46,7 +55,14 @@ func (h *APIKeyHandler) CreateKey(c *fiber.Ctx) error {
 		})
 	}
 
-	meta, err := store.StoreAPIKey(context.Background(), h.Store, rawKey, body.Label, createdBy)
+	var meta store.APIKeyMeta
+	if body.OwnerSubjectID != "" {
+		meta, err = store.StoreOwnedAPIKey(context.Background(), h.Store, rawKey, body.Label, createdBy, body.OwnerSubjectID, scopes)
+	} else if len(scopes) > 0 {
+		meta, err = store.StoreAPIKeyWithScopes(context.Background(), h.Store, rawKey, body.Label, createdBy, scopes)
+	} else {
+		meta, err = store.StoreAPIKey(context.Background(), h.Store, rawKey, body.Label, createdBy)
+	}
 	if err != nil {
 		slog.Error("Failed to store API key", "error", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{

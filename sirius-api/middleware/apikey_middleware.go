@@ -43,6 +43,11 @@ func APIKeyMiddleware(kvStore store.KVStore, rootKey string) fiber.Handler {
 			})
 		}
 
+		// Scoped keys have no generic API grant. Enrollment is handled by the
+		// agent admission service; metadata alone cannot grant REST access.
+		if !meta.AllowsUnrestricted() {
+			return c.SendStatus(fiber.StatusForbidden)
+		}
 		// Store metadata in request locals for downstream handlers.
 		c.Locals("auth_mode", "valkey")
 		c.Locals("apikey_meta", meta)

@@ -67,6 +67,9 @@ jobs:
             else
               BASE_SHA="${PUSH_BEFORE}"
               HEAD_SHA="${PUSH_AFTER}"
+              if [ "${BASE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+                BASE_SHA="$(git hash-object -t tree /dev/null)"
+              fi
             fi
 
             git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" > changed_files.txt

@@ -60,6 +60,11 @@ with tempfile.TemporaryDirectory(prefix='maintenance-lane-test-') as directory:
     assert select(unrelated).returncode != 0
     git('update-ref', '-d', 'refs/remotes/origin/release/1.2.x')
     assert select(base).stdout.strip() == 'main'
+    changed = ci.split('            if [ "${EVENT_NAME}" = "pull_request" ]; then', 1)[1].split('            if grep', 1)[0]
+    changed = 'if [ "${EVENT_NAME}" = "pull_request" ]; then\n' + '\n'.join(line[12:] for line in changed.rstrip().splitlines())
+    subprocess.run(['bash', '-eu', '-c', changed], cwd=work, check=True, env={**ENV, 'EVENT_NAME': 'push', 'PUSH_BEFORE': '0' * 40, 'PUSH_AFTER': good})
+    files = (work / 'changed_files.txt').read_text().splitlines()
+    assert 'backend' in files and 'sirius-ui/view' in files, files
 assert 'DEFAULT_BRANCH: ${{ needs.validate-inputs.outputs.source_branch }}' in publish
 assert 'release/1.2.x' not in ci.split('  # Canary dispatch', 1)[1]
 print('PASS maintenance image tags, unchanged main tags, approved source ancestry and identical UI-tree guard')

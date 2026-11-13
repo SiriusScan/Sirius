@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"context"
+	"errors"
+	"io"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -111,18 +113,26 @@ func (h *APIKeyHandler) RevokeKey(c *fiber.Ctx) error {
 		})
 	}
 
-	// Enforce stable response contract: unknown key IDs return 404.
-	if _, err := h.Store.GetValue(context.Background(), "apikey:"+keyID); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "api key not found",
-		})
+	// A restarted store can close an idle pooled connection. Retry an EOF once;
+	// both this lookup and deleting this exact key are idempotent.
+	_, err := h.Store.GetValue(context.Background(), "apikey:"+keyID)
+	if errors.Is(err, io.EOF) {
+		_, err = h.Store.GetValue(context.Background(), "apikey:"+keyID)
+	}
+	if errors.Is(err, store.ErrKeyNotFound) {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "api key not found"})
+	}
+	if err != nil {
+		return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "api key store unavailable"})
 	}
 
-	if err := store.RevokeAPIKey(context.Background(), h.Store, keyID); err != nil {
+	err = store.RevokeAPIKey(context.Background(), h.Store, keyID)
+	if errors.Is(err, io.EOF) {
+		err = store.RevokeAPIKey(context.Background(), h.Store, keyID)
+	}
+	if err != nil {
 		slog.Error("Failed to revoke API key", "error", err, "id", keyID)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to revoke API key",
-		})
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to revoke API key"})
 	}
 
 	slog.Info("API key revoked", "id", keyID)

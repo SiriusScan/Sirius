@@ -70,6 +70,16 @@ with tempfile.TemporaryDirectory(prefix='maintenance-lane-test-') as directory:
     for before, expected in [(good, good), ('0' * 40, 'v1.2.5')]:
         result = subprocess.check_output(['bash', '-eu', '-c', baseline], cwd=work, env={**ENV, 'EVENT_NAME': 'push', 'GIT_REF': 'refs/heads/release/1.2.x', 'PUSH_BEFORE': before, 'PR_BASE_SHA': ''}, text=True)
         assert result.strip() == expected, result
+    publishing = publish.split('          if [ "${SOURCE_BRANCH}" = "release/1.2.x" ]; then', 1)[1].split('\n          fi', 1)[0]
+    publishing = 'if [ "${SOURCE_BRANCH}" = "release/1.2.x" ]; then\n' + '\n'.join(line[10:] for line in publishing.splitlines()) + '\nfi\n'
+    (work / 'bin').mkdir()
+    command = work / 'bin/gh'
+    command.write_text('#!/bin/sh\nprintf "%s\\n" "$*" > "$CAPTURE"\n')
+    command.chmod(0o755)
+    for branch in ['main', 'release/1.2.x']:
+        capture = work / 'release-command'
+        subprocess.run(['bash', '-eu', '-c', publishing], check=True, env={**ENV, 'PATH': str(work / 'bin') + os.pathsep + ENV['PATH'], 'SOURCE_BRANCH': branch, 'TARGET_TAG': 'v9.9.9', 'CAPTURE': str(capture)})
+        assert ('--latest=false' in capture.read_text()) == (branch != 'main')
 assert 'DEFAULT_BRANCH: ${{ needs.validate-inputs.outputs.source_branch }}' in publish
 assert 'release/1.2.x' not in ci.split('  # Canary dispatch', 1)[1]
 print('PASS maintenance image tags, unchanged main tags, approved source ancestry and identical UI-tree guard')

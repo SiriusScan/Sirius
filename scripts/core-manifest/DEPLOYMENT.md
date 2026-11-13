@@ -20,4 +20,5 @@ CI uses separate `maintenance-1.2` staging image tags, then records immutable
 The canonical publish workflow still runs on main with its existing signing
 identity. For a tag on the maintenance lane it resolves the successful push
 inventory for that branch and requires both v1.2.5 ancestry and an identical
-`sirius-ui` tree. Existing published tags/releases remain write-once.
+`sirius-ui` tree. Maintenance releases are published with `--latest=false`, leaving the main
+release channel unchanged. Existing published tags/releases remain write-once.

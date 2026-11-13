@@ -420,6 +420,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TARGET_TAG: ${{ needs.validate-inputs.outputs.target_tag }}
           SOURCE_COMMIT: ${{ needs.validate-inputs.outputs.source_commit }}
+          SOURCE_BRANCH: ${{ needs.validate-inputs.outputs.source_branch }}
         run: |
           set -euo pipefail
           NOTES_FILE="$(mktemp)"
@@ -501,7 +502,11 @@ jobs:
             --mode verify
 
           echo "Publishing GitHub Release ${TARGET_TAG}"
-          gh release edit "${TARGET_TAG}" --draft=false
+          if [ "${SOURCE_BRANCH}" = "release/1.2.x" ]; then
+            gh release edit "${TARGET_TAG}" --draft=false --latest=false
+          else
+            gh release edit "${TARGET_TAG}" --draft=false
+          fi
 
       - name: Dispatch verify-ghcr-release-tag workflow
         env:

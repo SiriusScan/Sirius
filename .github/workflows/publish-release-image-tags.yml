@@ -42,6 +42,7 @@ jobs:
     outputs:
       target_tag: ${{ steps.validated.outputs.target_tag }}
       source_commit: ${{ steps.validated.outputs.source_commit }}
+      source_branch: ${{ steps.validated.outputs.source_branch }}
     steps:
       - name: Checkout repository (workflow tooling + tag resolution)
         uses: actions/checkout@v4
@@ -87,6 +88,16 @@ jobs:
             exit 1
           fi
 
+          SOURCE_BRANCH=main
+          if git show-ref --verify --quiet refs/remotes/origin/release/1.2.x && git merge-base --is-ancestor "${SOURCE_COMMIT}" origin/release/1.2.x; then
+            git merge-base --is-ancestor v1.2.5 "${SOURCE_COMMIT}" || { echo "::error::maintenance source must descend from v1.2.5"; exit 1; }
+            [ "$(git rev-parse "${SOURCE_COMMIT}:sirius-ui")" = "$(git rev-parse v1.2.5:sirius-ui)" ] || { echo "::error::maintenance release must preserve the v1.2.5 UI tree"; exit 1; }
+            SOURCE_BRANCH=release/1.2.x
+          elif ! git merge-base --is-ancestor "${SOURCE_COMMIT}" origin/main; then
+            echo "::error::release source must belong to main or the reviewed maintenance lane"
+            exit 1
+          fi
+
           RELEASE_STATE="$(bash scripts/gh-release-draft-state.sh "${TARGET_TAG}" "${GITHUB_REPOSITORY}")"
           if [ "${RELEASE_STATE}" = "draft" ]; then
             echo "Existing draft release ${TARGET_TAG} may be updated"
@@ -97,6 +108,7 @@ jobs:
           {
             echo "target_tag=${TARGET_TAG}"
             echo "source_commit=${SOURCE_COMMIT}"
+            echo "source_branch=${SOURCE_BRANCH}"
           } >> "$GITHUB_OUTPUT"
           echo "Validated target_tag=${TARGET_TAG} -> ${SOURCE_COMMIT} (trust root SiriusScan/Sirius@refs/heads/main)"
 
@@ -121,7 +133,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_COMMIT: ${{ needs.validate-inputs.outputs.source_commit }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          DEFAULT_BRANCH: ${{ needs.validate-inputs.outputs.source_branch }}
         run: |
           set -euo pipefail
           bash scripts/resolve-core-build-inventory.sh \

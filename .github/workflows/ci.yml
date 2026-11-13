@@ -10,7 +10,7 @@ name: Sirius CI/CD Pipeline
 
 on:
   push:
-    branches: [main, sirius-demo]
+    branches: [main, sirius-demo, release/1.2.x]
   pull_request:
     branches: [main]
   repository_dispatch:
@@ -20,7 +20,7 @@ on:
 # while a core-build-inventory snapshot is being produced.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' || github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/release/1.2.x') || github.event_name == 'pull_request' }}
 
 env:
   REGISTRY: ghcr.io
@@ -155,6 +155,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             TAG="pr-${{ github.event.number }}"
+          elif [ "${{ github.ref }}" == "refs/heads/release/1.2.x" ]; then
+            TAG="maintenance-1.2"
           elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
             TAG="latest"
             echo "also_tag_beta=true" >> $GITHUB_OUTPUT
@@ -214,7 +216,9 @@ jobs:
       - name: Generate image tag
         id: meta
         run: |
-          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          if [ "${{ github.ref }}" == "refs/heads/release/1.2.x" ]; then
+            echo "image_tag=maintenance-1.2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "image_tag=latest" >> $GITHUB_OUTPUT
             echo "also_tag_beta=true" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
@@ -284,6 +288,8 @@ jobs:
 
           if [ "${EVENT_NAME}" = "pull_request" ]; then
             TAG="pr-${PR_NUMBER}"
+          elif [ "${GIT_REF}" = "refs/heads/release/1.2.x" ]; then
+            TAG="maintenance-1.2"
           elif [ "${EVENT_NAME}" = "push" ] && [ "${GIT_REF}" = "refs/heads/main" ]; then
             TAG="latest"
             echo "also_tag_beta=true" >> "$GITHUB_OUTPUT"
@@ -386,7 +392,9 @@ jobs:
       - name: Generate image tag
         id: meta
         run: |
-          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          if [ "${{ github.ref }}" == "refs/heads/release/1.2.x" ]; then
+            echo "image_tag=maintenance-1.2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "image_tag=latest" >> $GITHUB_OUTPUT
             echo "also_tag_beta=true" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
@@ -454,6 +462,8 @@ jobs:
 
           if [ "${EVENT_NAME}" = "pull_request" ]; then
             TAG="pr-${PR_NUMBER}"
+          elif [ "${GIT_REF}" = "refs/heads/release/1.2.x" ]; then
+            TAG="maintenance-1.2"
           elif [ "${EVENT_NAME}" = "push" ] && [ "${GIT_REF}" = "refs/heads/main" ]; then
             TAG="latest"
             echo "also_tag_beta=true" >> "$GITHUB_OUTPUT"
@@ -527,7 +537,9 @@ jobs:
       - name: Generate image tag
         id: meta
         run: |
-          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          if [ "${{ github.ref }}" == "refs/heads/release/1.2.x" ]; then
+            echo "image_tag=maintenance-1.2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "image_tag=latest" >> $GITHUB_OUTPUT
             echo "also_tag_beta=true" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
@@ -570,7 +582,7 @@ jobs:
     if: >
       needs.detect-changes.outputs.sirius_infra_changes == 'true' ||
       github.event_name == 'repository_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/1.2.x'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -590,6 +602,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             TAG="pr-${{ github.event.number }}"
+          elif [ "${{ github.ref }}" == "refs/heads/release/1.2.x" ]; then
+            TAG="maintenance-1.2"
           elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
             TAG="latest"
             echo "also_tag_beta=true" >> $GITHUB_OUTPUT
@@ -630,7 +644,7 @@ jobs:
       (
         needs.detect-changes.outputs.sirius_infra_changes == 'true' ||
         github.event_name == 'repository_dispatch' ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+        (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/1.2.x'))
       )
     runs-on: ubuntu-latest
     permissions:
@@ -644,7 +658,9 @@ jobs:
       - name: Generate image tag
         id: meta
         run: |
-          if [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+          if [ "${{ github.ref }}" == "refs/heads/release/1.2.x" ]; then
+            echo "image_tag=maintenance-1.2" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
             echo "image_tag=latest" >> $GITHUB_OUTPUT
             echo "also_tag_beta=true" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "repository_dispatch" ]; then
@@ -725,6 +741,8 @@ jobs:
           # use needs.build-ui.outputs.image_tag — it is always empty.
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             TAG="pr-${{ github.event.number }}"
+          elif [ "${{ github.ref }}" == "refs/heads/release/1.2.x" ]; then
+            TAG="maintenance-1.2"
           elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
             TAG="latest"
           elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/sirius-demo" ]; then
@@ -1056,7 +1074,7 @@ jobs:
           set -euo pipefail
           bash scripts/test-core-manifest.sh
 
-  # Immutable provenance snapshot for Community releases. Default-branch push only
+  # Immutable provenance snapshot for Community releases. Main/maintenance pushes only
   # (never repository_dispatch). Write-once sha-<commit> tags + inventory artifact.
   core-build-inventory:
     name: Core Build Inventory
@@ -1078,7 +1096,7 @@ jobs:
     if: >
       always() &&
       github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/1.2.x') &&
       needs.core-manifest-tests.result == 'success' &&
       needs.build-ui.result == 'success' &&
       needs.build-api.result == 'success' &&
@@ -1120,7 +1138,7 @@ jobs:
           bash scripts/snapshot-core-build-inventory.sh \
             --commit "${SOURCE_COMMIT}" \
             --repo "${GITHUB_REPOSITORY}" \
-            --source-tag latest \
+            --source-tag "${{ github.ref == 'refs/heads/release/1.2.x' && 'maintenance-1.2' || 'latest' }}" \
             --smoke 1 \
             --output "${GITHUB_WORKSPACE}/core-build-inventory.json"
 

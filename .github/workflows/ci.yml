@@ -317,8 +317,10 @@ jobs:
           BASE_REF=""
           if [ "${EVENT_NAME}" = "pull_request" ] && [ -n "${PR_BASE_SHA}" ]; then
             BASE_REF="${PR_BASE_SHA}"
-          elif [ "${EVENT_NAME}" = "push" ] && [ "${GIT_REF}" = "refs/heads/main" ] && [ -n "${PUSH_BEFORE}" ] && [ "${PUSH_BEFORE}" != "0000000000000000000000000000000000000000" ]; then
+          elif [ "${EVENT_NAME}" = "push" ] && [ -n "${PUSH_BEFORE}" ] && [ "${PUSH_BEFORE}" != "0000000000000000000000000000000000000000" ]; then
             BASE_REF="${PUSH_BEFORE}"
+          elif [ "${GIT_REF}" = "refs/heads/release/1.2.x" ]; then
+            BASE_REF="v1.2.5"
           else
             git fetch origin main --depth=1 2>/dev/null || true
             if git rev-parse --verify origin/main >/dev/null 2>&1; then

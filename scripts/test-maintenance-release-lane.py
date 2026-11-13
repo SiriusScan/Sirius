@@ -65,6 +65,11 @@ with tempfile.TemporaryDirectory(prefix='maintenance-lane-test-') as directory:
     subprocess.run(['bash', '-eu', '-c', changed], cwd=work, check=True, env={**ENV, 'EVENT_NAME': 'push', 'PUSH_BEFORE': '0' * 40, 'PUSH_AFTER': good})
     files = (work / 'changed_files.txt').read_text().splitlines()
     assert 'backend' in files and 'sirius-ui/view' in files, files
+    baseline = ci.split('          BASE_REF=""\n', 1)[1].split('          if [ -z "${BASE_REF}" ]; then', 1)[0]
+    baseline = 'BASE_REF=""\n' + '\n'.join(line[10:] for line in baseline.rstrip().splitlines()) + '\nprintf "%s\n" "$BASE_REF"\n'
+    for before, expected in [(good, good), ('0' * 40, 'v1.2.5')]:
+        result = subprocess.check_output(['bash', '-eu', '-c', baseline], cwd=work, env={**ENV, 'EVENT_NAME': 'push', 'GIT_REF': 'refs/heads/release/1.2.x', 'PUSH_BEFORE': before, 'PR_BASE_SHA': ''}, text=True)
+        assert result.strip() == expected, result
 assert 'DEFAULT_BRANCH: ${{ needs.validate-inputs.outputs.source_branch }}' in publish
 assert 'release/1.2.x' not in ci.split('  # Canary dispatch', 1)[1]
 print('PASS maintenance image tags, unchanged main tags, approved source ancestry and identical UI-tree guard')

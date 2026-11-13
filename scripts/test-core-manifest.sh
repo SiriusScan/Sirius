@@ -260,3 +260,5 @@ pass "community independence contract"
 
 echo
 echo "All core-manifest local tests passed."
+
+python3 scripts/test-maintenance-release-lane.py

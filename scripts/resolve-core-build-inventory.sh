@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Resolve an unexpired core-build-inventory artifact for an exact commit from
-# successful default-branch push runs of ci.yml.
+# successful selected-source-branch push runs of ci.yml.
 #
 # Usage:
 #   bash scripts/resolve-core-build-inventory.sh \
@@ -47,7 +47,7 @@ mkdir -p "${OUTDIR}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
 
-# Enumerate completed push runs for this exact SHA on the default branch.
+# Enumerate completed push runs for this exact SHA on the selected source branch.
 # Use GET query filters; never interpolate untrusted values into jq programs.
 API_PATH="repos/${REPO}/actions/workflows/ci.yml/runs?head_sha=${SOURCE_COMMIT}&event=push&status=completed&per_page=100"
 RUN_IDS_FILE="${WORK}/run-ids.txt"
@@ -57,7 +57,7 @@ gh api --paginate "${API_PATH}" \
   > "${RUN_IDS_FILE}"
 
 if [ ! -s "${RUN_IDS_FILE}" ]; then
-  die "no successful default-branch push ci.yml runs for commit ${SOURCE_COMMIT}"
+  die "no successful selected-source-branch push ci.yml runs for commit ${SOURCE_COMMIT}"
 fi
 
 VALID_DIR="${WORK}/valid"

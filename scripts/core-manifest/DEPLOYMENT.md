@@ -63,8 +63,9 @@ missing evidence and ambiguous platform descriptors produce errors.
 
 A matching workflow reports `scope_matches_core_pins` even if another scope
 is unqualified. `scribe_release_qualified` preserves the producer’s decision for
-the complete receipt. The Core result lists separate pending checks for each platform's packaged scanner artifact, its Scribe module
-metadata and the effective catalog digest. The mode reports
+the complete receipt. The Core result lists pending checks for each platform's
+packaged scanner artifact, its Scribe module metadata and the effective catalog
+digest. The mode reports
 `release_qualified: false` until those checks have verified inputs.
 [Issue #183](https://github.com/SiriusScan/Sirius/issues/183) tracks
 image-to-binary provenance, publish-time validation and rollback.

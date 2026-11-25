@@ -254,7 +254,7 @@ func TestOfflineScribeRejectsWrongReceiptOrPlatform(t *testing.T) {
 	}
 	tampered := []byte(strings.Replace(engineIndexFixture, "arm64", "amd64", 1))
 	digest := manifest.Images["sirius-engine"].Digest
-	if _, err := enginePlatforms(tampered, digest); err == nil || !strings.Contains(err.Error(), "does not match") {
+	if _, err := enginePlatforms(tampered, digest); err == nil || !strings.Contains(err.Error(), "inventory digest") {
 		t.Fatalf("unexpected error for changed index bytes: %v", err)
 	}
 	if _, err := enginePlatforms(tampered, scribeArtifactDigest(tampered)); err == nil || !strings.Contains(err.Error(), "duplicate linux/amd64") {

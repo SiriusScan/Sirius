@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -44,7 +45,13 @@ func main() {
 	}
 	defer kvStore.Close()
 
-	app := fiber.New()
+	// Fiber's 4 MiB default is not sized for scan ingest and resets the
+	// connection on vulnerability-rich /host/with-source reports. 16 MiB
+	// gives ample headroom for large host reports without accepting
+	// arbitrarily large bodies on every route.
+	app := fiber.New(fiber.Config{
+		BodyLimit: 16 * 1024 * 1024,
+	})
 	applyProductionHTTPMiddleware(app, kvStore, serviceAPIKey)
 
 	moduleRegistry, err := buildModuleRegistry(kvStore)
@@ -57,8 +64,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("Sirius API starting", "port", 9001, "log_level", os.Getenv("LOG_LEVEL"), "auth_required", true)
-	app.Listen(":9001")
+	address := apiListenAddress(os.Getenv("API_HOST"), os.Getenv("API_PORT"))
+	slog.Info("Sirius API starting", "address", address, "log_level", os.Getenv("LOG_LEVEL"), "auth_required", true)
+	if err := app.Listen(address); err != nil {
+		slog.Error("Sirius API stopped", "address", address, "error", err)
+		os.Exit(1)
+	}
+}
+
+func apiListenAddress(host, port string) string {
+	port = strings.TrimSpace(port)
+	if port == "" {
+		port = "9001"
+	}
+	return net.JoinHostPort(strings.TrimSpace(host), port)
 }
 
 // requestLoggerMiddleware returns a Fiber middleware that logs HTTP requests

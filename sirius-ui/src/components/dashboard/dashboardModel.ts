@@ -146,31 +146,37 @@ export function lastScanMetaTitle(scan: SummaryLastScan | null | undefined): str
   return parts.length ? parts.join(" · ") : undefined;
 }
 
+function isCount(n: number | undefined): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n >= 0;
+}
+
 /**
- * The "Open findings" stat's note: open findings count every host a CVE is
- * on, so the unique CVE count (what /vulnerabilities lists) is shown beside
- * it, then the last scan's own note. "253 unique CVEs · 12 in the last scan".
+ * The "Open findings" stat's note. Open findings count every host a CVE is
+ * on, so the unique CVE count (what Vulnerabilities lists) is shown beside
+ * it: "across 253 unique CVEs". The last scan's count follows only when it
+ * differs from the open findings shown, so no number repeats:
+ * "across 253 unique CVEs · 12 in the last scan".
  */
 export function openFindingsNote(
+  open: number,
   uniqueCves: number | undefined,
-  scanNote: string | undefined,
+  scan: SummaryLastScan | null | undefined,
+  scanFindings: number | undefined,
 ): string | undefined {
-  const unique =
-    typeof uniqueCves === "number" && Number.isFinite(uniqueCves) && uniqueCves >= 0
-      ? plural(uniqueCves, "unique CVE")
-      : undefined;
+  const unique = isCount(uniqueCves) ? `across ${plural(uniqueCves, "unique CVE")}` : undefined;
+  const scanNote = isCount(scanFindings) && scanFindings !== open ? lastScanNote(scan, scanFindings) : undefined;
   const parts = [unique, scanNote].filter((p): p is string => !!p);
   return parts.length ? parts.join(" · ") : undefined;
 }
 
 /**
- * Tooltip for the "Open findings" stat: why it differs from the unique CVE
- * count the Vulnerabilities page lists.
+ * Tooltip for the "Open findings" stat: what an open finding is, and how it
+ * relates to the unique CVE count Vulnerabilities lists.
  */
 export function openFindingsTitle(open: number, uniqueCves: number | undefined): string {
-  const head = `${plural(open, "open finding")}: one per host and CVE.`;
-  if (typeof uniqueCves !== "number" || !Number.isFinite(uniqueCves) || uniqueCves < 0) return head;
-  return `${head} ${plural(uniqueCves, "unique CVE")} across the inventory, the count Vulnerabilities lists.`;
+  const head = `${plural(open, "open finding")}: one per host and CVE, so a CVE on three hosts is three open findings.`;
+  if (!isCount(uniqueCves)) return head;
+  return `${head} They span ${plural(uniqueCves, "unique CVE")}, the count Vulnerabilities lists.`;
 }
 
 /** The header chip's time: when the last scan ended. Undefined while it runs. */

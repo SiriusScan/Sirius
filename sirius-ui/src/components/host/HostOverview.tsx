@@ -7,7 +7,8 @@
  *                   filtered to it (counts are shown once, here)
  *   Data freshness  last scan, each source's latest report, first seen
  *   Top findings    the five highest-CVSS findings with clean summaries
- *   Open ports      ports from scan data, plus the software the scanner matched
+ *   Open ports      ports from scan data with the service recorded on each,
+ *                   plus the software the scanner matched
  *   System          agent data, or one "needs the agent" state
  */
 
@@ -37,6 +38,7 @@ import {
   hostTabHref,
   lastScanDetail,
   matchedSoftware,
+  openPortServices,
   plural,
   riskCaption,
   sourceName,
@@ -294,9 +296,12 @@ function TopFindingsCard({ host, className }: { host: HostPageDataWithRisk; clas
 // ─── Open ports ─────────────────────────────────────────────────────────────
 
 function OpenPortsCard({ host }: { host: HostPageDataWithRisk }) {
-  const ports = host.openPorts;
+  const ports = useMemo(
+    () => openPortServices(host.openPorts, host.findings),
+    [host.openPorts, host.findings],
+  );
   const software = useMemo(() => matchedSoftware(host.findings), [host.findings]);
-  const anyService = ports.some((p) => Boolean(p.service) || Boolean(p.version));
+  const anyService = ports.some((p) => Boolean(p.serviceLabel));
 
   return (
     <HostCard
@@ -309,7 +314,7 @@ function OpenPortsCard({ host }: { host: HostPageDataWithRisk }) {
       }
       note={
         ports.length > 0 && !anyService
-          ? "The scan records ports without service names. Software comes from the scanner's matches."
+          ? "No service names recorded for these ports yet."
           : undefined
       }
     >
@@ -318,13 +323,18 @@ function OpenPortsCard({ host }: { host: HostPageDataWithRisk }) {
       ) : (
         <ul className="divide-y divide-violet-500/10">
           {ports.slice(0, PORTS_SHOWN).map((p) => {
-            const service = [p.service, p.version].filter(Boolean).join(" ");
             return (
               <li key={`${p.port}/${p.protocol}`} className="flex items-center gap-3 py-1.5 text-xs">
                 <span className="w-20 shrink-0 font-mono font-semibold text-white">
                   {p.port}/{p.protocol}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-gray-400">{service}</span>
+                {p.serviceLabel ? (
+                  <span className="min-w-0 flex-1 truncate text-gray-300" title={p.serviceLabel}>
+                    {p.serviceLabel}
+                  </span>
+                ) : (
+                  <span className="min-w-0 flex-1 text-gray-600">{anyService ? "—" : null}</span>
+                )}
                 <span className="flex shrink-0 items-center gap-1">
                   {(p.sources ?? []).map((s) => (
                     <SourceBadge key={s} source={s} className="px-1.5 text-[10px]" />

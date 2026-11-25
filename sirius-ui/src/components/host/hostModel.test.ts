@@ -16,6 +16,7 @@ import {
   lastScanDetail,
   matchedSoftware,
   noteLines,
+  openPortServices,
   osLabel,
   plural,
   portServiceLabel,
@@ -116,6 +117,15 @@ assert.deepEqual(
     lastSeen: "2026-11-21T20:47:58.166Z",
   },
 );
+// The port/service cell is compact; the full label is its tooltip.
+const tomcat = findingToVulnRow(
+  finding({ id: "CVE-2020-1938", port: 8080, serviceInfo: "http (Apache Tomcat 8.5.19)" }),
+);
+assert.equal(tomcat.portService, "8080 · http");
+assert.equal(tomcat.portServiceDetail, "8080 · http (Apache Tomcat 8.5.19)");
+const plainService = findingToVulnRow(finding({ id: "CVE-2", port: 80, serviceInfo: "Apache httpd 2.4.49" }));
+assert.equal(plainService.portService, "80 · Apache httpd 2.4.49");
+assert.equal("portServiceDetail" in plainService, false);
 const bare = findingToVulnRow(finding({ id: "CVE-1" }));
 assert.equal("portService" in bare, false);
 assert.equal("firstSeen" in bare, false);
@@ -165,6 +175,35 @@ assert.deepEqual(
   ],
 );
 assert.deepEqual(matchedSoftware([]), []);
+
+// ── Open ports with their services ──────────────────────────────────────────
+// Values captured from a live lab host (cogitator04).
+assert.deepEqual(
+  openPortServices(
+    [
+      { port: 22, protocol: "tcp", sources: ["naabu", "nmap"] },
+      { port: 8009, protocol: "tcp", service: "ajp13", version: "Apache Jserv" },
+      { port: 8080, protocol: "tcp" },
+      { port: 9999, protocol: "udp" },
+    ],
+    [
+      finding({ id: "CVE-A", port: 22, serviceInfo: "ssh (OpenSSH 10.0p2 Debian 7+deb13u4)" }),
+      finding({ id: "CVE-B", port: 8080, serviceInfo: "http (Apache Tomcat 8.5.19)" }),
+      finding({ id: "CVE-C", port: 8080, serviceInfo: "http (Apache Tomcat 8.5.19)" }),
+      finding({ id: "CVE-D", port: 8080, serviceInfo: "http" }),
+      finding({ id: "CVE-E", port: 8009, serviceInfo: "something else" }),
+      finding({ id: "CVE-F", port: 9999, serviceInfo: "Unknown" }),
+      finding({ id: "CVE-G", serviceInfo: "no port" }),
+    ],
+  ),
+  [
+    { port: 22, protocol: "tcp", sources: ["naabu", "nmap"], serviceLabel: "ssh (OpenSSH 10.0p2 Debian 7+deb13u4)" },
+    { port: 8009, protocol: "tcp", service: "ajp13", version: "Apache Jserv", serviceLabel: "ajp13 Apache Jserv" },
+    { port: 8080, protocol: "tcp", serviceLabel: "http (Apache Tomcat 8.5.19)" },
+    { port: 9999, protocol: "udp" },
+  ],
+);
+assert.deepEqual(openPortServices([], [finding({ id: "CVE-A", port: 22, serviceInfo: "ssh" })]), []);
 
 // ── Agent data ──────────────────────────────────────────────────────────────
 // What the API returns for a scan-only host (empty JSONB columns).

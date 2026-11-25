@@ -113,16 +113,24 @@ assert.equal(lastScanNote({ ...done, status: "running" }, 4), "4 so far in this 
 assert.equal(lastScanNote(done, undefined), undefined);
 assert.equal(lastScanNote(null, 3), undefined);
 
-assert.equal(openFindingsNote(253, "12 in the last scan"), "253 unique CVEs · 12 in the last scan");
-assert.equal(openFindingsNote(1, undefined), "1 unique CVE");
-assert.equal(openFindingsNote(1204, undefined), "1,204 unique CVEs");
-assert.equal(openFindingsNote(undefined, "4 so far in this scan"), "4 so far in this scan");
-assert.equal(openFindingsNote(Number.NaN, undefined), undefined);
+// The last scan's count is shown only when it differs from the open findings.
+assert.equal(openFindingsNote(362, 253, done, 362), "across 253 unique CVEs");
+assert.equal(openFindingsNote(362, 253, done, 12), "across 253 unique CVEs · 12 in the last scan");
+assert.equal(openFindingsNote(1, 1, null, undefined), "across 1 unique CVE");
+assert.equal(openFindingsNote(1204, 1204, done, undefined), "across 1,204 unique CVEs");
+assert.equal(
+  openFindingsNote(10, undefined, { ...done, status: "running" }, 4),
+  "4 so far in this scan",
+);
+assert.equal(openFindingsNote(0, Number.NaN, null, undefined), undefined);
 assert.equal(
   openFindingsTitle(362, 253),
-  "362 open findings: one per host and CVE. 253 unique CVEs across the inventory, the count Vulnerabilities lists.",
+  "362 open findings: one per host and CVE, so a CVE on three hosts is three open findings. They span 253 unique CVEs, the count Vulnerabilities lists.",
 );
-assert.equal(openFindingsTitle(1, undefined), "1 open finding: one per host and CVE.");
+assert.equal(
+  openFindingsTitle(1, undefined),
+  "1 open finding: one per host and CVE, so a CVE on three hosts is three open findings.",
+);
 
 assert.equal(
   lastScanMetaTitle({ ...done, id: "scan-1795609195467-all3", targets: ["192.0.2.12", "10.0.0.0/24"] }),

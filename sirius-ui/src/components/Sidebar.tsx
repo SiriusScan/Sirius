@@ -5,6 +5,29 @@ import * as Tooltip from "@radix-ui/react-tooltip";
 import SiriusIcon from "./icons/SiriusIcon";
 import { uiExtensionRegistry, useCapabilities } from "~/ui/extensions";
 
+// Tooltips stay inside the 80px rail (w-20) so they never cover page content
+// beside it, such as Chat's conversation search: they open below an icon
+// (above it in the footer), centered, no wider than the rail.
+const TOOLTIP_CLASS =
+  "pointer-events-none z-[100] max-w-[76px] break-words rounded-md border border-violet-500/50 bg-[#161224] px-1 py-1 text-center text-[10px] font-medium leading-tight tracking-tight text-white shadow-lg shadow-black/60";
+
+function RailTooltip({ side, children }: { side: "top" | "bottom"; children: React.ReactNode }) {
+  return (
+    <Tooltip.Portal>
+      <Tooltip.Content
+        side={side}
+        align="center"
+        sideOffset={4}
+        collisionPadding={2}
+        className={TOOLTIP_CLASS}
+      >
+        {children}
+        <Tooltip.Arrow width={8} height={4} className="fill-[#161224]" />
+      </Tooltip.Content>
+    </Tooltip.Portal>
+  );
+}
+
 const Sidebar = () => {
   const router = useRouter();
   const { hasAll } = useCapabilities();
@@ -81,17 +104,7 @@ const Sidebar = () => {
               </div>
             </Link>
           </Tooltip.Trigger>
-          <Tooltip.Portal>
-            <Tooltip.Content
-              side="right"
-              sideOffset={8}
-              collisionPadding={8}
-              className="animate-fade-in-up z-[100] rounded-md border border-violet-500/40 bg-[#161224] px-3 py-2 text-sm font-medium text-white shadow-xl shadow-black/50"
-            >
-              Dashboard
-              <Tooltip.Arrow className="fill-[#161224]" />
-            </Tooltip.Content>
-          </Tooltip.Portal>
+          <RailTooltip side="bottom">Dashboard</RailTooltip>
         </Tooltip.Root>
 
         {/* Subtle separator */}
@@ -181,17 +194,9 @@ const Sidebar = () => {
                       </div>
                     </Link>
                   </Tooltip.Trigger>
-                  <Tooltip.Portal>
-                    <Tooltip.Content
-                      side="right"
-                      sideOffset={8}
-                      collisionPadding={8}
-              className="animate-fade-in-up z-[100] rounded-md border border-violet-500/40 bg-[#161224] px-3 py-2 text-sm font-medium text-white shadow-xl shadow-black/50"
-                    >
-                      {item.label}
-                      <Tooltip.Arrow className="fill-[#161224]" />
-                    </Tooltip.Content>
-                  </Tooltip.Portal>
+                  <RailTooltip side={group.id === "footer" ? "top" : "bottom"}>
+                    {item.label}
+                  </RailTooltip>
                 </Tooltip.Root>
               );
           })}

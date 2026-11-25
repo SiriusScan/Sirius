@@ -46,6 +46,11 @@ interface SystemResourceProps {
 
 const EMPTY = "—";
 
+/** The one mark for a reading the table doesn't have; same in every column. */
+function Dash() {
+  return <span className="font-sans text-xs text-gray-500">{EMPTY}</span>;
+}
+
 function Tile({ label, value, detail, title }: { label: string; value: string; detail?: string; title?: string }) {
   return (
     <div className="scanner-section p-4" title={title}>
@@ -135,7 +140,7 @@ function ContainerRow({
               <UsageBar percent={c.cpuPercent} />
             </>
           ) : (
-            <span className="text-gray-600">{EMPTY}</span>
+            <Dash />
           )}
         </TableCell>
         <TableCell
@@ -151,12 +156,12 @@ function ContainerRow({
               {c.memoryPercent !== null && <UsageBar percent={c.memoryPercent} />}
             </>
           ) : (
-            <span className="text-gray-600">{EMPTY}</span>
+            <Dash />
           )}
         </TableCell>
-        <TableCell className={cn("font-mono text-xs text-gray-300", stale && "opacity-60")}>{c?.networkIO ?? EMPTY}</TableCell>
-        <TableCell className={cn("font-mono text-xs text-gray-300", stale && "opacity-60")}>{c?.diskUsed ?? EMPTY}</TableCell>
-        <TableCell className={cn("font-mono text-xs text-gray-300", stale && "opacity-60")}>{c?.uptime ? c.uptime : EMPTY}</TableCell>
+        <TableCell className={cn("font-mono text-xs text-gray-300", stale && "opacity-60")}>{c?.networkIO ?? <Dash />}</TableCell>
+        <TableCell className={cn("font-mono text-xs text-gray-300", stale && "opacity-60")}>{c?.diskUsed ?? <Dash />}</TableCell>
+        <TableCell className={cn("font-mono text-xs text-gray-300", stale && "opacity-60")}>{c?.uptime ? c.uptime : <Dash />}</TableCell>
       </TableRow>
       {c && expanded && (
         <TableRow className="border-violet-500/10 bg-gray-900/40 hover:bg-gray-900/40">
@@ -166,17 +171,17 @@ function ContainerRow({
                 label={stale ? "Last observed (stale)" : "Observed"}
                 value={<span title={formatDateTime(c.observedAt, "long")}>{formatDateTime(c.observedAt)}</span>}
               />
-              <Detail label="Processes" value={c.processCount ?? EMPTY} />
-              <Detail label="File descriptors" value={c.fileDescriptors ?? EMPTY} />
+              <Detail label="Processes" value={c.processCount ?? <Dash />} />
+              <Detail label="File descriptors" value={c.fileDescriptors ?? <Dash />} />
               <Detail
                 label="Host load (1, 5, 15 min)"
                 value={
                   c.loadAverage
                     ? `${c.loadAverage.m1.toFixed(2)} · ${c.loadAverage.m5.toFixed(2)} · ${c.loadAverage.m15.toFixed(2)}`
-                    : EMPTY
+                    : <Dash />
                 }
               />
-              <Detail label="Block I/O" value={<span className="font-mono text-xs">{c.blockIO ?? EMPTY}</span>} />
+              <Detail label="Block I/O" value={c.blockIO ? <span className="font-mono text-xs">{c.blockIO}</span> : <Dash />} />
             </dl>
           </TableCell>
         </TableRow>
@@ -207,11 +212,6 @@ function ResourcesContent({ status }: { status: SystemStatus }) {
 
   return (
     <div className="space-y-4">
-      {notice && (
-        <p role="status" className="text-xs text-amber-400/90">
-          {notice}
-        </p>
-      )}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tile
           label="Containers reporting"
@@ -247,6 +247,14 @@ function ResourcesContent({ status }: { status: SystemStatus }) {
       </div>
 
       <section className="scanner-section p-4" aria-label="Container resources">
+        {notice && (
+          <p
+            role="status"
+            className="mb-3 rounded-md border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-amber-300/90"
+          >
+            {notice}
+          </p>
+        )}
         <Table>
           <TableHeader>
             <TableRow className="border-violet-500/20 hover:bg-transparent">

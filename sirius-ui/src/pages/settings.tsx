@@ -106,20 +106,17 @@ const Settings: NextPage = () => {
 
         {/* ── Content panel ────────────────────────────────────────────── */}
         {activeTab !== "scanning" && (
-          <div
-            className={
-              activeTab === "general" || activeTab === "security"
-                ? "max-w-2xl rounded-xl border border-gray-700/50 bg-gray-800/40 p-6"
-                : "rounded-xl border border-gray-700/50 bg-gray-800/40 p-6"
-            }
-          >
+          <div className="rounded-xl border border-gray-700/50 bg-gray-800/40 p-6">
             {/* ── General tab ──────────────────────────────────────────── */}
             {activeTab === "general" && (
               <form onSubmit={handleUserNameSubmit}>
-                <h2 className="mb-6 text-lg font-medium text-white">
+                <h2 className="text-lg font-medium text-white">
                   General Settings
                 </h2>
-                <div className="max-w-lg space-y-5">
+                <SettingsSection
+                  title="Profile"
+                  description="The email this account signs in with, and the name shown for it."
+                >
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <span id="settings-email-label" className="text-sm font-medium text-gray-400">
@@ -155,17 +152,20 @@ const Settings: NextPage = () => {
                   <Button type="submit" disabled={isLoading} className="mt-2">
                     {isLoading ? "Updating..." : "Update Profile"}
                   </Button>
-                </div>
+                </SettingsSection>
               </form>
             )}
 
             {/* ── Security tab ─────────────────────────────────────────── */}
             {activeTab === "security" && (
               <form onSubmit={handlePasswordSubmit}>
-                <h2 className="mb-6 text-lg font-medium text-white">
+                <h2 className="text-lg font-medium text-white">
                   Security Settings
                 </h2>
-                <div className="max-w-lg space-y-5">
+                <SettingsSection
+                  title="Password"
+                  description="Change this account's password. Enter the current one to confirm it's you."
+                >
                   <div className="space-y-2">
                     <Label className="text-gray-400">Current Password</Label>
                     <Input
@@ -204,7 +204,7 @@ const Settings: NextPage = () => {
                   <Button type="submit" disabled={isLoading} className="mt-2">
                     {isLoading ? "Updating..." : "Update Password"}
                   </Button>
-                </div>
+                </SettingsSection>
               </form>
             )}
 
@@ -219,6 +219,30 @@ const Settings: NextPage = () => {
     </Layout>
   );
 };
+
+// ── Settings section ───────────────────────────────────────────────────────
+// A wide-panel settings row: the section's heading and a short description on
+// the left, its fields (at a readable width) on the right. Stacks on narrow
+// screens.
+function SettingsSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mt-6 grid gap-x-10 gap-y-4 border-t border-gray-700/50 pt-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+      <div>
+        <h3 className="text-sm font-medium text-gray-200">{title}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-gray-500">{description}</p>
+      </div>
+      <div className="max-w-xl space-y-5">{children}</div>
+    </div>
+  );
+}
 
 // ── API Keys Panel ─────────────────────────────────────────────────────────
 function APIKeysPanel() {

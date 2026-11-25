@@ -6,6 +6,9 @@
  *   { port: 8080, protocol: "tcp", serviceInfo: "http (Apache Tomcat 8.5.19)" }
  *     → "8080/tcp · http (Apache Tomcat 8.5.19)"
  *
+ * Table cells show the compact "8080/tcp · http" (compactPortService) with
+ * the full label on hover.
+ *
  * Pure and dependency-free; tested in portService.test.ts.
  */
 
@@ -49,6 +52,31 @@ function portPartOf(label: string): string | undefined {
 }
 
 /**
+ * The service name a scanner's service_info leads with, without the product
+ * detail in parentheses: "http (Apache Tomcat 8.5.19)" → "http". Text with
+ * no parenthesised detail is returned as is.
+ */
+export function serviceName(serviceInfo: string): string {
+  const v = serviceInfo.trim();
+  const paren = v.indexOf("(");
+  const name = paren > 0 ? v.slice(0, paren).trim() : "";
+  return name || v;
+}
+
+/**
+ * A compact form of a port/service label for a narrow table cell, cut at a
+ * word boundary: "8080/tcp · http (Apache Tomcat 8.5.19)" → "8080/tcp · http".
+ * The full label belongs in the cell's tooltip.
+ */
+export function compactPortService(label: string): string {
+  const port = portPartOf(label);
+  if (!port) return serviceName(label);
+  const sep = label.indexOf(" · ");
+  const service = sep >= 0 ? label.slice(sep + 3).trim() : "";
+  return service ? `${port} · ${serviceName(service)}` : port;
+}
+
+/**
  * One cell for a CVE seen on several hosts. `byHost` maps a host to its
  * label. One distinct label shows as is; several show as
  * "80/tcp · 2 versions" (same port) or "2 services", and `detail` lists
@@ -60,7 +88,11 @@ export function combinePortServices(
   const distinct: string[] = [];
   for (const [, label] of byHost) if (label && !distinct.includes(label)) distinct.push(label);
   if (distinct.length === 0) return {};
-  if (distinct.length === 1) return { label: distinct[0] };
+  if (distinct.length === 1) {
+    const full = distinct[0]!;
+    const label = compactPortService(full);
+    return label === full ? { label } : { label, detail: full };
+  }
   const ports = new Set(distinct.map(portPartOf));
   const [onlyPort] = [...ports];
   const label =

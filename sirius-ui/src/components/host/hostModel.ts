@@ -9,7 +9,7 @@
  */
 
 import type { HostFinding } from "~/server/api/routers/host";
-import type { HostLastScan, SourceFreshness } from "~/types/riskSummary";
+import type { HostLastScan, OpenPort, SourceFreshness } from "~/types/riskSummary";
 import {
   SEVERITIES,
   SEVERITY_LABELS,
@@ -17,7 +17,7 @@ import {
   type Severity,
 } from "~/components/shared/severity";
 import type { VulnRow } from "~/components/shared/vulnTableModel";
-import { formatPortService } from "~/utils/portService";
+import { compactPortService, formatPortService } from "~/utils/portService";
 
 // ─── Tabs and links (ADR-6) ─────────────────────────────────────────────────
 
@@ -142,15 +142,20 @@ export function portServiceLabel(
   });
 }
 
-/** One VulnTable row (preset "host") from a server finding. */
+/**
+ * One VulnTable row (preset "host") from a server finding. The port/service
+ * cell shows the compact "8080 · http"; the full label is its tooltip.
+ */
 export function findingToVulnRow(finding: HostFinding): VulnRow {
-  const portService = portServiceLabel(finding);
+  const fullPortService = portServiceLabel(finding);
+  const portService = fullPortService ? compactPortService(fullPortService) : undefined;
   return {
     id: finding.id,
     severity: finding.severity,
     cvss: finding.cvss,
     summary: finding.summary,
     ...(portService ? { portService } : {}),
+    ...(fullPortService && fullPortService !== portService ? { portServiceDetail: fullPortService } : {}),
     sources: finding.sources,
     ...(finding.firstSeen ? { firstSeen: finding.firstSeen } : {}),
     ...(finding.lastSeen ? { lastSeen: finding.lastSeen } : {}),
@@ -210,6 +215,46 @@ export function sourceName(source: Pick<SourceFreshness, "name" | "version">): s
   return [source.name, source.version].filter(Boolean).join(" ");
 }
 
+// ─── Open ports with their services (Open ports card) ───────────────────────
+
+export type PortWithService<P extends OpenPort = OpenPort> = P & {
+  /** "ssh (OpenSSH 10.0p2 Debian 7+deb13u4)", when a scan recorded one. */
+  serviceLabel?: string;
+};
+
+/**
+ * Each open port with the service a scan recorded for it: the port's own
+ * service name and version when present, otherwise the service the
+ * scanner's findings on that port name (their structured `serviceInfo`;
+ * the most common one when they differ). Nothing is parsed from free text.
+ */
+export function openPortServices<P extends OpenPort>(
+  ports: readonly P[],
+  findings: readonly Pick<HostFinding, "port" | "serviceInfo">[],
+): PortWithService<P>[] {
+  const byPort = new Map<number, Map<string, number>>();
+  for (const f of findings) {
+    const info = realText(f.serviceInfo);
+    if (typeof f.port !== "number" || !info) continue;
+    const counts = byPort.get(f.port) ?? new Map<string, number>();
+    counts.set(info, (counts.get(info) ?? 0) + 1);
+    byPort.set(f.port, counts);
+  }
+  return ports.map((p) => {
+    const own = [realText(p.service), realText(p.version)].filter(Boolean).join(" ");
+    let fromFindings: string | undefined;
+    let best = 0;
+    for (const [info, n] of byPort.get(p.port) ?? []) {
+      if (n > best) {
+        fromFindings = info;
+        best = n;
+      }
+    }
+    const serviceLabel = own || fromFindings;
+    return serviceLabel ? { ...p, serviceLabel } : { ...p };
+  });
+}
+
 // ─── Software the scanner matched (Open ports card) ─────────────────────────
 
 export interface MatchedSoftware {
@@ -221,7 +266,7 @@ export interface MatchedSoftware {
 
 /**
  * Products named by the scanner's CPEs, with how many open findings each
- * carries, most findings first. Findings don't record a port today, so this
+ * carries, most findings first. Not every finding records a port, so this
  * is listed beside the ports rather than joined to them.
  */
 export function matchedSoftware(

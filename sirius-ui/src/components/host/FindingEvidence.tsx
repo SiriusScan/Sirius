@@ -8,9 +8,20 @@
  */
 
 import React from "react";
-import { SourceBadge } from "~/components/shared/SourceBadge";
+import { SourceBadge, getSourceColorFamily } from "~/components/shared/SourceBadge";
 import { formatDateTime } from "~/utils/formatDateTime";
 import type { HostFindingObservation, HostFindingSnapshot } from "./types";
+
+/** The source chip a notch stronger than the table's badge, in its own color. */
+const STRONG_SOURCE_CHIP: Record<string, string> = {
+  blue: "border-blue-400/40 bg-blue-500/15 text-blue-200",
+  orange: "border-orange-400/40 bg-orange-500/15 text-orange-200",
+  cyan: "border-cyan-400/40 bg-cyan-500/15 text-cyan-200",
+  green: "border-green-400/40 bg-green-500/15 text-green-200",
+  purple: "border-purple-400/40 bg-purple-500/15 text-purple-200",
+  indigo: "border-indigo-400/40 bg-indigo-500/15 text-indigo-200",
+  gray: "border-gray-400/40 bg-gray-500/15 text-gray-200",
+};
 
 function ObservationTime({ value }: { value?: string }) {
   return value ? (
@@ -49,7 +60,7 @@ function RecordedSnapshot({ snapshot }: { snapshot?: HostFindingSnapshot }) {
         )}
         {snapshot.evidence.map(({ label, text }) => (
           <Fact key={label} label={label}>
-            <span className="whitespace-pre-wrap font-mono text-[11px] text-gray-300">{text}</span>
+            <span className="whitespace-pre-wrap font-mono text-[11px] text-gray-200">{text}</span>
           </Fact>
         ))}
         {snapshot.references.length > 0 && (
@@ -88,12 +99,17 @@ export function FindingEvidence({ observations }: { observations: readonly HostF
         <li key={observation.key} className="min-w-0 rounded-md border border-violet-500/15 bg-gray-900/60 p-3">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             {observation.source ? (
-              <SourceBadge source={observation.source} className="px-2.5 py-1 ring-1 ring-inset ring-white/10" />
+              <SourceBadge
+                source={observation.source}
+                className={`border px-2.5 py-0.5 ${
+                  STRONG_SOURCE_CHIP[getSourceColorFamily(observation.source)] ?? STRONG_SOURCE_CHIP.gray
+                }`}
+              />
             ) : (
               <span className="text-xs text-gray-400">Unknown source</span>
             )}
             {observation.version && (
-              <span className="inline-flex items-center rounded-full border border-violet-500/15 bg-gray-950/40 px-2 py-0.5 text-xs font-medium tabular-nums text-gray-300">
+              <span className="inline-flex items-center rounded-full border border-gray-500/50 bg-gray-800/90 px-2 py-0.5 text-xs font-medium tabular-nums text-gray-100">
                 {observation.version}
               </span>
             )}

@@ -114,10 +114,14 @@ export function SinceLastScanCard({ summary }: { summary: SummaryStats }) {
         />
         <Stat
           label="Open findings"
-          hint="per host & CVE"
           title={openFindingsTitle(summary.findings.open, summary.vulnerabilities?.unique)}
           value={fmt(summary.findings.open)}
-          note={openFindingsNote(summary.vulnerabilities?.unique, lastScanNote(lastScan, lastScan?.findings))}
+          note={openFindingsNote(
+            summary.findings.open,
+            summary.vulnerabilities?.unique,
+            lastScan,
+            lastScan?.findings,
+          )}
           link={{ href: "/vulnerabilities", label: "Review findings" }}
         />
         {highestRisk ? (

@@ -1,0 +1,38 @@
+name: Verify agent dispatch snapshot merge
+
+on:
+  push:
+    branches: [codex/verify-agent-dispatch-snapshot]
+
+permissions:
+  contents: read
+
+jobs:
+  inert-ui-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sirius-ui
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 92f2b72f55f39f980a300c63fa803f6b6ca62516
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sirius-ui/package-lock.json
+      - name: Check exact candidate
+        run: |
+          git rev-parse HEAD
+          git diff --check HEAD^ HEAD
+      - run: npm ci
+      - name: Inert agent dispatch and scan stop fixtures
+        run: |
+          npm exec --no -- tsx --test src/server/api/routers/agent-scan-dispatch.test.ts
+          npm run test:scanner-cancellation
+      - name: Type-check the UI
+        run: npm exec --no -- tsc --noEmit

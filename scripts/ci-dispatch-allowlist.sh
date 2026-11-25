@@ -28,11 +28,10 @@ PIN_ENV=""
 # Accept only the canonical SiriusScan path or the exact short name.
 case "${SUBMODULE}" in
   SiriusScan/go-api|go-api) REPO_SHORT="go-api"; PIN_ENV="GO_API_COMMIT_SHA" ;;
-  SiriusScan/app-scanner|app-scanner) REPO_SHORT="app-scanner"; PIN_ENV="APP_SCANNER_COMMIT_SHA" ;;
+  SiriusScan/app-scanner|app-scanner) REPO_SHORT="app-scanner" ;;
   SiriusScan/app-terminal|app-terminal) REPO_SHORT="app-terminal"; PIN_ENV="APP_TERMINAL_COMMIT_SHA" ;;
   SiriusScan/sirius-nse|sirius-nse) REPO_SHORT="sirius-nse"; PIN_ENV="SIRIUS_NSE_COMMIT_SHA" ;;
   SiriusScan/app-agent|app-agent) REPO_SHORT="app-agent"; PIN_ENV="APP_AGENT_COMMIT_SHA" ;;
-  SiriusScan/pingpp|pingpp) REPO_SHORT="pingpp"; PIN_ENV="PINGPP_COMMIT_SHA" ;;
   SiriusScan/app-system-monitor|app-system-monitor) REPO_SHORT="app-system-monitor"; PIN_ENV="APP_SYSTEM_MONITOR_COMMIT_SHA" ;;
   SiriusScan/app-administrator|app-administrator) REPO_SHORT="app-administrator"; PIN_ENV="APP_ADMINISTRATOR_COMMIT_SHA" ;;
   *)
@@ -40,7 +39,11 @@ case "${SUBMODULE}" in
     ;;
 esac
 
-case "${ENGINE_PROMOTION:-}" in
+promotion="${ENGINE_PROMOTION:-}"
+if [ "${REPO_SHORT}" = "app-scanner" ] && [ -z "${promotion}" ]; then
+  promotion=source-pin-v1
+fi
+case "${promotion}" in
   "") ;;
   source-pin-v1)
     [ "${REPO_SHORT}" = "app-scanner" ] || die "source-pin-v1 is supported only for app-scanner"
@@ -64,11 +67,9 @@ if [ "${APPLY_PIN}" = "1" ]; then
   [ -n "${GITHUB_ENV:-}" ] || die "GITHUB_ENV is required when APPLY_PIN=1"
   case "${PIN_ENV}" in
     GO_API_COMMIT_SHA) echo "GO_API_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
-    APP_SCANNER_COMMIT_SHA) echo "APP_SCANNER_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
     APP_TERMINAL_COMMIT_SHA) echo "APP_TERMINAL_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
     SIRIUS_NSE_COMMIT_SHA) echo "SIRIUS_NSE_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
     APP_AGENT_COMMIT_SHA) echo "APP_AGENT_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
-    PINGPP_COMMIT_SHA) echo "PINGPP_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
     APP_SYSTEM_MONITOR_COMMIT_SHA) echo "APP_SYSTEM_MONITOR_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
     APP_ADMINISTRATOR_COMMIT_SHA) echo "APP_ADMINISTRATOR_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
     *) die "internal error: unmapped PIN_ENV ${PIN_ENV}" ;;
@@ -86,7 +87,7 @@ if [ "${EMIT_CHANGES}" = "1" ]; then
       echo "sirius_api_changes=true" >> "${GITHUB_OUTPUT}"
       echo "sirius_engine_changes=true" >> "${GITHUB_OUTPUT}"
       ;;
-    app-scanner|app-terminal|sirius-nse|app-agent|pingpp)
+    app-terminal|sirius-nse|app-agent)
       echo "sirius_engine_changes=true" >> "${GITHUB_OUTPUT}"
       ;;
     *)

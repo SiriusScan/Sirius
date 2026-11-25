@@ -42,7 +42,7 @@ jobs:
 
           # Components managed by the engine pin policy. Each entry is the
           # ARG/env-var prefix as it appears in both files.
-          PINS=(GO_API APP_SCANNER APP_TERMINAL SIRIUS_NSE APP_AGENT PINGPP APP_SYSTEM_MONITOR APP_ADMINISTRATOR)
+          PINS=(GO_API APP_SCANNER APP_TERMINAL SIRIUS_NSE APP_AGENT APP_SYSTEM_MONITOR APP_ADMINISTRATOR)
 
           # Acceptable pin shape: a full 40-char SHA, OR a vX.Y.Z[-suffix] tag.
           # Floating refs (main, master, HEAD, branch names) are rejected.
@@ -54,6 +54,10 @@ jobs:
           }
 
           fail=0
+          if grep -Eq '^[[:space:]]*(ARG[[:space:]]+)?PINGPP_COMMIT_SHA=' "$DOCKERFILE" "$CI"; then
+            echo "::error::pingpp is resolved through the scanner Go module lock"
+            fail=1
+          fi
 
           for prefix in "${PINS[@]}"; do
             arg_name="${prefix}_COMMIT_SHA"

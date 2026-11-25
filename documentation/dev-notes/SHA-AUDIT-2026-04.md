@@ -163,6 +163,15 @@ scanner behavior; non-deterministic builds are unacceptable.
 `pingpp` change can land in the engine image with no signal at the
 Sirius repo. Phase 3a/3b adds the explicit pin and the CI arg.
 
+#### November 24, 2026 scanner packaging cutover
+
+The engine pins scanner `b75527622ed8fc8d05e1973eb94f458e207fca3e`. That revision selects
+`github.com/SiriusScan/pingpp@v0.0.0-20261125012228-a6e4289ccaf4` from source
+`a6e4289ccaf46421257f418d3f4a8b30c76d863b`. The engine build resolves the same module as standalone
+scanner CI. The release manifest keeps the compatible
+`PINGPP_COMMIT_SHA` field and reads it from the scanner dependency
+mapping for this and later canonical scanner revisions.
+
 ### `go-api` (`SiriusScan/go-api`)
 
 

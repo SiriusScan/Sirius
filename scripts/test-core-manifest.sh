@@ -114,6 +114,17 @@ if SUBMODULE=SiriusScan/go-api COMMIT_SHA=0123456789abcdef0123456789abcdef012345
   ENGINE_PROMOTION=source-pin-v1 bash scripts/ci-dispatch-allowlist.sh 2>/dev/null; then
   fail "accepted a scanner promotion mode for another component"
 fi
+: > "${TMP_OUT}"
+: > "${TMP_ENV}"
+GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" \
+  SUBMODULE=SiriusScan/app-scanner COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
+  APPLY_PIN=1 EMIT_CHANGES=1 bash scripts/ci-dispatch-allowlist.sh
+[ ! -s "${TMP_ENV}" ] || fail "unversioned scanner dispatch applied a source pin"
+grep -q '^sirius_engine_changes=false$' "${TMP_OUT}" || fail "unversioned scanner dispatch requested an engine build"
+if SUBMODULE=SiriusScan/pingpp COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
+  bash scripts/ci-dispatch-allowlist.sh 2>/dev/null; then
+  fail "pingpp dispatch was accepted as an independent engine pin"
+fi
 pass "dispatch allowlist"
 
 
@@ -144,6 +155,33 @@ pass "generate from inventory"
 echo "==> strict validate generated manifest"
 bash scripts/validate-core-manifest.sh --expect-tag v1.1.0 --expect-commit "${FAKE_COMMIT}" "${GENERATED}"
 pass "validate structure"
+
+echo "==> verify scanner module and historical pingpp pin provenance"
+[ "$(jq -r '.component_dependencies["app-scanner"].pingpp_version' "${GENERATED}")" = "v0.0.0-20261125012228-a6e4289ccaf4" ] \
+  || fail "missing canonical pingpp dependency version"
+[ "$(jq -r '.component_pins.PINGPP_COMMIT_SHA' "${GENERATED}")" = "a6e4289ccaf46421257f418d3f4a8b30c76d863b" ] \
+  || fail "missing canonical pingpp source commit"
+LEGACY_DF="${TMP_DIR}/Dockerfile.legacy-pingpp"
+sed 's/^ARG APP_SCANNER_COMMIT_SHA=.*/ARG APP_SCANNER_COMMIT_SHA=15e25fbeb2d54c26c4790330b3f5ada9e90b2f4e/' \
+  sirius-engine/Dockerfile > "${LEGACY_DF}"
+printf '\nARG PINGPP_COMMIT_SHA=9508a16c40a49746feb7cab4b8c1c358246169b0\n' >> "${LEGACY_DF}"
+LEGACY_MANIFEST="${TMP_DIR}/legacy-pingpp.yaml"
+bash scripts/generate-core-manifest.sh \
+  --tag v1.1.0 --commit "${FAKE_COMMIT}" --inventory "${INVENTORY_FIXTURE}" \
+  --dockerfile "${LEGACY_DF}" --output "${LEGACY_MANIFEST}"
+bash scripts/validate-core-manifest.sh --dockerfile "${LEGACY_DF}" "${LEGACY_MANIFEST}"
+jq -e '.component_dependencies["app-scanner"] | has("pingpp_version") | not' "${LEGACY_MANIFEST}" >/dev/null \
+  || fail "historical manifest received a canonical module version"
+MISMATCH_DF="${TMP_DIR}/Dockerfile.mismatched-pingpp"
+cp sirius-engine/Dockerfile "${MISMATCH_DF}"
+printf '\nARG PINGPP_COMMIT_SHA=9508a16c40a49746feb7cab4b8c1c358246169b0\n' >> "${MISMATCH_DF}"
+if bash scripts/generate-core-manifest.sh \
+  --tag v1.1.0 --commit "${FAKE_COMMIT}" --inventory "${INVENTORY_FIXTURE}" \
+  --dockerfile "${MISMATCH_DF}" --output "${TMP_DIR}/mismatched-pingpp.yaml" 2>/dev/null; then
+  fail "mismatched legacy pin accepted for canonical scanner"
+fi
+pass "scanner pingpp provenance"
+
 [ "$(jq -r '.contracts.rest_api' "${GENERATED}")" = "1.0.0" ] || fail "REST contract version mismatch"
 jq '.contracts.rest_api = "invalid"' "${GENERATED}" > "${TMP_DIR}/bad-contract.yaml"
 if bash scripts/validate-core-manifest.sh "${TMP_DIR}/bad-contract.yaml" 2>/dev/null; then

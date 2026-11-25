@@ -99,6 +99,21 @@ grep -q 'sirius_api_changes=true' "${TMP_OUT}" \
   || fail "expected system monitor dispatch to rebuild api"
 grep -q 'sirius_engine_changes=true' "${TMP_OUT}" \
   || fail "expected system monitor dispatch to rebuild engine"
+: > "${TMP_OUT}"
+: > "${TMP_ENV}"
+TMP_SUMMARY="${TMP_DIR}/dispatch-summary.md"
+GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" GITHUB_STEP_SUMMARY="${TMP_SUMMARY}" \
+  SUBMODULE=SiriusScan/app-scanner \
+  COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
+  ENGINE_PROMOTION=source-pin-v1 APPLY_PIN=1 EMIT_CHANGES=1 \
+  bash scripts/ci-dispatch-allowlist.sh
+[ ! -s "${TMP_ENV}" ] || fail "pending scanner dispatch applied a source pin"
+grep -q '^sirius_engine_changes=false$' "${TMP_OUT}" || fail "pending scanner dispatch requested an engine build"
+grep -q 'awaits an engine source-pin PR' "${TMP_SUMMARY}" || fail "missing scanner dispatch summary"
+if SUBMODULE=SiriusScan/go-api COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
+  ENGINE_PROMOTION=source-pin-v1 bash scripts/ci-dispatch-allowlist.sh 2>/dev/null; then
+  fail "accepted a scanner promotion mode for another component"
+fi
 pass "dispatch allowlist"
 
 

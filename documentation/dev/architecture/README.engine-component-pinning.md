@@ -141,6 +141,11 @@ dispatch-triggered build is reproducible only as long as the dispatched
 SHA exists; if you want the new SHA to be the long-lived floor, follow
 the manual workflow above to land it in the Dockerfile.
 
+Scanner notifications carrying `"engine_promotion": "source-pin-v1"`
+remain visible as CI runs. The Actions summary records the scanner source
+SHA awaiting a reviewed engine pin PR. The PR is where the engine pin,
+lockfile dependency provenance and release metadata advance together.
+
 ### Local hot-swap (no rebuild)
 
 For a fast iteration loop without rebuilding the image, see

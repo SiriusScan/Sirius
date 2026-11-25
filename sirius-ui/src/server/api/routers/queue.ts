@@ -57,6 +57,12 @@ export async function handleSendMsg(
   }
 }
 
+export class QueueResponseTimeoutError extends Error {
+  constructor() {
+    super("Command timed out");
+  }
+}
+
 export async function waitForResponse(queue: string): Promise<string> {
   let connection: Connection | null = null;
   let channel: Channel | null = null;
@@ -81,7 +87,7 @@ export async function waitForResponse(queue: string): Promise<string> {
     // pair is called sequentially, so responses arrive in order.
     const responsePromise = new Promise<string>((resolve, reject) => {
       const timeout = setTimeout(() => {
-        reject(new Error("Command timed out"));
+        reject(new QueueResponseTimeoutError());
       }, 30000);
 
       if (!currentChannel) {
@@ -110,8 +116,8 @@ export async function waitForResponse(queue: string): Promise<string> {
       if (connection) {
         await connection.close();
       }
-    } catch (error) {
-      console.error("[Queue] Error closing connection:", error);
+    } catch {
+      console.error("[Queue] Error closing connection");
     }
   }
 }

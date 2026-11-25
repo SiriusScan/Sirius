@@ -97,11 +97,12 @@ RUN mkdir -p /system-monitor
 # Copy API binary from builder stage
 COPY --from=builder /app/sirius-api /app/sirius-api
 COPY --from=builder /app/migrate /app/migrate
+COPY start-runtime.sh /app/start-runtime.sh
 
 COPY --from=utility-go-binaries /usr/local/bin/system-monitor /system-monitor/system-monitor
 COPY --from=utility-go-binaries /usr/local/bin/administrator /app/administrator
 
-RUN chmod +x /system-monitor/system-monitor /app/administrator /app/sirius-api /app/migrate
+RUN chmod +x /system-monitor/system-monitor /app/administrator /app/sirius-api /app/migrate /app/start-runtime.sh
 
 RUN chown -R appuser:appgroup /app /system-monitor
 
@@ -109,4 +110,4 @@ USER appuser
 
 EXPOSE 9001
 
-CMD ["sh", "-c", "CONTAINER_NAME=sirius-api /system-monitor/system-monitor >> /tmp/system-monitor.log 2>&1 & CONTAINER_NAME=sirius-api /app/administrator >> /tmp/administrator.log 2>&1 & /app/sirius-api"]
+CMD ["/app/start-runtime.sh"]

@@ -30,8 +30,14 @@ services:
       - SIRIUS_SCHEMA_MODE=${SIRIUS_SCHEMA_MODE:-apply}
       - SIRIUS_SCHEMA_STARTUP_TIMEOUT=${SIRIUS_SCHEMA_STARTUP_TIMEOUT:-10m}
       - PGCONNECT_TIMEOUT=${PGCONNECT_TIMEOUT:-10}
+      - POSTGRES_HOST=sirius-postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=sirius
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-}
       - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
+    secrets:
+      - postgres_password
     networks:
       - sirius
 

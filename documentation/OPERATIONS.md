@@ -54,6 +54,9 @@ before serving traffic when migrations are pending. Verify mode takes
 precedence over the SDK's legacy AutoMigrate and reset flags.
 
 Standalone and Swarm installations use `SIRIUS_SCHEMA_MODE=apply` by default.
+Swarm mounts the existing external `postgres_password` secret into the API.
+The packaged API loads it before the Go SDK initializes. Explicit
+`DB_PASSWORD` and `POSTGRES_PASSWORD` take precedence.
 Set `SIRIUS_SCHEMA_MODE=verify` when a dedicated migrator owns schema changes in
 those installations. `SIRIUS_SCHEMA_STARTUP_TIMEOUT` takes a Go duration and
 defaults to `10m`. Packaged containers default PostgreSQL connection attempts

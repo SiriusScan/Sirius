@@ -34,7 +34,7 @@ services:
       dockerfile: Dockerfile
       target: runner
       args:
-        GO_API_COMMIT_SHA: 2ceb0951105d9f322b9825210e84086632b624b3
+        GO_API_COMMIT_SHA: eec099d012845817d22a37c72db8f89e8c609032
     image: sirius-sirius-api:source
     pull_policy: never
 

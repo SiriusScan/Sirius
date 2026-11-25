@@ -35,24 +35,36 @@ export const queueRouter = createTRPCRouter({
     }),
 });
 
+export class QueuePublishError extends Error {
+  constructor(cause: unknown, readonly sendAttempted: boolean) {
+    super(cause instanceof Error ? cause.message : String(cause), { cause });
+  }
+}
+
 export async function handleSendMsg(
   queue: string,
   message: string
 ): Promise<void> {
-  const connection: Connection = await amqp.connect(RABBITMQ_URL);
+  let connection: Connection | null = null;
   let channel: Channel | null = null;
+  let sendAttempted = false;
 
   try {
+    connection = await amqp.connect(RABBITMQ_URL);
     channel = await connection.createChannel();
 
     await channel.assertQueue(queue, QUEUE_OPTIONS);
-    channel.sendToQueue(queue, Buffer.from(message));
+    const payload = Buffer.from(message);
+    sendAttempted = true;
+    channel.sendToQueue(queue, payload);
+  } catch (cause) {
+    throw new QueuePublishError(cause, sendAttempted);
   } finally {
     try {
       if (channel) await channel.close();
     } catch { /* channel may already be closed */ }
     try {
-      await connection.close();
+      if (connection) await connection.close();
     } catch { /* connection may already be closed */ }
   }
 }

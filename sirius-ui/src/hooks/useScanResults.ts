@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { api } from "~/utils/api";
 import { b64Decode } from "~/utils/std";
+import { projectScanStatus } from "~/utils/scanSubmission";
 import {
   type ScanResult,
   type VulnerabilitySummary,
@@ -20,7 +21,7 @@ export function useScanResults() {
 
   useEffect(() => {
     const decoded = b64Decode(scanStatusQuery.data ?? "");
-    setScanResult(decoded);
+    setScanResult(projectScanStatus(decoded));
     if (!decoded) {
       setHosts([]);
       setVulnerabilities([]);

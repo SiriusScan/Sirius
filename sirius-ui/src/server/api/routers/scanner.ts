@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { ScanResult } from "~/types/scanTypes";
-import { handleSendMsg } from "~/server/api/routers/queue";
+import { handleSendMsg, QueuePublishError } from "~/server/api/routers/queue";
+import { createInitialScan } from "~/utils/scanSubmission";
 import { valkey } from "~/server/valkey";
 
 const CURRENT_SCAN_KEY = "currentScan";
@@ -18,6 +19,18 @@ async function getCurrentScan(): Promise<ScanResult | null> {
   const raw = await valkey.get(CURRENT_SCAN_KEY);
   if (!raw) return null;
   return decodeScanState(raw);
+}
+
+async function compareAndSetCurrentScan(expected: string, state: ScanResult) {
+  await valkey.eval(
+    `if redis.call("GET", KEYS[1]) == ARGV[1] then
+       return redis.call("SET", KEYS[1], ARGV[2])
+     end`,
+    1,
+    CURRENT_SCAN_KEY,
+    expected,
+    encodeScanState(state)
+  );
 }
 
 export interface CancelScanResponse {
@@ -42,6 +55,76 @@ export interface ResetScanResponse {
 }
 
 export const scannerRouter = createTRPCRouter({
+  submitNetworkScan: protectedProcedure
+    .input(
+      z.object({
+        scanId: z.string().regex(/^scan-\d+-[a-z0-9]{1,9}$/),
+        targets: z.array(
+          z.object({
+            value: z.string().min(1),
+            type: z.enum(["single_ip", "ip_range", "cidr", "dns_name", "dns_wildcard"]),
+          })
+        ).min(1),
+        templateId: z.string(),
+        priority: z.number(),
+        agentMode: z.enum(["comprehensive", "templates-only", "scripts-only"]).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { scanId, targets, templateId, priority, agentMode } = input;
+      const scan = createInitialScan(
+        scanId,
+        targets.map(({ value }) => value),
+        true,
+        agentMode
+      );
+      const initialState = encodeScanState(scan);
+
+      try {
+        await valkey.set(CURRENT_SCAN_KEY, initialState);
+      } catch (error) {
+        console.error("Failed to record scan submission", scanId, error);
+        return { outcome: "not_recorded" } as const;
+      }
+
+      try {
+        await handleSendMsg(
+          "scan",
+          JSON.stringify({
+            id: scanId,
+            targets,
+            options: { template_id: templateId },
+            priority,
+          })
+        );
+        return { outcome: "submitted", scan } as const;
+      } catch (error) {
+        console.error("Failed to publish scan submission", scanId, error);
+        if (!(error instanceof QueuePublishError) || error.sendAttempted) {
+          return { outcome: "unconfirmed", scan } as const;
+        }
+
+        // This attempt had no send. A later state may already belong to a
+        // replacement, cancellation, or worker update.
+        const subScans = scan.sub_scans ?? {};
+        for (const subScan of Object.values(subScans)) {
+          subScan.status = "failed";
+          subScan.metadata = {
+            ...subScan.metadata,
+            submission_error: "not_published",
+          };
+        }
+        await compareAndSetCurrentScan(initialState, {
+          ...scan,
+          status: "failed",
+          end_time: new Date().toISOString(),
+        }).catch((stateError: unknown) => {
+          console.error("Failed to record scan submission failure", scanId, stateError);
+        });
+        return { outcome: "failed" } as const;
+      }
+    }),
+
   cancelScan: protectedProcedure
     .input(
       z
@@ -52,7 +135,8 @@ export const scannerRouter = createTRPCRouter({
     )
     .mutation(async ({ input }): Promise<CancelScanResponse> => {
       try {
-        const current = await getCurrentScan();
+        const raw = await valkey.get(CURRENT_SCAN_KEY);
+        const current = raw ? decodeScanState(raw) : null;
         const scanId = input?.scanId ?? current?.id;
 
         const cancelCommand = JSON.stringify({
@@ -62,9 +146,13 @@ export const scannerRouter = createTRPCRouter({
         });
         await handleSendMsg("scan_control", cancelCommand);
 
-        if (current && current.id === scanId && current.status === "running") {
-          current.status = "cancelling";
-          await valkey.set(CURRENT_SCAN_KEY, encodeScanState(current));
+        if (
+          raw &&
+          current &&
+          current.id === scanId &&
+          (current.status === "running" || current.status === "pending")
+        ) {
+          await compareAndSetCurrentScan(raw, { ...current, status: "cancelling" });
         }
 
         return {

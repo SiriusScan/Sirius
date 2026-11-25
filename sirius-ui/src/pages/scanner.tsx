@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/router";
 import Layout from "~/components/Layout";
 import { parseTargets, type ParsedTarget } from "~/utils/targetParser";
-import { ScanStatus } from "~/components/scanner/ScanStatus";
+import { ScanStatus } from "~/components/scanner/ScanStatusPanel";
 import { EnvironmentDataTable } from "~/components/EnvironmentDataTable";
 
 import {
@@ -298,6 +298,12 @@ const ScannerContent: React.FC = () => {
                   setAdvancedAgentConfig={setAdvancedAgentConfig}
                 />
               </div>
+            )}
+
+            {error && scanResults.scanResult?.status !== "failed" && (
+              <p role="alert" className="rounded-lg bg-red-900/30 px-4 py-3 text-sm text-red-200">
+                {error}
+              </p>
             )}
 
             {/* Results Section */}

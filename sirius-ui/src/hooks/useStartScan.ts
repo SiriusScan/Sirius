@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { api } from "~/utils/api";
 import { b64Decode } from "~/utils/std";
+import { createInitialScan } from "~/utils/scanSubmission";
 import {
   type ScanResult,
   type AgentScanConfig,
-  type SubScan,
 } from "~/types/scanTypes";
 
 export type TargetType =
@@ -20,25 +20,19 @@ interface Target {
   type: TargetType;
 }
 
-interface ScanRequest {
-  id: string;
-  targets: Target[];
-  options: {
-    template_id: string;
-  };
-  priority: number;
-}
-
 export const useStartScan = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const sendMessage = api.queue.sendMsg.useMutation();
+  const submitNetworkScan = api.scanner.submitNetworkScan.useMutation({
+    retry: false,
+  });
   const updateScan = api.store.setValue.useMutation();
   const dispatchAgentScan = api.agentScan.dispatchAgentScan.useMutation();
   const utils = api.useContext();
 
   const generateScanId = () => {
-    return `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const suffix = Math.random().toString(36).slice(2, 11) || "0";
+    return `scan-${Date.now()}-${suffix}`;
   };
 
   const initiateScan = async (
@@ -56,62 +50,42 @@ export const useStartScan = () => {
       const hasNetworkScan = targets.length > 0 && !skipNetworkScan;
       const hasAgentScan = agentScanConfig?.enabled ?? false;
 
-      // Build modular sub_scans map
-      const subScans: Record<string, SubScan> = {};
+      const agentMode = hasAgentScan
+        ? agentScanConfig?.mode ?? "comprehensive"
+        : undefined;
+      let scan: ScanResult;
 
       if (hasNetworkScan) {
-        subScans.network = {
-          type: "network",
-          enabled: true,
-          status: "running",
-          progress: { completed: 0, total: 0, label: "hosts" },
-        };
-      }
-
-      if (hasAgentScan) {
-        subScans.agent = {
-          type: "agent",
-          enabled: true,
-          status: "dispatching",
-          progress: { completed: 0, total: 0, label: "agents" },
-          metadata: {
-            mode: agentScanConfig?.mode ?? "comprehensive",
-            dispatched_agents: [],
-            agent_statuses: [],
-          },
-        };
-      }
-
-      // Create the initial scan state in ValKey
-      const scan: ScanResult = {
-        id: scanId,
-        status: "running",
-        targets: targets.map((t) => t.value),
-        hosts: [],
-        hosts_completed: 0,
-        vulnerabilities: [],
-        start_time: new Date().toISOString(),
-        sub_scans: subScans,
-      };
-
-      await updateScan.mutateAsync({
-        key: "currentScan",
-        value: btoa(JSON.stringify(scan)),
-      });
-
-      // Dispatch network scan if we have targets
-      if (hasNetworkScan) {
-        const scanRequest: ScanRequest = {
-          id: scanId,
+        const receipt = await submitNetworkScan.mutateAsync({
+          scanId,
           targets,
-          options: {
-            template_id: templateId,
-          },
+          templateId,
           priority,
-        };
-
-        const message = JSON.stringify(scanRequest);
-        await sendMessage.mutateAsync({ message, queue: "scan" });
+          agentMode,
+        }).catch((cause: unknown) => {
+          console.error("Scan submission response was unavailable", scanId, cause);
+          throw new Error(
+            "Could not confirm scan submission. Check the dashboard before retrying."
+          );
+        });
+        if (receipt.outcome === "not_recorded") {
+          throw new Error("Could not record the scan. No scan request was published.");
+        }
+        if (receipt.outcome === "failed") {
+          throw new Error("The network scan could not be submitted.");
+        }
+        scan = receipt.scan;
+      } else {
+        scan = createInitialScan(
+          scanId,
+          targets.map((target) => target.value),
+          false,
+          agentMode
+        );
+        await updateScan.mutateAsync({
+          key: "currentScan",
+          value: btoa(JSON.stringify(scan)),
+        });
       }
 
       // Dispatch agent scan if enabled
@@ -239,8 +213,6 @@ export const useStartScan = () => {
         }
       }
 
-      await utils.store.getValue.invalidate();
-
       return scan;
     } catch (err) {
       const errorMessage =
@@ -249,6 +221,7 @@ export const useStartScan = () => {
       throw err;
     } finally {
       setIsLoading(false);
+      void utils.store.getValue.invalidate({ key: "currentScan" });
     }
   };
 

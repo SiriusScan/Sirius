@@ -76,7 +76,9 @@ export function ScanControls({
   isProfileAgentOnly,
 }: ScanControlsProps) {
   const isScanActive =
-    scanResult?.status === "running" || scanResult?.status === "cancelling";
+    scanResult?.status === "pending" ||
+    scanResult?.status === "running" ||
+    scanResult?.status === "cancelling";
 
   /** Render the appropriate stop/escalation button based on stopStage */
   const renderStopButton = () => {

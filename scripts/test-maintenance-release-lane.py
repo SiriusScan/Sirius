@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Exercise workflow tag selection and maintenance ancestry/frontend guards."""
+import json
 import os
 from pathlib import Path
 import re
@@ -10,12 +11,82 @@ ENV = {key: value for key, value in os.environ.items() if key != 'BASH_ENV'}
 ROOT = Path(__file__).resolve().parents[1]
 ci = (ROOT / '.github/workflows/ci.yml').read_text()
 publish = (ROOT / '.github/workflows/publish-release-image-tags.yml').read_text()
+
+def check_concurrency_groups(work):
+    block = re.search(r'^concurrency:\s*\n\s*group:\s*>-\s*\n(.*?)^  cancel-in-progress:', ci, re.M | re.S)
+    assert block, 'CI must declare a workflow concurrency group'
+    group = re.fullmatch(r'\s*\$\{\{\s*github\.workflow\s*\}\}-\$\{\{\s*github\.ref\s*\}\}\$\{\{(.*?)\}\}\s*', block[1], re.S)
+    assert group, 'CI must keep a workflow and Git ref prefix'
+    # Extract the routing values from the checked-in expression. Whitespace is
+    # incidental, but notice selection must be gated on the event and marker.
+    contains = r"contains\s*\(\s*fromJSON\s*\(\s*'([^']+)'\s*\)\s*,\s*github\.event\.client_payload\.submodule\s*\)"
+    selector = re.fullmatch(
+        r"\s*github\.event_name\s*==\s*'([^']+)'\s*&&\s*\(\s*" + contains
+        + r"\s*\|\|\s*\(\s*github\.event\.client_payload\.engine_promotion\s*==\s*'([^']+)'\s*&&\s*" + contains
+        + r"\s*\)\s*\)\s*&&\s*format\s*\(\s*'([^']+)'\s*,\s*github\.run_id\s*\)\s*\|\|\s*''\s*",
+        group[1],
+    )
+    assert selector, 'CI must pair notification selection with a unique run suffix'
+    event, always, marker, opt_in, suffix = selector.groups()
+    event, marker = event.lower(), marker.lower()
+    always = {source.lower() for source in json.loads(always)}
+    opt_in = {source.lower() for source in json.loads(opt_in)}
+    assert suffix.format(7001) != suffix.format(7002), 'notification groups must differ across runs'
+    main_ref = 'refs/heads/main'
+    cases = [
+        ('push', main_ref, '', '', False, None),
+        ('push', 'refs/heads/release/1.2.x', '', '', False, None),
+        ('push', 'refs/heads/sirius-demo', '', '', False, None),
+        ('pull_request', 'refs/pull/42/merge', '', '', False, None),
+        ('repository_dispatch', main_ref, 'SiriusScan/go-api', '', True, 'notice'),
+        ('repository_dispatch', main_ref, 'go-api', 'source-pin-v1', True, 'notice'),
+        ('repository_dispatch', main_ref, 'SiriusScan/app-scanner', 'source-pin-v1', True, 'notice'),
+        ('repository_dispatch', main_ref, 'app-scanner', '', True, 'notice'),
+        ('repository_dispatch', main_ref, 'SiriusScan/app-terminal', 'source-pin-v1', True, 'notice'),
+        ('repository_dispatch', main_ref, 'app-terminal', '', False, 'build'),
+        ('repository_dispatch', main_ref, 'app-agent', '', False, 'build'),
+        ('repository_dispatch', main_ref, 'SiriusScan/app-administrator', '', False, 'build'),
+        ('repository_dispatch', main_ref, 'go-api', 'wrong', True, 'rejected'),
+        ('repository_dispatch', main_ref, 'app-scanner', 'wrong', True, 'rejected'),
+        ('repository_dispatch', main_ref, 'app-terminal', 'wrong', False, 'rejected'),
+        ('repository_dispatch', main_ref, 'app-terminal', 'SOURCE-PIN-V1', True, 'rejected'),
+        ('repository_dispatch', main_ref, 'app-agent', 'source-pin-v1', False, 'rejected'),
+    ]
+    output = work / 'dispatch-output'
+    for name, ref, source, promotion, isolated, receiver in cases:
+        notification = name.lower() == event and (
+            source.lower() in always or (promotion.lower() == marker and source.lower() in opt_in)
+        )
+        reference_group = f'Sirius CI/CD Pipeline-{ref}'
+        actual_group = reference_group + (suffix.format(7001) if notification else '')
+        assert actual_group == reference_group + ('-notification-7001' if isolated else ''), (name, ref, source, promotion, actual_group)
+        if receiver is None:
+            continue
+        output.write_text('')
+        result = subprocess.run(
+            ['bash', str(ROOT / 'scripts/ci-dispatch-allowlist.sh')],
+            env={**ENV, 'SUBMODULE': source, 'COMMIT_SHA': 'a' * 40, 'ENGINE_PROMOTION': promotion,
+                 'APPLY_PIN': '0', 'EMIT_CHANGES': '1', 'GITHUB_OUTPUT': str(output), 'GITHUB_STEP_SUMMARY': ''},
+            text=True, capture_output=True,
+        )
+        flags = set(output.read_text().splitlines())
+        if receiver == 'rejected':
+            assert result.returncode != 0 and not flags, (source, promotion, result, flags)
+        else:
+            assert result.returncode == 0, (source, promotion, result)
+            if receiver == 'notice':
+                assert flags == {'sirius_api_changes=false', 'sirius_engine_changes=false'}, (source, flags)
+            else:
+                assert 'sirius_engine_changes=true' in flags, (source, flags)
+    print('PASS per-ref build queues and informational component dispatches')
+
 blocks = re.findall(r'      - name: Generate image tag[^\n]*\n        id: meta\n(?:        env:\n(?:          [^\n]*\n)*)?        run: \|\n(.*?)(?=\n      - name:|\Z)', ci, re.S)
 assert len(blocks) == 8, len(blocks)
 blocks += re.findall(r'      - name: Determine image tag\n        id: tag\n        run: \|\n(.*?)(?=\n      - name:|\Z)', ci, re.S)
 assert len(blocks) == 9, len(blocks)
 with tempfile.TemporaryDirectory(prefix='maintenance-lane-test-') as directory:
     work = Path(directory)
+    check_concurrency_groups(work)
     for branch, expected in [('main', 'latest'), ('release/1.2.x', 'maintenance-1.2')]:
         for i, block in enumerate(blocks):
             script = '\n'.join(line[10:] for line in block.rstrip().splitlines())

@@ -17,8 +17,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 92f2b72f55f39f980a300c63fa803f6b6ca62516
-          fetch-depth: 2
+          ref: de93e431076a280e655d721e565fb00e2f168add
+          fetch-depth: 3
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
@@ -28,7 +28,7 @@ jobs:
       - name: Check exact candidate
         run: |
           git rev-parse HEAD
-          git diff --check HEAD^ HEAD
+          git diff --check 2085c311da9f854e53bfb41912cfc26f00c54613 HEAD
       - run: npm ci
       - name: Inert agent dispatch and scan stop fixtures
         run: |

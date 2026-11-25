@@ -8,7 +8,7 @@
 # Optional env:
 #   APPLY_PIN=1      - append a build override to GITHUB_ENV when allowed
 #   EMIT_CHANGES=1   - append sirius_*_changes outputs to GITHUB_OUTPUT
-#   ENGINE_PROMOTION - source-pin-v1 records scanner and SDK revisions for reviewed promotion
+#   ENGINE_PROMOTION - source-pin-v1 records revisions for reviewed promotion
 #
 # Never dynamically constructs environment variable names.
 set -euo pipefail
@@ -47,8 +47,11 @@ case "${REPO_SHORT}:${ENGINE_PROMOTION:-}" in
   go-api:|go-api:source-pin-v1)
     message="Go API SDK revision ${COMMIT_SHA} awaits a Core source-pin PR."
     ;;
+  app-terminal:source-pin-v1)
+    message="Terminal revision ${COMMIT_SHA} awaits an engine source-pin PR."
+    ;;
   *:) ;;
-  *:source-pin-v1) die "source-pin-v1 is supported only for app-scanner and go-api" ;;
+  *:source-pin-v1) die "source-pin-v1 is supported only for app-scanner, go-api, and app-terminal" ;;
   *) die "unknown engine promotion mode" ;;
 esac
 

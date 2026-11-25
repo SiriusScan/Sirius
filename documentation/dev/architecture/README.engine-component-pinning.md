@@ -151,6 +151,10 @@ input, CI fallbacks, and schema and release manifest metadata together. The
 reviewed change keeps the API binary and one-shot migrator on the same SDK
 release.
 
+Terminal notifications with `"engine_promotion": "source-pin-v1"` also
+record the revision for a reviewed engine pin PR. Older notifications
+without the marker continue to request an engine build.
+
 ### Bumping the scanner and pingpp
 
 Publish the scanner's updated pingpp module lock first. Then update

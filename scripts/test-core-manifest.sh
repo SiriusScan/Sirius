@@ -129,6 +129,27 @@ GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" \
   APPLY_PIN=1 EMIT_CHANGES=1 bash scripts/ci-dispatch-allowlist.sh
 [ ! -s "${TMP_ENV}" ] || fail "unversioned scanner dispatch applied a source pin"
 grep -q '^sirius_engine_changes=false$' "${TMP_OUT}" || fail "unversioned scanner dispatch requested an engine build"
+
+: > "${TMP_OUT}"
+: > "${TMP_ENV}"
+: > "${TMP_SUMMARY}"
+GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" GITHUB_STEP_SUMMARY="${TMP_SUMMARY}" \
+  SUBMODULE=SiriusScan/app-terminal COMMIT_SHA="${DISPATCH_SHA}" \
+  ENGINE_PROMOTION=source-pin-v1 APPLY_PIN=1 EMIT_CHANGES=1 \
+  bash scripts/ci-dispatch-allowlist.sh
+[ ! -s "${TMP_ENV}" ] || fail "pending terminal dispatch applied a source pin"
+[ "$(cat "${TMP_OUT}")" = "${expected_flags}" ] || fail "pending terminal dispatch requested a build"
+grep -Fxq "Terminal revision ${DISPATCH_SHA} awaits an engine source-pin PR." "${TMP_SUMMARY}" \
+  || fail "missing terminal dispatch summary"
+: > "${TMP_OUT}"
+GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" \
+  SUBMODULE=SiriusScan/app-terminal COMMIT_SHA="${DISPATCH_SHA}" \
+  APPLY_PIN=1 EMIT_CHANGES=1 bash scripts/ci-dispatch-allowlist.sh
+[ "$(cat "${TMP_ENV}")" = "APP_TERMINAL_COMMIT_SHA=${DISPATCH_SHA}" ] \
+  || fail "legacy terminal dispatch did not apply its source pin"
+[ "$(cat "${TMP_OUT}")" = "sirius_engine_changes=true" ] \
+  || fail "legacy terminal dispatch did not request an engine-only build"
+
 if SUBMODULE=SiriusScan/pingpp COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
   bash scripts/ci-dispatch-allowlist.sh 2>/dev/null; then
   fail "pingpp dispatch was accepted as an independent engine pin"

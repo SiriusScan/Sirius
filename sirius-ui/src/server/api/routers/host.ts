@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import axios from "axios";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { storeMockHosts } from "./shared-mock-data";
 import { type VulnerabilitySeverityCounts } from "~/components/VulnerabilityBarGraph";
@@ -12,6 +13,28 @@ import {
   mockEnvironmentSummaryData,
 } from "~/utils/mock/mockHostData";
 import { type SourceCoverageStats } from "~/types/scanTypes";
+import {
+  findingSeverity,
+  hostRisk,
+  roundScore,
+  type RiskFinding,
+} from "~/utils/risk";
+import { summaryFor } from "~/utils/findingSummary";
+import type {
+  FindingComponent,
+  FindingSummaryFields,
+  HostFreshness,
+  HostFreshnessEntry,
+  HostLastScan,
+  HostRiskFields,
+  InventoryHostRef,
+  InventoryIpsResult,
+  OpenPort,
+  RiskBand,
+  RiskSeverity,
+  SeverityCounts,
+  SourceFreshness,
+} from "~/types/riskSummary";
 
 export type SiriusHost = {
   hid: string;
@@ -62,6 +85,11 @@ export type Vulnerability = {
   description: string;
   published: string;
   severity: string;
+  /** Fields the Go API sends for scanner findings (finding snapshot). */
+  title?: string;
+  cve_id?: string;
+  cvss_score?: number;
+  confidence?: number;
 };
 
 export interface EnvironmentTableData {
@@ -74,7 +102,37 @@ export interface EnvironmentTableData {
   tags: string[];
   vulnerabilities: Vulnerability[];
   ports?: Port[];
+  // Server-computed (ADR-3); optional here so older fixtures still type.
+  riskScore?: number;
+  riskBand?: RiskBand;
+  riskCve?: string;
+  counts?: SeverityCounts;
+  openFindings?: number;
+  openPorts?: OpenPort[];
+  /** Source names that reported on this host (getEnvironmentSummary). */
+  sources?: string[];
+  firstSeen?: string | null;
+  lastScan?: HostLastScan | null;
+  sourceFreshness?: SourceFreshness[];
 }
+
+/**
+ * A host row as getAllHosts returns it: the legacy fields plus the risk
+ * fields every host shape carries (ADR-3) and its open ports.
+ */
+export type HostRiskRow = EnvironmentTableData &
+  HostRiskFields & {
+    openFindings: number;
+    openPorts: OpenPort[];
+  };
+
+/** A host row as getEnvironmentSummary returns it: also data freshness. */
+export type EnvironmentHostRow = HostRiskRow & {
+  sources: string[];
+  firstSeen: string | null;
+  lastScan: HostLastScan | null;
+  sourceFreshness: SourceFreshness[];
+};
 
 function isValidIPv4HostIp(ip: string | undefined): boolean {
   if (!ip) return false;
@@ -331,6 +389,22 @@ export type VulnerabilityWithSource = {
   port?: number;
   service_info?: string;
   notes?: string;
+  /** The complete scanner observation, when the source stored one. */
+  finding?: {
+    vid?: string;
+    title?: string;
+    description?: string;
+    riskScore?: number;
+    cve_id?: string;
+    cvss_score?: number;
+    severity?: string;
+    confidence?: number;
+    remediation?: string;
+    metadata?: {
+      evidence?: unknown;
+      references?: unknown;
+    } | null;
+  } | null;
 };
 
 export type PortWithSource = {
@@ -367,6 +441,412 @@ const acceptedHostHistoryResponse = z.object({
   sources: z.array(z.string()),
   next_cursor: z.string().max(256).optional(),
 });
+
+// ─── Risk, ports, freshness and clean summaries (ADR-2/3/4) ─────────────────
+//
+// Everything below runs on the server. Pages read riskScore / riskBand /
+// counts from these outputs and never compute risk in the browser.
+
+/** One open finding on a host, deduplicated across sources (host page). */
+export interface HostFinding extends FindingSummaryFields {
+  /** CVE / finding id. */
+  id: string;
+  title?: string;
+  /** CVSS 0–10 from the scanner (0 when it reported none). */
+  cvss: number;
+  severity: RiskSeverity;
+  /** Every source with this finding open. */
+  sources: string[];
+  firstSeen?: string;
+  lastSeen?: string;
+  confidence: number;
+  port?: number;
+  serviceInfo?: string;
+}
+
+/** getHostWithSources output: the raw source data plus server summaries. */
+export type HostWithSourcesSummary = HostWithSources &
+  HostRiskFields & {
+    openFindings: number;
+    /** Open findings, one per CVE, highest CVSS first. */
+    findings: HostFinding[];
+    /** Open ports from all sources, with the sources that saw each. */
+    openPorts: OpenPort[];
+    /** Data freshness (R05). */
+    freshness: HostFreshness;
+    firstSeen: string | null;
+    lastScan: HostLastScan | null;
+  };
+
+/**
+ * GET /host/ — the inventory with each host's open findings and ports,
+ * listed by single IPv4 address as every host procedure does. Throws when
+ * the API fails, so callers never report invented zeros.
+ */
+export async function fetchInventoryHosts(): Promise<SiriusHost[]> {
+  const response = await httpClient.get<SiriusHost[] | null>("host/");
+  const raw = response.data;
+  return Array.isArray(raw)
+    ? raw.filter((h) => !!h && isValidIPv4HostIp(h.ip))
+    : [];
+}
+
+/** GET /host/{ip}/sources, or null when the host is not in the inventory. */
+async function fetchHostSources(ip: string): Promise<HostWithSources | null> {
+  try {
+    const response = await httpClient.get<HostWithSources>(
+      `host/${ip}/sources`,
+    );
+    return response.data ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Catalog descriptions by CVE (GET host/vulnerabilities/all). */
+async function fetchCatalogDescriptions(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const response = await httpClient.get<
+      Array<{ vid?: string; description?: string }> | null
+    >("host/vulnerabilities/all");
+    for (const row of Array.isArray(response.data) ? response.data : []) {
+      if (row?.vid && row.description) map.set(row.vid, row.description);
+    }
+  } catch (error) {
+    console.warn("Catalog descriptions unavailable:", error);
+  }
+  return map;
+}
+
+/** Run `fn` over items with at most `limit` calls in flight. */
+async function mapLimit<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.min(limit, items.length) },
+    async () => {
+      while (next < items.length) {
+        const index = next++;
+        results[index] = await fn(items[index] as T);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * A scanner finding's CVSS: its own score, else the stored risk score; 0 when
+ * the scanner reported none (one decimal, 0–10).
+ */
+export function cvssOf(v: { cvss_score?: number | null; riskScore?: number | null }): number {
+  const own = typeof v.cvss_score === "number" && v.cvss_score > 0 ? v.cvss_score : 0;
+  const stored = typeof v.riskScore === "number" && v.riskScore > 0 ? v.riskScore : 0;
+  return roundScore(own || stored);
+}
+
+function riskFindingsOf(vulns: Vulnerability[] | null | undefined): RiskFinding[] {
+  return (vulns ?? []).map((v) => ({
+    cvss: cvssOf(v),
+    severity: v.severity,
+    id: v.vid || v.cve_id || v.cve,
+  }));
+}
+
+/**
+ * Risk fields for a host from GET /host/, whose `vulnerabilities` are the
+ * host's open findings (one canonical observation per CVE).
+ */
+export function riskFieldsForHost(
+  host: Pick<SiriusHost, "vulnerabilities">,
+): HostRiskFields & { openFindings: number } {
+  const r = hostRisk(riskFindingsOf(host.vulnerabilities));
+  return {
+    riskScore: r.riskScore,
+    riskBand: r.riskBand,
+    ...(r.riskCve ? { riskCve: r.riskCve } : {}),
+    counts: r.counts,
+    openFindings: r.openFindings,
+  };
+}
+
+const CLOSED_PORT_STATES = new Set(["closed", "filtered", "closed|filtered"]);
+
+function sortPorts<P extends OpenPort>(ports: P[]): P[] {
+  return ports.sort(
+    (a, b) => a.port - b.port || a.protocol.localeCompare(b.protocol),
+  );
+}
+
+/**
+ * Open ports from GET /host/. The scanner records number, protocol and state;
+ * no service name or version is stored today, so those stay unset.
+ */
+export function openPortsForHost(host: Pick<SiriusHost, "ports">): OpenPort[] {
+  const byKey = new Map<string, OpenPort>();
+  for (const p of host.ports ?? []) {
+    if (!p || typeof p.number !== "number" || p.number <= 0) continue;
+    if (CLOSED_PORT_STATES.has((p.state ?? "").toLowerCase())) continue;
+    const protocol = (p.protocol || "tcp").toLowerCase();
+    const key = `${p.number}/${protocol}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        port: p.number,
+        protocol,
+        ...(p.state ? { state: p.state } : {}),
+      });
+    }
+  }
+  return sortPorts([...byKey.values()]);
+}
+
+function isActive(status: string | null | undefined): boolean {
+  return !status || status === "active";
+}
+
+/** Open ports from /host/{ip}/sources, with the sources that saw each. */
+function openPortsFromSources(
+  ports: PortWithSource[] | null | undefined,
+): OpenPort[] {
+  const byKey = new Map<string, OpenPort & { sources: string[] }>();
+  for (const p of ports ?? []) {
+    if (!p || typeof p.Number !== "number" || p.Number <= 0) continue;
+    if (!isActive(p.status)) continue;
+    if (CLOSED_PORT_STATES.has((p.State ?? "").toLowerCase())) continue;
+    const protocol = (p.Protocol || "tcp").toLowerCase();
+    const key = `${p.Number}/${protocol}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      if (p.source && !existing.sources.includes(p.source)) {
+        existing.sources.push(p.source);
+      }
+    } else {
+      byKey.set(key, {
+        port: p.Number,
+        protocol,
+        ...(p.State ? { state: p.State } : {}),
+        sources: p.source ? [p.source] : [],
+      });
+    }
+  }
+  return sortPorts([...byKey.values()]);
+}
+
+/** Epoch ms for an ISO time, ignoring Go's zero time. */
+function timeOf(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) && t > 0 ? t : null;
+}
+
+/** Profile and scan id from a source's config ("template:quick;scanner_id:…"). */
+function parseSourceConfig(notes: string | null | undefined): {
+  profile?: string;
+  scanId?: string;
+} {
+  const out: { profile?: string; scanId?: string } = {};
+  for (const part of (notes ?? "").split(";")) {
+    const idx = part.indexOf(":");
+    if (idx <= 0) continue;
+    const key = part.slice(0, idx).trim();
+    const value = part.slice(idx + 1).trim();
+    if (!value) continue;
+    if (key === "template") out.profile = value;
+    else if (key === "scanner_id") out.scanId = value;
+  }
+  return out;
+}
+
+/** Sources that record data but are not scans. */
+const NON_SCAN_SOURCES = new Set(["manual"]);
+
+/**
+ * Data freshness from /host/{ip}/sources: per source the first and last time
+ * it reported anything (findings or ports), the newest scan, and when the
+ * host entered the inventory. Real times only; nothing reported → null.
+ */
+export function freshnessFromSources(
+  hws: Pick<HostWithSources, "CreatedAt" | "vulnerability_sources" | "port_sources">,
+): HostFreshness {
+  const bySource = new Map<
+    string,
+    { version?: string; first: number; last: number; notes?: string }
+  >();
+  let earliest: number | null = null;
+
+  const observe = (o: {
+    source?: string;
+    source_version?: string;
+    first_seen?: string;
+    last_seen?: string;
+    notes?: string;
+  }) => {
+    const name = o.source?.trim();
+    if (!name) return;
+    const first = timeOf(o.first_seen);
+    const last = timeOf(o.last_seen) ?? first;
+    if (last === null) return;
+    const start = first ?? last;
+    const version =
+      o.source_version && o.source_version !== "unknown"
+        ? o.source_version
+        : undefined;
+    const current = bySource.get(name);
+    if (!current) {
+      bySource.set(name, { version, first: start, last, notes: o.notes });
+    } else {
+      current.first = Math.min(current.first, start);
+      if (last > current.last) {
+        current.last = last;
+        current.notes = o.notes;
+        if (version) current.version = version;
+      }
+      if (!current.version && version) current.version = version;
+    }
+    earliest = earliest === null ? start : Math.min(earliest, start);
+  };
+
+  for (const v of hws.vulnerability_sources ?? []) observe(v);
+  for (const p of hws.port_sources ?? []) observe(p);
+
+  const sources: SourceFreshness[] = [...bySource.entries()]
+    .sort((a, b) => b[1].last - a[1].last || a[0].localeCompare(b[0]))
+    .map(([name, s]) => ({
+      name,
+      ...(s.version ? { version: s.version } : {}),
+      firstSeen: new Date(s.first).toISOString(),
+      lastSeen: new Date(s.last).toISOString(),
+    }));
+
+  let lastScan: HostLastScan | null = null;
+  for (const [name, s] of bySource) {
+    if (NON_SCAN_SOURCES.has(name)) continue;
+    if (!lastScan || s.last > Date.parse(lastScan.time)) {
+      lastScan = {
+        time: new Date(s.last).toISOString(),
+        source: name,
+        ...(s.version ? { version: s.version } : {}),
+        ...parseSourceConfig(s.notes),
+      };
+    }
+  }
+
+  const created = timeOf(hws.CreatedAt);
+  const firstCandidates = [created, earliest].filter(
+    (t): t is number => t !== null,
+  );
+  const firstSeen = firstCandidates.length
+    ? new Date(Math.min(...firstCandidates)).toISOString()
+    : null;
+
+  return { firstSeen, lastScan, sources };
+}
+
+/** Go's canonical observation choice: confidence, then newest, then source. */
+function preferObservation(
+  a: VulnerabilityWithSource,
+  b: VulnerabilityWithSource,
+): boolean {
+  const ca = a.confidence ?? 0;
+  const cb = b.confidence ?? 0;
+  if (ca !== cb) return ca > cb;
+  const la = timeOf(a.last_seen) ?? 0;
+  const lb = timeOf(b.last_seen) ?? 0;
+  if (la !== lb) return la > lb;
+  return (a.source ?? "") < (b.source ?? "");
+}
+
+/**
+ * Open findings from /host/{ip}/sources, one per CVE, using the same
+ * observation the inventory list uses, with clean summaries (ADR-4).
+ */
+export function hostFindingsFromSources(
+  observations: VulnerabilityWithSource[] | null | undefined,
+  catalog: Map<string, string>,
+): HostFinding[] {
+  const groups = new Map<string, VulnerabilityWithSource[]>();
+  for (const o of observations ?? []) {
+    if (!o?.VID || !isActive(o.status)) continue;
+    const list = groups.get(o.VID);
+    if (list) list.push(o);
+    else groups.set(o.VID, [o]);
+  }
+
+  const findings: HostFinding[] = [];
+  for (const [id, list] of groups) {
+    let canonical = list[0] as VulnerabilityWithSource;
+    for (const o of list) if (preferObservation(o, canonical)) canonical = o;
+    const snapshot = canonical.finding ?? undefined;
+    const cvss = cvssOf({
+      cvss_score: snapshot?.cvss_score,
+      riskScore: snapshot?.riskScore ?? canonical.RiskScore,
+    });
+    const firsts = list.map((o) => timeOf(o.first_seen)).filter((t): t is number => t !== null);
+    const lasts = list.map((o) => timeOf(o.last_seen)).filter((t): t is number => t !== null);
+    const summary = summaryFor({
+      description: snapshot?.description ?? canonical.Description,
+      catalogDescription: catalog.get(id),
+    });
+    findings.push({
+      id,
+      ...(canonical.Title && canonical.Title !== id ? { title: canonical.Title } : {}),
+      cvss,
+      severity: findingSeverity({ cvss, severity: snapshot?.severity }),
+      ...summary,
+      sources: [...new Set(list.map((o) => o.source).filter(Boolean))],
+      ...(firsts.length ? { firstSeen: new Date(Math.min(...firsts)).toISOString() } : {}),
+      ...(lasts.length ? { lastSeen: new Date(Math.max(...lasts)).toISOString() } : {}),
+      confidence: canonical.confidence ?? 0,
+      ...(typeof canonical.port === "number" ? { port: canonical.port } : {}),
+      ...(canonical.service_info ? { serviceInfo: canonical.service_info } : {}),
+    });
+  }
+
+  return findings.sort((a, b) => b.cvss - a.cvss || a.id.localeCompare(b.id));
+}
+
+/** Legacy row fields getAllHosts / getEnvironmentSummary always returned. */
+function legacyRow(host: SiriusHost): EnvironmentTableData {
+  return {
+    hid: host.hid || `host-${host.ip.replace(/\./g, "-")}`,
+    hostname: host.hostname || "Unknown",
+    ip: host.ip || "0.0.0.0",
+    os: host.os || "Unknown",
+    vulnerabilityCount: host.vulnerabilities?.length ?? 0,
+    groups: host.tags ?? [],
+    tags: host.tags ?? [],
+    vulnerabilities: host.vulnerabilities ? [...host.vulnerabilities] : [],
+    ports: host.ports ? [...host.ports] : [],
+  };
+}
+
+/** A host row with server-computed risk and open ports. */
+export function hostRiskRow(host: SiriusHost): HostRiskRow {
+  return {
+    ...legacyRow(host),
+    ...riskFieldsForHost(host),
+    openPorts: openPortsForHost(host),
+  };
+}
+
+/**
+ * A host lookup that 404s means "not in the inventory" (null); anything else
+ * is a failure the page must show as an error, not as a missing host.
+ */
+function notFoundOrThrow(error: unknown, what: string): null {
+  // The shared client rejects with a sanitized error that keeps only the
+  // HTTP status and an allowlisted code (see shared/apiErrors).
+  const diagnostics = apiErrorDiagnostics(error);
+  if (diagnostics.status === 404) return null;
+  if (axios.isAxiosError(error) && error.response?.status === 404) return null;
+  console.error(`Error fetching ${what}:`, diagnostics);
+  throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Couldn't load ${what}` });
+}
 
 export const hostRouter = createTRPCRouter({
   // Create a new host in the environment
@@ -516,172 +996,99 @@ export const hostRouter = createTRPCRouter({
       return fetchHostStatistics(hid);
     }),
 
-  // Retrieve a EnvironmentTableData[] with the statistics for each host
-  getEnvironmentSummary: protectedProcedure.query(async () => {
-    try {
-      const response = await httpClient.get<SiriusHost[]>("host/");
-      const hostListRaw = response.data;
-      const hostList = Array.isArray(hostListRaw)
-        ? hostListRaw.filter((h) => isValidIPv4HostIp(h.ip))
-        : [];
-
-      // Ensure hostList is an array, default to empty array if null/undefined
-      if (!hostList || !Array.isArray(hostList)) {
-        console.log(
-          "getEnvironmentSummary: No valid host data received, returning empty array"
-        );
-        return [];
-      }
-
-      // For each host, get the statistics
-      const hostStatistics = await Promise.all(
-        hostList.map(async (host) => {
-          try {
-            // Check if host.hid is valid before proceeding
-            if (!host || !host.hid) {
-              return null;
-            }
-
-            const statistics = await fetchHostStatistics(host.hid);
-            return {
-              hostId: host.hid,
-              statistics,
-            };
-          } catch (hostError) {
-            return null;
-          }
-        })
-      );
-
-      // Filter out null values from hostStatistics
-      const validHostStatistics = hostStatistics.filter(
-        (stat) => stat !== null
-      );
-
-      // Map vulnerability info from host.vulnerabilities to our VulnerabilitySeverityCounts structure
-      const vulnerabilitiesMap: Record<string, VulnerabilitySeverityCounts> =
-        {};
-
-      hostList.forEach((host) => {
-        if (!host || !host.vulnerabilities || host.vulnerabilities.length === 0)
-          return;
-
-        const counts: VulnerabilitySeverityCounts = {
-          critical: 0,
-          high: 0,
-          medium: 0,
-          low: 0,
-          informational: 0,
-        };
-
-        // Count vulnerabilities by severity
-        host.vulnerabilities.forEach((vuln) => {
-          const severity = vuln.severity?.toLowerCase();
-          if (severity === "critical") counts.critical++;
-          else if (severity === "high") counts.high++;
-          else if (severity === "medium") counts.medium++;
-          else if (severity === "low") counts.low++;
-          else if (severity === "informational" || severity === "info")
-            counts.informational++;
+  // Inventory rows for the Environment table: legacy fields plus the
+  // server-computed risk (ADR-3), open ports and data freshness per host.
+  getEnvironmentSummary: protectedProcedure.query(
+    async (): Promise<EnvironmentHostRow[]> => {
+      try {
+        const hostList = await fetchInventoryHosts();
+        // Freshness comes from each host's source attribution. Bounded so a
+        // large inventory does not open hundreds of requests at once.
+        const freshness = await mapLimit(hostList, 6, async (host) => {
+          const sources = await fetchHostSources(host.ip);
+          return sources ? freshnessFromSources(sources) : null;
         });
 
-        vulnerabilitiesMap[host.hid] = counts;
-      });
-
-      // Convert hostStatistics and hostList to EnvironmentTableData[]
-      const environmentTableData: EnvironmentTableData[] = hostList.map(
-        (host) => {
-          // Find matching statistics for this host
-          const hostStats = validHostStatistics.find(
-            (stat) => stat?.hostId === host.hid
-          )?.statistics;
-
-          // Get vulnerability counts either from our processed map or from host statistics
-          const vulnCounts = vulnerabilitiesMap[host.hid] || {
-            critical: hostStats?.hostSeverityCounts?.critical || 0,
-            high: hostStats?.hostSeverityCounts?.high || 0,
-            medium: hostStats?.hostSeverityCounts?.medium || 0,
-            low: hostStats?.hostSeverityCounts?.low || 0,
-            informational: hostStats?.hostSeverityCounts?.informational || 0,
-          };
-
+        return hostList.map((host, index) => {
+          const fresh = freshness[index] ?? null;
           return {
-            hid: host.hid || `host-${host.ip.replace(/\./g, "-")}`, // Ensure we always have an ID
-            hostname: host.hostname || "Unknown",
-            ip: host.ip || "0.0.0.0",
-            os: host.os || "Unknown",
-            vulnerabilityCount:
-              hostStats?.vulnerabilityCount ||
-              host.vulnerabilities?.length ||
-              0,
-            groups: host.tags || [],
-            tags: host.tags || [],
-            // Make sure we have properly structured Vulnerability objects
-            vulnerabilities: host.vulnerabilities || [],
+            ...hostRiskRow(host),
+            sources: fresh ? fresh.sources.map((s) => s.name) : [],
+            firstSeen: fresh?.firstSeen ?? null,
+            lastScan: fresh?.lastScan ?? null,
+            sourceFreshness: fresh?.sources ?? [],
+          };
+        });
+      } catch (error) {
+        // Surface the failure: an empty list would read as "no hosts".
+        console.error("Error fetching environment summary:", error);
+        throw new Error("Failed to load the inventory");
+      }
+    },
+  ),
+
+  // Retrieve all host/environment data, with server-computed risk (ADR-3)
+  getAllHosts: protectedProcedure.query(async (): Promise<HostRiskRow[]> => {
+    try {
+      const hostList = await fetchInventoryHosts();
+      return hostList.map(hostRiskRow);
+    } catch (error) {
+      // Surface the failure: an empty list would read as "no hosts".
+      console.error("Error fetching hosts:", error);
+      throw new Error("Failed to load the inventory");
+    }
+  }),
+
+  /**
+   * Which IPs are in the inventory, for the Scanner's "Saved to inventory"
+   * (R03), with each host's server-computed risk and open ports.
+   */
+  getInventoryIps: protectedProcedure.query(
+    async (): Promise<InventoryIpsResult> => {
+      const hostList = await fetchInventoryHosts();
+      const hosts: InventoryHostRef[] = hostList.map((host) => ({
+        ip: host.ip,
+        ...(host.hostname ? { hostname: host.hostname } : {}),
+        ...(host.os ? { os: host.os } : {}),
+        ...riskFieldsForHost(host),
+        openPorts: openPortsForHost(host),
+      }));
+      return { ips: hosts.map((h) => h.ip), hosts };
+    },
+  ),
+
+  /**
+   * When each given host was saved to the inventory and last reported on,
+   * per source (R03 "Saved to inventory <time>", R04/R05 freshness).
+   * IPs not in the inventory come back with inInventory false.
+   */
+  getHostFreshness: protectedProcedure
+    .input(z.object({ ips: z.array(z.string().min(1)).max(50) }))
+    .query(async ({ input }): Promise<HostFreshnessEntry[]> => {
+      const ips = [...new Set(input.ips.map((ip) => ip.trim()))].filter(
+        isValidIPv4HostIp,
+      );
+      return mapLimit(ips, 6, async (ip) => {
+        const sources = await fetchHostSources(ip);
+        if (!sources) {
+          return {
+            ip,
+            inInventory: false,
+            savedAt: null,
+            firstSeen: null,
+            lastScan: null,
+            sources: [],
           };
         }
-      );
-
-      return environmentTableData;
-    } catch (error) {
-      return [];
-    }
-  }),
-
-  // Retrieve all host/environment data
-  getAllHosts: protectedProcedure.query(async () => {
-    try {
-      // Call to Go API
-      const response = await httpClient.get<SiriusHost[]>("host/");
-      const hostListRaw = response.data;
-      const hostList = Array.isArray(hostListRaw)
-        ? hostListRaw.filter((h) => isValidIPv4HostIp(h.ip))
-        : [];
-
-      // Ensure hostList is an array, default to empty array if null/undefined
-      if (!hostList || !Array.isArray(hostList)) {
-        console.log(
-          "getAllHosts: No valid host data received, returning empty array"
-        );
-        return [];
-      }
-
-      // Log the host IDs for debugging
-      console.log(
-        "getAllHosts: Received hosts with IDs:",
-        hostList.map((h) => h.hid || "missing-id")
-      );
-
-      // Map SiriusHost[] to EnvironmentTableData[]
-      const tableData: EnvironmentTableData[] = hostList
-        .filter((host) => !!host) // Filter out null hosts
-        .map((host) => {
-          return {
-            hid: host.hid || `host-${host.ip.replace(/\./g, "-")}`, // Ensure we always have an ID
-            hostname: host.hostname || "Unknown",
-            ip: host.ip || "0.0.0.0",
-            os: host.os ?? "unknown",
-            vulnerabilityCount: host.vulnerabilities?.length ?? 0,
-            groups: host.tags ?? [],
-            tags: host.tags ?? [],
-            vulnerabilities: host.vulnerabilities
-              ? [...host.vulnerabilities]
-              : [],
-          };
-        });
-
-      // Return the actual data from the API
-      if (tableData?.length > 0) {
-        return tableData;
-      } else {
-        return [];
-      }
-    } catch (error) {
-      // Handle the error accordingly
-      console.error("Error fetching hosts:", error);
-      return [];
-    }
-  }),
+        const savedAt = timeOf(sources.CreatedAt);
+        return {
+          ip,
+          inInventory: true,
+          savedAt: savedAt ? new Date(savedAt).toISOString() : null,
+          ...freshnessFromSources(sources),
+        };
+      });
+    }),
 
   // Get source coverage statistics
   getSourceCoverage: protectedProcedure.query(async () => {
@@ -701,9 +1108,12 @@ export const hostRouter = createTRPCRouter({
   }),
 
   // Get host with source attribution (deduplicated data)
+  // The host page's data: source attribution plus server summaries — risk
+  // (ADR-3), open findings with clean summaries (ADR-4), open ports and data
+  // freshness. null when the host is not in the inventory.
   getHostWithSources: protectedProcedure
     .input(z.object({ ip: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ input }): Promise<HostWithSourcesSummary | null> => {
       const { ip } = input;
       try {
         if (!ip) {
@@ -711,15 +1121,39 @@ export const hostRouter = createTRPCRouter({
         }
 
         // Call the source-aware API endpoint
-        const response = await httpClient.get<HostWithSources>(
-          `host/${ip}/sources`
-        );
+        const [response, catalog] = await Promise.all([
+          httpClient.get<HostWithSources>(
+            `host/${ip}/sources`
+          ),
+          fetchCatalogDescriptions(),
+        ]);
         const hostWithSources = response.data;
+        if (!hostWithSources) return null;
 
-        return hostWithSources;
+        const findings = hostFindingsFromSources(
+          hostWithSources.vulnerability_sources,
+          catalog,
+        );
+        const risk = hostRisk(
+          findings.map((f) => ({ cvss: f.cvss, severity: f.severity, id: f.id })),
+        );
+        const freshness = freshnessFromSources(hostWithSources);
+
+        return {
+          ...hostWithSources,
+          riskScore: risk.riskScore,
+          riskBand: risk.riskBand,
+          ...(risk.riskCve ? { riskCve: risk.riskCve } : {}),
+          counts: risk.counts,
+          openFindings: risk.openFindings,
+          findings,
+          openPorts: openPortsFromSources(hostWithSources.port_sources),
+          freshness,
+          firstSeen: freshness.firstSeen,
+          lastScan: freshness.lastScan,
+        };
       } catch (error) {
-        console.error("Error fetching host with sources:", apiErrorDiagnostics(error));
-        return null;
+        return notFoundOrThrow(error, "host with sources");
       }
     }),
 
@@ -831,23 +1265,8 @@ export const hostRouter = createTRPCRouter({
       }
     }),
 
-  // Get host system fingerprint data
-  getHostSystemFingerprint: protectedProcedure
-    .input(z.object({ ip: z.string() }))
-    .query(async ({ input }) => {
-      const { ip } = input;
-      try {
-        if (!ip) {
-          throw new Error("No IP provided");
-        }
-
-        const response = await httpClient.get(`host/${ip}/fingerprint`);
-        return response.data;
-      } catch (error) {
-        console.error("Error fetching host system fingerprint:", error);
-        return null;
-      }
-    }),
+  // (A second, identical getHostSystemFingerprint used to sit here; the
+  // duplicate object key was a type error and has been removed.)
 
   // Get enhanced software statistics for environment overview
   getEnvironmentSoftwareStats: protectedProcedure.query(async () => {

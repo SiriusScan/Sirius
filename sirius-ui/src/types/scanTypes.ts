@@ -1,5 +1,14 @@
 // src/types/scanTypes.ts
 
+import type {
+  FindingComponent,
+  OpenPort,
+  RiskBand,
+  RiskSeverity,
+  SeverityCounts as RiskSeverityCounts,
+  SummarySource,
+} from "~/types/riskSummary";
+
 /** High-level scan configuration preset (stored profile ID). */
 export type ScanProfile = string;
 
@@ -152,6 +161,8 @@ export interface ScanResult {
   start_time: string;
   end_time?: string;
   sub_scans?: Record<string, SubScan>;
+  /** Scan profile the scan was started with (written by the UI at start). */
+  profile_id?: string;
 }
 
 /** Minimal vulnerability representation (title, description, severity). */
@@ -175,6 +186,17 @@ export interface EnvironmentTableData {
   scan_source?: ScanSource;
   /** All discovery sources for this host */
   scan_sources?: string[];
+  /** 0–10, one decimal: highest CVSS among this host's findings (ADR-3). */
+  riskScore?: number;
+  riskBand?: RiskBand;
+  /** The CVE that sets the score. */
+  riskCve?: string;
+  /** Findings by severity (kit keys). */
+  counts?: RiskSeverityCounts;
+  /** Whether the host is saved in the inventory (R03 "Saved to inventory"). */
+  inInventory?: boolean;
+  /** Open ports from the inventory, when the host is saved there. */
+  openPorts?: OpenPort[];
 }
 
 /** Vulnerability data shaped for the table display (CVE, CVSS, severity, source, etc.). */
@@ -191,6 +213,15 @@ export interface VulnerabilityTableData {
   agent_id?: string;
   /** Host IP this vulnerability belongs to */
   host_id?: string;
+  /** Clean description (ADR-4); `description` carries the same text. */
+  summary?: string;
+  /** Raw scanner output, for a "Scanner evidence" disclosure. */
+  evidence?: string;
+  summarySource?: SummarySource;
+  /** Product the scanner matched, when its text names a CPE. */
+  component?: FindingComponent;
+  /** Lowercase severity, the kit's key. */
+  severityKey?: RiskSeverity;
 }
 
 /** Attribution for a single source (version, first/last seen, confidence, notes). */

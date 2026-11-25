@@ -1,5 +1,14 @@
-import React, { useState, useMemo } from "react";
+/**
+ * HostSystemInfo — the System tab: what the Sirius agent reports from inside
+ * the host (packages, fingerprint, users). The section lives in the URL as
+ * `?sub=overview|software|fingerprint|users` (ADR-6). A scan-only host shows
+ * one "needs the agent" state instead of empty sections.
+ */
+
+import React, { useMemo } from "react";
 import { api } from "~/utils/api";
+import { useUrlTab } from "~/hooks/useUrlTab";
+import { Skeleton } from "~/components/lib/ui/skeleton";
 import {
   Cpu,
   HardDrive,
@@ -8,7 +17,6 @@ import {
   Users,
   Network,
   Shield,
-  AlertTriangle,
   Activity,
   Key,
 } from "lucide-react";
@@ -17,22 +25,41 @@ import { SECTION_HEADER } from "~/utils/themeConstants";
 import SoftwareInventory from "./SoftwareInventory";
 import SystemFingerprint from "./SystemFingerprint";
 import UserAccounts from "./UserAccounts";
+import { NeedsAgentState } from "./NeedsAgentState";
+import { SYSTEM_SUB_PARAM, SYSTEM_SUB_TABS } from "./hostModel";
+import type { AgentDataState } from "./useHostAgentData";
 import type { HostPageData, SystemSubTab } from "./types";
 
 interface HostSystemInfoProps {
   host: HostPageData;
-  activeSubTab?: SystemSubTab;
-  onSubTabChange?: (tab: SystemSubTab) => void;
+  agent: AgentDataState;
 }
 
-export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({
-  host,
-  activeSubTab,
-  onSubTabChange,
-}) => {
-  const [localTab, setLocalTab] = useState<SystemSubTab>("overview");
-  const activeTab = activeSubTab ?? localTab;
-  const setActiveTab = onSubTabChange ?? setLocalTab;
+export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({ host, agent }) => {
+  if (agent.status === "loading") {
+    return (
+      <div className="scanner-section scanner-section-padding space-y-3" aria-busy="true">
+        <Skeleton className="h-4 w-48 bg-gray-800" />
+        <Skeleton className="h-3 w-2/3 bg-gray-800" />
+        <Skeleton className="h-3 w-1/2 bg-gray-800" />
+      </div>
+    );
+  }
+  if (agent.status === "none") {
+    return (
+      <NeedsAgentState
+        agentInstalled={agent.agentInstalled}
+        reason="A network scan can't see inside the host. Install the Sirius agent to see its packages, users and system fingerprint here."
+        size="default"
+        framed
+      />
+    );
+  }
+  return <AgentSystemInfo host={host} />;
+};
+
+const AgentSystemInfo: React.FC<{ host: HostPageData }> = ({ host }) => {
+  const [activeTab, setActiveTab] = useUrlTab<SystemSubTab>(SYSTEM_SUB_TABS, "overview", SYSTEM_SUB_PARAM);
 
   // Fetch enhanced data for overview
   const { data: softwareInventory } =
@@ -112,13 +139,20 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({
   return (
     <div className="space-y-4">
       {/* Sub-tab navigation */}
-      <div className="flex gap-1 rounded-lg border border-violet-500/10 bg-gray-900/30 p-1">
+      <div
+        role="tablist"
+        aria-label="System sections"
+        className="flex gap-1 overflow-x-auto rounded-lg border border-violet-500/10 bg-gray-900/30 p-1"
+      >
         {subTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
                 "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
@@ -138,8 +172,7 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({
       {activeTab === "overview" && (
         <div className="space-y-4">
           {/* Metric strip */}
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
-            <MiniMetric icon={<AlertTriangle className="h-3.5 w-3.5 text-red-400" />} label="Vulns" value={host.vulnerabilityCount} />
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-5">
             <MiniMetric icon={<Package className="h-3.5 w-3.5 text-blue-400" />} label="Packages" value={metrics.packages} />
             <MiniMetric icon={<Users className="h-3.5 w-3.5 text-violet-400" />} label="Users" value={metrics.users} />
             <MiniMetric icon={<Activity className="h-3.5 w-3.5 text-emerald-400" />} label="Services" value={`${metrics.runningServices}/${metrics.totalServices}`} />
@@ -164,7 +197,6 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({
             <div className="scanner-section scanner-section-padding">
               <h4 className={`${SECTION_HEADER} mb-3`}>Security</h4>
               <div className="space-y-2">
-                <InfoRow icon={<AlertTriangle className="h-3.5 w-3.5" />} label="Vulnerabilities" value={host.vulnerabilityCount === 0 ? "None" : String(host.vulnerabilityCount)} valueColor={host.vulnerabilityCount > 0 ? "text-red-400" : "text-emerald-400"} />
                 <InfoRow icon={<Users className="h-3.5 w-3.5" />} label="Accounts" value={`${metrics.users} users, ${metrics.groups} groups`} />
                 <InfoRow icon={<Key className="h-3.5 w-3.5" />} label="Certificates" value={String(metrics.certificates)} />
                 <InfoRow icon={<Shield className="h-3.5 w-3.5" />} label="Attack surface" value={`${metrics.networkInterfaces} interfaces`} />
@@ -176,20 +208,20 @@ export const HostSystemInfo: React.FC<HostSystemInfoProps> = ({
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
             <QuickAction
               icon={<Package className="h-4 w-4 text-violet-400" />}
-              title={`${metrics.packages} Packages`}
+              title={`${metrics.packages} packages`}
               subtitle="Software inventory"
               onClick={() => setActiveTab("software")}
             />
             <QuickAction
               icon={<Cpu className="h-4 w-4 text-emerald-400" />}
-              title="System Fingerprint"
+              title="System fingerprint"
               subtitle={metrics.cpuCores > 0 ? `${metrics.cpuCores} cores, ${metrics.totalMemoryGB.toFixed(1)}GB` : "Hardware details"}
               onClick={() => setActiveTab("fingerprint")}
             />
             <QuickAction
               icon={<Users className="h-4 w-4 text-orange-400" />}
-              title={`${metrics.users} Users`}
-              subtitle="Accounts & groups"
+              title={`${metrics.users} users`}
+              subtitle="Accounts and groups"
               onClick={() => setActiveTab("users")}
             />
           </div>

@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { api } from "~/utils/api";
-import { Package, Search, Filter, HardDrive } from "lucide-react";
+import { Package, Search, Filter, HardDrive, RotateCw } from "lucide-react";
 import { SECTION_HEADER } from "~/utils/themeConstants";
+import { EmptyState } from "~/components/shared/EmptyState";
 
 interface SoftwareInventoryProps {
   hostIp: string;
@@ -99,18 +100,13 @@ const SoftwareInventory: React.FC<SoftwareInventoryProps> = ({ hostIp }) => {
   // Error state
   if (isError || !inventoryData) {
     return (
-      <div className="scanner-section scanner-section-padding">
-        <div className="flex flex-col items-center gap-3 py-6">
-          <Package className="h-6 w-6 text-gray-600" />
-          <p className="text-sm text-gray-500">Failed to load software inventory</p>
-          <button
-            onClick={() => void refetch()}
-            className="rounded-md border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 transition-colors hover:bg-violet-500/20"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
+      <EmptyState
+        variant="error"
+        size="compact"
+        title="Couldn't load the software inventory"
+        reason="The agent data didn't load. The rest of the host page still works."
+        primary={{ label: "Retry", icon: RotateCw, onClick: () => void refetch() }}
+      />
     );
   }
 

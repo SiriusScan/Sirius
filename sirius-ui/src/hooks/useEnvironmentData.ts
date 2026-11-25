@@ -2,15 +2,22 @@
  * useEnvironmentData — Consolidated data hook for the Environment page.
  *
  * Mirrors the useHostData / useDashboardData pattern:
- *   - Fetches hosts, vulnerabilities, and software stats via tRPC
- *   - Computes per-host severity breakdowns from vulnerabilities[]
- *   - Computes aggregate statistics (OS distribution, risky hosts)
- *   - Returns a single typed object for the page orchestrator
+ *   - Host rows from host.getEnvironmentSummary, each carrying the server's
+ *     riskScore / riskBand / counts (ADR-3), open ports and data freshness
+ *   - Page-level counts from useSummaryStats (ADR-2), never re-derived here
+ *   - Software stats for the Software tab
  */
 
 import { useMemo } from "react";
 import { api } from "~/utils/api";
-import { type EnvironmentTableData } from "~/server/api/routers/host";
+import { type EnvironmentHostRow } from "~/server/api/routers/host";
+import { useSummaryStats } from "~/hooks/useSummaryStats";
+import type {
+  SeverityCounts as RiskSeverityCounts,
+  SummaryStats,
+} from "~/types/riskSummary";
+
+export type { EnvironmentHostRow };
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -26,10 +33,13 @@ export interface SeverityCounts {
 }
 
 export interface EnvironmentPageData {
-  hosts: EnvironmentTableData[];
+  /** Host rows with server risk, counts, open ports and freshness. */
+  hosts: EnvironmentHostRow[];
   totalHosts: number;
   activeHosts: number;
+  /** Hosts whose risk band is critical or high (ADR-3). */
   riskyHosts: number;
+  /** Unique CVEs by severity, as /vulnerabilities counts them (summary). */
   vulnCounts: {
     total: number;
     critical: number;
@@ -38,6 +48,8 @@ export interface EnvironmentPageData {
     low: number;
     informational: number;
   };
+  /** Open host findings across the inventory by severity (summary). */
+  openFindings: { total: number; bySeverity: RiskSeverityCounts };
   softwareStats: {
     totalPackages: number;
     totalHosts: number;
@@ -46,13 +58,17 @@ export interface EnvironmentPageData {
     topSoftware: Array<{ publisher: string; count: number }>;
     architectureDistribution: Record<string, number>;
   } | null;
+  /** Newest scan time across hosts (ISO), or null when none reported. */
   lastScanDate: string | null;
   osDistribution: Record<string, number>;
+  /** Per-host open findings by severity, keyed by IP (server counts). */
   hostSeverityMap: Record<string, SeverityCounts>;
 }
 
 export interface UseEnvironmentDataReturn {
   data: EnvironmentPageData | null;
+  /** The shared summary (ADR-2), for headers that need more counts. */
+  summary: SummaryStats | undefined;
   rawSoftwareStats: any;
   isLoading: boolean;
   isError: boolean;
@@ -62,35 +78,20 @@ export interface UseEnvironmentDataReturn {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Compute per-host severity breakdown from the embedded vulnerabilities[] */
+/** Per-host severity breakdown from the server's counts. */
 function buildHostSeverityMap(
-  hosts: EnvironmentTableData[],
+  hosts: EnvironmentHostRow[],
 ): Record<string, SeverityCounts> {
   const map: Record<string, SeverityCounts> = {};
   for (const host of hosts) {
-    const counts: SeverityCounts = {
-      critical: 0,
-      high: 0,
-      medium: 0,
-      low: 0,
-      informational: 0,
-      total: 0,
+    map[host.ip] = {
+      critical: host.counts.critical,
+      high: host.counts.high,
+      medium: host.counts.medium,
+      low: host.counts.low,
+      informational: host.counts.info,
+      total: host.openFindings,
     };
-    if (host.vulnerabilities && host.vulnerabilities.length > 0) {
-      for (const v of host.vulnerabilities) {
-        const sev = v.severity?.toLowerCase() ?? "";
-        if (sev === "critical") counts.critical++;
-        else if (sev === "high") counts.high++;
-        else if (sev === "medium") counts.medium++;
-        else if (sev === "low") counts.low++;
-        else counts.informational++;
-        counts.total++;
-      }
-    } else {
-      // Fallback — use the pre-computed vulnerabilityCount
-      counts.total = host.vulnerabilityCount ?? 0;
-    }
-    map[host.ip] = counts;
   }
   return map;
 }
@@ -98,7 +99,7 @@ function buildHostSeverityMap(
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useEnvironmentData(): UseEnvironmentDataReturn {
-  // 1. Fetch hosts
+  // 1. Host rows
   const environmentQuery = api.host.getEnvironmentSummary.useQuery(undefined, {
     retry: 1,
     retryDelay: 1000,
@@ -106,19 +107,10 @@ export function useEnvironmentData(): UseEnvironmentDataReturn {
     staleTime: 5 * 60 * 1000,
   });
 
-  // 2. Fetch vulnerability counts (sequential — waits for hosts)
-  const vulnerabilityQuery = api.vulnerability.getAllVulnerabilities.useQuery(
-    undefined,
-    {
-      enabled: !environmentQuery.isLoading,
-      retry: 1,
-      retryDelay: 1000,
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000,
-    },
-  );
+  // 2. Page counts: the one summary every page reads (ADR-2)
+  const summaryQuery = useSummaryStats();
 
-  // 3. Fetch software stats (sequential — waits for hosts)
+  // 3. Software stats (sequential — waits for hosts)
   const softwareStatsQuery = api.host.getEnvironmentSoftwareStats.useQuery(
     undefined,
     {
@@ -133,25 +125,24 @@ export function useEnvironmentData(): UseEnvironmentDataReturn {
   // ── Loading / error ────────────────────────────────────────────────────
   const isLoading =
     environmentQuery.isLoading ||
-    vulnerabilityQuery.isLoading ||
+    summaryQuery.isLoading ||
     softwareStatsQuery.isLoading;
 
   const queryError =
-    environmentQuery.error ||
-    vulnerabilityQuery.error ||
-    softwareStatsQuery.error;
+    environmentQuery.error || summaryQuery.error || softwareStatsQuery.error;
 
   // ── Hosts (straight from environment summary) ─────────────────────────
-  const hosts = useMemo<EnvironmentTableData[]>(() => {
-    if (!environmentQuery.data || environmentQuery.data.length === 0) return [];
-    return environmentQuery.data;
-  }, [environmentQuery.data]);
+  const hosts = useMemo<EnvironmentHostRow[]>(
+    () => environmentQuery.data ?? [],
+    [environmentQuery.data],
+  );
+
+  const summary = summaryQuery.data;
 
   // ── Aggregated data ────────────────────────────────────────────────────
   const data = useMemo<EnvironmentPageData | null>(() => {
     if (isLoading || hosts.length === 0) return null;
 
-    // Per-host severity breakdown (computed from embedded vulnerabilities[])
     const hostSeverityMap = buildHostSeverityMap(hosts);
 
     // OS distribution
@@ -161,59 +152,30 @@ export function useEnvironmentData(): UseEnvironmentDataReturn {
       osDistribution[os] = (osDistribution[os] || 0) + 1;
     });
 
-    // Risk / active counts
     const riskyHosts = hosts.filter(
-      (h) => (h.vulnerabilityCount ?? 0) > 20,
-    ).length;
-    const activeHosts = hosts.filter(
-      (h) => (h as any).status !== "offline",
+      (h) => h.riskBand === "critical" || h.riskBand === "high",
     ).length;
 
-    // Vuln counts — prefer the dedicated vulnerability endpoint when it returns a non-zero
-    // catalog; otherwise aggregate from embedded host data (avoids "0 vulns" in the header
-    // when the aggregate endpoint is empty but hosts still list findings).
-    const vulnData = vulnerabilityQuery.data as any;
-    const fromHosts = Object.values(hostSeverityMap).reduce(
-      (acc, c) => ({
-        total: acc.total + c.total,
-        critical: acc.critical + c.critical,
-        high: acc.high + c.high,
-        medium: acc.medium + c.medium,
-        low: acc.low + c.low,
-        informational: acc.informational + c.informational,
-      }),
-      {
-        total: 0,
+    const unique = summary?.vulnerabilities;
+    const vulnCounts = {
+      total: unique?.unique ?? 0,
+      critical: unique?.bySeverity.critical ?? 0,
+      high: unique?.bySeverity.high ?? 0,
+      medium: unique?.bySeverity.medium ?? 0,
+      low: unique?.bySeverity.low ?? 0,
+      informational: unique?.bySeverity.info ?? 0,
+    };
+
+    const openFindings = {
+      total: summary?.findings.open ?? 0,
+      bySeverity: summary?.findings.bySeverity ?? {
         critical: 0,
         high: 0,
         medium: 0,
         low: 0,
-        informational: 0,
+        info: 0,
       },
-    );
-    const api = vulnData?.counts;
-    const vulnCounts =
-      api && (api.total ?? 0) > 0
-        ? {
-            total: api.total || 0,
-            critical: api.critical || 0,
-            high: api.high || 0,
-            medium: api.medium || 0,
-            low: api.low || 0,
-            informational: api.informational || 0,
-          }
-        : fromHosts.total > 0
-          ? fromHosts
-          : api
-            ? {
-                total: api.total || 0,
-                critical: api.critical || 0,
-                high: api.high || 0,
-                medium: api.medium || 0,
-                low: api.low || 0,
-                informational: api.informational || 0,
-              }
-            : fromHosts;
+    };
 
     // Software stats
     const sw = softwareStatsQuery.data as any;
@@ -228,37 +190,37 @@ export function useEnvironmentData(): UseEnvironmentDataReturn {
         }
       : null;
 
-    // Last scan date
-    const scanDates = hosts
-      .filter((h) => (h as any).lastScanDate)
-      .map((h) => new Date((h as any).lastScanDate).getTime());
+    // Newest scan across hosts (real observation times only)
+    const scanTimes = hosts
+      .map((h) => (h.lastScan ? Date.parse(h.lastScan.time) : NaN))
+      .filter((t) => Number.isFinite(t));
     const lastScanDate =
-      scanDates.length > 0
-        ? new Date(Math.max(...scanDates)).toLocaleDateString()
-        : null;
+      scanTimes.length > 0 ? new Date(Math.max(...scanTimes)).toISOString() : null;
 
     return {
       hosts,
-      totalHosts: hosts.length,
-      activeHosts,
+      totalHosts: summary?.hosts.total ?? hosts.length,
+      activeHosts: hosts.length,
       riskyHosts,
       vulnCounts,
+      openFindings,
       softwareStats,
       lastScanDate,
       osDistribution,
       hostSeverityMap,
     };
-  }, [hosts, isLoading, vulnerabilityQuery.data, softwareStatsQuery.data]);
+  }, [hosts, isLoading, summary, softwareStatsQuery.data]);
 
   // ── Refetch ────────────────────────────────────────────────────────────
   const refetch = () => {
     void environmentQuery.refetch();
-    void vulnerabilityQuery.refetch();
+    void summaryQuery.refetch();
     void softwareStatsQuery.refetch();
   };
 
   return {
     data,
+    summary,
     rawSoftwareStats: softwareStatsQuery.data,
     isLoading,
     isError: !!queryError,

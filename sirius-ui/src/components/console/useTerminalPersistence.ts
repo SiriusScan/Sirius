@@ -85,6 +85,11 @@ export function useTerminalPersistence() {
     setState((s) => ({ ...s, selectedTarget: target }));
   }, []);
 
+  /**
+   * @deprecated The console's open view lives in `?view=` (useConsoleView,
+   * ADR-6) and is no longer read from storage; `activeView` stays in the
+   * stored state only so existing saved state keeps loading.
+   */
   const setActiveView = useCallback((view: ConsoleView) => {
     setState((s) => ({ ...s, activeView: view }));
   }, []);

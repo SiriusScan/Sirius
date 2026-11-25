@@ -1,19 +1,27 @@
 # Scanner Components
 
-Components for the scanner page (`/scanner`).
+The Scanner page (`src/pages/scanner.tsx`) runs and watches scans only.
+Scan profiles, the script and template library, repositories and agent
+scanning defaults live in Settings › Scanning (`src/components/settings/scanning/`,
+`/settings?tab=scanning`); the scan form links there with "Manage profiles".
 
 ## Component Hierarchy
 
-- **ScanNavigator** — Tab navigation (Scan Monitor, Profiles, Advanced)
-- **ScanControls** — Target input, profile selector, start/stop buttons
-- **ScanStatus** — Live scan progress bar with sub-scan status icons
-- **ScanHostColumns** — Column definitions for the scan hosts table
-- **ProfileSelector / ProfileManager** — Profile CRUD and selection
-- **AdvancedView** — Advanced scan settings (managed by another team)
-- **target/** — Target input components (ChipTargetInput, etc.)
+```
+pages/scanner.tsx
+├── ScanControls            target chips + profile picker + Start (hidden while a scan runs)
+│   ├── target-patterns/ChipTargetInput
+│   └── ProfileSelector
+└── shared/
+    ├── ScanRunCard         running/finished scan: targets, profile, progress, phases
+    │   └── ScanStopControl the one Stop (with force-stop and reset escalation)
+    ├── ScanHostsFound      hosts this scan found, "Saved to inventory", Open host
+    ├── ScanFindings        this scan's findings (VulnTable preset="scan")
+    ├── ScanSection         section frame used by the cards above
+    └── scanRunModel.ts     pure helpers for progress, phases and profile (tested)
+```
 
 ## Shared Components (from `../shared/`)
 
-- **SourceBadge** — Scan source pill badge (nmap, agent, etc.)
-- **SeverityBadge** — Severity/risk level pill badge
-- **SourceIcon** — Scan source icon with tooltip
+`PageHeader`, `SeverityStrip`, `HostCell`, `RiskScore`, `VulnTable` and
+`EmptyState`; see `../shared/README.md`.

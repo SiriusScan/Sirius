@@ -2,7 +2,14 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/router";
 import { Terminal as XTerm } from "@xterm/xterm";
 import { api } from "~/utils/api";
-import { uiExtensionRegistry, useCapabilities } from "~/ui/extensions";
+import {
+  BUILT_IN_CONSOLE_VIEWS,
+  uiExtensionRegistry,
+  useCapabilities,
+  type SiriusConsoleCommandRequest,
+  type SiriusConsoleCommandResult,
+  type SiriusConsoleController,
+} from "~/ui/extensions";
 import { toast } from "sonner";
 import { XTermEmulator, type XTermEmulatorHandle } from "./XTermEmulator";
 import { AgentPanel } from "./AgentPanel";
@@ -15,8 +22,12 @@ import { AgentContextMenu } from "./AgentContextMenu";
 import { AgentDetailView } from "./AgentDetailView";
 import { CommandPalette } from "./CommandPalette";
 import { useTerminalPersistence } from "./useTerminalPersistence";
+import { useConsoleView } from "./useConsoleView";
+import { countAgents } from "./agentStatus";
+import type { AgentListState } from "./AgentDetailView";
 import { highlightOutput, addTimestamp } from "./syntaxHighlight";
 import type {
+  ConsoleView,
   Target,
   DisplayedAgentDetails,
   CommandHistoryEntry,
@@ -121,19 +132,10 @@ const LOCAL_COMMANDS: Record<
 };
 
 // ─── OperatorConsole ───────────────────────────────────────────────────────────
-export default function OperatorConsole({ initialView }: { initialView?: string }) {
+export default function OperatorConsole() {
   const router = useRouter();
   const persistence = useTerminalPersistence();
   const { state: ps } = persistence;
-  const { hasAll } = useCapabilities();
-  const extraViews = uiExtensionRegistry.consoleViews.filter((view) => hasAll(view.requiredCapabilities ?? []));
-  const extraView = extraViews.find((view) => view.id === ps.activeView);
-  const activeView = ["terminal", "history", "agent"].includes(ps.activeView) || extraView ? ps.activeView : "terminal";
-  useEffect(() => {
-    if (initialView && extraViews.some((view) => view.id === initialView)) persistence.setActiveView(initialView);
-    // Only select the requested initial view when the component mounts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialView]);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const xtermRef = useRef<XTermEmulatorHandle>(null);
@@ -147,6 +149,45 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
   >(null);
 
   const [targetDisplay, setTargetDisplay] = useState<Target>(ps.selectedTarget);
+
+  // ── Extension console views ────────────────────────────────────────────────
+  // Without build-selected views this resolves to the built-in views only, so
+  // the console renders exactly as Community ships it.
+  const { hasAll, loading: capabilitiesLoading } = useCapabilities();
+  const extensionViews = useMemo(
+    () =>
+      uiExtensionRegistry.consoleViews.filter((view) =>
+        hasAll(view.requiredCapabilities ?? [])
+      ),
+    [hasAll]
+  );
+  const allowedExtensionViewIds = useMemo(
+    () => extensionViews.map((view) => view.id),
+    [extensionViews]
+  );
+  // The open view lives in ?view= (terminal, history, agent or a contributed
+  // view id), so every mode can be linked and restored with Back. Without it
+  // the console opens on the contributed view marked `initial`, else the
+  // terminal. Null for the moment the URL or capabilities are still loading.
+  const [currentView, replaceView] = useConsoleView({
+    builtIns: BUILT_IN_CONSOLE_VIEWS,
+    registered: uiExtensionRegistry.consoleViews,
+    allowed: allowedExtensionViewIds,
+    capabilitiesLoading,
+  });
+  const activeView: ConsoleView | null = currentView;
+  const knownView = useCallback(
+    (id: string) =>
+      BUILT_IN_CONSOLE_VIEWS.includes(id) ||
+      extensionViews.some((view) => view.id === id),
+    [extensionViews]
+  );
+  const showView = useCallback(
+    (id: ConsoleView) => {
+      if (knownView(id)) replaceView(id);
+    },
+    [knownView, replaceView]
+  );
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [multiSelectedIds, setMultiSelectedIds] = useState<Set<string>>(
@@ -201,14 +242,7 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
   const agentsQuery = api.agent.listAgentsWithHosts.useQuery(undefined, {
     refetchInterval: 10000,
     refetchOnWindowFocus: false,
-    retry: false,
   });
-  const [agentsSlow, setAgentsSlow] = useState(false);
-  useEffect(() => {
-    if (!agentsQuery.isFetching || agentsQuery.data) { setAgentsSlow(false); return; }
-    const timer = setTimeout(() => setAgentsSlow(true), 12_000);
-    return () => clearTimeout(timer);
-  }, [agentsQuery.isFetching, agentsQuery.data]);
   const agentDetailsQuery = api.agent.getAgentDetails.useQuery(
     { agentId: selectedAgentId || "" },
     { enabled: !!selectedAgentId, refetchInterval: 10000 }
@@ -305,12 +339,18 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
     return null;
   }, [selectedAgentId, agentDetailsQuery.data, agentsQuery.data]);
 
-  const onlineCount = useMemo(
-    () =>
-      agentsQuery.data?.filter((a) => a.status?.toLowerCase() === "online")
-        .length ?? 0,
+  // The console's one agent counter (header). Hidden until the list loads.
+  const agentCounts = useMemo(
+    () => (agentsQuery.data ? countAgents(agentsQuery.data) : null),
     [agentsQuery.data]
   );
+  const agentListState: AgentListState = agentsQuery.data
+    ? agentsQuery.data.length === 0
+      ? "empty"
+      : "ready"
+    : agentsQuery.isError
+    ? "error"
+    : "loading";
 
   // ── Output writer with syntax highlighting + timestamps ───────────────────
   const writeOutput = useCallback(
@@ -378,10 +418,45 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
     [addHistoryMutation]
   );
 
+  // ── Console commands requested by extension views ─────────────────────────
+  // They run through the same executor as typed commands, are painted into the
+  // terminal while it is mounted, and land in History.
+  const liveRunsRef = useRef(
+    new Map<string, { command: string; target: Target; label?: string }>()
+  );
+  const paintRunStart = useCallback(
+    (term: XTerm, run: { command: string; target: Target; label?: string }) => {
+      const where =
+        run.target.type === "agent"
+          ? run.target.name ?? run.target.id ?? "agent"
+          : "engine";
+      term.write("\r\x1b[K");
+      term.writeln(
+        `\x1b[38;2;203;166;247m${run.label ?? "Running"} on ${where}: ${run.command}\x1b[0m`
+      );
+    },
+    []
+  );
+
   // ── Terminal ready handler ─────────────────────────────────────────────────
   const handleTerminalReady = useCallback(
     (term: XTerm) => {
-      term.writeln("Type help for available commands.");
+      // Welcome message
+      term.writeln(
+        "\x1b[38;2;203;166;247m╭────────────────────────────────╮"
+      );
+      term.writeln(
+        "\x1b[38;2;203;166;247m│\x1b[0m Welcome to the Sirius Terminal \x1b[38;2;203;166;247m│"
+      );
+      term.writeln(
+        "\x1b[38;2;203;166;247m╰────────────────────────────────╯\x1b[0m"
+      );
+      term.writeln("\x1b[38;2;166;227;161mHack the planet!\x1b[0m");
+      term.writeln(
+        "\x1b[38;2;137;180;250mType 'help' for available commands or use the sidebar\x1b[0m"
+      );
+      // Commands an extension view started before this terminal mounted.
+      liveRunsRef.current.forEach((run) => paintRunStart(term, run));
       writePrompt(term);
 
       // Check for pending re-execute command (from history view)
@@ -1466,21 +1541,86 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
   // Keep ref in sync so handleTerminalReady's closure can access the latest version
   executePendingReExecRef.current = executePendingReExec;
 
+  const runConsoleCommand = useCallback(
+    async (
+      request: SiriusConsoleCommandRequest
+    ): Promise<SiriusConsoleCommandResult> => {
+      const target: Target =
+        request.target.type === "agent"
+          ? { type: "agent", id: request.target.id, name: request.target.name }
+          : { type: "engine" };
+      const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const run = { command: request.command, target, label: request.label };
+      liveRunsRef.current.set(runId, run);
+      if (request.reveal !== false) showView("terminal");
+      const mounted = xtermRef.current?.terminal;
+      if (mounted) paintRunStart(mounted, run);
+
+      const started = Date.now();
+      let result: SiriusConsoleCommandResult;
+      try {
+        const response = await executeCommand.mutateAsync({
+          command: request.command,
+          target,
+        });
+        result = {
+          output: response.output || "",
+          success: true,
+          durationMs: Date.now() - started,
+        };
+      } catch (error) {
+        result = {
+          output: error instanceof Error ? error.message : String(error),
+          success: false,
+          durationMs: Date.now() - started,
+        };
+      }
+      liveRunsRef.current.delete(runId);
+      addToHistory(request.command, target, result.output, result.success, {
+        durationMs: result.durationMs,
+      });
+      const term = xtermRef.current?.terminal;
+      if (term) {
+        if (result.success) {
+          if (result.output) writeOutput(term, result.output);
+        } else {
+          term.writeln(
+            `\x1b[38;2;243;139;168mCommand failed: ${result.output}\x1b[0m`
+          );
+        }
+        writePrompt(term);
+      }
+      return result;
+    },
+    [executeCommand, addToHistory, showView, paintRunStart, writeOutput, writePrompt]
+  );
+
+  const runConsoleCommandRef = useRef(runConsoleCommand);
+  runConsoleCommandRef.current = runConsoleCommand;
+  const consoleController = useMemo<SiriusConsoleController>(
+    () => ({
+      activeView: activeView ?? "",
+      showView,
+      runCommand: (request) => runConsoleCommandRef.current(request),
+    }),
+    [activeView, showView]
+  );
+
   const handleReExecute = useCallback(
     (entry: CommandHistoryEntry) => {
       const term = xtermRef.current?.terminal;
 
       if (term) {
         // Terminal is already mounted -- execute directly
-        persistence.setActiveView("terminal");
+        showView("terminal");
         executePendingReExec(entry);
       } else {
         // Terminal not mounted yet (we're on history view) -- queue it
         pendingReExecRef.current = entry;
-        persistence.setActiveView("terminal");
+        showView("terminal");
       }
     },
-    [persistence, executePendingReExec]
+    [showView, executePendingReExec]
   );
 
   // ── Tab management (Phase 4.1) ────────────────────────────────────────────
@@ -1603,7 +1743,7 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
     (command: string) => {
       const term = xtermRef.current?.terminal;
       if (!term) return;
-      persistence.setActiveView("terminal");
+      showView("terminal");
       term.writeln("");
       term.writeln(`\x1b[38;2;137;180;250msirius>\x1b[0m ${command}`);
 
@@ -1614,21 +1754,20 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
         writePrompt(term);
       }
     },
-    [writePrompt, persistence]
+    [writePrompt, showView]
   );
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const effectiveSidebarWidth = sidebarCollapsed ? 48 : sidebarWidth;
 
   return (
-    <div className="relative z-20 -mt-14 flex h-[calc(100%+3.5rem)] min-h-0 flex-col">
+    <div className="relative z-20 flex min-h-0 flex-1 flex-col">
       {/* Header */}
       <ConsoleHeader
         activeView={activeView}
-        extraViews={extraViews}
-        onViewChange={persistence.setActiveView}
-        agentCount={agentsQuery.data?.length}
-        onlineCount={agentsQuery.data ? onlineCount : undefined}
+        extraViews={extensionViews}
+        onViewChange={showView}
+        agentCounts={agentCounts}
       />
 
       {/* Terminal Tabs (Phase 4.1) */}
@@ -1645,17 +1784,18 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
 
       {/* Main content */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Sidebar with resize (Phase 6.1) */}
-        {!extraView && <div
+        {/* Sidebar with resize (Phase 6.1); extension views own the full width */}
+        {activeView !== null && BUILT_IN_CONSOLE_VIEWS.includes(activeView) && (
+        <div
           className="relative flex-shrink-0 border-r border-violet-500/10 bg-gray-950/50"
           style={{ width: effectiveSidebarWidth }}
         >
           {!sidebarCollapsed ? (
             <AgentPanel
               agents={agentsQuery.data}
-              isLoading={agentsQuery.isLoading && !agentsSlow}
-              error={agentsQuery.isError || agentsSlow}
-              onRetry={() => void agentsQuery.refetch()}
+              isLoading={agentsQuery.isLoading}
+              isError={agentsQuery.isError}
+              showGetAgent={activeView !== "agent"}
               selectedAgentId={selectedAgentId}
               agentDetails={combinedAgentDetails}
               isDetailsLoading={agentDetailsQuery.isLoading}
@@ -1679,7 +1819,7 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
               onRemoveSavedFilter={persistence.removeSavedFilter}
               onSetGroupingMode={persistence.setGroupingMode}
               onViewHost={handleViewHost}
-              onViewDetails={() => persistence.setActiveView("agent")}
+              onViewDetails={() => showView("agent")}
               onSetMultiSelected={setMultiSelectedIds}
             />
           ) : (
@@ -1708,12 +1848,23 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
             style={{ cursor: isResizing ? "col-resize" : undefined }}
           />
         </div>
-
-        }
+        )}
 
         {/* Content area */}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {extraView && <extraView.component />}
+          {/* Extension views stay mounted so they can keep driving the console */}
+          {extensionViews.map(({ id, component: View }) => (
+            <div
+              key={id}
+              className={
+                activeView === id
+                  ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+                  : "hidden"
+              }
+            >
+              <View console={consoleController} active={activeView === id} />
+            </div>
+          ))}
           {activeView === "terminal" && (
             <>
               {/* Execution Progress (Phase 3.1) */}
@@ -1768,6 +1919,8 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
             <AgentDetailView
               agentId={selectedAgentId}
               details={combinedAgentDetails}
+              agentList={agentListState}
+              onRetryAgents={() => void agentsQuery.refetch()}
               tags={selectedAgentId ? (ps.agentTags[selectedAgentId] ?? []) : []}
               note={selectedAgentId ? (ps.agentNotes[selectedAgentId] ?? "") : ""}
               onRunScan={() => {
@@ -1789,7 +1942,7 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
                 if (selectedAgentId) {
                   navigator.clipboard
                     .writeText(selectedAgentId)
-                    .then(() => toast.success("Agent ID copied!"))
+                    .then(() => toast.success("Agent ID copied"))
                     .catch(() => toast.error("Failed to copy Agent ID"));
                 }
               }}
@@ -1826,14 +1979,14 @@ export default function OperatorConsole({ initialView }: { initialView?: string 
             if (ip) {
               navigator.clipboard
                 .writeText(ip)
-                .then(() => toast.success("IP copied!"))
+                .then(() => toast.success("IP copied"))
                 .catch(() => toast.error("Failed to copy"));
             }
           }}
           onCopyId={() => {
             navigator.clipboard
               .writeText(contextMenu.agentId)
-              .then(() => toast.success("Agent ID copied!"))
+              .then(() => toast.success("Agent ID copied"))
               .catch(() => toast.error("Failed to copy"));
           }}
           onAddTag={() => {

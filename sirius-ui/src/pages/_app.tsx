@@ -36,9 +36,13 @@ const MyApp: AppType<{ session: Session | null }> = ({
       createRouteMonitor();
     }
 
-    // Track navigation state for smooth transitions
-    const handleRouteChangeStart = () => {
-      setIsNavigating(true);
+    // Track navigation state for smooth transitions. Shallow URL updates
+    // (a tab held in ?tab=) are not navigations: no full-screen loader.
+    const handleRouteChangeStart = (
+      _url: string,
+      { shallow }: { shallow: boolean },
+    ) => {
+      if (!shallow) setIsNavigating(true);
     };
 
     const handleRouteChangeComplete = () => {

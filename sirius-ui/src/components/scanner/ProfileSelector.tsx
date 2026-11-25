@@ -30,12 +30,6 @@ type ScanFlavor =
   | "quick"
   | "network";
 
-interface ScanTypeInfo {
-  icon: React.ReactNode;
-  label: string;
-  flavor: ScanFlavor;
-}
-
 // ─── Icon + label config per flavor ───────────────────────────────
 const FLAVOR_CONFIG: Record<
   ScanFlavor,
@@ -211,13 +205,13 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
       <Select value={value} onValueChange={onChange} disabled={isLoading}>
         <SelectTrigger className="relative h-12 w-full rounded-lg border-violet-500/30 bg-gray-900/50 px-4 pr-10 text-sm text-white shadow-sm focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20 disabled:opacity-50 [&>svg]:absolute [&>svg]:right-3 [&>svg]:top-1/2 [&>svg]:h-4 [&>svg]:w-4 [&>svg]:-translate-y-1/2 [&>svg]:text-violet-400 [&>svg]:opacity-70">
           <SelectValue
-            placeholder={isLoading ? "Loading profiles..." : "Select profile"}
+            placeholder={isLoading ? "Loading profiles…" : "Select a profile"}
           />
         </SelectTrigger>
-        <SelectContent className="z-50 border-violet-500/20 bg-gray-900/95 text-white shadow-xl backdrop-blur-sm">
+        <SelectContent className="border-violet-500/20 bg-gray-900/95 text-white shadow-xl backdrop-blur-sm">
           {isLoading ? (
             <SelectItem value="loading" disabled className="text-gray-400">
-              Loading profiles...
+              Loading profiles…
             </SelectItem>
           ) : sortedProfiles.length > 0 ? (
             sortedProfiles.map((profile) => {
@@ -245,7 +239,7 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
             })
           ) : (
             <SelectItem value="none" disabled className="text-gray-400">
-              No profiles available (engine templates not initialized)
+              No profiles yet
             </SelectItem>
           )}
         </SelectContent>
@@ -253,14 +247,14 @@ const ProfileSelector: React.FC<ProfileSelectorProps> = ({
 
       {isError && (
         <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-200">
-          Unable to load scan profiles: {error.message}
+          Couldn’t load profiles: {error.message}
         </div>
       )}
 
       {!isLoading && !isError && sortedProfiles.length === 0 && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-          No scan profiles are currently available. Verify that `sirius-engine`
-          is healthy and template initialization has completed.
+          No scan profiles yet. Check that sirius-engine is running; profiles
+          are managed in Settings › Scanning.
         </div>
       )}
 

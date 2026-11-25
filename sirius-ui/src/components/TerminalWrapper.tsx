@@ -7,7 +7,7 @@ const OperatorConsole = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full w-full items-center justify-center bg-gray-950">
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center bg-gray-950">
         <div className="text-center">
           <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent"></div>
           <p className="text-sm text-gray-400">Loading Console...</p>
@@ -23,11 +23,11 @@ if (typeof window !== "undefined") {
   setTimeout(preloadConsole, 100);
 }
 
-export default function TerminalWrapper({ initialView }: { initialView?: string }) {
+export default function TerminalWrapper() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-full w-full items-center justify-center bg-gray-950">
+        <div className="flex min-h-0 w-full flex-1 items-center justify-center bg-gray-950">
           <div className="text-center">
             <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent"></div>
             <p className="text-sm text-gray-400">Loading Console...</p>
@@ -35,7 +35,7 @@ export default function TerminalWrapper({ initialView }: { initialView?: string 
         </div>
       }
     >
-      <OperatorConsole initialView={initialView} />
+      <OperatorConsole />
     </Suspense>
   );
 }

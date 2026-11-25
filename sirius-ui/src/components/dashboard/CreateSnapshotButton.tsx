@@ -35,7 +35,7 @@ export const CreateSnapshotButton: React.FC = () => {
 
   return (
     <Button
-      onClick={handleCreate}
+      onClick={() => void handleCreate()}
       disabled={isCreating}
       size="sm"
       variant="outline"
@@ -44,12 +44,12 @@ export const CreateSnapshotButton: React.FC = () => {
       {isCreating ? (
         <>
           <Loader2 className="h-4 w-4 animate-spin" />
-          Creating...
+          Creating…
         </>
       ) : (
         <>
           <Camera className="h-4 w-4" />
-          Create Snapshot
+          Create snapshot
         </>
       )}
     </Button>

@@ -10,6 +10,7 @@ import {
 } from "~/components/lib/ui/tabs";
 import {
   ArrowLeft,
+  Trash2,
   Play,
   Copy,
   Download,
@@ -21,28 +22,23 @@ import {
 import MonacoEditor from "~/components/editor/MonacoEditor";
 import { api } from "~/utils/api";
 import type { AgentTemplate } from "~/types/agentTemplateTypes";
-import { cn } from "~/components/lib/utils";
+import { SeverityTag } from "~/components/shared/SeverityTag";
 
 interface TemplateViewerProps {
   template: AgentTemplate;
   onClose: () => void;
   onEdit: (template: AgentTemplate) => void;
   onRun: (template: AgentTemplate) => void;
+  /** Shows a delete button when given (custom templates). */
+  onDelete?: (template: AgentTemplate) => void;
 }
-
-const severityColors: Record<string, string> = {
-  critical: "bg-[#8c1c1c]/20 text-red-400 border-[#8c1c1c]/50",
-  high: "bg-red-600/20 text-red-500 border-red-600/50",
-  medium: "bg-amber-500/20 text-amber-500 border-amber-500/50",
-  low: "bg-green-500/20 text-green-400 border-green-500/50",
-  info: "bg-blue-500/20 text-blue-400 border-blue-500/50",
-};
 
 export const TemplateViewer: React.FC<TemplateViewerProps> = ({
   template,
   onClose,
   onEdit,
   onRun,
+  onDelete,
 }) => {
   const [yamlContent, setYamlContent] = useState(template.content || "");
   const [isEditing, setIsEditing] = useState(false);
@@ -160,14 +156,7 @@ export const TemplateViewer: React.FC<TemplateViewerProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-medium text-white">{template.name}</h3>
-            <Badge
-              className={cn(
-                "text-xs",
-                severityColors[template.severity] || severityColors.medium
-              )}
-            >
-              {template.severity.toUpperCase()}
-            </Badge>
+            <SeverityTag severity={template.severity} />
             <Badge className="border border-gray-600 bg-gray-700/50 text-gray-300">
               {template.type === "repository" ? "Repository" : "Custom"}
             </Badge>
@@ -177,6 +166,18 @@ export const TemplateViewer: React.FC<TemplateViewerProps> = ({
             {template.id}
           </p>
         </div>
+        {onDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(template)}
+            className="ml-auto gap-1.5 text-gray-400 hover:text-red-400"
+            title="Delete template"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden />
+            Delete
+          </Button>
+        )}
       </div>
 
       {/* Tags */}

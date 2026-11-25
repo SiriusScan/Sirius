@@ -36,7 +36,8 @@ export type ParsedAgentStatus = {
   goroutines?: string;
 };
 
-export type ConsoleView = string;
+/** Built-in views, or the id of a build-selected extension console view. */
+export type ConsoleView = "terminal" | "history" | "agent" | (string & {});
 
 export interface CommandHistoryEntry {
   id: string;

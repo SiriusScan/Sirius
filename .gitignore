@@ -5,6 +5,8 @@
 *.so
 *.dylib
 system-monitor
+# ...but not the System Monitor page's UI components.
+!sirius-ui/src/components/system-monitor/
 sirius-api/sirius-api
 administrator
 air

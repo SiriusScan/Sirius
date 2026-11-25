@@ -8,6 +8,21 @@ export default {
       fontFamily: {
         orbitron: ["Orbitron", "sans-serif"],
       },
+      // One layering scale (z-header, z-dropdown, z-overlay, z-toast).
+      // Page content sits at z-20 inside Layout's frames, below the header.
+      // Portaled menus (dropdown, select, popover, context menu) use
+      // z-overlay, not z-dropdown: they portal to <body> after any open
+      // dialog, so at the dialog's own layer they still open above it.
+      // z-dropdown is for in-place popups such as tooltips and page-local
+      // menus. See src/components/shared/README.md.
+      // Tailwind loads tailwind.config.js before this file when both exist,
+      // so the same block must be there too (layers.test.ts checks both).
+      zIndex: {
+        header: "30",
+        dropdown: "40",
+        overlay: "50",
+        toast: "60",
+      },
       colors: {
         // Light Mode
         primary: "#7C3AED",

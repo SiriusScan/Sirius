@@ -1,12 +1,23 @@
+/**
+ * SystemResourcesDashboard — System Monitor › Resources: per-container CPU,
+ * memory, network, disk and collector uptime as each container's system
+ * monitor observed them.
+ *
+ * Reads the same `system.status` query as the Services tab (one source), so
+ * a container shows the same numbers on both tabs. Each collector's
+ * telemetry state is shown as is: fresh rows show their readings, stale rows
+ * keep their last readings (dimmed, out of the totals), and missing, invalid
+ * or unreadable collectors show no numbers at all. A reading the collector
+ * didn't take reads "—"; a measured zero reads 0. An empty or failed source
+ * shows an EmptyState with a next step instead of a spinner.
+ *
+ * The restart action and per-container log preview were removed: both
+ * called the Go API from the browser without the internal API key, so they
+ * always failed (401). They need server procedures before they come back.
+ */
+
 import React, { useState } from "react";
-import { useSystemResources } from "~/hooks/useSystemResources";
-import { formatResourceBytes } from "~/utils/systemResourceObservations";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "~/components/lib/ui/card";
+import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -15,617 +26,341 @@ import {
   TableHeader,
   TableRow,
 } from "~/components/lib/ui/table";
-import { Badge } from "~/components/lib/ui/badge";
-import { Button } from "~/components/lib/ui/button";
+import { Skeleton } from "~/components/lib/ui/skeleton";
+import { cn } from "~/components/lib/utils";
+import { EmptyState } from "~/components/shared/EmptyState";
+import { formatDateTime } from "~/utils/formatDateTime";
+import { StatusPill } from "~/components/system-monitor/ServiceCard";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "~/components/lib/ui/select";
-import {
-  RefreshCw,
-  Cpu,
-  HardDrive,
-  MemoryStick,
-  Network,
-  Activity,
-  AlertTriangle,
-  Users,
-  FileText,
-  Clock,
-  BarChart3,
-  ChevronDown,
-  ChevronRight,
-  RotateCcw,
-} from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "~/components/lib/ui/dialog";
+  NOT_MEASURED_NOTE,
+  formatPercent,
+  telemetryBadge,
+  type ServiceStatusRow,
+  type SystemStatus,
+} from "~/components/system-monitor/systemStatus";
+import { useSystemStatus } from "~/components/system-monitor/useSystemStatus";
 
 interface SystemResourceProps {
   className?: string;
 }
 
-export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
-  className,
-}) => {
-  const [refreshInterval, setRefreshInterval] = useState<string>("5");
-  const { data, loading, refreshing, freshCount, partial, unavailable, stale, peakCPU, observedMemory, refetch } =
-    useSystemResources(refreshInterval === "0" ? false : Number(refreshInterval) * 1000);
-  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogContent, setDialogContent] = useState<{
-    title: string;
-    message: string;
-    type: "success" | "error";
-  } | null>(null);
-  const [restartingContainers, setRestartingContainers] = useState<Set<string>>(
-    new Set()
+const EMPTY = "—";
+
+function Tile({ label, value, detail, title }: { label: string; value: string; detail?: string; title?: string }) {
+  return (
+    <div className="scanner-section p-4" title={title}>
+      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{label}</p>
+      <p className="mt-2 truncate text-2xl font-bold tabular-nums text-white">{value}</p>
+      {detail && <p className="mt-0.5 truncate text-xs text-gray-500">{detail}</p>}
+    </div>
   );
-  const [containerLogs, setContainerLogs] = useState<Map<string, any[]>>(
-    new Map()
+}
+
+/** A thin usage bar; neutral violet, since usage isn't a severity. */
+function UsageBar({ percent }: { percent: number }) {
+  const width = Math.max(0, Math.min(100, percent));
+  return (
+    <div className="mt-1 h-1 w-20 overflow-hidden rounded-full bg-gray-800" aria-hidden>
+      <div className="h-full rounded-full bg-violet-500/70" style={{ width: `${width}%` }} />
+    </div>
   );
+}
 
-  // Load recent logs for a specific container
-  const loadContainerLogs = async (containerName: string) => {
-    try {
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/logs?container=${containerName}&lines=3`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setContainerLogs((prev) => {
-          const newMap = new Map(prev);
-          newMap.set(containerName, data.logs || []);
-          return newMap;
-        });
-      }
-    } catch (error) {
-      console.error(`Error loading logs for ${containerName}:`, error);
-    }
-  };
+function telemetryPill(service: ServiceStatusRow) {
+  const badge = telemetryBadge(service);
+  const observedAt = service.container?.observedAt;
+  return (
+    <span title={observedAt ? `Last observed ${formatDateTime(observedAt, "long")}` : undefined}>
+      <StatusPill label={badge.label} tone={badge.tone} />
+    </span>
+  );
+}
 
-  const telemetryLabels = {
-    fresh: "Fresh",
-    stale: "Stale",
-    missing: "Missing",
-    invalid: "Invalid",
-    unavailable: "Unavailable",
-  };
+function Detail({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-[11px] uppercase tracking-wider text-gray-500">{label}</dt>
+      <dd className="mt-0.5 text-sm tabular-nums text-gray-200">{value}</dd>
+    </div>
+  );
+}
 
-  const getCpuColor = (cpuPercent: number) => {
-    if (cpuPercent < 25) return "text-green-500";
-    if (cpuPercent < 50) return "text-yellow-500";
-    if (cpuPercent < 75) return "text-orange-500";
-    return "text-red-500";
-  };
+function ContainerRow({
+  service,
+  expanded,
+  onToggle,
+}: {
+  service: ServiceStatusRow;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const c = service.container;
+  const stale = c?.telemetry === "stale";
+  const Chevron = expanded ? ChevronDown : ChevronRight;
+  return (
+    <>
+      <TableRow
+        className={cn("border-violet-500/10", c && "cursor-pointer")}
+        onClick={c ? onToggle : undefined}
+        aria-expanded={c ? expanded : undefined}
+      >
+        <TableCell className="font-mono text-sm text-gray-100">
+          <span className="flex items-center gap-2">
+            {c ? (
+              <button
+                type="button"
+                aria-label={`${expanded ? "Hide" : "Show"} details for ${service.id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggle();
+                }}
+                className="rounded text-gray-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+              >
+                <Chevron className="h-4 w-4" aria-hidden />
+              </button>
+            ) : (
+              <span className="w-4" aria-hidden />
+            )}
+            {service.id}
+          </span>
+        </TableCell>
+        <TableCell>{telemetryPill(service)}</TableCell>
+        <TableCell
+          title={c?.cpuPercent === null ? NOT_MEASURED_NOTE : undefined}
+          className={cn(stale && "opacity-60")}
+        >
+          {c?.cpuPercent != null ? (
+            <>
+              <span className="tabular-nums text-gray-200">{formatPercent(c.cpuPercent)}</span>
+              <UsageBar percent={c.cpuPercent} />
+            </>
+          ) : (
+            <span className="text-gray-600">{EMPTY}</span>
+          )}
+        </TableCell>
+        <TableCell
+          title={c?.memoryUsage === null ? NOT_MEASURED_NOTE : undefined}
+          className={cn(stale && "opacity-60")}
+        >
+          {c?.memoryUsage ? (
+            <>
+              <span className="tabular-nums text-gray-200">{c.memoryUsage}</span>
+              {c.memoryPercent !== null && (
+                <span className="ml-1.5 text-xs tabular-nums text-gray-500">{formatPercent(c.memoryPercent)}</span>
+              )}
+              {c.memoryPercent !== null && <UsageBar percent={c.memoryPercent} />}
+            </>
+          ) : (
+            <span className="text-gray-600">{EMPTY}</span>
+          )}
+        </TableCell>
+        <TableCell className={cn("font-mono text-xs text-gray-300", stale && "opacity-60")}>{c?.networkIO ?? EMPTY}</TableCell>
+        <TableCell className={cn("font-mono text-xs text-gray-300", stale && "opacity-60")}>{c?.diskUsed ?? EMPTY}</TableCell>
+        <TableCell className={cn("font-mono text-xs text-gray-300", stale && "opacity-60")}>{c?.uptime ? c.uptime : EMPTY}</TableCell>
+      </TableRow>
+      {c && expanded && (
+        <TableRow className="border-violet-500/10 bg-gray-900/40 hover:bg-gray-900/40">
+          <TableCell colSpan={7} className="px-10 py-3">
+            <dl className="grid grid-cols-2 gap-4 md:grid-cols-5">
+              <Detail
+                label={stale ? "Last observed (stale)" : "Observed"}
+                value={<span title={formatDateTime(c.observedAt, "long")}>{formatDateTime(c.observedAt)}</span>}
+              />
+              <Detail label="Processes" value={c.processCount ?? EMPTY} />
+              <Detail label="File descriptors" value={c.fileDescriptors ?? EMPTY} />
+              <Detail
+                label="Host load (1, 5, 15 min)"
+                value={
+                  c.loadAverage
+                    ? `${c.loadAverage.m1.toFixed(2)} · ${c.loadAverage.m5.toFixed(2)} · ${c.loadAverage.m15.toFixed(2)}`
+                    : EMPTY
+                }
+              />
+              <Detail label="Block I/O" value={<span className="font-mono text-xs">{c.blockIO ?? EMPTY}</span>} />
+            </dl>
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
 
-  const getMemoryColor = (memoryPercent: number) => {
-    if (memoryPercent < 25) return "text-green-500";
-    if (memoryPercent < 50) return "text-yellow-500";
-    if (memoryPercent < 75) return "text-orange-500";
-    return "text-red-500";
-  };
+function ResourcesContent({ status }: { status: SystemStatus }) {
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const { containers } = status;
+  const totals = containers.totals;
+  const toggle = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
-  const getDiskColor = (diskPercent: number) => {
-    if (diskPercent < 25) return "text-green-500";
-    if (diskPercent < 50) return "text-yellow-500";
-    if (diskPercent < 75) return "text-orange-500";
-    return "text-red-500";
-  };
+  const total = status.services.length;
+  const notice =
+    containers.reporting === 0
+      ? "No collector has a fresh observation. Showing last observations; current totals are unavailable."
+      : containers.reporting < total
+      ? "Totals include only collectors with fresh observations."
+      : null;
 
-  const toggleRowExpansion = (index: number) => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index);
-    } else {
-      newExpanded.add(index);
-      // Load logs when expanding
-      const container = data?.containers[index];
-      if (container) void loadContainerLogs(container.name);
-    }
-    setExpandedRows(newExpanded);
-  };
-
-  const formatTimestamp = (timestamp: string) => {
-    try {
-      const date = new Date(timestamp);
-      return date.toLocaleString();
-    } catch {
-      return "Unknown";
-    }
-  };
-
-  if (loading && !data) {
-    return (
-      <div className={`space-y-6 ${className || ""}`}>
-        <div className="flex h-64 items-center justify-center">
-          <div className="flex items-center space-x-2">
-            <RefreshCw className="h-6 w-6 animate-spin" />
-            <span>Loading system resources...</span>
-          </div>
-        </div>
+  return (
+    <div className="space-y-4">
+      {notice && (
+        <p role="status" className="text-xs text-amber-400/90">
+          {notice}
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Tile
+          label="Containers reporting"
+          value={`${containers.reporting} of ${total}`}
+          detail={[
+            `${totals.running} running`,
+            containers.stale > 0 ? `${containers.stale} stale` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          title={
+            containers.freshnessSeconds
+              ? `Fresh means observed in the last ${containers.freshnessSeconds} s.`
+              : undefined
+          }
+        />
+        <Tile
+          label="Peak CPU"
+          value={formatPercent(totals.peakCpuPercent)}
+          detail={totals.peakCpuPercent === null ? "No fresh CPU reading" : "Highest fresh reading"}
+        />
+        <Tile
+          label="Memory"
+          value={totals.observedMemory ?? EMPTY}
+          detail={totals.observedMemory === null ? "No fresh memory reading" : "Sum of fresh readings"}
+        />
+        <Tile
+          label="Latest observation"
+          value={containers.latestObservedAt ? formatDateTime(containers.latestObservedAt) : EMPTY}
+          title={containers.latestObservedAt ? formatDateTime(containers.latestObservedAt, "long") : undefined}
+          detail={`Checked ${formatDateTime(status.checkedAt)}`}
+        />
       </div>
+
+      <section className="scanner-section p-4" aria-label="Container resources">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-violet-500/20 hover:bg-transparent">
+              <TableHead>Container</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>CPU</TableHead>
+              <TableHead>Memory</TableHead>
+              <TableHead>Network I/O</TableHead>
+              <TableHead>Disk used</TableHead>
+              <TableHead>Collector uptime</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {status.services.map((service) => (
+              <ContainerRow
+                key={service.id}
+                service={service}
+                expanded={expanded.has(service.id)}
+                onToggle={() => toggle(service.id)}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </section>
+    </div>
+  );
+}
+
+function ResourcesSkeleton() {
+  return (
+    <div className="space-y-4" aria-busy="true" aria-label="Loading container resources">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-24 bg-gray-800/60" />
+        ))}
+      </div>
+      <Skeleton className="h-64 bg-gray-800/60" />
+    </div>
+  );
+}
+
+export interface SystemResourcesViewProps {
+  status: SystemStatus | undefined;
+  isLoading: boolean;
+  isFetching: boolean;
+  error?: { message: string } | null;
+  onRetry: () => void;
+  className?: string;
+}
+
+/** The Resources tab for one `system.status` result (presentational). */
+export function SystemResourcesView({ status, isLoading, isFetching, error, onRetry, className }: SystemResourcesViewProps) {
+  const retry = { label: isFetching ? "Retrying…" : "Retry", icon: RefreshCw, onClick: onRetry };
+
+  let content: React.ReactNode;
+  if (status) {
+    if (!status.containers.ok) {
+      content = (
+        <EmptyState
+          variant="error"
+          title="Container metrics unavailable"
+          reason={status.containers.message ?? "The API couldn't read container metrics."}
+          primary={retry}
+        />
+      );
+    } else if (status.containers.observed === 0) {
+      content = (
+        <EmptyState
+          variant="no-data"
+          title="No container metrics yet"
+          reason="Each Sirius container runs a system monitor that reports CPU, memory and uptime to Valkey every 5 s. None has reported yet."
+          primary={{ ...retry, label: isFetching ? "Checking…" : "Check again" }}
+        />
+      );
+    } else {
+      content = <ResourcesContent status={status} />;
+    }
+  } else if (isLoading) {
+    content = <ResourcesSkeleton />;
+  } else {
+    content = (
+      <EmptyState
+        variant="error"
+        title="Couldn't load container resources"
+        reason={error?.message ?? "The status service didn't answer."}
+        primary={retry}
+      />
     );
   }
 
   return (
-    <div className={`space-y-6 ${className || ""}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">
-            System Resources
-          </h2>
-          <p className="text-muted-foreground">
-            Collector resource observations
-          </p>
-        </div>
-        <div className="flex items-center space-x-4">
-          <Select value={refreshInterval} onValueChange={setRefreshInterval}>
-            <SelectTrigger className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="0">Manual</SelectItem>
-              <SelectItem value="2">Live</SelectItem>
-              <SelectItem value="5">5s</SelectItem>
-              <SelectItem value="10">10s</SelectItem>
-              <SelectItem value="30">30s</SelectItem>
-              <SelectItem value="60">1m</SelectItem>
-              <SelectItem value="300">5m</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button onClick={() => void refetch()} disabled={refreshing} variant="outline">
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
-        </div>
-      </div>
-
-      {(stale || unavailable || partial) && (
-        <div role="status" className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
-          <AlertTriangle className="h-5 w-5" />
-          {stale
-            ? "Showing last observations. Current resource totals are unavailable."
-            : unavailable
-            ? "Current resource telemetry is unavailable."
-            : "Resource totals include only collectors with fresh observations."}
-        </div>
+    <div className={cn("space-y-4", className)}>
+      {status && error && (
+        <p className="text-xs text-amber-400/90">
+          Last refresh failed: {error.message}. Showing the previous result.
+        </p>
       )}
-
-      {/* Summary Cards */}
-      {data && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Total Containers
-              </CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {data.summary.total_containers}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {freshCount ? `${freshCount} with fresh telemetry` : "No fresh telemetry"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Peak reported CPU</CardTitle>
-              <Cpu className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div
-                className="text-2xl font-bold"
-              >
-                {peakCPU === undefined ? "—" : `${peakCPU.toFixed(1)}%`}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {peakCPU === undefined ? "Unavailable" : "Fresh observations"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Observed memory
-              </CardTitle>
-              <MemoryStick className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div
-                className="text-2xl font-bold"
-              >
-                {observedMemory === undefined ? "—" : formatResourceBytes(observedMemory)}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {observedMemory === undefined ? "Unavailable" : "Sum of fresh readings"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Latest Observation
-              </CardTitle>
-              <RefreshCw className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {data.summary.latest_observed_at
-                  ? formatTimestamp(data.summary.latest_observed_at)
-                  : "—"}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {refreshInterval === "0"
-                  ? "Manual refresh"
-                  : refreshInterval === "2"
-                  ? "Live updates"
-                  : `Auto ${refreshInterval}s`}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Container Resources Table */}
-      {data && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Container Resources</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Container</TableHead>
-                  <TableHead>Telemetry</TableHead>
-                  <TableHead>CPU</TableHead>
-                  <TableHead>Memory</TableHead>
-                  <TableHead>Network I/O</TableHead>
-                  <TableHead>Disk Usage</TableHead>
-                  <TableHead>Collector uptime</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.containers.map((container, index) => (
-                  <React.Fragment key={index}>
-                    <TableRow
-                      className={`cursor-pointer hover:bg-muted/50 ${
-                        restartingContainers.has(container.name)
-                          ? "bg-muted/20 opacity-50"
-                          : ""
-                      }`}
-                      onClick={() => toggleRowExpansion(index)}
-                    >
-                      <TableCell className="font-mono text-sm">
-                        <div className="flex items-center space-x-2">
-                          {expandedRows.has(index) ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                          {container.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={container.telemetry_status === "fresh" ? "default" : "outline"}>
-                          {telemetryLabels[container.telemetry_status]}
-                        </Badge>
-                        {container.observed_at && (
-                          <div className="mt-1 text-xs text-muted-foreground">
-                            {formatTimestamp(container.observed_at)}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Cpu className="h-4 w-4" />
-                          <span className={getCpuColor(container.cpu_percent)}>
-                            {container.measurements.cpu_percent === undefined ? "—" : `${container.cpu_percent.toFixed(1)}%`}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <MemoryStick className="h-4 w-4" />
-                          <div>
-                            <div className="font-medium">
-                              {container.measurements.memory_usage_bytes === undefined ? "—" : container.memory_usage}
-                            </div>
-                            <div
-                              className={`text-xs ${getMemoryColor(
-                                container.memory_percent
-                              )}`}
-                            >
-                              {container.measurements.memory_percent === undefined ? "" : `${container.memory_percent.toFixed(1)}%`}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Network className="h-4 w-4" />
-                          <span className="font-mono text-sm">
-                            {container.measurements.network_rx_bytes === undefined && container.measurements.network_tx_bytes === undefined ? "—" : container.network_io}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <HardDrive className="h-4 w-4" />
-                          <div>
-                            <div className="text-sm font-medium">
-                              {container.measurements.disk_usage_bytes === undefined && container.measurements.disk_total_bytes === undefined ? "—" : container.disk_usage}
-                            </div>
-                            <div
-                              className={`text-xs ${getDiskColor(
-                                container.disk_percent
-                              )}`}
-                            >
-                              {container.measurements.disk_percent === undefined ? "" : `${container.disk_percent.toFixed(1)}%`}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Clock className="h-4 w-4" />
-                          <span className="font-mono text-sm">
-                            {container.collector_uptime_seconds === undefined ? "—" : container.uptime}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={restartingContainers.has(container.name)}
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              setDialogContent({
-                                title: "Confirm Restart",
-                                message: `Are you sure you want to restart ${container.name}? This action cannot be undone.`,
-                                type: "success",
-                              });
-                              setDialogOpen(true);
-
-                              // Store the container name for the actual restart action
-                              const targetContainer = container.name;
-
-                              // Handle the restart action
-                              const handleRestart = async () => {
-                                try {
-                                  // Add container to restarting state
-                                  setRestartingContainers((prev) =>
-                                    new Set(prev).add(targetContainer)
-                                  );
-
-                                  const response = await fetch(
-                                    `${
-                                      process.env.NEXT_PUBLIC_SIRIUS_API_URL ||
-                                      "http://localhost:9001"
-                                    }/api/v1/admin/command`,
-                                    {
-                                      method: "POST",
-                                      headers: {
-                                        "Content-Type": "application/json",
-                                      },
-                                      body: JSON.stringify({
-                                        action: "restart",
-                                        container_name: targetContainer,
-                                      }),
-                                    }
-                                  );
-
-                                  if (response.ok) {
-                                    const result = await response.json();
-                                    setDialogContent({
-                                      title: "Restart Command Sent",
-                                      message: `Restart requested. Request ID: ${result.request_id}.`,
-                                      type: "success",
-                                    });
-                                  } else {
-                                    setDialogContent({
-                                      title: "Restart Failed",
-                                      message:
-                                        "Failed to send restart command. Please try again.",
-                                      type: "error",
-                                    });
-                                  }
-                                } catch (error) {
-                                  console.error(
-                                    "Error sending restart command:",
-                                    error
-                                  );
-                                  setDialogContent({
-                                    title: "Restart Error",
-                                    message:
-                                      "Error sending restart command. Please check your connection.",
-                                    type: "error",
-                                  });
-                                } finally {
-                                  setRestartingContainers((prev) => {
-                                    const next = new Set(prev);
-                                    next.delete(targetContainer);
-                                    return next;
-                                  });
-                                }
-                              };
-
-                              // Store the handler for the dialog
-                              (window as any).handleRestart = handleRestart;
-                            }}
-                          >
-                            {restartingContainers.has(container.name) ? (
-                              <RefreshCw className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <RotateCcw className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-
-                    {/* Expanded Row Content */}
-                    {expandedRows.has(index) && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="bg-muted/20">
-                          <div className="space-y-4 p-4">
-                            {/* Secondary Metrics */}
-                            {container.observed_at && (
-                              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                <div className="flex items-center space-x-2">
-                                  <Users className="h-4 w-4" />
-                                  <div>
-                                    <div className="text-sm font-medium">
-                                      Processes
-                                    </div>
-                                    <div className="text-lg font-bold">
-                                      {container.measurements.process_count ?? "—"}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <FileText className="h-4 w-4" />
-                                  <div>
-                                    <div className="text-sm font-medium">
-                                      File Descriptors
-                                    </div>
-                                    <div className="text-lg font-bold">
-                                      {container.measurements.file_descriptors ?? "—"}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <BarChart3 className="h-4 w-4" />
-                                  <div>
-                                    <div className="text-sm font-medium">
-                                      Load Average
-                                    </div>
-                                    <div className="text-sm">
-                                      <div>
-                                        1m: {container.measurements.load_average_1m?.toFixed(2) ?? "—"}
-                                      </div>
-                                      <div>
-                                        5m: {container.measurements.load_average_5m?.toFixed(2) ?? "—"}
-                                      </div>
-                                      <div>
-                                        15m:{" "}
-                                        {container.measurements.load_average_15m?.toFixed(2) ?? "—"}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Recent Logs */}
-                            <div className="border-t pt-4">
-                              <h4 className="mb-2 text-sm font-medium">
-                                Recent Logs
-                              </h4>
-                              {containerLogs.has(container.name) ? (
-                                <div className="space-y-2">
-                                  {containerLogs
-                                    .get(container.name)
-                                    ?.slice(0, 3)
-                                    .map((log: any, idx: number) => (
-                                      <div
-                                        key={idx}
-                                        className="flex items-start space-x-2 text-xs"
-                                      >
-                                        <span
-                                          className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                                            log.level === "ERROR"
-                                              ? "bg-red-500/20 text-red-300"
-                                              : log.level === "WARN"
-                                              ? "bg-yellow-500/20 text-yellow-300"
-                                              : "bg-green-500/20 text-green-300"
-                                          }`}
-                                        >
-                                          {log.level}
-                                        </span>
-                                        <div className="min-w-0 flex-1">
-                                          <div className="text-muted-foreground">
-                                            {new Date(
-                                              log.timestamp
-                                            ).toLocaleTimeString()}
-                                          </div>
-                                          <div className="truncate">
-                                            {log.message}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    ))}
-                                </div>
-                              ) : (
-                                <div className="text-sm text-muted-foreground">
-                                  Loading recent logs...
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </React.Fragment>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Confirmation Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{dialogContent?.title}</DialogTitle>
-            <DialogDescription>{dialogContent?.message}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            {dialogContent?.title === "Confirm Restart" ? (
-              <>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => {
-                    if ((window as any).handleRestart) {
-                      (window as any).handleRestart();
-                    }
-                  }}
-                >
-                  Restart Container
-                </Button>
-              </>
-            ) : (
-              <Button onClick={() => setDialogOpen(false)}>Close</Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {content}
     </div>
   );
+}
+
+export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({ className }) => {
+  const query = useSystemStatus();
+  return (
+    <SystemResourcesView
+      status={query.data}
+      isLoading={query.isLoading}
+      isFetching={query.isFetching}
+      error={query.error}
+      onRetry={() => void query.refetch()}
+      className={className}
+    />
+  );
 };
+
+export default SystemResourcesDashboard;

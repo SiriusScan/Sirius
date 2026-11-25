@@ -7,8 +7,24 @@ import {
   Network,
   Server,
   Info,
+  RotateCw,
 } from "lucide-react";
 import { SECTION_HEADER } from "~/utils/themeConstants";
+import { EmptyState } from "~/components/shared/EmptyState";
+
+interface StorageDevice {
+  device?: string;
+  size_gb?: number;
+  type?: string;
+  filesystem?: string;
+}
+
+interface NetworkInterface {
+  name?: string;
+  mac?: string;
+  ipv4?: string[];
+  ipv6?: string[];
+}
 
 interface SystemFingerprintProps {
   hostIp: string;
@@ -54,18 +70,13 @@ const SystemFingerprint: React.FC<SystemFingerprintProps> = ({ hostIp }) => {
   // Error
   if (isError || !fingerprintData) {
     return (
-      <div className="scanner-section scanner-section-padding">
-        <div className="flex flex-col items-center gap-3 py-6">
-          <Server className="h-6 w-6 text-gray-600" />
-          <p className="text-sm text-gray-500">Failed to load fingerprint data</p>
-          <button
-            onClick={() => void refetch()}
-            className="rounded-md border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/20"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
+      <EmptyState
+        variant="error"
+        size="compact"
+        title="Couldn't load the system fingerprint"
+        reason="The agent data didn't load. The rest of the host page still works."
+        primary={{ label: "Retry", icon: RotateCw, onClick: () => void refetch() }}
+      />
     );
   }
 
@@ -129,7 +140,7 @@ const SystemFingerprint: React.FC<SystemFingerprintProps> = ({ hostIp }) => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-violet-500/5">
-                    {fingerprint.hardware.storage.map((device, idx) => (
+                    {fingerprint.hardware.storage.map((device: StorageDevice, idx: number) => (
                       <tr key={idx} className="text-gray-300">
                         <td className="py-1.5 pr-4 font-mono text-white">{device.device}</td>
                         <td className="py-1.5 pr-4">{formatSize(device.size_gb)}</td>
@@ -167,7 +178,7 @@ const SystemFingerprint: React.FC<SystemFingerprintProps> = ({ hostIp }) => {
                 DNS Servers
               </span>
               <div className="mt-1 flex flex-wrap gap-1.5">
-                {fingerprint.network.dns_servers.map((dns, idx) => (
+                {fingerprint.network.dns_servers.map((dns: string, idx: number) => (
                   <span key={idx} className="rounded border border-violet-500/10 bg-gray-900/50 px-2 py-0.5 font-mono text-xs text-gray-400">
                     {dns}
                   </span>
@@ -189,7 +200,7 @@ const SystemFingerprint: React.FC<SystemFingerprintProps> = ({ hostIp }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-violet-500/5">
-                  {fingerprint.network.interfaces.map((iface, idx) => (
+                  {fingerprint.network.interfaces.map((iface: NetworkInterface, idx: number) => (
                     <tr key={idx} className="text-gray-300">
                       <td className="py-1.5 pr-4 font-mono font-medium text-white">{iface.name}</td>
                       <td className="py-1.5 pr-4 font-mono text-gray-400">{iface.mac || "—"}</td>

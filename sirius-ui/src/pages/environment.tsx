@@ -1,31 +1,37 @@
 /**
- * Environment Page — Table-First Orchestrator
+ * Environment — the inventory every scan fills (R04).
  *
- * Decluttered, operator-grade environment view:
- *   - Sticky header with stat pills (hosts, vulns, critical)
- *   - Compact context bar: Most Vulnerable Hosts (horizontal) + Environment Snapshot
- *   - Table View | Software Inventory tabs — immediately visible
- *   - Data consolidated in useEnvironmentData hook
- *   - Tab persistence via localStorage
+ *   - PageHeader: "<n> hosts · <m> open findings" from useSummaryStats
+ *     (ADR-2), Add host and Start scan
+ *   - PageTabs in ?tab=hosts|software (ADR-6)
+ *   - A banner when a scan has added hosts since the viewer last looked
+ *     (ADR-1)
+ *   - The hosts table, sorted by the server's risk score (ADR-3)
+ *
+ * `/environment?add=` opens Add host; `?add=<ip>` opens it pre-filled (from a
+ * host that isn't in the inventory yet).
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { Play, Plus, RefreshCw } from "lucide-react";
 import Layout from "~/components/Layout";
-import { EnvironmentDataTable } from "~/components/EnvironmentDataTable";
-import { columns } from "~/components/EnvironmentDataTableColumns";
 import EnvironmentIcon from "~/components/icons/EnvironmentIcon";
+import { EnvironmentDataTable } from "~/components/EnvironmentDataTable";
 import { HostForm } from "~/components/environment/HostForm";
 import { EnvironmentSoftwareInventory } from "~/components/environment/EnvironmentSoftwareInventory";
-import { MostVulnerableHostsCompact } from "~/components/environment/MostVulnerableHostsCompact";
-import { ActiveConstellationV2Loader } from "~/components/loaders";
-import { useEnvironmentData, type EnvironmentViewTab } from "~/hooks/useEnvironmentData";
-import { cn } from "~/components/lib/utils";
+import { NewHostsBanner } from "~/components/environment/NewHostsBanner";
+import { useNewHosts } from "~/components/environment/useNewHosts";
 import {
-  Server,
-  Target,
-  AlertTriangle,
-  Activity,
-} from "lucide-react";
+  newHostsBannerText,
+  scanTimeForNewHosts,
+} from "~/components/environment/hostsTableModel";
+import { PageHeader, HeaderChip } from "~/components/shared/PageHeader";
+import { PageTabs, usePageTab, type PageTab } from "~/components/shared/PageTabs";
+import { EmptyState } from "~/components/shared/EmptyState";
+import { api } from "~/utils/api";
+import { invalidateSummary, useSummaryStats } from "~/hooks/useSummaryStats";
 
 // ── SEO ──────────────────────────────────────────────────────────────────────
 export const metadata = {
@@ -33,54 +39,110 @@ export const metadata = {
   description: "View and manage hosts in your environment",
 };
 
-// ── Persistence key ──────────────────────────────────────────────────────────
-const STORAGE_KEY = "sirius-env-active-tab";
+const TAB_IDS = ["hosts", "software"] as const;
+type EnvironmentTab = (typeof TAB_IDS)[number];
 
-// ── Tab definitions ──────────────────────────────────────────────────────────
-const tabs: Array<{ id: EnvironmentViewTab; label: string }> = [
-  { id: "table", label: "Table View" },
-  { id: "software", label: "Software Inventory" },
-];
+const plural = (n: number, word: string) =>
+  `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
 
-// ── Page Component ───────────────────────────────────────────────────────────
+const secondaryAction =
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border border-violet-500/25 px-3 text-xs font-medium text-gray-200 transition-colors hover:border-violet-500/40 hover:bg-violet-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60";
+const primaryAction =
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md bg-violet-600 px-3 text-xs font-medium text-white transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60";
+
 const Environment = () => {
-  const [viewMode, setViewMode] = useState<"list" | "create">("list");
-  const [activeTab, setActiveTab] = useState<EnvironmentViewTab>("table");
-  const { data, rawSoftwareStats, isLoading, isError, error, refetch } =
-    useEnvironmentData();
+  const router = useRouter();
+  const utils = api.useContext();
 
-  // Persist active tab
+  // ── Add host ────────────────────────────────────────────────────────────
+  const [creating, setCreating] = useState(false);
+  // `?add=` opens the empty form; `?add=<ip>` opens it pre-filled.
+  const addRequested = router.isReady && typeof router.query.add === "string";
+  const addIp = addRequested ? (router.query.add as string).trim() : "";
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored && tabs.some((t) => t.id === stored)) {
-        setActiveTab(stored as EnvironmentViewTab);
-      }
-    } catch {
-      /* noop */
-    }
-  }, []);
+    if (addRequested) setCreating(true);
+  }, [addRequested]);
+  const closeCreate = useCallback(() => {
+    setCreating(false);
+    if (addRequested) void router.replace("/environment", undefined, { shallow: true });
+  }, [addRequested, router]);
 
-  const handleTabChange = useCallback((tab: EnvironmentViewTab) => {
-    setActiveTab(tab);
-    try {
-      localStorage.setItem(STORAGE_KEY, tab);
-    } catch {
-      /* noop */
-    }
-  }, []);
+  // ── Data ────────────────────────────────────────────────────────────────
+  // Same key and options as useEnvironmentData, so the cache is shared.
+  const hostsQuery = api.host.getEnvironmentSummary.useQuery(undefined, {
+    retry: 1,
+    retryDelay: 1000,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  });
+  const summaryQuery = useSummaryStats();
+  const summary = summaryQuery.data;
+  const rows = hostsQuery.data;
 
-  // ── Create mode early return ────────────────────────────────────────────
-  if (viewMode === "create") {
+  // The summary polls; when it reports a change in the inventory (a scan
+  // added a host or findings), reload the host rows so the table agrees.
+  const { refetch: refetchHosts } = hostsQuery;
+  const inventoryKey = summary
+    ? [summary.hosts.total, summary.findings.open, summary.lastScan?.finishedAt ?? ""].join("|")
+    : null;
+  const seenInventoryKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!inventoryKey) return;
+    const previous = seenInventoryKey.current;
+    seenInventoryKey.current = inventoryKey;
+    if (previous !== null && previous !== inventoryKey) void refetchHosts();
+  }, [inventoryKey, refetchHosts]);
+
+  const refreshAll = useCallback(() => {
+    void refetchHosts();
+    void invalidateSummary(utils);
+  }, [refetchHosts, utils]);
+
+  // ── New hosts banner ────────────────────────────────────────────────────
+  const { hosts: newHosts, marker: lastSeenMarker, dismiss: acknowledgeNew } = useNewHosts(rows);
+  const [showNewOnly, setShowNewOnly] = useState(false);
+  const newIps = useMemo(
+    () => (newHosts.length > 0 ? new Set(newHosts.map((h) => h.ip)) : null),
+    [newHosts],
+  );
+  useEffect(() => {
+    if (!newIps) setShowNewOnly(false);
+  }, [newIps]);
+  const bannerText = newIps
+    ? newHostsBannerText(
+        newIps.size,
+        scanTimeForNewHosts(newHosts, summary?.lastScan),
+        lastSeenMarker,
+      )
+    : null;
+  const dismissNew = useCallback(() => {
+    setShowNewOnly(false);
+    acknowledgeNew();
+  }, [acknowledgeNew]);
+
+  // ── Tabs ────────────────────────────────────────────────────────────────
+  const tab = usePageTab<EnvironmentTab>(TAB_IDS, "hosts");
+  const hostCount = summary?.hosts.total ?? rows?.length;
+  const tabs = useMemo<PageTab[]>(
+    () => [
+      { id: "hosts", label: "Hosts", ...(hostCount !== undefined ? { count: hostCount } : {}) },
+      { id: "software", label: "Software" },
+    ],
+    [hostCount],
+  );
+
+  // ── Add host form ───────────────────────────────────────────────────────
+  if (creating) {
     return (
       <Layout>
         <div className="relative z-20 -mt-14 space-y-6">
           <HostForm
             mode="create"
-            onCancel={() => setViewMode("list")}
+            initialData={addIp ? { ip: addIp } : undefined}
+            onCancel={closeCreate}
             onSuccess={() => {
-              setViewMode("list");
-              refetch();
+              closeCreate();
+              refreshAll();
             }}
           />
         </div>
@@ -88,232 +150,81 @@ const Environment = () => {
     );
   }
 
+  const inventoryEmpty = !!rows && rows.length === 0;
+  const loadFailed = hostsQuery.isError && !rows;
+
   return (
     <Layout>
       <div className="relative z-20 -mt-14 space-y-4">
-        {/* ── Sticky Header ─────────────────────────────────────────────── */}
-        <div className="sticky top-2 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
-          <div className="flex items-center gap-3">
-            {/* Icon container */}
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 ring-2 ring-violet-500/20">
-              <EnvironmentIcon
-                width="24px"
-                height="24px"
-                className="fill-violet-400"
-              />
-            </div>
-
-            {/* Title */}
-            <h1 className="text-2xl font-bold tracking-tight text-white">
-              Environment
-            </h1>
-
-            {/* Stat pills: Hosts, Total Vulns, Critical */}
-            {data && (
-              <div className="ml-2 flex items-center gap-3">
-                {/* Hosts */}
-                <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5">
-                  <Server className="h-4 w-4 text-violet-400" />
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-sm font-semibold text-white">
-                      {data.totalHosts}
-                    </span>
-                    <span className="text-xs text-violet-300/60">hosts</span>
-                  </div>
-                </div>
-
-                {/* Total Vulns */}
-                <div className="flex items-center gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5">
-                  <Target className="h-4 w-4 text-violet-400" />
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-sm font-semibold text-white">
-                      {data.vulnCounts.total}
-                    </span>
-                    <span className="text-xs text-violet-300/60">
-                      vulnerabilities
-                    </span>
-                  </div>
-                </div>
-
-                {/* Critical */}
-                {data.vulnCounts.critical > 0 && (
-                  <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5">
-                    <AlertTriangle className="h-4 w-4 text-red-400" />
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-sm font-semibold text-red-400">
-                        {data.vulnCounts.critical}
-                      </span>
-                      <span className="text-xs text-violet-300/60">
-                        critical
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Spacer */}
-            <div className="flex-1" />
-
-            {/* Add Host button */}
-            <div className="flex shrink-0 items-center gap-2 pr-14">
-              <button
-                onClick={() => setViewMode("create")}
-                className="flex items-center gap-1.5 rounded-md border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 transition-colors hover:border-violet-500/30 hover:bg-violet-500/20"
-              >
-                + Add Host
+        <PageHeader
+          icon={<EnvironmentIcon width="20px" height="20px" className="fill-violet-400 text-violet-400" />}
+          title="Environment"
+          meta={
+            summary ? (
+              <HeaderChip>
+                {plural(summary.hosts.total, "host")} · {plural(summary.findings.open, "open finding")}
+              </HeaderChip>
+            ) : undefined
+          }
+          actions={
+            <>
+              <button type="button" onClick={() => setCreating(true)} className={secondaryAction}>
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Add host</span>
+                <span className="sr-only sm:hidden">Add host</span>
               </button>
-            </div>
-          </div>
-        </div>
+              <Link href="/scanner" className={primaryAction}>
+                <Play className="h-3.5 w-3.5" aria-hidden />
+                <span className="hidden sm:inline">Start scan</span>
+                <span className="sr-only sm:hidden">Start scan</span>
+              </Link>
+            </>
+          }
+          tabs={<PageTabs tabs={tabs} defaultTab="hosts" aria-label="Environment sections" />}
+        />
 
-        {/* ── Loading / Error states ────────────────────────────────────── */}
-        {isLoading && (
-          <div className="flex h-64 items-center justify-center">
-            <ActiveConstellationV2Loader size="xl" />
-          </div>
-        )}
-
-        {isError && !isLoading && (
-          <div className="scanner-section border-red-500/30 p-4 text-red-400">
-            <p>Error loading data: {error}</p>
-            <button
-              onClick={refetch}
-              className="mt-2 text-sm text-violet-400 hover:text-violet-300"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-
-        {/* ── Empty state ───────────────────────────────────────────────── */}
-        {!isLoading && !isError && (!data || data.totalHosts === 0) && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-violet-500/20 bg-gray-900/30 p-8">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10">
-              <EnvironmentIcon
-                width="24px"
-                height="24px"
-                className="fill-gray-500"
-              />
-            </div>
-            <h3 className="mb-2 text-lg font-medium text-gray-200">
-              No hosts found
-            </h3>
-            <p className="text-sm text-gray-500">
-              Add hosts to your environment to start tracking vulnerabilities.
-            </p>
-            <button
-              onClick={() => setViewMode("create")}
-              className="mt-4 rounded-md bg-violet-500 px-4 py-2 text-sm font-medium text-white hover:bg-violet-600"
-            >
-              Add First Host
-            </button>
-          </div>
-        )}
-
-        {/* ── Data content ──────────────────────────────────────────────── */}
-        {!isLoading && !isError && data && data.totalHosts > 0 && (
+        {tab === "hosts" && (
           <>
-            {/* ── Context Bar: MVH + Environment Snapshot ───────────────── */}
-            <div className="grid gap-4 lg:grid-cols-4">
-              {/* Left 3/4: Compact horizontal Most Vulnerable Hosts */}
-              <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-4 backdrop-blur-sm lg:col-span-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <Server className="h-4 w-4 text-violet-400" />
-                  <span className="text-sm font-medium text-white">Most Vulnerable Hosts</span>
-                </div>
-                <MostVulnerableHostsCompact limit={3} />
-              </div>
-
-              {/* Right 1/4: Environment Snapshot */}
-              <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-4 backdrop-blur-sm">
-                <div className="mb-2 flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-violet-400" />
-                  <span className="text-sm font-medium text-white">Snapshot</span>
-                </div>
-                <div className="space-y-1">
-                  {/* OS Distribution */}
-                  {Object.entries(data.osDistribution)
-                    .sort(([, a], [, b]) => b - a)
-                    .slice(0, 5)
-                    .map(([os, count]) => (
-                      <div
-                        key={os}
-                        className="flex items-center justify-between text-xs"
-                      >
-                        <span className="truncate text-gray-300">{os}</span>
-                        <span className="ml-2 whitespace-nowrap text-gray-500">
-                          {count}
-                        </span>
-                      </div>
-                    ))}
-
-                  {/* Stats — merged inline */}
-                  <div className="mt-2 space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">Packages</span>
-                      <span className="text-gray-300">
-                        {data.softwareStats?.totalPackages ?? 0}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">Risky Hosts</span>
-                      <span
-                        className={cn(
-                          "font-medium",
-                          data.riskyHosts > 0
-                            ? "text-red-400"
-                            : "text-green-400",
-                        )}
-                      >
-                        {data.riskyHosts}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Tab Bar ───────────────────────────────────────────────── */}
-            <div className="border-b border-violet-500/10">
-              <nav className="-mb-px flex gap-1 overflow-x-auto px-1">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => handleTabChange(tab.id)}
-                    className={cn(
-                      "relative whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
-                      activeTab === tab.id
-                        ? "border-violet-500 text-violet-300"
-                        : "border-transparent text-gray-500 hover:border-violet-500/20 hover:text-gray-300",
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </nav>
-            </div>
-
-            {/* ── Tab Content ───────────────────────────────────────────── */}
-            <div>
-              {activeTab === "table" && (
-                <div className="scanner-table-wrapper">
-                  <EnvironmentDataTable
-                    columns={columns}
-                    data={data.hosts}
-                    onRefresh={refetch}
+            {loadFailed ? (
+              <EmptyState
+                variant="error"
+                title="Couldn't load hosts"
+                reason="The Sirius API didn't answer. The rest of the app still works."
+                primary={{ label: "Retry", icon: RefreshCw, onClick: refreshAll }}
+              />
+            ) : inventoryEmpty ? (
+              <EmptyState
+                variant="no-data"
+                title="No hosts yet"
+                reason="Run a scan and every host it finds is added here."
+                primary={{ label: "Start a scan", icon: Play, href: "/scanner" }}
+                secondary={{ label: "Add host", icon: Plus, onClick: () => setCreating(true) }}
+              />
+            ) : (
+              <>
+                {bannerText && (
+                  <NewHostsBanner
+                    text={bannerText}
+                    showingNew={showNewOnly}
+                    onToggleShowNew={() => setShowNewOnly((v) => !v)}
+                    onDismiss={dismissNew}
                   />
-                </div>
-              )}
-              {activeTab === "software" && (
-                <EnvironmentSoftwareInventory
-                  softwareStats={rawSoftwareStats}
-                  hosts={data.hosts}
-                />
-              )}
-            </div>
+                )}
+                <section className="scanner-section scanner-section-padding" aria-label="Hosts">
+                  <EnvironmentDataTable
+                    rows={rows ?? []}
+                    loading={!rows}
+                    severityCounts={summary?.findings.bySeverity}
+                    onlyIps={showNewOnly ? newIps : null}
+                    onClearOnlyIps={() => setShowNewOnly(false)}
+                  />
+                </section>
+              </>
+            )}
           </>
         )}
+
+        {tab === "software" && <EnvironmentSoftwareInventory />}
       </div>
     </Layout>
   );

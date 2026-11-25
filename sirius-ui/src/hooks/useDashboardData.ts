@@ -82,7 +82,7 @@ export const useDashboardData = (
   } = api.vulnerability.getAllVulnerabilities.useQuery(undefined, {
     refetchInterval:
       vulnerabilityRefetch === false ? undefined : vulnerabilityRefetch,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     staleTime:
       vulnerabilityRefetch === false ? undefined : vulnerabilityRefetch,
     keepPreviousData: true, // Prevent flash on refetch
@@ -96,7 +96,7 @@ export const useDashboardData = (
     refetch: refetchHosts,
   } = api.host.getAllHosts.useQuery(undefined, {
     refetchInterval: hostRefetch === false ? undefined : hostRefetch,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     staleTime: hostRefetch === false ? undefined : hostRefetch,
     keepPreviousData: true, // Prevent flash on refetch
   });
@@ -109,7 +109,7 @@ export const useDashboardData = (
     refetch: refetchAgents,
   } = api.agent.listAgentsWithHosts.useQuery(undefined, {
     refetchInterval: agentRefetch === false ? undefined : agentRefetch,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
     staleTime: agentRefetch === false ? undefined : agentRefetch,
     keepPreviousData: true, // Prevent flash on refetch
   });
@@ -171,19 +171,9 @@ export const useDashboardData = (
   const hosts: DashboardHostData = {
     total: hostData?.length || 0,
     online: hostData?.length || 0, // Assume all discovered hosts are online
-    withVulnerabilities: 0, // Will be calculated from vulnerability data
+    withVulnerabilities: 0, // Not derived here: no endpoint reports it yet.
   };
 
-  // Count hosts with vulnerabilities
-  // Since vulnerability data doesn't include host IDs, we'll use hostCount from vulnerabilities
-  // In a real implementation, this would come from a proper API endpoint
-  if (vulnData?.vulnerabilities && vulnData.vulnerabilities.length > 0) {
-    // Estimate hosts with vulnerabilities based on total hosts and vulnerability count
-    hosts.withVulnerabilities = Math.min(
-      hosts.total,
-      Math.ceil(hosts.total * 0.7)
-    );
-  }
 
   // Calculate agent data
   const agents: DashboardAgentData = {

@@ -1,8 +1,22 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
+export interface ErrorBoundaryFallbackProps {
+  error: Error;
+  /** Clears the error and renders the children again. */
+  reset: () => void;
+}
+
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  /**
+   * Renders a section-level fallback with the caught error and a reset
+   * callback. Takes precedence over `fallback`. Without either prop the
+   * boundary keeps its full-page "Something went wrong" screen.
+   */
+  renderFallback?: (props: ErrorBoundaryFallbackProps) => ReactNode;
+  /** Called after the boundary catches an error (logging stays as it was). */
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
@@ -22,9 +36,21 @@ class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Error caught by boundary:", error, errorInfo);
+    this.props.onError?.(error, errorInfo);
   }
 
+  private reset = () => {
+    this.setState({ hasError: false, error: undefined });
+  };
+
   public render() {
+    if (this.state.hasError && this.props.renderFallback) {
+      return this.props.renderFallback({
+        error: this.state.error ?? new Error("Unknown error"),
+        reset: this.reset,
+      });
+    }
+
     if (this.state.hasError) {
       return (
         this.props.fallback || (

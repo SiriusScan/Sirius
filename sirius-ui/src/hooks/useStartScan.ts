@@ -125,6 +125,9 @@ export const useStartScan = () => {
         vulnerabilities: [],
         start_time: new Date().toISOString(),
         sub_scans: subScans,
+        // The Scanner shows the profile from the start; the scanner's updater
+        // keeps fields it doesn't know.
+        profile_id: templateId,
       };
 
       await updateScan.mutateAsync({

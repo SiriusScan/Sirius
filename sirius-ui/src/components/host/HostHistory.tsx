@@ -1,18 +1,51 @@
-import { Clock, RefreshCw } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
-import { SourceBadge } from "~/components/shared/SourceBadge";
+/**
+ * HostHistory — the History tab: the host's accepted reports in the caller's
+ * scope, newest first and paged by the API's cursor, then the host's
+ * discovery. Each report shows what it submitted; assessment coverage is
+ * always unknown, so an empty submission never reads as "assessed clean".
+ * A failed older page keeps the entries already shown and offers a retry.
+ * The sources that have reported are listed below. Times use the shared
+ * formatter.
+ */
+
+import React, { useMemo, useState } from "react";
+import { History, RefreshCw, RotateCw } from "lucide-react";
 import { api } from "~/utils/api";
+import { Button } from "~/components/lib/ui/button";
+import { cn } from "~/components/lib/utils";
+import { EmptyState } from "~/components/shared/EmptyState";
+import { SourceBadge } from "~/components/shared/SourceBadge";
 import { SECTION_HEADER } from "~/utils/themeConstants";
+import { formatDateTime } from "~/utils/formatDateTime";
+import type { SourceFreshness } from "~/types/riskSummary";
+import { historyTimeline, rescanHref, submittedItemsLabel } from "./hostModel";
 
 interface HostHistoryProps {
   hostIp: string;
+  /** Per-source report times from the host query (freshness.sources). */
+  sourceFreshness?: readonly SourceFreshness[];
 }
 
-const buttonClass =
-  "flex items-center gap-1.5 rounded-md border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 transition-colors hover:bg-violet-500/20 disabled:opacity-50";
+function HistorySkeleton() {
+  return (
+    <div className="scanner-section scanner-section-padding" aria-busy="true">
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="flex gap-3">
+            <div className="h-3 w-3 animate-pulse rounded-full bg-gray-700" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3 w-32 animate-pulse rounded bg-gray-700" />
+              <div className="h-3 w-48 animate-pulse rounded bg-gray-700" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-export function HostHistory({ hostIp }: HostHistoryProps) {
+export const HostHistory: React.FC<HostHistoryProps> = ({ hostIp, sourceFreshness = [] }) => {
+  // The host whose older-page request failed (reset when the host changes).
   const [failedPageHost, setFailedPageHost] = useState<string>();
   const query = api.host.getHostHistory.useInfiniteQuery(
     { ip: hostIp },
@@ -20,40 +53,52 @@ export function HostHistory({ hostIp }: HostHistoryProps) {
       getNextPageParam: (lastPage) => lastPage.next_cursor,
       enabled: !!hostIp,
       staleTime: 30000,
-      retry: (failures, error) =>
-        error.data?.code === "INTERNAL_SERVER_ERROR" && failures < 2,
+      retry: (failures, error) => error.data?.code === "INTERNAL_SERVER_ERROR" && failures < 2,
     },
   );
 
-  if (query.isLoading) {
-    return (
-      <div className="scanner-section scanner-section-padding text-sm text-gray-400" role="status">
-        Loading report history…
-      </div>
-    );
-  }
+  const pages = useMemo(() => query.data?.pages ?? [], [query.data?.pages]);
+  const timeline = useMemo(() => historyTimeline(pages.flatMap((page) => page.timeline)), [pages]);
+  const reportCount = timeline.filter((entry) => entry.report).length;
+  const sources = useMemo(() => {
+    const names = new Set<string>(pages.flatMap((page) => page.sources));
+    for (const s of sourceFreshness) names.add(s.name);
+    return [...names];
+  }, [pages, sourceFreshness]);
 
-  const pages = query.data?.pages ?? [];
+  if (query.isLoading) return <HistorySkeleton />;
+
   const code = query.error?.data?.code;
   const denied = code === "UNAUTHORIZED" || code === "FORBIDDEN";
   if (pages.length === 0 || denied || code === "NOT_FOUND") {
     return (
-      <div className="scanner-section scanner-section-padding space-y-3">
-        <h3 className={SECTION_HEADER}>Activity Timeline</h3>
-        <p className="text-sm text-gray-300" role="status">
-          {denied
-            ? "You don’t have access to this host history."
-            : code === "NOT_FOUND"
+      <section className="scanner-section scanner-section-padding" aria-label="Activity timeline">
+        <h3 className={`${SECTION_HEADER} mb-4`}>Activity timeline</h3>
+        <EmptyState
+          variant={code === "NOT_FOUND" ? "not-found" : "error"}
+          size="compact"
+          framed={false}
+          title={
+            denied ? "No access to this history" : code === "NOT_FOUND" ? "Host unavailable" : "History unavailable"
+          }
+          reason={
+            denied
+              ? "You don’t have access to this host history."
+              : code === "NOT_FOUND"
               ? "This host is unavailable."
-              : "Accepted report history is unavailable."}
-        </p>
-        {!denied && code !== "NOT_FOUND" && (
-          <button type="button" className={buttonClass} onClick={() => void query.refetch()}>
-            <RefreshCw className="h-3.5 w-3.5" />
-            Retry
-          </button>
-        )}
-      </div>
+              : "Accepted report history is unavailable."
+          }
+          primary={
+            denied || code === "NOT_FOUND"
+              ? undefined
+              : {
+                  label: query.isFetching ? "Retrying…" : "Retry",
+                  icon: RefreshCw,
+                  onClick: () => void query.refetch(),
+                }
+          }
+        />
+      </section>
     );
   }
 
@@ -67,108 +112,113 @@ export function HostHistory({ hostIp }: HostHistoryProps) {
     }
   };
 
-  const events = pages.flatMap((page) => page.timeline);
-  const reports = events.filter((event) => event.event_type === "report_accepted");
-  const discovery = events.find((event) => event.event_type === "host_discovery");
-  const timeline = discovery ? [...reports, discovery] : reports;
-  const sources = Array.from(new Set(pages.flatMap((page) => page.sources)));
-
   return (
     <div className="space-y-4">
-      <div className="scanner-section scanner-section-padding">
-        <h3 className={`${SECTION_HEADER} mb-4`}>Activity Timeline</h3>
+      <section className="scanner-section scanner-section-padding" aria-label="Activity timeline">
+        <h3 className={`${SECTION_HEADER} mb-4`}>Activity timeline</h3>
 
-        {reports.length === 0 && (
-          <div className="mb-3 space-y-2">
-            <p className="text-sm text-gray-400">No accepted reports recorded for this host.</p>
-            <Link
-              href={{ pathname: "/scanner", query: { target: hostIp } }}
-              className={`${buttonClass} w-fit`}
-            >
-              Open scanner
-            </Link>
+        {reportCount === 0 && (
+          <EmptyState
+            variant="no-data"
+            size="compact"
+            framed={false}
+            icon={History}
+            title="No accepted reports yet"
+            reason="No accepted reports are recorded for this host. Reports from scans of this host are listed here."
+            primary={{ label: "Rescan host", icon: RotateCw, href: rescanHref(hostIp) }}
+            className={cn(timeline.length > 0 && "mb-4")}
+          />
+        )}
+
+        {timeline.length > 0 && (
+          <div className="relative">
+            <div className="absolute bottom-2 left-[5px] top-2 w-px bg-violet-500/20" aria-hidden />
+            <ol className="space-y-4">
+              {timeline.map((event) => (
+                <li key={event.key} className="relative flex gap-3 pl-5">
+                  <div
+                    className="absolute left-0 top-1.5 h-[11px] w-[11px] rounded-full border-2 border-violet-500/40 bg-gray-900"
+                    aria-hidden
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-gray-300">{event.label}</span>
+                      {event.source && <SourceBadge source={event.source} />}
+                      {event.report?.sourceVersion && (
+                        <span className="text-[10px] text-gray-500">{event.report.sourceVersion}</span>
+                      )}
+                    </div>
+                    {event.details && <p className="mt-0.5 text-xs text-gray-500">{event.details}</p>}
+                    {event.report && (
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {submittedItemsLabel(event.report.submittedItems)} · Assessment coverage unknown
+                      </p>
+                    )}
+                    {event.time ? (
+                      <time
+                        dateTime={event.time}
+                        title={formatDateTime(event.time, "long")}
+                        className="mt-0.5 block text-[10px] text-gray-500"
+                      >
+                        {formatDateTime(event.time)}
+                      </time>
+                    ) : (
+                      <span className="mt-0.5 block text-[10px] text-gray-500">Time unknown</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
         )}
 
-        <ul className="space-y-3">
-          {timeline.map((event) => (
-            <li key={event.id} className="rounded border border-violet-500/15 bg-gray-900/50 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-gray-200">
-                  {event.event_type === "report_accepted" ? "Report accepted" : "Host discovered"}
-                </span>
-                {event.report && event.source && <SourceBadge source={event.source} />}
-                {event.report?.source_version && (
-                  <span className="text-xs text-gray-400">{event.report.source_version}</span>
-                )}
-              </div>
-              <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400">
-                <Clock className="h-3 w-3" aria-hidden="true" />
-                <HistoryTime value={event.timestamp} />
-              </div>
-              {event.report && (
-                <div className="mt-2 space-y-1 text-xs text-gray-400">
-                  <p>
-                    Submitted items{event.report.submitted_item_count === null
-                      ? " unknown"
-                      : ` ${event.report.submitted_item_count.toLocaleString()}`}
-                  </p>
-                  <p>Assessment coverage unknown</p>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-
         {olderReportsError && (
-          <p className="mt-3 text-xs text-amber-300" role="status">
-            Older reports could not be loaded.
+          <p className="mt-4 text-xs text-amber-400/90" role="status">
+            Older reports couldn’t be loaded. The reports above are unchanged.
           </p>
         )}
 
         {query.isRefetchError && !olderReportsError && (
-          <div className="mt-3 flex items-center gap-2">
-            <p className="text-xs text-amber-300" role="status">
-              The report journal could not be refreshed.
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <p className="text-xs text-amber-400/90" role="status">
+              The report history couldn’t be refreshed. Showing the previous result.
             </p>
-            <button type="button" className={buttonClass} onClick={() => void query.refetch()}>
+            <Button variant="outline" size="sm" onClick={() => void query.refetch()} disabled={query.isFetching}>
+              <RefreshCw className={cn("mr-2 h-3.5 w-3.5", query.isFetching && "animate-spin")} aria-hidden />
               Retry refresh
-            </button>
+            </Button>
           </div>
         )}
+
         {query.hasNextPage && (
-          <button
-            type="button"
-            className={`${buttonClass} mt-4`}
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4"
             disabled={query.isFetchingNextPage}
             onClick={() => void loadOlderReports()}
           >
             {query.isFetchingNextPage
               ? "Loading…"
               : olderReportsError
-                ? "Retry older reports"
-                : "Load older reports"}
-          </button>
+              ? "Retry older reports"
+              : "Load older reports"}
+          </Button>
         )}
-      </div>
+      </section>
 
       {sources.length > 0 && (
-        <div className="scanner-section scanner-section-padding">
-          <h3 className={`${SECTION_HEADER} mb-3`}>Report Sources</h3>
+        <section className="scanner-section scanner-section-padding" aria-label="Discovery sources">
+          <h3 className={`${SECTION_HEADER} mb-3`}>Discovery sources</h3>
           <div className="flex flex-wrap gap-2">
-            {sources.map((source) => <SourceBadge key={source} source={source} />)}
+            {sources.map((source) => (
+              <SourceBadge key={source} source={source} />
+            ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
-}
-
-function HistoryTime({ value }: { value: string | null }) {
-  if (!value) return "Time unknown";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "Time unknown";
-  return <time dateTime={value}>{date.toLocaleString()}</time>;
-}
+};
 
 export default HostHistory;

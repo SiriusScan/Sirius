@@ -293,10 +293,49 @@ assertApiCapabilityProviderFailsClosed()
     process.exit(1);
   });
 
-const view = { id: "extension.chat", label: "Chat", icon: TestIcon, component: () => null };
-const withView = createUIExtensionRegistry([community, { id: "extra", version: "1", consoleViews: [view], hiddenNavigationIds: ["community.dashboard"] }]);
-assert.deepEqual(withView.consoleViews.map((item) => item.id), ["extension.chat"]);
-assert.equal(withView.navigationItems.length, 0);
-assert.throws(() => createUIExtensionRegistry([{ id: "x", version: "1", consoleViews: [{ ...view, id: "terminal" }] }]), /Reserved/);
-assert.throws(() => createUIExtensionRegistry([{ id: "x", version: "1", hiddenNavigationIds: ["missing"] }]), /Unknown/);
-assert.equal(extensionContractVersions.ui_extension, "1.1.0");
+// Console views: additive, unique, never a built-in id, at most one initial view.
+const chatView = { id: "extension.chat", label: "Chat", icon: TestIcon, component: () => null };
+assert.deepEqual(createUIExtensionRegistry([community]).consoleViews, []);
+const withView = createUIExtensionRegistry([community, { id: "extra", version: "1", consoleViews: [chatView] }]);
+assert.deepEqual(withView.consoleViews.map((view) => view.id), ["extension.chat"]);
+assert.deepEqual(withView.navigationItems.map((item) => item.id), createUIExtensionRegistry([community]).navigationItems.map((item) => item.id));
+for (const id of ["terminal", "history", "agent"]) {
+  assert.throws(() => createUIExtensionRegistry([{ id: "x", version: "1", consoleViews: [{ ...chatView, id }] }]), /reserved/);
+}
+assert.throws(() => createUIExtensionRegistry([{ id: "x", version: "1", consoleViews: [chatView, chatView] }]), /Duplicate/);
+assert.throws(
+  () => createUIExtensionRegistry([{ id: "x", version: "1", consoleViews: [{ ...chatView, initial: true }, { ...chatView, id: "y", initial: true }] }]),
+  /one console view/,
+);
+
+// Shell slots: footer navigation, account menu items and settings panels are
+// additive and empty unless an extension contributes them.
+const bare = createUIExtensionRegistry([community]);
+assert.deepEqual(bare.userMenuItems, []);
+assert.deepEqual(bare.settingsPanels, []);
+assert.ok(bare.navigationItems.every((item) => (item.placement ?? "main") === "main"));
+const shell = createUIExtensionRegistry([
+  community,
+  {
+    id: "shell",
+    version: "1",
+    navigation: [{ id: "shell.settings", label: "Settings", href: "/settings", matchPaths: ["/settings"], icon: TestIcon, placement: "footer" }],
+    userMenuItems: [
+      { id: "shell.b", label: "B", href: "/b", icon: TestIcon, order: 2 },
+      { id: "shell.a", label: "A", href: "/a", icon: TestIcon, order: 1 },
+    ],
+    settingsPanels: [{ id: "shell.panel", title: "Panel", component: () => null }],
+  },
+]);
+assert.deepEqual(shell.userMenuItems.map((item) => item.id), ["shell.a", "shell.b"]);
+assert.deepEqual(shell.settingsPanels.map((panel) => panel.id), ["shell.panel"]);
+assert.deepEqual(shell.navigationItems.filter((item) => item.placement === "footer").map((item) => item.id), ["shell.settings"]);
+assert.throws(
+  () => createUIExtensionRegistry([{ id: "x", version: "1", userMenuItems: [{ id: "m", label: "M", href: "/m", icon: TestIcon }, { id: "m", label: "M", href: "/m", icon: TestIcon }] }]),
+  /Duplicate user menu contribution id: m/,
+);
+assert.throws(
+  () => createUIExtensionRegistry([{ id: "x", version: "1", userMenuItems: [{ id: "m", label: " ", href: "/m", icon: TestIcon }] }]),
+  /label must not be empty/,
+);
+assert.equal(extensionContractVersions.ui_extension, "1.3.0");

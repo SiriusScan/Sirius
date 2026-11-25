@@ -1,46 +1,64 @@
 /**
- * useHostPersistence.ts — Debounced localStorage persistence for the host page.
+ * useHostPersistence.ts — per-viewer conveniences on the host page, kept in
+ * this browser's localStorage (debounced, keyed per host).
  *
- * Adapts the proven pattern from console/useTerminalPersistence.ts:
- *   - One state object, one setState
- *   - Individual setters that merge into it
- *   - A single useEffect that debounces writes (500ms)
- *   - Version field for future schema migration
- *
- * Keyed per-host so each host's preferences are independent.
+ * Tabs are not stored here any more: the host tab lives in `?tab=` and the
+ * System section in `?sub=` (ADR-6), so they can be linked and restored with
+ * Back. Stored records from before (version 1, with tab fields) load without
+ * their tab fields. Every storage access is guarded; the page works the same
+ * when storage is unavailable.
  */
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import type {
-  HostPersistenceState,
-  TabType,
-  SystemSubTab,
-} from "~/components/host/types";
+import type { HostPersistenceState } from "~/components/host/types";
 
 const DEBOUNCE_MS = 500;
+const VERSION = 2;
 
 function storageKey(ip: string) {
   return `sirius:host:${ip}:prefs`;
 }
 
 const DEFAULT_STATE: HostPersistenceState = {
-  version: 1,
-  activeTab: "overview",
-  systemSubTab: "overview",
+  version: VERSION,
   collapsedSections: {},
   vulnSourceFilter: [],
   softwareFilter: "",
   showSystemUsers: false,
 };
 
+/** Keep only the fields this version stores, with their types checked. */
+function pickState(parsed: Record<string, unknown>): HostPersistenceState {
+  const collapsed = parsed.collapsedSections;
+  const sources = parsed.vulnSourceFilter;
+  return {
+    version: VERSION,
+    collapsedSections:
+      collapsed && typeof collapsed === "object" && !Array.isArray(collapsed)
+        ? Object.fromEntries(
+            Object.entries(collapsed as Record<string, unknown>).filter(
+              (e): e is [string, boolean] => typeof e[1] === "boolean",
+            ),
+          )
+        : {},
+    vulnSourceFilter: Array.isArray(sources)
+      ? sources.filter((s): s is string => typeof s === "string")
+      : [],
+    softwareFilter: typeof parsed.softwareFilter === "string" ? parsed.softwareFilter : "",
+    showSystemUsers: parsed.showSystemUsers === true,
+  };
+}
+
 function loadState(ip: string): HostPersistenceState {
   if (typeof window === "undefined") return DEFAULT_STATE;
   try {
-    const raw = localStorage.getItem(storageKey(ip));
+    const raw = window.localStorage.getItem(storageKey(ip));
     if (!raw) return DEFAULT_STATE;
-    const parsed = JSON.parse(raw) as Partial<HostPersistenceState>;
-    if (parsed.version !== 1) return DEFAULT_STATE;
-    return { ...DEFAULT_STATE, ...parsed };
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return DEFAULT_STATE;
+    const version = (parsed as { version?: unknown }).version;
+    if (version !== 1 && version !== VERSION) return DEFAULT_STATE;
+    return pickState(parsed as Record<string, unknown>);
   } catch {
     return DEFAULT_STATE;
   }
@@ -49,27 +67,23 @@ function loadState(ip: string): HostPersistenceState {
 function saveState(ip: string, state: HostPersistenceState) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(storageKey(ip), JSON.stringify(state));
+    window.localStorage.setItem(storageKey(ip), JSON.stringify(state));
   } catch {
-    // quota exceeded or private browsing — fail silently
+    // Storage full, blocked or private browsing: the preference just isn't kept.
   }
 }
 
 export function useHostPersistence(ip: string | undefined) {
   const resolvedIp = ip ?? "__none__";
-  const [state, setState] = useState<HostPersistenceState>(() =>
-    loadState(resolvedIp),
-  );
+  const [state, setState] = useState<HostPersistenceState>(() => loadState(resolvedIp));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Re-load when IP changes (navigating between hosts)
   useEffect(() => {
-    if (ip) {
-      setState(loadState(ip));
-    }
+    if (ip) setState(loadState(ip));
   }, [ip]);
 
-  // Debounced persist
+  // Debounced persist (the debounce also absorbs the reload above)
   useEffect(() => {
     if (!ip) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -80,14 +94,6 @@ export function useHostPersistence(ip: string | undefined) {
   }, [state, ip]);
 
   // ── Setters ──────────────────────────────────────────────────────────────
-
-  const setActiveTab = useCallback((tab: TabType) => {
-    setState((s) => ({ ...s, activeTab: tab }));
-  }, []);
-
-  const setSystemSubTab = useCallback((subTab: SystemSubTab) => {
-    setState((s) => ({ ...s, systemSubTab: subTab }));
-  }, []);
 
   const toggleSection = useCallback((sectionId: string) => {
     setState((s) => ({
@@ -113,8 +119,6 @@ export function useHostPersistence(ip: string | undefined) {
 
   return {
     state,
-    setActiveTab,
-    setSystemSubTab,
     toggleSection,
     setVulnSourceFilter,
     setSoftwareFilter,

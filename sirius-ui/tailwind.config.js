@@ -16,6 +16,14 @@ module.exports = {
       },
     },
     extend: {
+      // One layering scale; keep in sync with tailwind.config.ts and
+      // src/components/shared/layers.ts (layers.test.ts checks both files).
+      zIndex: {
+        header: "30",
+        dropdown: "40",
+        overlay: "50",
+        toast: "60",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

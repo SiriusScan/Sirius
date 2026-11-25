@@ -27,6 +27,11 @@ const config = {
     locales: ["en"],
     defaultLocale: "en",
   },
+
+  // There is no host index page: hosts are listed in Environment.
+  async redirects() {
+    return [{ source: "/host", destination: "/environment", permanent: false }];
+  },
 };
 
 const withMDX = createMDX({

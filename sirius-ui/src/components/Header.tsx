@@ -1,10 +1,16 @@
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SiriusIcon from "./icons/SiriusIcon";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { initializeTheme } from "~/utils/theme";
 import { handleSignOut } from "~/utils/auth";
+import { uiExtensionRegistry, useCapabilities } from "~/ui/extensions";
+import { ScanIndicator } from "~/components/shared/ScanIndicator";
+import {
+  HEADER_RESERVE_VAR,
+  useHeaderHasRoom,
+} from "~/components/shared/headerRoom";
 
 import {
   DropdownMenu,
@@ -28,6 +34,8 @@ import {
 
 interface HeaderProps {
   title: string;
+  /** Float over a workspace page's own top bar instead of taking a row. */
+  overlay?: boolean;
 }
 
 interface AvatarProps {
@@ -101,7 +109,51 @@ const Avatar: React.FC<AvatarProps> = ({ onClick, className }) => {
   );
 };
 
-const Header: React.FC<HeaderProps> = ({ title }) => {
+/** Publishes the account cluster's width (HEADER_RESERVE_VAR) for PageHeader. */
+const HEADER_RESERVE_GAP_PX = 6;
+
+function useHeaderReserve() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement;
+    const update = () =>
+      root.style.setProperty(
+        HEADER_RESERVE_VAR,
+        `${Math.ceil(el.getBoundingClientRect().width) + HEADER_RESERVE_GAP_PX}px`
+      );
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty(HEADER_RESERVE_VAR);
+    };
+  }, []);
+  return ref;
+}
+
+/**
+ * The scan indicator goes beside the avatar as a pill only where the page's
+ * own top bar keeps room for it (a kit PageHeader, document frame). Elsewhere
+ * (hand-built headers that keep only pr-14 clear, the workspace frame) it is
+ * a badge on the avatar's corner, so it never covers a page's actions.
+ * Separate components, so the choice never re-renders Header itself.
+ */
+const ScanPillSlot: React.FC<{ overlay: boolean }> = ({ overlay }) => {
+  const roomForPill = useHeaderHasRoom();
+  return !overlay && roomForPill ? <ScanIndicator /> : null;
+};
+
+const ScanBadgeSlot: React.FC<{ overlay: boolean }> = ({ overlay }) => {
+  const roomForPill = useHeaderHasRoom();
+  return overlay || !roomForPill ? (
+    <ScanIndicator variant="badge" className="absolute -left-0.5 -top-0.5" />
+  ) : null;
+};
+
+const Header: React.FC<HeaderProps> = ({ title, overlay = false }) => {
   const [darkMode, setDarkMode] = useState(false);
   const { data: sessionData } = useSession();
 
@@ -130,6 +182,11 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
     const { data: sessionData } = useSession();
     const router = useRouter();
     const [darkMode, setDarkMode] = useState(false);
+    const { hasAll } = useCapabilities();
+    // Links contributed by extensions follow Community's items; none in Community.
+    const extensionItems = uiExtensionRegistry.userMenuItems.filter((item) =>
+      hasAll(item.requiredCapabilities ?? [])
+    );
 
     useEffect(() => {
       const isDark = document.documentElement.classList.contains("dark");
@@ -218,6 +275,18 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
                 <span className="flex-1">System Monitor</span>
                 <ChevronRight className="h-4 w-4 text-violet-400/40 transition-all group-hover:translate-x-0.5 group-hover:text-violet-300/60" />
               </DropdownMenuItem>
+
+              {extensionItems.map(({ id, label, href, icon: Icon }) => (
+                <DropdownMenuItem
+                  key={id}
+                  className="group cursor-pointer rounded-md px-3 py-2.5 text-violet-100 transition-colors hover:bg-violet-600/10 focus:bg-violet-600/10"
+                  onClick={() => void router.push(href)}
+                >
+                  <Icon className="mr-3 h-4 w-4 text-violet-300 group-hover:text-violet-200" />
+                  <span className="flex-1">{label}</span>
+                  <ChevronRight className="h-4 w-4 text-violet-400/40 transition-all group-hover:translate-x-0.5 group-hover:text-violet-300/60" />
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator className="bg-violet-500/10" />
@@ -236,10 +305,27 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
     );
   };
 
+  const clusterRef = useHeaderReserve();
+
+  // z-header (30): above page content (z-20 in both frames), below dialogs
+  // and sheets (z-overlay), so the avatar never covers a dialog's close button.
   return (
-    <nav className="pointer-events-none z-50 pr-6 pt-4 dark:shadow-violet-300/10">
+    <nav
+      className={
+        overlay
+          ? // 11px + the 50px avatar centers it 36px down, on the bar's first row.
+            "pointer-events-none absolute right-0 top-0 z-header pr-6 pt-[11px]"
+          : "pointer-events-none relative z-header pr-6 pt-4 dark:shadow-violet-300/10"
+      }
+    >
       <div className="flex items-center justify-end">
-        <UserMenu />
+        <div ref={clusterRef} className="flex items-center gap-3">
+          <ScanPillSlot overlay={overlay} />
+          <div className="relative">
+            <UserMenu />
+            <ScanBadgeSlot overlay={overlay} />
+          </div>
+        </div>
       </div>
     </nav>
   );

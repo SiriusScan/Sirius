@@ -1,8 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { apiClient } from "~/server/api/shared/apiClient";
+import { API_BASE_URL, apiClient, apiFetch } from "~/server/api/shared/apiClient";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { SystemHealthResponse } from "~/services/healthCheckService";
+import { loadSystemStatus } from "~/components/system-monitor/systemStatus";
 
 const resourceSchema = z.object({
   name: z.string(),
@@ -62,6 +63,16 @@ const observationsSchema = z.object({
 });
 
 export const systemRouter = createTRPCRouter({
+  /**
+   * System Monitor's one health source: each service's resource observation
+   * plus its /health probe, fetched server-side (the /api/v1/system endpoints
+   * need the internal API key, which the browser never holds).
+   */
+  status: protectedProcedure.query(() =>
+    loadSystemStatus((path, init) => apiFetch(`${API_BASE_URL}${path}`, init)),
+  ),
+
+  /** The raw resource observations (validated), for observation consumers. */
   resources: protectedProcedure.query(async () => {
     try {
       const { data } = await apiClient.get<unknown>("/api/v1/system/resources");

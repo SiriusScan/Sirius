@@ -20,9 +20,11 @@ import {
   CheckSquare,
   Square,
   MinusSquare,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AgentCardV2, getAgentFreshness } from "./AgentCardV2";
+import { openAgentDownloads } from "./agentStatus";
 import { AgentInfoPanel } from "./AgentInfoPanel";
 import { filterAgents } from "./useSmartFilter";
 import type {
@@ -40,8 +42,13 @@ type OsFilter = "all" | "darwin" | "windows" | "linux" | "stale";
 interface AgentPanelProps {
   agents: Agent[] | undefined;
   isLoading: boolean;
-  error: boolean;
-  onRetry: () => void;
+  /** The agent list failed and there is nothing to show. */
+  isError?: boolean;
+  /**
+   * Offer "Get the agent" when no agent has connected. Off where the open
+   * view already makes that offer (the Agent view's empty state).
+   */
+  showGetAgent?: boolean;
   selectedAgentId: string | null;
   agentDetails: DisplayedAgentDetails | null;
   isDetailsLoading: boolean;
@@ -95,8 +102,8 @@ function getOsCategory(os: string | undefined): string {
 export const AgentPanel: React.FC<AgentPanelProps> = ({
   agents,
   isLoading,
-  error,
-  onRetry,
+  isError = false,
+  showGetAgent = true,
   selectedAgentId,
   agentDetails,
   isDetailsLoading,
@@ -132,31 +139,13 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({
   );
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // ── Compute stats ───────────────────────────────────────────────────────
+  // ── Stale count for the Stale filter ──────────────────────────────────
+  // The console's one agent counter lives in its header (ConsoleHeader).
 
-  const stats = useMemo(() => {
-    if (!agents) return { total: 0, online: 0, offline: 0, windows: 0, linux: 0, mac: 0, stale: 0 };
-    let online = 0,
-      offline = 0,
-      windows = 0,
-      linux = 0,
-      mac = 0,
-      stale = 0;
-    agents.forEach((a) => {
-      const freshness = getAgentFreshness(a);
-      if (freshness === "online") online++;
-      else offline++;
-      if (freshness === "stale") stale++;
-      const os = (a.host?.os ?? "").toLowerCase();
-      if (os.includes("windows")) windows++;
-      else if (os.includes("linux")) linux++;
-      else if (os.includes("darwin") || os.includes("mac")) mac++;
-    });
-    return { total: agents.length, online, offline, windows, linux, mac, stale };
-  }, [agents]);
-
-  const connectivityPct =
-    stats.total > 0 ? Math.round((stats.online / stats.total) * 100) : 0;
+  const staleCount = useMemo(
+    () => (agents ?? []).filter((a) => getAgentFreshness(a) === "stale").length,
+    [agents]
+  );
 
   // ── Filter agents ───────────────────────────────────────────────────────
 
@@ -288,7 +277,7 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({
       });
       setFilterName("");
       setSavingFilter(false);
-      toast.success("Filter saved!");
+      toast.success("Filter saved");
     }
   }, [filterName, searchTerm, onSaveFilter]);
 
@@ -296,38 +285,10 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({
 
   return (
     <div className="flex h-full flex-col border-r border-violet-500/20 bg-gray-900/50">
-      {/* Agent Count Summary Bar (Phase 1.3) */}
-      <div className="border-b border-violet-500/20 px-4 py-2">
-        <div className="flex items-center justify-between text-[10px]">
-          <span className="font-semibold text-gray-300">
-            {agents ? <>{stats.online}<span className="text-gray-400"> / {stats.total} online</span></> : "Agent status unavailable"}
-          </span>
-          <div className="flex items-center gap-2 text-gray-500">
-            {stats.windows > 0 && <span>{stats.windows} Win</span>}
-            {stats.linux > 0 && <span>{stats.linux} Lin</span>}
-            {stats.mac > 0 && <span>{stats.mac} Mac</span>}
-          </div>
-        </div>
-        {/* Connectivity bar */}
-        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-gray-800">
-          <div
-            className={cn(
-              "h-full rounded-full transition-all duration-500",
-              connectivityPct >= 80
-                ? "bg-emerald-500"
-                : connectivityPct >= 50
-                ? "bg-yellow-500"
-                : "bg-red-500"
-            )}
-            style={{ width: `${connectivityPct}%` }}
-          />
-        </div>
-      </div>
-
       {/* Agent List Header with Search + Filters */}
       <div className="border-b border-violet-500/20 px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-200">
+          <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
             Agents
           </span>
           <div className="flex items-center gap-1">
@@ -464,8 +425,8 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({
             >
               <Icon className="h-3 w-3" />
               {label}
-              {key === "stale" && stats.stale > 0 && (
-                <span className="text-amber-400">({stats.stale})</span>
+              {key === "stale" && staleCount > 0 && (
+                <span className="text-amber-400">({staleCount})</span>
               )}
             </button>
           ))}
@@ -499,17 +460,32 @@ export const AgentPanel: React.FC<AgentPanelProps> = ({
 
       {/* Virtualized Agent List */}
       <div ref={parentRef} className="flex-1 overflow-y-auto">
-        {isLoading && !agents && !error && (
+        {isLoading && !agents && (
           <div className="py-8 text-center text-xs text-gray-500">
             Loading agents...
           </div>
         )}
-        {error && !agents && <div role="alert" className="p-4 text-sm text-red-300">Unable to load agents. <button onClick={onRetry} className="underline">Retry</button></div>}
-        {!isLoading && !error && filteredAgents.length === 0 && (
-          <div className="py-8 text-center text-xs text-gray-500">
-            {searchTerm || osFilter !== "all"
-              ? "No matching agents"
-              : "No agents available"}
+        {!isLoading && filteredAgents.length === 0 && (
+          <div className="px-4 py-8 text-center text-xs text-gray-500">
+            {isError && !agents ? (
+              <p>Couldn&apos;t load agents.</p>
+            ) : agents && agents.length > 0 ? (
+              <p>No matching agents</p>
+            ) : (
+              <>
+                <p>No agents have connected yet.</p>
+                {showGetAgent && (
+                  <button
+                    type="button"
+                    onClick={openAgentDownloads}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-violet-500/20 px-2.5 py-1 text-xs text-violet-300 transition-colors hover:bg-violet-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60"
+                  >
+                    <Download className="h-3 w-3" aria-hidden />
+                    Get the agent
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
         {filteredAgents.length > 0 && (

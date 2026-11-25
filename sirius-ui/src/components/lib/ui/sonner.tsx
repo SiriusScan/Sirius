@@ -1,12 +1,16 @@
 import { Toaster as Sonner } from "sonner";
+import { Z_INDEX } from "~/components/shared/layers";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const Toaster = ({ style, ...props }: ToasterProps) => {
   return (
     <Sonner
       theme="dark"
-      className="toaster group"
+      className="toaster group z-toast"
+      // Sonner's injected stylesheet sets its own z-index after Tailwind's,
+      // so the layer is applied inline: toasts sit above dialogs (z-toast).
+      style={{ zIndex: Z_INDEX.toast, ...style }}
       toastOptions={{
         classNames: {
           toast:

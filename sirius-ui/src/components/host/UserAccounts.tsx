@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { api } from "~/utils/api";
+import { useHostPersistence } from "~/hooks/useHostPersistence";
 import {
   Users,
   User,
@@ -11,9 +12,11 @@ import {
   UserX,
   Eye,
   EyeOff,
+  RotateCw,
 } from "lucide-react";
 import { cn } from "~/components/lib/utils";
 import { SECTION_HEADER } from "~/utils/themeConstants";
+import { EmptyState } from "~/components/shared/EmptyState";
 
 interface UserAccountsProps {
   hostIp: string;
@@ -89,7 +92,11 @@ const SYSTEM_USERNAMES = new Set([
 const UserAccounts: React.FC<UserAccountsProps> = ({ hostIp }) => {
   const [activeSection, setActiveSection] = useState<"users" | "groups" | "sessions">("users");
   const [searchFilter, setSearchFilter] = useState("");
-  const [showSystemUsers, setShowSystemUsers] = useState(false);
+  // Remembered per host in this browser (useHostPersistence).
+  const {
+    state: { showSystemUsers },
+    setShowSystemUsers,
+  } = useHostPersistence(hostIp);
 
   const {
     data: fingerprintData,
@@ -166,18 +173,13 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ hostIp }) => {
   // Error
   if (isError || !fingerprintData) {
     return (
-      <div className="scanner-section scanner-section-padding">
-        <div className="flex flex-col items-center gap-3 py-6">
-          <Users className="h-6 w-6 text-gray-600" />
-          <p className="text-sm text-gray-500">Failed to load user data</p>
-          <button
-            onClick={() => void refetch()}
-            className="rounded-md border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 hover:bg-violet-500/20"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
+      <EmptyState
+        variant="error"
+        size="compact"
+        title="Couldn't load users and groups"
+        reason="The agent data didn't load. The rest of the host page still works."
+        primary={{ label: "Retry", icon: RotateCw, onClick: () => void refetch() }}
+      />
     );
   }
 
@@ -227,7 +229,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ hostIp }) => {
           </div>
           {activeSection === "users" && (
             <button
-              onClick={() => setShowSystemUsers((p) => !p)}
+              onClick={() => setShowSystemUsers(!showSystemUsers)}
               className={`flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-[10px] font-medium transition-colors ${
                 showSystemUsers
                   ? "border-violet-500/30 bg-violet-500/10 text-violet-300"

@@ -3,63 +3,58 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import Layout from "~/components/Layout";
 import { useUserSettings } from "~/hooks/useUserSettings";
+import { useUrlTab } from "~/hooks/useUrlTab";
 import { Input } from "~/components/lib/ui/input";
 import { Button } from "~/components/lib/ui/button";
 import { Label } from "~/components/lib/ui/label";
-import { Switch } from "~/components/lib/ui/switch";
-import { cn } from "~/components/lib/utils";
+import { PageHeader } from "~/components/shared/PageHeader";
+import { PageTabs, type PageTab } from "~/components/shared/PageTabs";
+import { ScanningSettings } from "~/components/settings/scanning/ScanningSettings";
 import {
   Settings as SettingsIcon,
-  UserCircle,
-  Lock,
-  Bell,
-  KeyRound,
   Copy,
   Trash2,
   Plus,
   Eye,
   EyeOff,
-  type LucideIcon,
 } from "lucide-react";
 import { api } from "~/utils/api";
+import { uiExtensionRegistry, useCapabilities } from "~/ui/extensions";
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
-type SettingsTab = "general" | "security" | "apikeys" | "notifications";
-
-const settingsTabs: Array<{
-  id: SettingsTab;
-  label: string;
-  icon: LucideIcon;
-}> = [
-  { id: "general", label: "General", icon: UserCircle },
-  { id: "security", label: "Security", icon: Lock },
-  { id: "apikeys", label: "API Keys", icon: KeyRound },
-  { id: "notifications", label: "Notifications", icon: Bell },
+// Community's tabs come first; extension settings panels follow under their
+// own ids. The active tab lives in ?tab= (ADR-6), so /settings?tab=<id>
+// opens any of them, contributed panels included. Notifications stays hidden
+// until it ships.
+const COMMUNITY_TABS: readonly PageTab[] = [
+  { id: "general", label: "General" },
+  { id: "security", label: "Security" },
+  { id: "apikeys", label: "API keys" },
 ];
-
-// ── Notification option definitions ───────────────────────────────────────────
-const notificationOptions = [
-  {
-    id: "emailNotifications",
-    label: "Email Notifications",
-    description: "Receive email alerts for important account activity",
-  },
-  {
-    id: "scanComplete",
-    label: "Scan Complete",
-    description: "Get notified when a scan finishes running",
-  },
-  {
-    id: "vulnerabilityFound",
-    label: "New Vulnerabilities",
-    description: "Alert when new vulnerabilities are discovered",
-  },
-];
+const SCANNING_TAB: PageTab = { id: "scanning", label: "Scanning" };
+const DEFAULT_TAB = "general";
 
 // ── Page Component ────────────────────────────────────────────────────────────
 const Settings: NextPage = () => {
   const { data: sessionData } = useSession();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  const { hasAll } = useCapabilities();
+  // Scanning configuration is part of the Scanner (ADR-7): same capability.
+  const canScan = hasAll(["ui.scanner"]);
+  const extensionPanels = uiExtensionRegistry.settingsPanels.filter((panel) =>
+    hasAll(panel.requiredCapabilities ?? []),
+  );
+  const tabs: PageTab[] = [
+    ...COMMUNITY_TABS,
+    ...(canScan ? [SCANNING_TAB] : []),
+    ...extensionPanels.map((panel) => ({ id: panel.id, label: panel.title })),
+  ];
+  const [activeTab] = useUrlTab(
+    tabs.map((tab) => tab.id),
+    DEFAULT_TAB,
+  );
+  const ActivePanel = extensionPanels.find(
+    (panel) => panel.id === activeTab,
+  )?.component;
 
   const { profile, isLoading, handleUpdateProfile, handleChangePassword } =
     useUserSettings(sessionData?.user?.id || "");
@@ -93,165 +88,119 @@ const Settings: NextPage = () => {
 
   return (
     <Layout>
-      <div className="relative z-20 -mt-14 space-y-4">
-        {/* ── Sticky Header ─────────────────────────────────────────────── */}
-        <div className="sticky top-2 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
-          <div className="flex items-center gap-3">
-            {/* Icon container */}
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 ring-2 ring-violet-500/20">
-              <SettingsIcon className="h-6 w-6 text-violet-400" />
-            </div>
+      <div className="relative z-20 -mt-14 space-y-6">
+        <PageHeader
+          icon={SettingsIcon}
+          title="Settings"
+          tabs={
+            <PageTabs
+              tabs={tabs}
+              defaultTab={DEFAULT_TAB}
+              aria-label="Settings sections"
+            />
+          }
+        />
 
-            {/* Title */}
-            <h1 className="text-2xl font-bold tracking-tight text-white">
-              Settings
-            </h1>
-
-            {/* Inline tabs */}
-            <nav className="ml-1 flex shrink-0 items-center gap-1">
-              {settingsTabs.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => setActiveTab(id)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
-                    activeTab === id
-                      ? "bg-violet-500/20 text-white ring-1 ring-violet-500/30"
-                      : "text-gray-400 hover:bg-gray-800/60 hover:text-gray-200",
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {label}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
+        {/* ── Scanning tab: its own sections ───────────────────────────── */}
+        {activeTab === "scanning" && <ScanningSettings />}
 
         {/* ── Content panel ────────────────────────────────────────────── */}
-        <div className="rounded-xl border border-gray-700/50 bg-gray-800/40 p-6">
-          {/* ── General tab ──────────────────────────────────────────── */}
-          {activeTab === "general" && (
-            <form onSubmit={handleUserNameSubmit}>
-              <h2 className="mb-6 text-lg font-medium text-white">
-                General Settings
-              </h2>
-              <div className="max-w-lg space-y-5">
-                <div className="space-y-2">
-                  <Label className="text-gray-400">Email</Label>
-                  <Input
-                    type="email"
-                    value={sessionData?.user?.email ?? ""}
-                    readOnly
-                    className="border-gray-700 bg-gray-800/50 text-gray-300"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-gray-400">Sign-in Name</Label>
-                  <Input
-                    type="text"
-                    placeholder="Enter your user name"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
-                  />
-                  {profile?.name === userName && (
-                    <p className="text-xs text-gray-500">Current user name</p>
-                  )}
-                </div>
-
-                <Button type="submit" disabled={isLoading} className="mt-2">
-                  {isLoading ? "Updating..." : "Update Profile"}
-                </Button>
-              </div>
-            </form>
-          )}
-
-          {/* ── Security tab ─────────────────────────────────────────── */}
-          {activeTab === "security" && (
-            <form onSubmit={handlePasswordSubmit}>
-              <h2 className="mb-6 text-lg font-medium text-white">
-                Security Settings
-              </h2>
-              <div className="max-w-lg space-y-5">
-                <div className="space-y-2">
-                  <Label className="text-gray-400">Current Password</Label>
-                  <Input
-                    type="password"
-                    placeholder="Enter current password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-gray-400">New Password</Label>
-                  <Input
-                    type="password"
-                    placeholder="Enter new password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-gray-400">
-                    Confirm New Password
-                  </Label>
-                  <Input
-                    type="password"
-                    placeholder="Confirm new password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
-                  />
-                </div>
-
-                <Button type="submit" disabled={isLoading} className="mt-2">
-                  {isLoading ? "Updating..." : "Update Password"}
-                </Button>
-              </div>
-            </form>
-          )}
-
-          {/* ── API Keys tab ────────────────────────────────────────── */}
-          {activeTab === "apikeys" && <APIKeysPanel />}
-
-          {/* ── Notifications tab ────────────────────────────────────── */}
-          {activeTab === "notifications" && (
-            <div>
-              <h2 className="mb-6 text-lg font-medium text-white">
-                Notification Preferences
-              </h2>
-              <div className="max-w-lg space-y-5">
-                {notificationOptions.map((opt) => (
-                  <div
-                    key={opt.id}
-                    className="flex items-center justify-between rounded-lg border border-gray-700/40 bg-gray-800/30 px-4 py-4"
-                  >
-                    <div className="mr-4 space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-300">
-                          {opt.label}
-                        </span>
-                        <span className="rounded bg-gray-700/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-gray-500">
-                          Soon
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        {opt.description}
-                      </p>
-                    </div>
-                    <Switch disabled />
+        {activeTab !== "scanning" && (
+          <div className="rounded-xl border border-gray-700/50 bg-gray-800/40 p-6">
+            {/* ── General tab ──────────────────────────────────────────── */}
+            {activeTab === "general" && (
+              <form onSubmit={handleUserNameSubmit}>
+                <h2 className="mb-6 text-lg font-medium text-white">
+                  General Settings
+                </h2>
+                <div className="max-w-lg space-y-5">
+                  <div className="space-y-2">
+                    <Label className="text-gray-400">Email</Label>
+                    <Input
+                      type="email"
+                      value={sessionData?.user?.email ?? ""}
+                      readOnly
+                      className="border-gray-700 bg-gray-800/50 text-gray-300"
+                    />
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-gray-400">Sign-in Name</Label>
+                    <Input
+                      type="text"
+                      placeholder="Enter your user name"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
+                    />
+                    {profile?.name === userName && (
+                      <p className="text-xs text-gray-500">Current user name</p>
+                    )}
+                  </div>
+
+                  <Button type="submit" disabled={isLoading} className="mt-2">
+                    {isLoading ? "Updating..." : "Update Profile"}
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* ── Security tab ─────────────────────────────────────────── */}
+            {activeTab === "security" && (
+              <form onSubmit={handlePasswordSubmit}>
+                <h2 className="mb-6 text-lg font-medium text-white">
+                  Security Settings
+                </h2>
+                <div className="max-w-lg space-y-5">
+                  <div className="space-y-2">
+                    <Label className="text-gray-400">Current Password</Label>
+                    <Input
+                      type="password"
+                      placeholder="Enter current password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-gray-400">New Password</Label>
+                    <Input
+                      type="password"
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-gray-400">
+                      Confirm New Password
+                    </Label>
+                    <Input
+                      type="password"
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="border-gray-700 bg-gray-800/50 text-white placeholder:text-gray-400"
+                    />
+                  </div>
+
+                  <Button type="submit" disabled={isLoading} className="mt-2">
+                    {isLoading ? "Updating..." : "Update Password"}
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {/* ── API Keys tab ────────────────────────────────────────── */}
+            {activeTab === "apikeys" && <APIKeysPanel />}
+
+            {/* ── Extension panels ─────────────────────────────────────── */}
+            {ActivePanel && <ActivePanel />}
+          </div>
+        )}
       </div>
     </Layout>
   );

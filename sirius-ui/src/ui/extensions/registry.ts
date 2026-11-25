@@ -7,6 +7,7 @@ import type {
   SiriusUINavigationItem,
   SiriusUIRoute,
   SiriusUISettingsPanel,
+  SiriusUIUserMenuItem,
 } from "./types";
 
 export interface SiriusUIExtensionRegistry {
@@ -16,6 +17,7 @@ export interface SiriusUIExtensionRegistry {
   readonly dashboardWidgets: readonly SiriusUIDashboardWidget[];
   readonly settingsPanels: readonly SiriusUISettingsPanel[];
   readonly consoleViews: readonly SiriusConsoleView[];
+  readonly userMenuItems: readonly SiriusUIUserMenuItem[];
   readonly capabilityProvider: SiriusCapabilityProviderDefinition;
   getRouteForPath: (path: string) => SiriusUIRoute | undefined;
   getRequiredCapabilitiesForPath: (
@@ -24,6 +26,9 @@ export interface SiriusUIExtensionRegistry {
 }
 
 const DEFAULT_EXTENSION_ORDER = 1000;
+
+/** The operator console's own views; extension views may not reuse them. */
+export const BUILT_IN_CONSOLE_VIEWS: readonly string[] = ["terminal", "history", "agent"];
 
 function contributionOrder(
   contribution: { order?: number; id: string },
@@ -117,11 +122,9 @@ export function createUIExtensionRegistry(
   const orderedExtensions = sorted(extensions);
   assertUnique(orderedExtensions, "UI extension");
 
-  const allNavigationItems = orderedExtensions.flatMap(
+  const navigationItems = orderedExtensions.flatMap(
     (extension) => extension.navigation ?? [],
   );
-  const hiddenNavigationIds = new Set(orderedExtensions.flatMap((extension) => extension.hiddenNavigationIds ?? []));
-  const navigationItems = allNavigationItems.filter((item) => !hiddenNavigationIds.has(item.id));
   const routes = orderedExtensions.flatMap(
     (extension) => extension.routes ?? [],
   );
@@ -132,21 +135,33 @@ export function createUIExtensionRegistry(
     (extension) => extension.settingsPanels ?? [],
   );
 
-  const consoleViews = orderedExtensions.flatMap((extension) => extension.consoleViews ?? []);
-  assertUnique(consoleViews, "console view");
-  for (const view of consoleViews) {
-    requireNonEmpty(view.label, `Console view ${view.id} label`);
-    if (["terminal", "history", "agent"].includes(view.id)) throw new Error(`Reserved console view id: ${view.id}`);
-  }
-
-  assertUnique(allNavigationItems, "navigation contribution");
-  for (const id of hiddenNavigationIds) {
-    if (!allNavigationItems.some((item) => item.id === id)) throw new Error(`Unknown hidden navigation id: ${id}`);
-  }
+  assertUnique(navigationItems, "navigation contribution");
   assertUnique(routes, "route contribution");
   assertUnique(dashboardWidgets, "dashboard widget contribution");
   assertUnique(settingsPanels, "settings panel contribution");
   assertUniqueRoutePatterns(routes);
+
+  const consoleViews = orderedExtensions.flatMap(
+    (extension) => extension.consoleViews ?? [],
+  );
+  assertUnique(consoleViews, "console view contribution");
+  for (const view of consoleViews) {
+    requireNonEmpty(view.label, `Console view ${view.id} label`);
+    if (BUILT_IN_CONSOLE_VIEWS.includes(view.id)) {
+      throw new Error(`Console view id is reserved: ${view.id}`);
+    }
+  }
+  if (consoleViews.filter((view) => view.initial).length > 1) {
+    throw new Error("Only one console view may open initially");
+  }
+
+  const userMenuItems = orderedExtensions.flatMap(
+    (extension) => extension.userMenuItems ?? [],
+  );
+  assertUnique(userMenuItems, "user menu contribution");
+  for (const item of userMenuItems) {
+    requireNonEmpty(item.label, `User menu item ${item.id} label`);
+  }
 
   const capabilityProviders = orderedExtensions
     .map((extension) => extension.capabilityProvider)
@@ -170,6 +185,7 @@ export function createUIExtensionRegistry(
     dashboardWidgets: Object.freeze(sorted(dashboardWidgets)),
     settingsPanels: Object.freeze(sorted(settingsPanels)),
     consoleViews: Object.freeze(sorted(consoleViews)),
+    userMenuItems: Object.freeze(sorted(userMenuItems)),
     capabilityProvider:
       capabilityProviders[0] ?? communityCapabilityProvider,
     getRouteForPath: (path) => {

@@ -1,811 +1,374 @@
-"use client";
-
-import React, { useState, useMemo, useRef, useEffect } from "react";
-import {
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type ColumnDef,
-  type ColumnFiltersState,
-  type FilterFn,
-  type Row,
-} from "@tanstack/react-table";
-import { type EnvironmentTableData } from "~/server/api/routers/host";
-import { useRouter } from "next/router";
-import { cn } from "~/components/lib/utils";
-import { Download, Filter, MoreHorizontal, RefreshCw } from "lucide-react";
-import { getRiskLevel as getRiskLevelUtil } from "~/utils/riskScoreCalculator";
-import { matchesSourceFilter } from "~/utils/tableFilters";
-
 /**
- * Custom global filter that searches across all relevant string fields
- * in the row data (hostname, ip, os, tags) regardless of how column
- * accessors are defined.  Works for both environment-page and scanner-page
- * data shapes because both share these fields.
+ * EnvironmentDataTable — the Environment hosts table (R04).
+ *
+ * One filter row: search by hostname, IP or OS; the compact SeverityStrip as
+ * a severity filter (held in `?severity=`); a Filters popover for OS and
+ * source; Export (CSV of the hosts that match, in the order shown). Rows
+ * sort by the server's risk score (ADR-3), highest first. Clicking a row,
+ * the host cell or the action opens /host/<ip>.
  */
-const rowGlobalFilter: FilterFn<EnvironmentTableData> = (
-  row: Row<EnvironmentTableData>,
-  _columnId: string,
-  filterValue: string
-): boolean => {
-  const search = filterValue.toLowerCase().trim();
-  if (!search) return true;
 
-  const d = row.original;
-  if (d.hostname?.toLowerCase().includes(search)) return true;
-  if (d.ip?.toLowerCase().includes(search)) return true;
-  if (d.os?.toLowerCase().includes(search)) return true;
-  if (d.tags?.some((tag) => tag.toLowerCase().includes(search))) return true;
+import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/router";
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, Search, X } from "lucide-react";
+import { cn } from "~/components/lib/utils";
+import { Skeleton } from "~/components/lib/ui/skeleton";
+import { SeverityStrip } from "~/components/shared/SeverityStrip";
+import { hostHref } from "~/components/shared/HostCell";
+import { useSeverityParam } from "~/components/shared/useSeverityParam";
+import { pageWindow, paginate } from "~/components/shared/vulnTableModel";
+import type { Severity, SeverityCounts } from "~/components/shared/severity";
+import { HostFiltersPopover } from "~/components/environment/HostFiltersPopover";
+import {
+  DEFAULT_HOST_SORT,
+  filterHosts,
+  hostsCsv,
+  hostsCsvFilename,
+  hostsFooterLabel,
+  nextHostSort,
+  osOptions,
+  sortHosts,
+  sourceOptions,
+  type HostRow,
+  type HostSort,
+} from "~/components/environment/hostsTableModel";
+import { HOST_COLUMNS, HostColumnCell } from "~/components/EnvironmentDataTableColumns";
 
-  // Also search vulnerability count as a string (e.g. "14")
-  if (String(d.vulnerabilityCount ?? "").includes(search)) return true;
+const PAGE_SIZE = 25;
+const NO_SEVERITIES: readonly Severity[] = [];
+const cellPad = "px-3 py-3";
 
-  return false;
-};
-
-interface EnvironmentDataTableProps {
-  columns: ColumnDef<EnvironmentTableData, any>[];
-  data: EnvironmentTableData[];
-  onRefresh?: () => void;
+export interface EnvironmentDataTableProps<T extends HostRow> {
+  rows: readonly T[];
+  /** Skeleton rows while the inventory loads. */
+  loading?: boolean;
+  /**
+   * Open findings by severity across the inventory (useSummaryStats), for
+   * the severity pills. Without it the pills and their filter are hidden.
+   */
+  severityCounts?: SeverityCounts;
+  /** Show only these IPs (the banner's "Show new hosts"); null shows all. */
+  onlyIps?: ReadonlySet<string> | null;
+  /** Clears `onlyIps`; shown as "New hosts only ×" while it is set. */
+  onClearOnlyIps?: () => void;
+  className?: string;
 }
 
-export function EnvironmentDataTable({
-  columns,
-  data,
-  onRefresh,
-}: EnvironmentDataTableProps) {
-  const [globalFilter, setGlobalFilter] = useState("");
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [rowSelection, setRowSelection] = useState({});
-  const [activeFilters, setActiveFilters] = useState<string[]>([]);
-  const [showExportDropdown, setShowExportDropdown] = useState(false);
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+function download(filename: string, text: string) {
+  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
 
-  // Dropdown filter state
-  const [osFilter, setOsFilter] = useState("");
-  const [riskFilter, setRiskFilter] = useState("");
-  const [sourceFilter, setSourceFilter] = useState("");
+function PagerButton({
+  label,
+  disabled,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled?: boolean;
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-md px-1.5 text-xs tabular-nums transition-colors disabled:cursor-default disabled:opacity-40",
+        active ? "bg-violet-500/20 text-violet-200" : "text-gray-400 hover:bg-gray-800 hover:text-gray-200",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
-  // Advanced filter state
-  const [advIpRange, setAdvIpRange] = useState("");
-  const [advDateRange, setAdvDateRange] = useState("");
-  const [advTags, setAdvTags] = useState("");
-
-  const exportRef = useRef<HTMLDivElement>(null);
+export function EnvironmentDataTable<T extends HostRow>({
+  rows,
+  loading = false,
+  severityCounts,
+  onlyIps = null,
+  onClearOnlyIps,
+  className,
+}: EnvironmentDataTableProps<T>) {
   const router = useRouter();
+  const [search, setSearch] = useState("");
+  const [os, setOs] = useState<string[]>([]);
+  const [sources, setSources] = useState<string[]>([]);
+  const [sort, setSort] = useState<HostSort>(DEFAULT_HOST_SORT);
+  const [page, setPage] = useState(1);
+  const [severities, setSeverities, toggleSeverity] = useSeverityParam();
+  // The severity filter only applies while its pills are on screen.
+  const activeSeverities = severityCounts ? severities : NO_SEVERITIES;
 
-  // getRiskLevel — uses centralized util (count-only fallback)
-  const getRiskLevel = (count: number): string =>
-    getRiskLevelUtil(undefined, count);
+  const osChoices = useMemo(() => osOptions(rows), [rows]);
+  const sourceChoices = useMemo(() => sourceOptions(rows), [rows]);
 
-  // ── Pre-filter data based on quick-filters, dropdowns, and advanced ──
-  const filteredData = useMemo(() => {
-    let rows = data;
-
-    // Quick-filter presets
-    if (activeFilters.includes("highRisk")) {
-      rows = rows.filter(
-        (h) =>
-          getRiskLevel(h.vulnerabilityCount ?? 0) === "critical" ||
-          getRiskLevel(h.vulnerabilityCount ?? 0) === "high"
-      );
-    }
-    if (activeFilters.includes("windows")) {
-      rows = rows.filter((h) =>
-        h.os?.toLowerCase().includes("windows")
-      );
-    }
-    if (activeFilters.includes("linux")) {
-      rows = rows.filter(
-        (h) =>
-          h.os?.toLowerCase().includes("linux") ||
-          h.os?.toLowerCase().includes("ubuntu") ||
-          h.os?.toLowerCase().includes("debian") ||
-          h.os?.toLowerCase().includes("centos") ||
-          h.os?.toLowerCase().includes("fedora") ||
-          h.os?.toLowerCase().includes("rhel")
-      );
-    }
-    // "Recently Scanned" – no scan-date field available on the data type,
-    // so we treat it as a no-op for now (all visible hosts are recent).
-
-    // Dropdown filters
-    if (osFilter) {
-      rows = rows.filter((h) =>
-        h.os?.toLowerCase().includes(osFilter.toLowerCase())
-      );
-    }
-    if (riskFilter) {
-      rows = rows.filter(
-        (h) => getRiskLevel(h.vulnerabilityCount ?? 0) === riskFilter
-      );
-    }
-    if (sourceFilter) {
-      rows = rows.filter((h) => matchesSourceFilter(h, sourceFilter));
-    }
-
-    // Advanced filters
-    if (advIpRange.trim()) {
-      const term = advIpRange.trim().toLowerCase();
-      // Simple prefix / substring match (e.g. "192.168.1")
-      // For CIDR we'd need a library – substring covers 90 % of use-cases
-      rows = rows.filter((h) => h.ip?.toLowerCase().includes(term));
-    }
-    if (advTags.trim()) {
-      const wanted = advTags
-        .split(",")
-        .map((t) => t.trim().toLowerCase())
-        .filter(Boolean);
-      if (wanted.length > 0) {
-        rows = rows.filter((h) =>
-          wanted.some((w) =>
-            h.tags?.some((tag) => tag.toLowerCase().includes(w))
-          )
-        );
-      }
-    }
-    // advDateRange is a no-op since the table data doesn't carry scan timestamps.
-
-    return rows;
-  }, [data, activeFilters, osFilter, riskFilter, sourceFilter, advIpRange, advTags, advDateRange]);
-
-  // Track clicks outside of export dropdown
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        exportRef.current &&
-        !exportRef.current.contains(event.target as Node)
-      ) {
-        setShowExportDropdown(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  // Filter columns to exclude status column
-  const filteredColumns = useMemo(() => {
-    return columns.filter((column) => {
-      // Filter out the status column if it exists
-      if ("accessorKey" in column && column.accessorKey === "status") {
-        return false;
-      }
-      if ("id" in column && column.id === "status") {
-        return false;
-      }
-      return true;
-    });
-  }, [columns]);
-
-  // Enable row selection by adding a selection column
-  const selectionColumn: ColumnDef<EnvironmentTableData, any> = {
-    id: "select",
-    header: ({ table }) => (
-      <div className="px-1">
-        <input
-          type="checkbox"
-          className="h-4 w-4 rounded border-gray-600 text-violet-500 focus:ring-violet-500"
-          checked={table.getIsAllPageRowsSelected()}
-          ref={(input) => {
-            if (input) {
-              input.indeterminate =
-                table.getIsSomePageRowsSelected() &&
-                !table.getIsAllPageRowsSelected();
-            }
-          }}
-          onChange={table.getToggleAllPageRowsSelectedHandler()}
-        />
-      </div>
-    ),
-    cell: ({ row }) => (
-      <div className="px-1" onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          className="h-4 w-4 rounded border-gray-600 text-violet-500 focus:ring-violet-500"
-          checked={row.getIsSelected()}
-          onChange={row.getToggleSelectedHandler()}
-        />
-      </div>
-    ),
-    enableSorting: false,
-    enableGlobalFilter: false,
-  };
-
-  // Add selection column to columns array
-  const columnsWithSelection = useMemo(() => {
-    return [selectionColumn, ...filteredColumns];
-  }, [filteredColumns]);
-
-  const table = useReactTable({
-    data: filteredData,
-    columns: columnsWithSelection,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    globalFilterFn: rowGlobalFilter,
-    state: {
-      globalFilter,
-      columnFilters,
-      rowSelection,
-    },
-    onColumnFiltersChange: setColumnFilters,
-    onGlobalFilterChange: setGlobalFilter,
-    onRowSelectionChange: setRowSelection,
-    initialState: {
-      pagination: {
-        pageSize: 10,
-      },
-    },
-    enableRowSelection: true,
-  });
-
-  // Handle search input
-  const handleSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setGlobalFilter(value);
-  };
-
-  // Handle row click - navigate to host details
-  const handleRowClick = (host: EnvironmentTableData) => {
-    // Use router.push with a properly formatted path
-    router.push({
-      pathname: "/host/[ip]",
-      query: { ip: host.ip },
-    });
-  };
-
-  // Handle refresh click
-  const handleRefresh = () => {
-    if (onRefresh) {
-      onRefresh();
-    } else {
-      // Default refresh behavior if no callback is provided
-      window.location.reload();
-    }
-  };
-
-  // Define filter presets
-  const filterPresets = [
-    { name: "High Risk Hosts", filter: "highRisk" },
-    { name: "Windows Hosts", filter: "windows" },
-    { name: "Linux Hosts", filter: "linux" },
-    { name: "Recently Scanned", filter: "recentlyScan" },
-  ];
-
-  // Toggle a quick-filter preset on/off
-  const applyFilterPreset = (filter: string) => {
-    setActiveFilters((prev) =>
-      prev.includes(filter)
-        ? prev.filter((f) => f !== filter)
-        : [...prev, filter]
-    );
-  };
-
-  // Handle export
-  const handleExport = (format: "csv" | "json") => {
-    const selectedRows = table.getSelectedRowModel().rows;
-    const dataToExport =
-      selectedRows.length > 0
-        ? selectedRows.map((row) => row.original)
-        : filteredData;
-
-    if (format === "csv") {
-      // CSV export logic
-      const headers = Object.keys(dataToExport[0] || {}).join(",");
-      const csvRows = dataToExport.map((row) => Object.values(row).join(","));
-      const csvContent = [headers, ...csvRows].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", "environment-hosts.csv");
-      link.click();
-      setShowExportDropdown(false);
-    } else if (format === "json") {
-      // JSON export logic
-      const jsonContent = JSON.stringify(dataToExport, null, 2);
-      const blob = new Blob([jsonContent], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", "environment-hosts.json");
-      link.click();
-      setShowExportDropdown(false);
-    }
-  };
-
-  // Calculate summary of selected hosts
-  const selectedHostsSummary = useMemo(() => {
-    const selectedRows = table.getSelectedRowModel().rows;
-    if (selectedRows.length === 0) return null;
-
-    return {
-      count: selectedRows.length,
-      vulnerabilities: selectedRows.reduce(
-        (sum, row) => sum + (row.original.vulnerabilityCount || 0),
-        0
+  const visible = useMemo(
+    () =>
+      sortHosts(
+        filterHosts(rows, { search, severities: activeSeverities, os, sources, onlyIps }),
+        sort,
       ),
-    };
-  }, [table.getSelectedRowModel().rows]);
+    [rows, search, activeSeverities, os, sources, onlyIps, sort],
+  );
 
-  // Column filter components
-  const renderColumnFilters = () => {
-    return (
-      <div className="mb-4 flex flex-wrap gap-2">
-        <select
-          className="rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1 text-gray-200 outline-none focus:border-violet-500/40"
-          value={osFilter}
-          onChange={(e) => setOsFilter(e.target.value)}
-        >
-          <option value="">OS Type</option>
-          <option value="windows">Windows</option>
-          <option value="linux">Linux</option>
-          <option value="macos">macOS</option>
-          <option value="unknown">Unknown</option>
-        </select>
+  // Any filter change starts again from the first page; new rows keep the
+  // page (paginate clamps it).
+  const filterKey = [search, activeSeverities.join(","), os.join(","), sources.join(","), onlyIps ? [...onlyIps].join(",") : ""].join("|");
+  useEffect(() => setPage(1), [filterKey]);
 
-        <select
-          className="rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1 text-gray-200 outline-none focus:border-violet-500/40"
-          value={riskFilter}
-          onChange={(e) => setRiskFilter(e.target.value)}
-        >
-          <option value="">Risk Level</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-          <option value="info">Info</option>
-        </select>
+  const slice = paginate(visible, page, PAGE_SIZE);
+  const filtering = visible.length !== rows.length;
 
-        <select
-          className="rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1 text-gray-200 outline-none focus:border-violet-500/40"
-          value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value)}
-        >
-          <option value="">Source</option>
-          <option value="network">Network</option>
-          <option value="agent">Agent</option>
-        </select>
-      </div>
-    );
+  const clearAll = () => {
+    setSearch("");
+    setOs([]);
+    setSources([]);
+    if (activeSeverities.length > 0) setSeverities([]);
+    onClearOnlyIps?.();
   };
 
-  // Advanced filter components
-  const renderAdvancedFilters = () => {
-    if (!showAdvancedFilters) return null;
-
-    return (
-      <div className="mb-4 rounded-md border border-violet-500/20 bg-gray-900/50 p-4 backdrop-blur-sm">
-        <h3 className="mb-3 text-sm font-medium text-gray-100">
-          Advanced Filters
-        </h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-300">
-              IP Address / Subnet
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. 192.168.1"
-              value={advIpRange}
-              onChange={(e) => setAdvIpRange(e.target.value)}
-              className="w-full rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-200 focus:border-violet-500/40 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-300">
-              Last Scan Date
-            </label>
-            <select
-              value={advDateRange}
-              onChange={(e) => setAdvDateRange(e.target.value)}
-              className="w-full rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-200 outline-none focus:border-violet-500/40"
-            >
-              <option value="">Any time</option>
-              <option value="today">Today</option>
-              <option value="week">Last 7 days</option>
-              <option value="month">Last 30 days</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-300">
-              Tags
-            </label>
-            <input
-              type="text"
-              placeholder="Comma separated tags"
-              value={advTags}
-              onChange={(e) => setAdvTags(e.target.value)}
-              className="w-full rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-200 focus:border-violet-500/40 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-300">
-              Discovery Source
-            </label>
-            <select
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
-              className="w-full rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-200 outline-none focus:border-violet-500/40"
-            >
-              <option value="">All Sources</option>
-              <option value="network">Network</option>
-              <option value="agent">Agent</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            className="rounded-md border border-violet-500/20 px-3 py-1 text-gray-300 transition-colors hover:border-violet-500/30"
-            onClick={() => {
-              setAdvIpRange("");
-              setAdvDateRange("");
-              setAdvTags("");
-              setSourceFilter("");
-              setShowAdvancedFilters(false);
-            }}
-          >
-            Clear &amp; Close
-          </button>
-          <button
-            className="rounded-md border border-violet-500/30 bg-violet-500/20 px-3 py-1 text-sm text-violet-200 transition-colors hover:border-violet-500/40 hover:bg-violet-500/30"
-            onClick={() => setShowAdvancedFilters(false)}
-          >
-            Apply Filters
-          </button>
-        </div>
-      </div>
-    );
+  const onRowClick = (e: React.MouseEvent, ip: string) => {
+    // Links and buttons in the row handle themselves; selecting text is not a click.
+    if ((e.target as HTMLElement).closest("a,button,input,label")) return;
+    if (window.getSelection()?.toString()) return;
+    if (e.metaKey || e.ctrlKey) {
+      window.open(hostHref(ip), "_blank", "noopener");
+      return;
+    }
+    void router.push(hostHref(ip));
   };
 
   return (
-    <div className="w-full">
-      {/* Search and Filter Controls */}
-      <div className="mb-4 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="relative">
-              <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.3-4.3"></path>
-              </svg>
-              <input
-                type="text"
-                placeholder="Search hosts..."
-                value={globalFilter}
-                onChange={handleSearch}
-                className="h-10 w-64 rounded-md border border-violet-500/20 bg-gray-900/50 px-10 text-sm text-gray-100 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
-              />
-              {globalFilter && (
-                <button
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-500"
-                  onClick={() => setGlobalFilter("")}
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
-              )}
-            </div>
-            <div className="ml-4 text-sm text-gray-500">
-              {table.getFilteredRowModel().rows.length} hosts found
-            </div>
-          </div>
-
-          <div className="flex gap-2">
+    <div className={cn("min-w-0", className)}>
+      {/* One filter row */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <label className="relative flex min-w-[14rem] max-w-xs flex-1 items-center">
+          <span className="sr-only">Search hosts</span>
+          <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-gray-500" aria-hidden />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by hostname, IP or OS"
+            className="h-8 w-full rounded-md border border-gray-700/70 bg-gray-900/60 pl-8 pr-7 text-xs text-gray-200 placeholder:text-gray-500 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
+          />
+          {search && (
             <button
-              className="flex items-center rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-300 transition-colors hover:border-violet-500/30 hover:bg-gray-900/70"
-              onClick={handleRefresh}
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-1.5 rounded p-0.5 text-gray-500 hover:text-gray-300"
+              aria-label="Clear search"
             >
-              <RefreshCw className="mr-1.5 h-4 w-4" />
-              Refresh
+              <X className="h-3.5 w-3.5" />
             </button>
-            <div className="relative" ref={exportRef}>
-              <button
-                className="flex items-center rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-300 transition-colors hover:border-violet-500/30 hover:bg-gray-900/70"
-                onClick={() => setShowExportDropdown(!showExportDropdown)}
-              >
-                <Download className="mr-1.5 h-4 w-4" />
-                Export
-              </button>
-              {showExportDropdown && (
-                <div className="absolute right-0 top-full z-10 mt-1 w-36 rounded-md border border-violet-500/20 bg-gray-900 py-1 shadow-lg">
-                  <button
-                    className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-violet-500/[0.06]"
-                    onClick={() => handleExport("csv")}
-                  >
-                    Export as CSV
-                  </button>
-                  <button
-                    className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-violet-500/[0.06]"
-                    onClick={() => handleExport("json")}
-                  >
-                    Export as JSON
-                  </button>
-                </div>
-              )}
-            </div>
-            <button
-              className="flex items-center rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-1.5 text-gray-300 transition-colors hover:border-violet-500/30 hover:bg-gray-900/70"
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            >
-              <Filter className="mr-1.5 h-4 w-4" />
-              Advanced Filter
-            </button>
-          </div>
-        </div>
+          )}
+        </label>
 
-        {/* Advanced filters */}
-        {renderAdvancedFilters()}
-
-        {/* Filter presets */}
-        <div className="flex flex-wrap gap-2">
-          {filterPresets.map((preset) => (
-            <button
-              key={preset.filter}
-              onClick={() => applyFilterPreset(preset.filter)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                activeFilters.includes(preset.filter)
-                  ? "border border-violet-500/30 bg-violet-500/20 text-violet-300"
-                  : "border border-violet-500/10 bg-gray-900/50 text-gray-400 hover:border-violet-500/20 hover:text-gray-300"
-              )}
-            >
-              {preset.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Column-specific filters */}
-        {renderColumnFilters()}
-
-        {/* Selected hosts summary */}
-        {selectedHostsSummary && (
-          <div className="rounded-md bg-violet-900/20 px-4 py-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="font-medium">
-                  {selectedHostsSummary.count} hosts selected
-                </span>
-                <span className="ml-2 text-sm text-gray-500">
-                  with {selectedHostsSummary.vulnerabilities} total
-                  vulnerabilities
-                </span>
-              </div>
-              <div className="flex gap-2">
-                <button className="rounded-md border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-sm text-violet-300 hover:bg-violet-500/20 transition-colors">
-                  Scan Selected
-                </button>
-                <button className="rounded-md border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-sm text-violet-300 hover:bg-violet-500/20 transition-colors">
-                  Tag Selected
-                </button>
-              </div>
-            </div>
-          </div>
+        {severityCounts && (
+          <SeverityStrip
+            variant="compact"
+            counts={severityCounts}
+            selected={activeSeverities}
+            onSelect={toggleSeverity}
+            aria-label="Show hosts with open findings at these severities"
+          />
         )}
+
+        {onlyIps && (
+          <button
+            type="button"
+            onClick={onClearOnlyIps}
+            className="inline-flex h-7 items-center gap-1.5 rounded-md border border-green-500/30 bg-green-500/10 px-2.5 text-xs font-medium text-green-300 hover:bg-green-500/15"
+            aria-label="Show all hosts"
+          >
+            New hosts only
+            <X className="h-3 w-3" aria-hidden />
+          </button>
+        )}
+
+        <span className="flex-1" />
+
+        <div className="flex items-center gap-2">
+          <HostFiltersPopover
+            osOptions={osChoices}
+            sourceOptions={sourceChoices}
+            os={os}
+            sources={sources}
+            onOsChange={setOs}
+            onSourcesChange={setSources}
+          />
+          <button
+            type="button"
+            disabled={loading || visible.length === 0}
+            onClick={() => download(hostsCsvFilename(), hostsCsv(visible))}
+            title={
+              visible.length > 0
+                ? `Download the ${visible.length.toLocaleString("en-US")} host${visible.length === 1 ? "" : "s"} shown as CSV`
+                : undefined
+            }
+            className="inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border border-gray-700/70 px-2.5 text-xs font-medium text-gray-300 transition-colors hover:border-gray-600 hover:bg-gray-800/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden />
+            Export
+          </button>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-lg border border-violet-500/20 bg-gray-900/30 overflow-hidden">
-        <table className="w-full divide-y divide-violet-500/10">
-          <thead className="bg-gray-900/80">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[960px] table-fixed border-collapse text-sm">
+          <colgroup>
+            {HOST_COLUMNS.map((c) => (
+              <col key={c.id} className={c.col} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr className="border-b border-violet-500/10">
+              {HOST_COLUMNS.map((c) => {
+                const active = !!c.sortKey && sort.key === c.sortKey;
+                return (
                   <th
-                    key={header.id}
-                    onClick={header.column.getToggleSortingHandler()}
+                    key={c.id}
+                    scope="col"
+                    aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}
                     className={cn(
-                      "px-4 py-3.5 text-left text-sm font-semibold text-violet-200/80",
-                      header.id !== "select" && "cursor-pointer"
+                      "px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-500",
+                      c.align === "right" ? "text-right" : "text-left",
                     )}
                   >
-                    <div className="flex items-center gap-2">
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                      {header.column.getCanSort() && (
-                        <div
-                          className={
-                            header.column.getIsSorted()
-                              ? "opacity-100"
-                              : "opacity-0 group-hover:opacity-100"
-                          }
-                        >
-                          {{
-                            asc: (
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="m5 15 7-7 7 7"></path>
-                              </svg>
-                            ),
-                            desc: (
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="m19 9-7 7-7-7"></path>
-                              </svg>
-                            ),
-                          }[header.column.getIsSorted() as string] ?? null}
-                        </div>
-                      )}
-                    </div>
+                    {c.sortKey ? (
+                      <button
+                        type="button"
+                        title={c.sortTitle}
+                        onClick={() => setSort((s) => nextHostSort(s, c.sortKey!))}
+                        className={cn(
+                          "inline-flex items-center gap-1 uppercase tracking-wider transition-colors hover:text-gray-300",
+                          active && "text-gray-300",
+                        )}
+                      >
+                        {c.label}
+                        {active &&
+                          (sort.dir === "asc" ? (
+                            <ArrowUp className="h-3 w-3" aria-hidden />
+                          ) : (
+                            <ArrowDown className="h-3 w-3" aria-hidden />
+                          ))}
+                      </button>
+                    ) : c.label ? (
+                      c.label
+                    ) : (
+                      <span className="sr-only">Actions</span>
+                    )}
                   </th>
-                ))}
-              </tr>
-            ))}
+                );
+              })}
+            </tr>
           </thead>
-          <tbody className="divide-y divide-violet-500/5">
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={() => handleRowClick(row.original)}
-                  className="cursor-pointer odd:bg-gray-800/40 even:bg-gray-900/40 hover:bg-violet-500/[0.06] transition-colors"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td
-                      key={cell.id}
-                      className="px-4 py-3 text-sm text-gray-200"
-                      onClick={
-                        cell.column.id === "select"
-                          ? (e) => e.stopPropagation()
-                          : undefined
-                      }
-                    >
-                      {cell.column.id === "actions" ? (
-                        <div className="flex items-center justify-end">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              console.log("Quick action for", row.original.ip);
-                            }}
-                            className="rounded p-1 text-gray-400 hover:bg-gray-600 hover:text-gray-200 transition-colors"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
+          <tbody>
+            {loading &&
+              Array.from({ length: 4 }, (_, i) => (
+                <tr key={`skeleton-${i}`} className="border-b border-violet-500/5">
+                  {HOST_COLUMNS.map((c) => (
+                    <td key={c.id} className={cellPad}>
+                      {c.id === "host" ? (
+                        <div className="space-y-2">
+                          <Skeleton className="h-3.5 w-48 max-w-full bg-gray-800" />
+                          <Skeleton className="h-1.5 w-full bg-gray-800" />
                         </div>
-                      ) : (
-                        flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )
+                      ) : c.id === "actions" ? null : (
+                        <Skeleton className="h-3 w-full max-w-[7rem] bg-gray-800" />
                       )}
                     </td>
                   ))}
                 </tr>
-              ))
-            ) : (
+              ))}
+
+            {!loading && slice.rows.length === 0 && (
               <tr>
-                <td
-                  colSpan={columnsWithSelection.length}
-                  className="py-10 text-center text-gray-500"
-                >
-                  No hosts found
+                <td colSpan={HOST_COLUMNS.length} className="px-3 py-10 text-center text-sm text-gray-500">
+                  <span className="inline-flex items-center gap-2">
+                    No hosts match
+                    <button type="button" onClick={clearAll} className="text-violet-400 hover:text-violet-300">
+                      Clear filters
+                    </button>
+                  </span>
                 </td>
               </tr>
             )}
+
+            {!loading &&
+              slice.rows.map((row) => (
+                <tr
+                  key={row.ip}
+                  onClick={(e) => onRowClick(e, row.ip)}
+                  className="cursor-pointer border-b border-violet-500/5 align-middle transition-colors hover:bg-violet-500/5"
+                >
+                  {HOST_COLUMNS.map((c) => (
+                    <td
+                      key={c.id}
+                      className={cn(cellPad, "overflow-hidden", c.align === "right" && "text-right")}
+                    >
+                      <HostColumnCell column={c.id} host={row} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="mt-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <select
-            value={table.getState().pagination.pageSize}
-            onChange={(e) => {
-              table.setPageSize(Number(e.target.value));
-            }}
-            className="rounded-lg border border-violet-500/20 bg-gray-900/50 px-2 py-1 text-sm text-gray-300 outline-none focus:border-violet-500/40"
-          >
-            {[10, 20, 30, 40, 50].map((pageSize) => (
-              <option key={pageSize} value={pageSize}>
-                Show {pageSize}
-              </option>
-            ))}
-          </select>
-          <span className="text-sm text-gray-500">
-            Showing{" "}
-            {table.getState().pagination.pageIndex *
-              table.getState().pagination.pageSize +
-              1}{" "}
-            to{" "}
-            {Math.min(
-              (table.getState().pagination.pageIndex + 1) *
-                table.getState().pagination.pageSize,
-              table.getFilteredRowModel().rows.length
-            )}{" "}
-            of {table.getFilteredRowModel().rows.length} hosts
+      {!loading && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-500">
+          <span className="tabular-nums">
+            {hostsFooterLabel(visible.length, sort, filtering ? rows.length : undefined)}
           </span>
-        </div>
-        <div className="flex gap-2">
-          <button
-            className={cn(
-              "rounded-md border border-violet-500/20 px-3 py-1 text-sm text-gray-400 transition-colors hover:border-violet-500/30 hover:text-gray-300",
-              !table.getCanPreviousPage() && "cursor-not-allowed opacity-40"
-            )}
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            Previous
-          </button>
-          {Array.from({ length: Math.min(5, table.getPageCount()) }, (_, i) => {
-            const pageIndex = i;
-            return (
-              <button
-                key={i}
-                className={cn(
-                  "rounded-md border px-3 py-1 text-sm transition-colors",
-                  table.getState().pagination.pageIndex === pageIndex
-                    ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
-                    : "border-violet-500/20 text-gray-400 hover:border-violet-500/30 hover:text-gray-300"
-                )}
-                onClick={() => table.setPageIndex(pageIndex)}
+          <span className="flex-1" />
+          {slice.pageCount > 1 && (
+            <nav aria-label="Pages" className="flex items-center gap-1">
+              <span className="mr-2 tabular-nums">
+                {slice.from.toLocaleString("en-US")}–{slice.to.toLocaleString("en-US")}
+              </span>
+              <PagerButton label="Previous page" disabled={slice.page <= 1} onClick={() => setPage(slice.page - 1)}>
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </PagerButton>
+              {pageWindow(slice.page, slice.pageCount).map((p, i) =>
+                p === "gap" ? (
+                  <span key={`gap-${i}`} className="px-1 text-gray-600">
+                    …
+                  </span>
+                ) : (
+                  <PagerButton key={p} label={`Page ${p}`} active={p === slice.page} onClick={() => setPage(p)}>
+                    {p}
+                  </PagerButton>
+                ),
+              )}
+              <PagerButton
+                label="Next page"
+                disabled={slice.page >= slice.pageCount}
+                onClick={() => setPage(slice.page + 1)}
               >
-                {pageIndex + 1}
-              </button>
-            );
-          })}
-          <button
-            className={cn(
-              "rounded-md border border-violet-500/20 px-3 py-1 text-sm text-gray-400 transition-colors hover:border-violet-500/30 hover:text-gray-300",
-              !table.getCanNextPage() && "cursor-not-allowed opacity-40"
-            )}
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            Next
-          </button>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </PagerButton>
+            </nav>
+          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
+
+export default EnvironmentDataTable;

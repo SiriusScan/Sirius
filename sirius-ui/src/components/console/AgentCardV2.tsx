@@ -11,19 +11,13 @@ import {
   X,
 } from "lucide-react";
 import type { Agent } from "./types";
+import { getAgentFreshness } from "./agentStatus";
 
 // ─── Stale detection (Phase 1.4) ────────────────────────────────────────────
+// Shared with the console header's agent counter so both agree.
 
-export type AgentFreshness = "online" | "stale" | "offline";
-
-export function getAgentFreshness(agent: Agent): AgentFreshness {
-  if (agent.status?.toLowerCase() !== "online") return "offline";
-  if (!agent.lastSeen) return "online";
-  const elapsed = Date.now() - new Date(agent.lastSeen).getTime();
-  if (elapsed > 30 * 60 * 1000) return "offline"; // > 30 min
-  if (elapsed > 5 * 60 * 1000) return "stale"; // > 5 min
-  return "online";
-}
+export { getAgentFreshness };
+export type { AgentFreshness } from "./agentStatus";
 
 // ─── Component ──────────────────────────────────────────────────────────────
 

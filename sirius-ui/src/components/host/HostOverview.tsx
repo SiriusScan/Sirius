@@ -1,512 +1,411 @@
 /**
- * HostOverview — "Host Dashboard" tab
+ * HostOverview (R05) — the host at a glance, every number from the server:
  *
- * Mirrors the main Dashboard structure:
- *   Row 1 — Hero cards (Vulnerabilities / Open Ports / Risk Score)
- *   Row 2 — Two-column layout
- *     Left 2/3:  Severity breakdown + top vulnerabilities mini-table
- *     Right 1/3: System summary + source coverage + recent activity
+ *   Risk            the server's 0–10 score (highest open CVSS, ADR-3) and the
+ *                   CVE that sets it
+ *   Open findings   severity tiles; a level opens the Vulnerabilities tab
+ *                   filtered to it (counts are shown once, here)
+ *   Data freshness  last scan, each source's latest report, first seen
+ *   Top findings    the five highest-CVSS findings with clean summaries
+ *   Open ports      ports from scan data, plus the software the scanner matched
+ *   System          agent data, or one "needs the agent" state
  */
 
-import React from "react";
+import React, { useMemo } from "react";
+import Link from "next/link";
 import { useRouter } from "next/router";
-import { api } from "~/utils/api";
-import {
-  Shield,
-  Server,
-  Target,
-  AlertTriangle,
-  Activity,
-  Network,
-  Users,
-  Package,
-  Clock,
-  Cpu,
-  HardDrive,
-  ChevronRight,
-  ExternalLink,
-} from "lucide-react";
-import { DashboardHeroCard } from "~/components/dashboard/DashboardHeroCard";
-import { VulnerabilitySeverityCardsHorizontal } from "~/components/VulnerabilitySeverityCards";
+import { Activity, Clock, Cpu, Gauge, ListOrdered, Network } from "lucide-react";
+import { cn } from "~/components/lib/utils";
+import { Skeleton } from "~/components/lib/ui/skeleton";
+import { RiskScore } from "~/components/shared/RiskScore";
+import { SeverityStrip } from "~/components/shared/SeverityStrip";
+import { SeverityTag } from "~/components/shared/SeverityTag";
 import { SourceBadge } from "~/components/shared/SourceBadge";
-import { observedTimestamp } from "./hostFindings";
-import type { HostPageData, DeduplicatedVulnerability, TabType } from "./types";
+import {
+  DEFAULT_VULN_SORT,
+  sortVulnRows,
+  vulnerabilityHref,
+  type VulnRow,
+} from "~/components/shared/vulnTableModel";
+import type { HostPageDataWithRisk } from "~/hooks/useHostData";
+import { formatDateTime } from "~/utils/formatDateTime";
+import { getCvssBarColor, getCvssTextColor } from "~/utils/severityTheme";
+import { CardLink, FactRow, HostCard } from "./HostCard";
+import {
+  findingToVulnRow,
+  hostSeverityHref,
+  hostTabHref,
+  lastScanDetail,
+  matchedSoftware,
+  plural,
+  riskCaption,
+  sourceName,
+} from "./hostModel";
+import { NeedsAgentState } from "./NeedsAgentState";
+import type { AgentDataState } from "./useHostAgentData";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function computeRiskScore(counts: {
-  critical: number;
-  high: number;
-  medium: number;
-  low: number;
-  informational: number;
-}): number {
-  // Weighted formula matching backend logic
-  const score =
-    counts.critical * 10 +
-    counts.high * 7 +
-    counts.medium * 4 +
-    counts.low * 1;
-  return Math.min(10, parseFloat((score / Math.max(1, counts.critical + counts.high + counts.medium + counts.low + counts.informational)).toFixed(1)));
-}
-
-function getRiskLabel(score: number): string {
-  if (score < 2) return "Low";
-  if (score < 5) return "Medium";
-  if (score < 8) return "High";
-  return "Critical";
-}
-
-function getRiskVariant(score: number): "default" | "critical" {
-  if (score >= 8) return "critical";
-  return "default";
-}
-
-function formatRelativeTime(dateString?: string | null): string {
-  const timestamp = observedTimestamp(dateString);
-  if (!timestamp) return "Unknown";
-  const date = new Date(timestamp);
-  const diffMinutes = Math.floor((Date.now() - date.getTime()) / 60_000);
-  if (diffMinutes < 0) return date.toLocaleString();
-  if (diffMinutes >= 1440) return `${Math.floor(diffMinutes / 1440)}d ago`;
-  if (diffMinutes >= 60) return `${Math.floor(diffMinutes / 60)}h ago`;
-  if (diffMinutes > 0) return `${diffMinutes}m ago`;
-  return "Just now";
-}
-
-function getSeverityColor(severity: string): string {
-  const s = severity.toUpperCase();
-  if (s.includes("CRIT")) return "text-red-400";
-  if (s.includes("HIGH")) return "text-orange-400";
-  if (s.includes("MED")) return "text-amber-400";
-  if (s.includes("LOW")) return "text-green-400";
-  return "text-blue-400";
-}
-
-function getSeverityBg(severity: string): string {
-  const s = severity.toUpperCase();
-  if (s.includes("CRIT")) return "bg-red-500/15";
-  if (s.includes("HIGH")) return "bg-orange-500/15";
-  if (s.includes("MED")) return "bg-amber-500/15";
-  if (s.includes("LOW")) return "bg-green-500/15";
-  return "bg-blue-500/15";
-}
-
-// ─── Props ───────────────────────────────────────────────────────────────────
+const TOP_FINDINGS = 5;
+const PORTS_SHOWN = 6;
+const SOFTWARE_SHOWN = 4;
 
 interface HostOverviewProps {
-  host: HostPageData;
-  vulnerabilities?: DeduplicatedVulnerability[];
-  onTabChange: (tab: TabType) => void;
+  host: HostPageDataWithRisk;
+  agent: AgentDataState;
 }
 
-// ─── Component ───────────────────────────────────────────────────────────────
-
-export const HostOverview: React.FC<HostOverviewProps> = ({
-  host,
-  vulnerabilities = [],
-  onTabChange,
-}) => {
-  const router = useRouter();
-
-  // Fetch enhanced data for system summary
-  const { data: softwareInventory } =
-    api.host.getHostSoftwareInventory.useQuery(
-      { ip: host.ip },
-      { enabled: !!host.ip, staleTime: 60000 },
-    );
-
-  const { data: systemFingerprint } =
-    api.host.getHostSystemFingerprint.useQuery(
-      { ip: host.ip },
-      { enabled: !!host.ip, staleTime: 60000 },
-    );
-
-  const { data: softwareStats } = api.host.getHostSoftwareStats.useQuery(
-    { ip: host.ip },
-    { enabled: !!host.ip, staleTime: 60000 },
-  );
-
-  // ── Computed values ────────────────────────────────────────────────────
-  const softwarePackages =
-    softwareInventory?.package_count || softwareStats?.total_packages || 0;
-  const userAccounts =
-    systemFingerprint?.fingerprint?.users?.users?.length || 0;
-
-  const servicesArray = Array.isArray(systemFingerprint?.fingerprint?.services)
-    ? systemFingerprint.fingerprint.services
-    : [];
-  const runningServices = servicesArray.filter(
-    (s: { status: string }) =>
-      s.status?.toLowerCase() === "running" ||
-      s.status?.toLowerCase() === "active",
-  ).length;
-
-  const cpuCores = systemFingerprint?.fingerprint?.hardware?.cpu?.cores || 0;
-  const totalMemoryGB =
-    systemFingerprint?.fingerprint?.hardware?.memory?.total_gb || 0;
-
-  const collectionTimes = [
-    observedTimestamp(softwareInventory?.collected_at),
-    observedTimestamp(systemFingerprint?.collected_at),
-  ].filter((value): value is string => value !== undefined);
-  const lastCollectionTime = collectionTimes
-    .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
-
-  const riskScore = computeRiskScore(host.severityCounts);
-  const riskLabel = host.severityCounts.informational === host.vulnerabilityCount
-    ? "Informational"
-    : getRiskLabel(riskScore);
-
-  // Top 5 most critical vulnerabilities for the mini table
-  const topVulns = [...vulnerabilities]
-    .sort((a, b) => (b.riskScore || 0) - (a.riskScore || 0))
-    .slice(0, 5);
-
-  // Port service summary for hero card subtitle
-  const topServices = host.ports
-    .filter((p) => p.service?.name)
-    .map((p) => p.service!.name!)
-    .filter((v, i, arr) => arr.indexOf(v) === i)
-    .slice(0, 3);
-
+export const HostOverview: React.FC<HostOverviewProps> = ({ host, agent }) => {
   return (
-    <div className="space-y-6">
-      {/* ══════════════════════════════════════════════════════════════════
-          ROW 1 — Hero Cards (3 across)
-          ══════════════════════════════════════════════════════════════════ */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <DashboardHeroCard
-          title="Recorded Findings"
-          value={host.vulnerabilityCount}
-          icon={Target}
-          subtitle={
-            host.vulnerabilityCount > 0
-              ? `${host.severityCounts.critical} critical, ${host.severityCounts.high} high`
-              : "Assessment coverage unknown"
-          }
-          variant={host.severityCounts.critical > 0 ? "critical" : "default"}
-        />
-
-        {/* Asset Metrics — dual bubble: Open Ports + Packages */}
-        <div className="group relative overflow-hidden rounded-lg border border-violet-500/20 bg-gray-900/50 p-6 backdrop-blur-sm transition-all duration-300 hover:border-opacity-40 hover:shadow-lg">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          <div className="relative z-10 grid grid-cols-2 divide-x divide-violet-500/10">
-            {/* Packages */}
-            <div className="pr-5">
-              <span className="text-sm font-medium uppercase tracking-wide text-violet-300">
-                <Package className="mr-2 inline-block h-4 w-4" />
-                Packages
-              </span>
-              <div className="mb-1 mt-3">
-                <span className="text-5xl font-bold tabular-nums text-white">
-                  {softwarePackages.toLocaleString()}
-                </span>
-              </div>
-              <div className="text-sm text-gray-400">
-                {softwarePackages > 0 ? "Installed" : "Not scanned"}
-              </div>
-            </div>
-            {/* Open Ports */}
-            <div className="pl-5">
-              <span className="text-sm font-medium uppercase tracking-wide text-violet-300">
-                <Network className="mr-2 inline-block h-4 w-4" />
-                Open Ports
-              </span>
-              <div className="mb-1 mt-3">
-                <span className="text-5xl font-bold tabular-nums text-white">
-                  {host.portCount}
-                </span>
-              </div>
-              <div className="text-sm text-gray-400">
-                {topServices.length > 0
-                  ? topServices.join(", ")
-                  : host.portCount > 0
-                  ? "Discovered services"
-                  : "No open ports"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <DashboardHeroCard
-          title="Observed Risk Score"
-          value={host.vulnerabilityCount ? riskScore.toFixed(1) : "Unknown"}
-          icon={Shield}
-          subtitle={host.vulnerabilityCount ? riskLabel : "No recorded findings"}
-          variant={getRiskVariant(riskScore)}
-        />
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+        <RiskCard host={host} className="xl:col-span-3" />
+        <OpenFindingsCard host={host} className="md:order-last md:col-span-2 xl:order-none xl:col-span-6" />
+        <FreshnessCard host={host} className="xl:col-span-3" />
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════
-          ROW 2 — Two-Column Layout
-          ══════════════════════════════════════════════════════════════════ */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* ── Left Column (2/3) ─────────────────────────────────────── */}
-        <div className="space-y-6 lg:col-span-2">
-          {/* Severity Breakdown */}
-          <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-6 backdrop-blur-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <Activity className="h-5 w-5 text-violet-400" />
-              <h2 className="text-lg font-semibold text-violet-300">
-                Severity Breakdown
-              </h2>
-            </div>
-            {host.vulnerabilityCount > 0 ? (
-              <VulnerabilitySeverityCardsHorizontal
-                counts={host.severityCounts}
-              />
-            ) : (
-              <div className="flex items-center gap-2 py-4">
-                <Shield className="h-5 w-5 text-gray-500" />
-                <span className="text-sm text-gray-400">
-                  No findings recorded. Assessment coverage is unknown.
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Top Vulnerabilities Mini-table */}
-          <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 backdrop-blur-sm">
-            <div className="flex items-center justify-between border-b border-violet-500/10 px-6 py-4">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-violet-400" />
-                <h2 className="text-lg font-semibold text-violet-300">
-                  Top Vulnerabilities
-                </h2>
-              </div>
-              {host.vulnerabilityCount > 0 && (
-                <button
-                  onClick={() => onTabChange("vulnerabilities")}
-                  className="flex items-center gap-1 text-xs text-violet-400 transition-colors hover:text-violet-300"
-                >
-                  View finding evidence
-                  <ExternalLink className="h-3 w-3" />
-                </button>
-              )}
-            </div>
-
-            {topVulns.length > 0 ? (
-              <div className="divide-y divide-gray-800/50">
-                {topVulns.map((vuln, i) => (
-                  <button
-                    key={vuln.cve || i}
-                    onClick={() => {
-                      const id = vuln.cve;
-                      if (id) void router.push(`/vulnerability?id=${encodeURIComponent(id)}`);
-                    }}
-                    className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors hover:bg-gray-800/30"
-                  >
-                    {/* Severity badge */}
-                    <span
-                      className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${getSeverityBg(vuln.severity)} ${getSeverityColor(vuln.severity)}`}
-                    >
-                      {vuln.severity.replace("INFORMATIONAL", "INFO")}
-                    </span>
-
-                    {/* CVE ID */}
-                    <span className="shrink-0 font-mono text-xs text-gray-300">
-                      {vuln.cve || "N/A"}
-                    </span>
-
-                    {/* Description */}
-                    <span className="min-w-0 flex-1 truncate text-xs text-gray-500">
-                      {vuln.description || vuln.title || "—"}
-                    </span>
-
-                    {/* Source badges */}
-                    <div className="flex shrink-0 gap-1">
-                      {vuln.sources.map((s) => (
-                        <SourceBadge key={s} source={s} />
-                      ))}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 px-6 py-6">
-                <Shield className="h-4 w-4 text-gray-500" />
-                <span className="text-sm text-gray-400">
-                  No recorded findings to display
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Right Column (1/3) ────────────────────────────────────── */}
-        <div className="space-y-6 lg:col-span-1">
-          {/* System Summary */}
-          <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-5 backdrop-blur-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <Server className="h-5 w-5 text-violet-400" />
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-violet-300">
-                System Summary
-              </h2>
-            </div>
-            <div className="space-y-3">
-              <InfoRow icon={<Server className="h-3.5 w-3.5 text-gray-500" />} label="Hostname" value={host.hostname || "—"} />
-              <InfoRow icon={<Cpu className="h-3.5 w-3.5 text-gray-500" />} label="OS" value={host.os ? `${host.os}${host.osversion ? ` ${host.osversion}` : ""}` : "Unknown"} />
-              <InfoRow icon={<Package className="h-3.5 w-3.5 text-gray-500" />} label="Packages" value={softwarePackages.toLocaleString()} />
-              <InfoRow icon={<Users className="h-3.5 w-3.5 text-gray-500" />} label="Users" value={String(userAccounts)} />
-              <InfoRow icon={<Activity className="h-3.5 w-3.5 text-gray-500" />} label="Services" value={`${runningServices} running`} />
-              {cpuCores > 0 && (
-                <InfoRow icon={<Cpu className="h-3.5 w-3.5 text-gray-500" />} label="CPU" value={`${cpuCores} cores`} />
-              )}
-              {totalMemoryGB > 0 && (
-                <InfoRow icon={<HardDrive className="h-3.5 w-3.5 text-gray-500" />} label="Memory" value={`${totalMemoryGB.toFixed(1)} GB`} />
-              )}
-            </div>
-          </div>
-
-          {/* Open Ports */}
-          <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-5 backdrop-blur-sm">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Network className="h-5 w-5 text-violet-400" />
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-violet-300">
-                  Open Ports
-                </h2>
-                {host.portCount > 0 && (
-                  <span className="rounded-full bg-violet-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-violet-300">
-                    {host.portCount}
-                  </span>
-                )}
-              </div>
-            </div>
-            {host.ports.length > 0 ? (
-              <div className="space-y-1.5">
-                {host.ports.slice(0, 8).map((port) => (
-                  <div
-                    key={`${port.number}-${port.protocol}`}
-                    className="flex items-center justify-between rounded border border-violet-500/5 bg-gray-800/30 px-3 py-1.5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-white">
-                        {port.number}
-                      </span>
-                      <span className="text-[10px] uppercase text-gray-500">
-                        {port.protocol}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {port.service?.name && (
-                        <span className="text-xs text-gray-400">
-                          {port.service.name}
-                          {port.service.version ? ` ${port.service.version}` : ""}
-                        </span>
-                      )}
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          port.state === "open"
-                            ? "bg-emerald-400"
-                            : "bg-gray-600"
-                        }`}
-                      />
-                    </div>
-                  </div>
-                ))}
-                {host.ports.length > 8 && (
-                  <div className="pt-1 text-center text-[11px] text-gray-500">
-                    +{host.ports.length - 8} more ports
-                  </div>
-                )}
-              </div>
-            ) : (
-              <span className="text-xs text-gray-500">No open ports detected</span>
-            )}
-          </div>
-
-          {/* Source Coverage */}
-          <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-5 backdrop-blur-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <Target className="h-5 w-5 text-violet-400" />
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-violet-300">
-                Discovery Sources
-              </h2>
-            </div>
-            {host.sources.length > 0 ? (
-              <div className="space-y-2.5">
-                {host.sources.map((source) => (
-                  <div
-                    key={source}
-                    className="flex items-center justify-between"
-                  >
-                    <SourceBadge source={source} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <span className="text-xs text-gray-500">No sources</span>
-            )}
-          </div>
-
-          {/* Recent Activity */}
-          <div className="rounded-lg border border-violet-500/20 bg-gray-900/50 p-5 backdrop-blur-sm">
-            <div className="mb-4 flex items-center gap-2">
-              <Clock className="h-5 w-5 text-violet-400" />
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-violet-300">
-                Recent Activity
-              </h2>
-            </div>
-            <div className="space-y-2.5">
-              <ActivityItem
-                label="Last data collection"
-                value={formatRelativeTime(lastCollectionTime)}
-              />
-              <ActivityItem
-                label="First discovered"
-                value={formatRelativeTime(host.createdAt)}
-              />
-              <ActivityItem
-                label="Recorded findings"
-                value={host.vulnerabilityCount.toLocaleString()}
-              />
-            </div>
-            {/* Link to full History tab */}
-            <button
-              className="mt-3 flex items-center gap-1 text-[11px] text-violet-400 transition-colors hover:text-violet-300"
-              onClick={() => onTabChange("history")}
-            >
-              View full history
-              <ChevronRight className="h-3 w-3" />
-            </button>
-          </div>
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
+        <TopFindingsCard host={host} className="xl:col-span-2" />
+        <div className="min-w-0 space-y-4">
+          <OpenPortsCard host={host} />
+          <SystemCard ip={host.ip} agent={agent} />
         </div>
       </div>
     </div>
   );
 };
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── Risk ───────────────────────────────────────────────────────────────────
 
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
+function RiskCard({ host, className }: { host: HostPageDataWithRisk; className?: string }) {
+  const caption = riskCaption(host);
   return (
-    <div className="flex items-center gap-2 text-xs">
-      {icon}
-      <span className="w-20 shrink-0 text-gray-500">{label}</span>
-      <span className="truncate text-gray-300">{value}</span>
-    </div>
+    <HostCard icon={Gauge} title="Risk" className={className}>
+      <RiskScore
+        size="lg"
+        score={host.riskScore}
+        caption={
+          <>
+            <span className="block">{caption.text}</span>
+            {caption.cve && (
+              <span className="mt-0.5 block">
+                Set by{" "}
+                <Link
+                  href={vulnerabilityHref(caption.cve)}
+                  className="font-mono text-violet-300 transition-colors hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+                >
+                  {caption.cve}
+                </Link>
+              </span>
+            )}
+          </>
+        }
+      />
+    </HostCard>
   );
 }
 
-function ActivityItem({ label, value }: { label: string; value: string }) {
+// ─── Open findings ──────────────────────────────────────────────────────────
+
+function OpenFindingsCard({ host, className }: { host: HostPageDataWithRisk; className?: string }) {
+  const ip = host.ip;
+  const getHref = useMemo(() => (s: Parameters<typeof hostSeverityHref>[1]) => hostSeverityHref(ip, s), [ip]);
   return (
-    <div className="flex items-start gap-2 text-xs">
-      <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-violet-500/40" />
-      <div>
-        <div className="text-gray-500">{label}</div>
-        <div className="text-gray-300">{value}</div>
-      </div>
-    </div>
+    <HostCard
+      icon={Activity}
+      title="Open findings"
+      className={className}
+      note={
+        host.openFindings > 0
+          ? "Open findings on this host. Select a level to filter the Vulnerabilities tab."
+          : "No open findings recorded on this host. Assessment coverage is unknown."
+      }
+    >
+      <SeverityStrip
+        variant="tiles"
+        counts={host.counts}
+        getHref={getHref}
+        aria-label="Open findings by severity"
+        className="grid-cols-3 sm:grid-cols-5"
+      />
+    </HostCard>
+  );
+}
+
+// ─── Data freshness ─────────────────────────────────────────────────────────
+
+function When({ iso }: { iso: string }) {
+  return (
+    <time dateTime={iso} title={formatDateTime(iso, "long")} className="whitespace-nowrap">
+      {formatDateTime(iso)}
+    </time>
+  );
+}
+
+function FreshnessCard({ host, className }: { host: HostPageDataWithRisk; className?: string }) {
+  const { lastScan, sources } = host.freshness;
+  const firstSeen = host.freshness.firstSeen ?? host.firstSeen;
+  return (
+    <HostCard icon={Clock} title="Data freshness" className={className}>
+      <dl className="space-y-2">
+        <FactRow label="Last scan">
+          {lastScan ? (
+            <>
+              <When iso={lastScan.time} />
+              <span className="text-gray-400"> · {lastScanDetail(lastScan)}</span>
+            </>
+          ) : (
+            <span className="text-gray-500">No scan has reported on this host yet</span>
+          )}
+        </FactRow>
+        <FactRow label="Sources">
+          {sources.length > 0 ? (
+            <ul className="space-y-0.5">
+              {sources.map((s) => (
+                <li key={s.name} className="flex flex-wrap items-baseline justify-between gap-x-2">
+                  <span className="min-w-0 break-words">{sourceName(s)}</span>
+                  <span className="text-gray-400">
+                    <When iso={s.lastSeen} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <span className="text-gray-500">None yet</span>
+          )}
+        </FactRow>
+        <FactRow label="First seen">
+          {firstSeen ? <When iso={firstSeen} /> : <span className="text-gray-500">—</span>}
+        </FactRow>
+      </dl>
+    </HostCard>
+  );
+}
+
+// ─── Top findings ───────────────────────────────────────────────────────────
+
+function Cvss({ score }: { score: number }) {
+  if (!(Number.isFinite(score) && score > 0)) return <span className="text-xs text-gray-600">—</span>;
+  const value = Math.min(score, 10);
+  return (
+    <span className="flex items-center gap-2">
+      <span className={cn("w-7 text-xs font-semibold tabular-nums", getCvssTextColor(value))}>
+        {value.toFixed(1)}
+      </span>
+      <span className="h-1 w-10 overflow-hidden rounded-full bg-gray-800" aria-hidden>
+        <span
+          className={cn("block h-full rounded-full", getCvssBarColor(value))}
+          style={{ width: `${value * 10}%` }}
+        />
+      </span>
+    </span>
+  );
+}
+
+function TopFindingsCard({ host, className }: { host: HostPageDataWithRisk; className?: string }) {
+  const router = useRouter();
+  // Same order as the Vulnerabilities tab's table: CVSS, then severity.
+  const rows = useMemo<VulnRow[]>(
+    () => sortVulnRows(host.findings.map(findingToVulnRow), DEFAULT_VULN_SORT).slice(0, TOP_FINDINGS),
+    [host.findings],
+  );
+
+  return (
+    <HostCard
+      icon={ListOrdered}
+      title="Top findings"
+      className={className}
+      action={
+        host.openFindings > 0 ? (
+          <CardLink href={hostTabHref(host.ip, "vulnerabilities")}>
+            All {host.openFindings.toLocaleString("en-US")}
+          </CardLink>
+        ) : undefined
+      }
+    >
+      {rows.length === 0 ? (
+        <p className="py-2 text-sm text-gray-400">
+          No open findings recorded on this host. Assessment coverage is unknown.
+        </p>
+      ) : (
+        <div className="-mx-1 overflow-x-auto">
+          <table className="w-full min-w-[32rem] table-fixed text-left">
+            <colgroup>
+              <col className="w-40" />
+              <col className="w-24" />
+              <col className="w-24" />
+              <col />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-violet-500/10 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                <th scope="col" className="px-1 pb-2 font-semibold">CVE</th>
+                <th scope="col" className="px-1 pb-2 font-semibold">Severity</th>
+                <th scope="col" className="px-1 pb-2 font-semibold">CVSS</th>
+                <th scope="col" className="px-1 pb-2 font-semibold">Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const href = vulnerabilityHref(row.id);
+                return (
+                  <tr
+                    key={row.id}
+                    className="cursor-pointer border-b border-violet-500/10 transition-colors last:border-0 hover:bg-violet-500/5"
+                    onClick={(e) => {
+                      // Let a text selection or the link itself behave normally.
+                      if ((e.target as HTMLElement).closest("a")) return;
+                      if (window.getSelection()?.toString()) return;
+                      void router.push(href);
+                    }}
+                  >
+                    <td className="px-1 py-2.5">
+                      <Link
+                        href={href}
+                        className="block truncate font-mono text-xs font-semibold text-white transition-colors hover:text-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40"
+                        title={row.id}
+                      >
+                        {row.id}
+                      </Link>
+                    </td>
+                    <td className="px-1 py-2.5">
+                      <SeverityTag severity={row.severity} />
+                    </td>
+                    <td className="px-1 py-2.5">
+                      <Cvss score={row.cvss} />
+                    </td>
+                    <td className="px-1 py-2.5">
+                      {row.summary ? (
+                        <span className="block truncate text-xs text-gray-300" title={row.summary}>
+                          {row.summary}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-600">No description yet</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </HostCard>
+  );
+}
+
+// ─── Open ports ─────────────────────────────────────────────────────────────
+
+function OpenPortsCard({ host }: { host: HostPageDataWithRisk }) {
+  const ports = host.openPorts;
+  const software = useMemo(() => matchedSoftware(host.findings), [host.findings]);
+  const anyService = ports.some((p) => Boolean(p.service) || Boolean(p.version));
+
+  return (
+    <HostCard
+      icon={Network}
+      title="Open ports"
+      action={
+        ports.length > PORTS_SHOWN ? (
+          <CardLink href={hostTabHref(host.ip, "network")}>All {ports.length}</CardLink>
+        ) : undefined
+      }
+      note={
+        ports.length > 0 && !anyService
+          ? "The scan records ports without service names. Software comes from the scanner's matches."
+          : undefined
+      }
+    >
+      {ports.length === 0 ? (
+        <p className="py-1 text-sm text-gray-400">No open ports recorded.</p>
+      ) : (
+        <ul className="divide-y divide-violet-500/10">
+          {ports.slice(0, PORTS_SHOWN).map((p) => {
+            const service = [p.service, p.version].filter(Boolean).join(" ");
+            return (
+              <li key={`${p.port}/${p.protocol}`} className="flex items-center gap-3 py-1.5 text-xs">
+                <span className="w-20 shrink-0 font-mono font-semibold text-white">
+                  {p.port}/{p.protocol}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-gray-400">{service}</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  {(p.sources ?? []).map((s) => (
+                    <SourceBadge key={s} source={s} className="px-1.5 text-[10px]" />
+                  ))}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {software.length > 0 && (
+        <div className="mt-3 border-t border-violet-500/10 pt-3">
+          <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+            Software the scanner matched
+          </h3>
+          <ul className="space-y-1">
+            {software.slice(0, SOFTWARE_SHOWN).map((s) => (
+              <li key={s.label} className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="min-w-0 truncate text-gray-200" title={s.label}>
+                  {s.label}
+                </span>
+                <span className="shrink-0 tabular-nums text-gray-500">{plural(s.findings, "finding")}</span>
+              </li>
+            ))}
+            {software.length > SOFTWARE_SHOWN && (
+              <li className="text-[11px] text-gray-500">
+                and {plural(software.length - SOFTWARE_SHOWN, "more product")}
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+    </HostCard>
+  );
+}
+
+// ─── System ─────────────────────────────────────────────────────────────────
+
+function SystemCard({ ip, agent }: { ip: string; agent: AgentDataState }) {
+  return (
+    <HostCard
+      icon={Cpu}
+      title="System"
+      action={
+        agent.status === "present" ? (
+          <CardLink href={hostTabHref(ip, "system")}>Details</CardLink>
+        ) : undefined
+      }
+    >
+      {agent.status === "loading" ? (
+        <div className="space-y-2" aria-busy="true">
+          <Skeleton className="h-3 w-2/3 bg-gray-800" />
+          <Skeleton className="h-3 w-1/2 bg-gray-800" />
+          <Skeleton className="h-3 w-3/5 bg-gray-800" />
+        </div>
+      ) : agent.status === "none" ? (
+        <NeedsAgentState agentInstalled={agent.agentInstalled} />
+      ) : (
+        <dl className="space-y-1.5">
+          <FactRow label="Packages">{agent.data.packages.toLocaleString("en-US")}</FactRow>
+          <FactRow label="Users">{agent.data.users.toLocaleString("en-US")}</FactRow>
+          <FactRow label="Services">
+            {agent.data.services.total > 0
+              ? `${agent.data.services.running} running of ${agent.data.services.total}`
+              : "—"}
+          </FactRow>
+          {agent.data.cpuCores !== undefined && (
+            <FactRow label="CPU">{plural(agent.data.cpuCores, "core")}</FactRow>
+          )}
+          {agent.data.memoryGb !== undefined && (
+            <FactRow label="Memory">{agent.data.memoryGb.toFixed(1)} GB</FactRow>
+          )}
+          {agent.data.collectedAt && (
+            <FactRow label="Collected">
+              <When iso={agent.data.collectedAt} />
+            </FactRow>
+          )}
+        </dl>
+      )}
+    </HostCard>
   );
 }
 

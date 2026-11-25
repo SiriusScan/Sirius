@@ -7,133 +7,159 @@ import {
 } from "~/types/scanTypes";
 import type { VulnerabilitySummary } from "~/types/scanTypes";
 import type { HostEntry } from "~/types/scanTypes";
-import {
-  normalizeSeverity,
-  severityToRiskScore,
-  riskScoreToSeverity,
-} from "~/utils/riskScoreCalculator";
+import type {
+  FindingSummaryFields,
+  HostRiskFields,
+  InventoryHostRef,
+  OpenPort,
+  RiskSeverity,
+} from "~/types/riskSummary";
+import { findingSeverity, hostRisk, roundScore } from "~/utils/risk";
+import { summaryFor } from "~/utils/findingSummary";
 import { useScanResults } from "~/hooks/useScanResults";
+
+/** A host this scan found ("this scan" counts; saved-to-inventory state). */
+export type ScanHostRow = EnvironmentTableData &
+  HostRiskFields & {
+    /** Saved in the inventory (ADR-1: scanned hosts are saved automatically). */
+    inInventory: boolean;
+    /** Open ports from the inventory record; empty until it is saved. */
+    openPorts: OpenPort[];
+    /** Findings this scan reported for the host. */
+    findings: number;
+  };
+
+/** A finding this scan reported, with a clean summary (ADR-4). */
+export type ScanVulnRow = VulnerabilityTableData &
+  FindingSummaryFields & {
+    /** CVE / finding id (same as `cve`). */
+    id: string;
+    severityKey: RiskSeverity;
+  };
+
+/** The CVSS the scanner reported, or 0 when it reported none. */
+function reportedCvss(vuln: VulnerabilitySummary): number {
+  if (typeof vuln.cvss_score === "number" && vuln.cvss_score > 0) {
+    return roundScore(vuln.cvss_score);
+  }
+  if (typeof vuln.risk_score === "number" && vuln.risk_score > 0) {
+    return roundScore(vuln.risk_score);
+  }
+  return 0;
+}
 
 /**
  * Maps raw scan results (hosts + vulnerabilities from useScanResults) into
- * display-ready hostList and vulnerabilityList. Fetches db hosts for OS
- * enrichment and derives CVSS/severity consistently.
+ * display-ready hostList and vulnerabilityList, labelled "this scan".
+ *
+ * Severity, per-host risk and summaries use the same pure functions the
+ * server uses (utils/risk, utils/findingSummary), so a scan row and the saved
+ * inventory row agree. Inventory membership, OS and open ports come from the
+ * server (host.getInventoryIps).
  */
 export function useScanDataMapping(): {
-  hostList: EnvironmentTableData[];
-  vulnerabilityList: VulnerabilityTableData[];
+  hostList: ScanHostRow[];
+  vulnerabilityList: ScanVulnRow[];
+  /** IPs currently saved in the inventory. */
+  inventoryIps: ReadonlySet<string>;
 } {
   const { hosts, vulnerabilities } = useScanResults();
 
-  const { data: dbHosts } = api.host.getEnvironmentSummary.useQuery(
-    undefined,
-    { refetchInterval: 5000, refetchOnWindowFocus: false }
-  );
+  const { data: inventory } = api.host.getInventoryIps.useQuery(undefined, {
+    refetchInterval: 5000,
+    refetchOnWindowFocus: false,
+  });
 
   return useMemo(() => {
+    const inventoryByIp = new Map<string, InventoryHostRef>(
+      (inventory?.hosts ?? []).map((h) => [h.ip, h] as const),
+    );
+    const inventoryIps: ReadonlySet<string> = new Set(inventory?.ips ?? []);
+
     if (hosts.length === 0 && vulnerabilities.length === 0) {
-      return { hostList: [], vulnerabilityList: [] };
+      return { hostList: [], vulnerabilityList: [], inventoryIps };
     }
 
-    // Map vulnerabilities into table data using centralized utilities
-    const mappedVulnerabilities = vulnerabilities.map(
+    // Findings: real CVSS (0 when unreported), severity from the shared
+    // scale, clean summary with the raw text kept as evidence.
+    const mappedVulnerabilities: ScanVulnRow[] = vulnerabilities.map(
       (vuln: VulnerabilitySummary & { count?: number }) => {
-        let cvssScore = 0;
-        if (typeof vuln.cvss_score === "number" && vuln.cvss_score > 0) {
-          cvssScore = vuln.cvss_score;
-        } else if (
-          typeof vuln.risk_score === "number" &&
-          vuln.risk_score > 0
-        ) {
-          cvssScore = vuln.risk_score;
-        } else {
-          cvssScore = severityToRiskScore(normalizeSeverity(vuln.severity));
-        }
-
-        const hostCount =
-          typeof vuln.count === "number" ? vuln.count : 1;
-
-        const derivedSeverity =
-          cvssScore > 0
-            ? riskScoreToSeverity(cvssScore)
-            : normalizeSeverity(vuln.severity);
-
+        const cvss = reportedCvss(vuln);
+        const severityKey = findingSeverity({ cvss, severity: vuln.severity });
+        const summary = summaryFor({ description: vuln.description });
+        const id = vuln.title || vuln.id || "Unknown";
         return {
-          cve: vuln.title || vuln.id || "Unknown",
-          cvss: cvssScore,
-          description: vuln.description || "No description available",
+          id,
+          cve: id,
+          cvss,
+          description: summary.summary || "No description available",
+          ...summary,
           published: "",
-          severity: derivedSeverity,
-          count: hostCount,
+          severity: severityKey,
+          severityKey,
+          count: typeof vuln.count === "number" ? vuln.count : 1,
           scan_source: vuln.scan_source,
           agent_id: vuln.agent_id,
           host_id: vuln.host_id,
-        } satisfies VulnerabilityTableData;
-      }
+        };
+      },
     );
 
-    // Build per-host vulnerability count and max CVSS using host_id
-    const perHostVulnCount: Record<string, number> = {};
-    const perHostMaxCvss: Record<string, number> = {};
-    for (const vuln of vulnerabilities) {
-      const hid = vuln.host_id;
-      if (hid) {
-        perHostVulnCount[hid] = (perHostVulnCount[hid] ?? 0) + 1;
-      }
-    }
-    for (const mv of mappedVulnerabilities) {
-      const hid = mv.host_id;
-      if (hid) {
-        perHostMaxCvss[hid] = Math.max(perHostMaxCvss[hid] ?? 0, mv.cvss || 0);
-      }
+    // Per-host findings from this scan, keyed by host_id (the IP).
+    const perHost = new Map<string, Array<{ cvss: number; severity: string; id: string }>>();
+    for (const v of mappedVulnerabilities) {
+      if (!v.host_id) continue;
+      const list = perHost.get(v.host_id) ?? [];
+      list.push({ cvss: v.cvss, severity: v.severityKey, id: v.cve });
+      perHost.set(v.host_id, list);
     }
 
-    const osLookup: Record<string, string> = {};
-    if (dbHosts && Array.isArray(dbHosts)) {
-      for (const dbHost of dbHosts as { ip?: string; os?: string }[]) {
-        if (dbHost.ip && dbHost.os && dbHost.os !== "Unknown") {
-          osLookup[dbHost.ip] = dbHost.os;
-        }
-      }
-    }
+    const toRow = (
+      ip: string,
+      key: string,
+      hostname: string,
+      sources: string[],
+    ): ScanHostRow => {
+      const findings = perHost.get(ip) ?? perHost.get(key) ?? [];
+      const risk = hostRisk(findings);
+      const saved = inventoryByIp.get(ip);
+      const maxCvss = findings.reduce((m, f) => Math.max(m, f.cvss), 0);
+      return {
+        hostname,
+        ip,
+        os: saved?.os || "unknown",
+        vulnerabilityCount: findings.length,
+        maxCvss,
+        groups: [],
+        tags: [],
+        scan_sources: sources,
+        riskScore: risk.riskScore,
+        riskBand: risk.riskBand,
+        ...(risk.riskCve ? { riskCve: risk.riskCve } : {}),
+        counts: risk.counts,
+        findings: findings.length,
+        inInventory: inventoryIps.has(ip),
+        openPorts: saved?.openPorts ?? [],
+      };
+    };
 
-    let mappedHosts: EnvironmentTableData[];
+    let mappedHosts: ScanHostRow[];
 
     if (hosts.length > 0) {
-      mappedHosts = hosts.map((host: HostEntry) => ({
-        hostname: host.hostname || host.ip,
-        ip: host.ip,
-        os: osLookup[host.ip] || osLookup[host.id] || "unknown",
-        vulnerabilityCount:
-          perHostVulnCount[host.ip] ?? perHostVulnCount[host.id] ?? 0,
-        maxCvss: perHostMaxCvss[host.ip] ?? perHostMaxCvss[host.id] ?? 0,
-        groups: [],
-        tags: [],
-        scan_sources: host.sources || [],
-      }));
+      mappedHosts = hosts.map((host: HostEntry) =>
+        toRow(host.ip, host.id, host.hostname || host.ip, host.sources || []),
+      );
     } else {
       // Hosts not decoded yet but agent vulns present — show rows from host_id so findings don't vanish.
-      const hostKeys = new Set<string>();
-      for (const v of vulnerabilities) {
-        if (v.host_id) {
-          hostKeys.add(v.host_id);
-        }
-      }
-      mappedHosts = Array.from(hostKeys).map((hid) => ({
-        hostname: hid,
-        ip: hid,
-        os: osLookup[hid] || "unknown",
-        vulnerabilityCount: perHostVulnCount[hid] ?? 0,
-        maxCvss: perHostMaxCvss[hid] ?? 0,
-        groups: [],
-        tags: [],
-        scan_sources: ["agent"],
-      }));
+      mappedHosts = Array.from(perHost.keys()).map((hid) =>
+        toRow(hid, hid, hid, ["agent"]),
+      );
     }
 
     return {
       hostList: mappedHosts,
       vulnerabilityList: mappedVulnerabilities,
+      inventoryIps,
     };
-  }, [hosts, vulnerabilities, dbHosts]);
+  }, [hosts, vulnerabilities, inventory]);
 }

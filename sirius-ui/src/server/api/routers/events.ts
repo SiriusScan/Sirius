@@ -33,6 +33,27 @@ export type EventStats = {
   recent_events: Event[];
 };
 
+/**
+ * Event types that describe the security posture (what was scanned, found and
+ * added). Everything else (request errors, performance metrics, internal
+ * business events) is system telemetry and belongs in System Monitor.
+ */
+export const SECURITY_EVENT_TYPES = [
+  "scan_started",
+  "scan_completed",
+  "host_discovered",
+  "host_created",
+  "vulnerabilities_found",
+] as const;
+
+export type EventCategory = "security" | "system";
+
+export function eventCategory(event: Pick<Event, "event_type">): EventCategory {
+  return (SECURITY_EVENT_TYPES as readonly string[]).includes(event.event_type)
+    ? "security"
+    : "system";
+}
+
 export const eventsRouter = createTRPCRouter({
   /**
    * Get events with optional filters
@@ -113,12 +134,34 @@ export const eventsRouter = createTRPCRouter({
       z
         .object({
           limit: z.number().min(1).max(100).optional().default(50),
+          category: z.enum(["security", "system"]).optional(),
         })
         .optional()
     )
     .query(async ({ input }) => {
       try {
         const limit = input?.limit ?? 50;
+
+        // Security events: ask for each security type and keep the newest.
+        if (input?.category === "security") {
+          const pages = await Promise.all(
+            SECURITY_EVENT_TYPES.map((eventType) =>
+              apiClient.get<{ events: Event[] | null; total: number }>(
+                "/api/v1/events",
+                { params: { limit, offset: 0, event_type: eventType } },
+              ),
+            ),
+          );
+          const events = pages
+            .flatMap((page) => page.data.events ?? [])
+            .sort(
+              (a, b) =>
+                new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+            )
+            .slice(0, limit);
+          const total = pages.reduce((sum, page) => sum + (page.data.total ?? 0), 0);
+          return { events, total };
+        }
 
         const response = await apiClient.get<{
           events: Event[];
@@ -132,8 +175,14 @@ export const eventsRouter = createTRPCRouter({
           },
         });
 
+        const events =
+          input?.category === "system"
+            ? (response.data.events ?? []).filter(
+                (event) => eventCategory(event) === "system",
+              )
+            : response.data.events;
         return {
-          events: response.data.events,
+          events,
           total: response.data.total,
         };
       } catch (error) {

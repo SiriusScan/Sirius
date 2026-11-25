@@ -172,10 +172,12 @@ export interface HostHistoryTimeline {
 
 // ─── Persistence Schema ─────────────────────────────────────────────────────
 
+/**
+ * Per-viewer conveniences kept in localStorage. Tabs are not stored: the
+ * host tab lives in `?tab=` and the System section in `?sub=` (ADR-6).
+ */
 export interface HostPersistenceState {
   version: number;
-  activeTab: TabType;
-  systemSubTab: SystemSubTab;
   collapsedSections: Record<string, boolean>;
   /** Filter state for the vulnerability tab */
   vulnSourceFilter: string[];

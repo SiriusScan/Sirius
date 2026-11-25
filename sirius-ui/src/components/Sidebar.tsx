@@ -9,9 +9,21 @@ const Sidebar = () => {
   const router = useRouter();
   const { hasAll } = useCapabilities();
   const [mounted, setMounted] = useState(false);
-  const navigationItems = uiExtensionRegistry.navigationItems.filter((item) =>
+  const visibleItems = uiExtensionRegistry.navigationItems.filter((item) =>
     hasAll(item.requiredCapabilities ?? []),
   );
+  const navigationItems = visibleItems.filter(
+    (item) => (item.placement ?? "main") === "main",
+  );
+  // Extension items pinned to the bottom of the sidebar; none in Community,
+  // so its sidebar renders only the main group, exactly as before.
+  const footerItems = visibleItems.filter((item) => item.placement === "footer");
+  const groups = [
+    { id: "main", className: "ml-1 space-y-2", items: navigationItems, offset: 0 },
+    ...(footerItems.length > 0
+      ? [{ id: "footer", className: "absolute bottom-3 left-2 ml-1 space-y-2", items: footerItems, offset: navigationItems.length }]
+      : []),
+  ];
 
   useEffect(() => {
     setMounted(true);
@@ -23,7 +35,7 @@ const Sidebar = () => {
         {/* Sirius Logo */}
         <Tooltip.Root>
           <Tooltip.Trigger asChild>
-            <Link href="/dashboard" aria-label="Dashboard" passHref>
+            <Link href="/dashboard" passHref>
               <div
                 className={`
                   group relative mb-2 flex h-16 w-16 cursor-pointer items-center justify-center 
@@ -85,96 +97,99 @@ const Sidebar = () => {
         <div className="mb-1 h-px w-full bg-gradient-to-r from-transparent via-violet-500/20 to-transparent" />
 
         {/* Navigation Items */}
-        <div className="ml-1 space-y-2">
-          {navigationItems.map((item, index) => {
-            const Icon = item.icon;
-            const isActive = item.matchPaths.some((path) =>
-              router.pathname === path ||
-              router.pathname.startsWith(`${path}/`),
-            );
+        {groups.map((group) => (
+          <div key={group.id} className={group.className}>
+          {group.items.map((item, itemIndex) => {
+            const index = group.offset + itemIndex;
+              const Icon = item.icon;
+              const isActive = item.matchPaths.some((path) =>
+                router.pathname === path ||
+                router.pathname.startsWith(`${path}/`),
+              );
 
-            return (
-              <Tooltip.Root key={item.href}>
-                <Tooltip.Trigger asChild>
-                  <Link href={item.href} aria-label={item.label} passHref>
-                    <div
-                      className="group relative block cursor-pointer"
-                      style={{
-                        animation: mounted
-                          ? `fade-in-up 0.4s ease-out forwards`
-                          : "none",
-                        animationDelay: `${(index + 1) * 0.1}s`,
-                        opacity: mounted ? 1 : 0,
-                      }}
-                    >
+              return (
+                <Tooltip.Root key={item.href}>
+                  <Tooltip.Trigger asChild>
+                    <Link href={item.href} passHref>
                       <div
-                        className={`
-                          relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl
-                          transition-all duration-200 ease-out
-                          ${
-                            isActive
-                              ? "scale-105"
-                              : "scale-100 group-hover:scale-105 group-hover:bg-white/5"
-                          }
-                        `}
-                        onClick={(e) => {
-                          // Prevent double navigation if already on the current page
-                          if (router.pathname === item.href) {
-                            e.preventDefault();
-                          }
+                        className="group relative block cursor-pointer"
+                        style={{
+                          animation: mounted
+                            ? `fade-in-up 0.4s ease-out forwards`
+                            : "none",
+                          animationDelay: `${(index + 1) * 0.1}s`,
+                          opacity: mounted ? 1 : 0,
                         }}
                       >
-                        {/* Clean selected state background - only when active */}
-                        {isActive && (
-                          <>
-                            {/* Main background with softer glassmorphism */}
-                            <div className="from-violet-500/15 to-purple-600/15 absolute inset-0 rounded-xl bg-gradient-to-br via-violet-600/10 backdrop-blur-sm" />
-
-                            {/* Subtle border glow */}
-                            <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-violet-400/10" />
-
-                            {/* Sleek full-height left accent bar */}
-                            <div className="absolute left-0 top-0 h-full w-0.5 bg-gradient-to-b from-violet-400 via-violet-500 to-violet-400" />
-                          </>
-                        )}
-
-                        {/* Icon with smooth animations */}
                         <div
                           className={`
-                            relative z-10 transition-all duration-200
+                            relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl
+                            transition-all duration-200 ease-out
                             ${
                               isActive
-                                ? "scale-105 text-white"
-                                : "text-white/80 group-hover:text-white group-hover:scale-105"
+                                ? "scale-105"
+                                : "scale-100 group-hover:scale-105 group-hover:bg-white/5"
                             }
                           `}
+                          onClick={(e) => {
+                            // Prevent double navigation if already on the current page
+                            if (router.pathname === item.href) {
+                              e.preventDefault();
+                            }
+                          }}
                         >
-                          <Icon
-                            className="transition-all duration-200"
-                            width="35px"
-                            height="35px"
-                            stroke="currentColor"
-                            fill="currentColor"
-                          />
+                          {/* Clean selected state background - only when active */}
+                          {isActive && (
+                            <>
+                              {/* Main background with softer glassmorphism */}
+                              <div className="from-violet-500/15 to-purple-600/15 absolute inset-0 rounded-xl bg-gradient-to-br via-violet-600/10 backdrop-blur-sm" />
+
+                              {/* Subtle border glow */}
+                              <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-violet-400/10" />
+
+                              {/* Sleek full-height left accent bar */}
+                              <div className="absolute left-0 top-0 h-full w-0.5 bg-gradient-to-b from-violet-400 via-violet-500 to-violet-400" />
+                            </>
+                          )}
+
+                          {/* Icon with smooth animations */}
+                          <div
+                            className={`
+                              relative z-10 transition-all duration-200
+                              ${
+                                isActive
+                                  ? "scale-105 text-white"
+                                  : "text-white/80 group-hover:text-white group-hover:scale-105"
+                              }
+                            `}
+                          >
+                            <Icon
+                              className="transition-all duration-200"
+                              width="35px"
+                              height="35px"
+                              stroke="currentColor"
+                              fill="currentColor"
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Link>
-                </Tooltip.Trigger>
-                <Tooltip.Portal>
-                  <Tooltip.Content
-                    side="right"
-                    sideOffset={12}
-                    className="animate-fade-in-up z-50 rounded-md border border-violet-500/30 bg-violet-950 px-3 py-2 text-sm font-medium text-white shadow-lg"
-                  >
-                    {item.label}
-                    <Tooltip.Arrow className="fill-violet-950" />
-                  </Tooltip.Content>
-                </Tooltip.Portal>
-              </Tooltip.Root>
-            );
+                    </Link>
+                  </Tooltip.Trigger>
+                  <Tooltip.Portal>
+                    <Tooltip.Content
+                      side="right"
+                      sideOffset={12}
+                      className="animate-fade-in-up z-50 rounded-md border border-violet-500/30 bg-violet-950 px-3 py-2 text-sm font-medium text-white shadow-lg"
+                    >
+                      {item.label}
+                      <Tooltip.Arrow className="fill-violet-950" />
+                    </Tooltip.Content>
+                  </Tooltip.Portal>
+                </Tooltip.Root>
+              );
           })}
-        </div>
+          </div>
+        ))}
       </nav>
     </Tooltip.Provider>
   );

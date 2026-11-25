@@ -1,26 +1,29 @@
 /**
- * EnvironmentSoftwareInventory — Extracted from environment.tsx.
- * Displays the full SBOM software inventory with search, filters, and detail modal.
- * V4 dark-first styling with violet accents.
+ * EnvironmentSoftwareInventory — the Environment page's Software tab: every
+ * package the Sirius agent reported, across hosts, with search, filters, an
+ * SBOM export and a details dialog.
+ *
+ * Packages come only from the agent; a network scan can't see them, so an
+ * empty inventory says so and points to the agent. The API does not yet
+ * correlate packages with vulnerabilities (vulnerability_count is always 0),
+ * so this view makes no security claim about a package.
  */
 
-import React, { useMemo, useState } from "react";
-import { type EnvironmentTableData } from "~/server/api/routers/host";
+import React, { useEffect, useMemo, useState } from "react";
+import { ChevronDown, Download, Eye, Search, Server, SlidersHorizontal, X } from "lucide-react";
 import { api } from "~/utils/api";
 import { cn } from "~/components/lib/utils";
-import { SeverityBadge } from "~/components/shared/SeverityBadge";
+import { Skeleton } from "~/components/lib/ui/skeleton";
 import {
-  Search,
-  Filter,
-  Package,
-  AlertTriangle,
-  Shield,
-  ChevronDown,
-  X,
-  Eye,
-  Server,
-  Download,
-} from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/lib/ui/dialog";
+import { EmptyState } from "~/components/shared/EmptyState";
+import { formatDateTime } from "~/utils/formatDateTime";
+import type { EnvironmentTableData } from "~/server/api/routers/host";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,610 +36,441 @@ interface EnvironmentPackage {
   host_count: number;
   hosts: string[];
   install_dates?: string[];
-  vulnerability_count?: number;
   size_mb?: number;
+  size_bytes?: number;
   description?: string;
   cpe?: string;
   dependencies?: string[];
-  size_bytes?: number;
   latest_install_date?: string;
-  oldest_install_date?: string;
 }
 
 interface PackageFilters {
   search: string;
   publisher: string;
   architecture: string;
-  vulnerabilityStatus: "all" | "vulnerable" | "clean";
   source: string;
-  sizeRange: "all" | "small" | "medium" | "large";
-  hasVulnerabilities: "all" | "yes" | "no";
 }
 
-interface EnvironmentSoftwareInventoryProps {
-  softwareStats: any;
-  hosts: EnvironmentTableData[];
+const NO_FILTERS: PackageFilters = { search: "", publisher: "", architecture: "", source: "" };
+
+/** The operator console's Agent view. */
+const AGENT_HREF = "/terminal?view=agent";
+
+export interface EnvironmentSoftwareInventoryProps {
+  /** Unused; kept so older callers still type. */
+  softwareStats?: unknown;
+  /** Unused; kept so older callers still type. */
+  hosts?: EnvironmentTableData[];
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function sizeLabel(pkg: Pick<EnvironmentPackage, "size_mb" | "size_bytes">): string | null {
+  if (pkg.size_mb) return `${pkg.size_mb.toFixed(1)} MB`;
+  if (pkg.size_bytes) return `${(pkg.size_bytes / 1024 / 1024).toFixed(1)} MB`;
+  return null;
+}
+
+function latestInstall(pkg: EnvironmentPackage): string | null {
+  if (pkg.latest_install_date) return pkg.latest_install_date;
+  const times = (pkg.install_dates ?? [])
+    .map((d) => Date.parse(d))
+    .filter((t) => Number.isFinite(t));
+  return times.length > 0 ? new Date(Math.max(...times)).toISOString() : null;
+}
+
+function unique(values: Array<string | undefined>): string[] {
+  return [...new Set(values.filter((v): v is string => !!v))].sort((a, b) => a.localeCompare(b));
+}
+
+const selectClass =
+  "mt-1 h-8 w-full rounded-md border border-gray-700/70 bg-gray-900/60 px-2 text-xs text-gray-200 focus:border-violet-500/50 focus:outline-none";
+const toolbarButton =
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border border-gray-700/70 px-2.5 text-xs font-medium text-gray-300 transition-colors hover:border-gray-600 hover:bg-gray-800/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 disabled:cursor-default disabled:opacity-40";
+
+function Detail({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{label}</dt>
+      <dd className="mt-0.5 truncate text-sm text-gray-200">{children}</dd>
+    </div>
+  );
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export const EnvironmentSoftwareInventory: React.FC<
-  EnvironmentSoftwareInventoryProps
-> = ({ softwareStats, hosts }) => {
-  const [filters, setFilters] = useState<PackageFilters>({
-    search: "",
-    publisher: "",
-    architecture: "",
-    vulnerabilityStatus: "all",
-    source: "",
-    sizeRange: "all",
-    hasVulnerabilities: "all",
-  });
-  const [selectedPackage, setSelectedPackage] =
-    useState<EnvironmentPackage | null>(null);
+export const EnvironmentSoftwareInventory: React.FC<EnvironmentSoftwareInventoryProps> = () => {
+  const [filters, setFilters] = useState<PackageFilters>(NO_FILTERS);
+  const [search, setSearch] = useState("");
+  const [selectedPackage, setSelectedPackage] = useState<EnvironmentPackage | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Fetch environment software inventory
-  const { data: packageInventory, isLoading: isPackageLoading } =
-    api.host.getEnvironmentSoftwareInventory.useQuery(
-      {
-        search: filters.search,
-        publisher: filters.publisher || undefined,
-        architecture: filters.architecture || undefined,
-        vulnerability_status:
-          filters.vulnerabilityStatus !== "all"
-            ? filters.vulnerabilityStatus
-            : undefined,
-        source: filters.source || undefined,
-        limit: 100,
-      },
-      {
-        enabled: true,
-        staleTime: 2 * 60 * 1000,
-        refetchOnWindowFocus: false,
-      },
-    );
+  // Search the server after typing pauses, not on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setFilters((f) => (f.search === search ? f : { ...f, search })), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  // Get unique filter options
-  const filterOptions = useMemo(() => {
-    if (!packageInventory?.packages)
-      return { publishers: [], architectures: [], sources: [] };
+  const inventoryQuery = api.host.getEnvironmentSoftwareInventory.useQuery(
+    {
+      search: filters.search,
+      publisher: filters.publisher || undefined,
+      architecture: filters.architecture || undefined,
+      source: filters.source || undefined,
+      limit: 100,
+    },
+    {
+      staleTime: 2 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      keepPreviousData: true,
+    },
+  );
+  const inventory = inventoryQuery.data;
+  const packages = useMemo(
+    () => (inventory?.packages ?? []) as EnvironmentPackage[],
+    [inventory],
+  );
 
-    const publishers = [
-      ...new Set(
-        packageInventory.packages.map((p: any) => p.publisher).filter(Boolean),
-      ),
-    ];
-    const architectures = [
-      ...new Set(
-        packageInventory.packages
-          .map((p: any) => p.architecture)
-          .filter(Boolean),
-      ),
-    ];
-    const sources = [
-      ...new Set(
-        packageInventory.packages.map((p: any) => p.source).filter(Boolean),
-      ),
-    ];
+  const filterOptions = useMemo(
+    () => ({
+      publishers: unique(packages.map((p) => p.publisher)),
+      architectures: unique(packages.map((p) => p.architecture)),
+      sources: unique(packages.map((p) => p.source)),
+    }),
+    [packages],
+  );
 
-    return { publishers, architectures, sources };
-  }, [packageInventory]);
+  const filtering =
+    !!filters.search || !!filters.publisher || !!filters.architecture || !!filters.source;
+  const activeFilterCount = [filters.publisher, filters.architecture, filters.source].filter(Boolean).length;
 
-  const handleFilterChange = (key: keyof PackageFilters, value: string) => {
+  const setFilter = (key: Exclude<keyof PackageFilters, "search">, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
-  };
 
   const clearFilters = () => {
-    setFilters({
-      search: "",
-      publisher: "",
-      architecture: "",
-      vulnerabilityStatus: "all",
-      source: "",
-      sizeRange: "all",
-      hasVulnerabilities: "all",
-    });
+    setSearch("");
+    setFilters(NO_FILTERS);
   };
 
-  const getVulnerabilityBadge = (count?: number) => {
-    if (!count || count === 0) {
-      return (
-        <span className="inline-flex items-center rounded-full bg-green-500/20 px-2 py-1 text-xs font-medium text-green-300">
-          <Shield className="mr-1 h-3 w-3" />
-          Clean
-        </span>
-      );
-    }
-
-    const severity = count >= 5 ? "critical" : count >= 2 ? "high" : "medium";
-
-    return (
-      <span className="inline-flex items-center gap-1.5">
-        <SeverityBadge severity={severity} />
-        <AlertTriangle className="h-3 w-3 shrink-0" />
-        <span className="text-xs">{count} vulns</span>
-      </span>
-    );
+  const exportSbom = () => {
+    const exportData = {
+      timestamp: new Date().toISOString(),
+      total_packages: inventory?.total_packages ?? 0,
+      total_hosts: inventory?.total_hosts ?? 0,
+      packages,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `sirius-sbom-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
-  if (isPackageLoading) {
+  // ── States ────────────────────────────────────────────────────────────
+  if (inventoryQuery.isError && !inventory) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-t-2 border-violet-500" />
-        <span className="ml-2 text-gray-400">
-          Loading software inventory...
-        </span>
-      </div>
+      <EmptyState
+        variant="error"
+        title="Couldn't load software"
+        reason="The Sirius API didn't answer. The rest of the page still works."
+        primary={{ label: "Retry", onClick: () => void inventoryQuery.refetch() }}
+      />
     );
   }
 
+  if (!inventoryQuery.isLoading && packages.length === 0 && !filtering) {
+    return (
+      <EmptyState
+        variant="needs-agent"
+        title="No software inventory yet"
+        reason="A network scan can't see installed packages. Install the Sirius agent on a host to list its software here."
+        primary={{ label: "Get the agent", href: AGENT_HREF }}
+      />
+    );
+  }
+
+  const total = inventory?.total_packages ?? 0;
+
   return (
-    <div className="space-y-6">
-      {/* Software Inventory Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Package className="h-6 w-6 text-violet-400" />
-          <h2 className="text-xl font-semibold text-gray-100">
-            Software Inventory
-          </h2>
-          <span className="rounded-full bg-violet-500/20 px-3 py-1 text-sm font-medium text-violet-300">
-            {packageInventory?.total_packages || 0} packages
-          </span>
-        </div>
+    <section className="scanner-section scanner-section-padding" aria-label="Software">
+      {/* Filter row */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <label className="relative flex min-w-[14rem] max-w-xs flex-1 items-center">
+          <span className="sr-only">Search packages</span>
+          <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-gray-500" aria-hidden />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search packages by name"
+            className="h-8 w-full rounded-md border border-gray-700/70 bg-gray-900/60 pl-8 pr-7 text-xs text-gray-200 placeholder:text-gray-500 focus:border-violet-500/50 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-1.5 rounded p-0.5 text-gray-500 hover:text-gray-300"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </label>
+        <span className="text-xs tabular-nums text-gray-500">
+          {total.toLocaleString("en-US")} package{total === 1 ? "" : "s"}
+        </span>
+        <span className="flex-1" />
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              const exportData = {
-                timestamp: new Date().toISOString(),
-                total_packages: packageInventory?.total_packages || 0,
-                total_hosts: packageInventory?.total_hosts || 0,
-                packages: packageInventory?.packages || [],
-              };
-              const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-                type: "application/json",
-              });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement("a");
-              link.href = url;
-              link.download = `sirius-sbom-${new Date().toISOString().split("T")[0]}.json`;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              URL.revokeObjectURL(url);
-            }}
-            className="flex items-center gap-2 rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:border-violet-500/30 hover:bg-gray-900/70"
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            aria-expanded={showFilters}
+            className={cn(toolbarButton, activeFilterCount > 0 && "border-violet-500/40 bg-violet-500/15 text-violet-200")}
           >
-            <Download className="h-4 w-4" />
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-violet-500/25 px-1.5 text-[10px] leading-4 tabular-nums">
+                {activeFilterCount}
+              </span>
+            )}
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showFilters && "rotate-180")} aria-hidden />
+          </button>
+          <button type="button" onClick={exportSbom} disabled={packages.length === 0} className={toolbarButton}>
+            <Download className="h-3.5 w-3.5" aria-hidden />
             Export SBOM
           </button>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-2 text-sm font-medium text-gray-300 transition-colors hover:border-violet-500/30 hover:bg-gray-900/70"
-          >
-            <Filter className="h-4 w-4" />
-            Filters
-            <ChevronDown
-              className={cn(
-                "h-4 w-4 transition-transform",
-                showFilters && "rotate-180",
-              )}
-            />
-          </button>
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="space-y-4">
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search packages by name..."
-            value={filters.search}
-            onChange={(e) => handleFilterChange("search", e.target.value)}
-            className="w-full rounded-md border border-violet-500/20 bg-gray-900/50 py-2 pl-10 pr-4 text-sm text-gray-200 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
-          />
-        </div>
-
-        {/* Filter Panel */}
-        {showFilters && (
-          <div className="grid grid-cols-1 gap-4 rounded-lg border border-violet-500/20 bg-gray-900/50 p-4 md:grid-cols-3 lg:grid-cols-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-300">
-                Publisher
-              </label>
-              <select
-                value={filters.publisher}
-                onChange={(e) =>
-                  handleFilterChange("publisher", e.target.value)
-                }
-                className="mt-1 w-full rounded-md border border-violet-500/20 bg-gray-900/70 px-3 py-2 text-gray-200"
-              >
-                <option value="">All Publishers</option>
-                {filterOptions.publishers.map((publisher: any) => (
-                  <option key={publisher} value={publisher}>
-                    {publisher}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300">
-                Architecture
-              </label>
-              <select
-                value={filters.architecture}
-                onChange={(e) =>
-                  handleFilterChange("architecture", e.target.value)
-                }
-                className="mt-1 w-full rounded-md border border-violet-500/20 bg-gray-900/70 px-3 py-2 text-gray-200"
-              >
-                <option value="">All Architectures</option>
-                {filterOptions.architectures.map((arch: any) => (
-                  <option key={arch} value={arch}>
-                    {arch}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300">
-                Vulnerability Status
-              </label>
-              <select
-                value={filters.vulnerabilityStatus}
-                onChange={(e) =>
-                  handleFilterChange(
-                    "vulnerabilityStatus",
-                    e.target.value as any,
-                  )
-                }
-                className="mt-1 w-full rounded-md border border-violet-500/20 bg-gray-900/70 px-3 py-2 text-gray-200"
-              >
-                <option value="all">All Packages</option>
-                <option value="vulnerable">Vulnerable</option>
-                <option value="clean">Clean</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300">
-                Source
-              </label>
-              <select
-                value={filters.source}
-                onChange={(e) => handleFilterChange("source", e.target.value)}
-                className="mt-1 w-full rounded-md border border-violet-500/20 bg-gray-900/70 px-3 py-2 text-gray-200"
-              >
-                <option value="">All Sources</option>
-                {filterOptions.sources.map((source: any) => (
-                  <option key={source} value={source}>
-                    {source}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-300">
-                Package Size
-              </label>
-              <select
-                value={filters.sizeRange}
-                onChange={(e) =>
-                  handleFilterChange("sizeRange", e.target.value as any)
-                }
-                className="mt-1 w-full rounded-md border border-violet-500/20 bg-gray-900/70 px-3 py-2 text-gray-200"
-              >
-                <option value="all">All Sizes</option>
-                <option value="small">Small (&lt;1MB)</option>
-                <option value="medium">Medium (1-50MB)</option>
-                <option value="large">Large (&gt;50MB)</option>
-              </select>
-            </div>
-
-            <div className="flex items-end">
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-2 rounded-md border border-violet-500/20 bg-gray-900/50 px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-900/70"
-              >
-                <X className="h-4 w-4" />
-                Clear
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Package Table */}
-      <div className="scanner-section overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-violet-500/10">
-            <thead className="bg-gray-900/80">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-violet-200/80">
-                  Package
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-violet-200/80">
-                  Publisher
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-violet-200/80">
-                  Architecture
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-violet-200/80">
-                  Size
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-violet-200/80">
-                  Host Count
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-violet-200/80">
-                  Security Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-violet-200/80">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-violet-500/5">
-              {packageInventory?.packages?.map(
-                (pkg: any, index: number) => (
-                  <tr
-                    key={`${pkg.name}-${pkg.version}-${index}`}
-                    className="odd:bg-gray-800/40 even:bg-gray-900/40 hover:bg-violet-500/[0.06] transition-colors"
-                  >
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-gray-100">
-                          {pkg.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          v{pkg.version}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-200">
-                      {pkg.publisher || "Unknown"}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <span className="inline-flex rounded-full bg-blue-500/20 px-2 py-1 text-xs font-medium text-blue-300">
-                        {pkg.architecture || "any"}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-200">
-                      {pkg.size_mb
-                        ? `${pkg.size_mb.toFixed(1)} MB`
-                        : pkg.size_bytes
-                          ? `${(pkg.size_bytes / 1024 / 1024).toFixed(1)} MB`
-                          : "Unknown"}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      <div className="flex items-center">
-                        <Server className="mr-2 h-4 w-4 text-gray-500" />
-                        <span className="text-sm text-gray-200">
-                          {pkg.host_count}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4">
-                      {getVulnerabilityBadge(pkg.vulnerability_count)}
-                    </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm font-medium">
-                      <button
-                        onClick={() => setSelectedPackage(pkg)}
-                        className="text-violet-400 hover:text-violet-300"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ),
-              ) || (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-6 py-4 text-center text-sm text-gray-500"
-                  >
-                    No packages found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Package Details Modal */}
-      {selectedPackage && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-end justify-center px-4 pb-20 pt-4 text-center sm:block sm:p-0">
-            <div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-              onClick={() => setSelectedPackage(null)}
-            />
-
-            <div className="inline-block transform overflow-hidden rounded-lg border border-violet-500/20 bg-gray-900 text-left align-bottom shadow-xl sm:my-8 sm:w-full sm:max-w-2xl sm:align-middle">
-              <div className="p-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium leading-6 text-gray-100">
-                    Package Details
-                  </h3>
-                  <button
-                    onClick={() => setSelectedPackage(null)}
-                    className="text-gray-400 hover:text-gray-200"
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
-
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-100">
-                      {selectedPackage.name}
-                    </h4>
-                    <p className="text-sm text-gray-400">
-                      Version {selectedPackage.version}
-                    </p>
-                    {selectedPackage.description && (
-                      <p className="mt-2 text-sm text-gray-300">
-                        {selectedPackage.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">
-                        Publisher:
-                      </span>
-                      <p className="text-sm text-gray-200">
-                        {selectedPackage.publisher || "Unknown"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">
-                        Architecture:
-                      </span>
-                      <p className="text-sm text-gray-200">
-                        {selectedPackage.architecture || "any"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">
-                        Source:
-                      </span>
-                      <p className="text-sm text-gray-200">
-                        {selectedPackage.source}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">
-                        Size:
-                      </span>
-                      <p className="text-sm text-gray-200">
-                        {selectedPackage.size_mb
-                          ? `${selectedPackage.size_mb.toFixed(1)} MB`
-                          : selectedPackage.size_bytes
-                            ? `${(selectedPackage.size_bytes / 1024 / 1024).toFixed(1)} MB`
-                            : "Unknown"}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">
-                        Host Count:
-                      </span>
-                      <p className="text-sm text-gray-200">
-                        {selectedPackage.host_count}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">
-                        Latest Install:
-                      </span>
-                      <p className="text-sm text-gray-200">
-                        {selectedPackage.latest_install_date
-                          ? new Date(
-                              selectedPackage.latest_install_date,
-                            ).toLocaleDateString()
-                          : selectedPackage.install_dates &&
-                              selectedPackage.install_dates.length > 0
-                            ? new Date(
-                                Math.max(
-                                  ...selectedPackage.install_dates.map((d) =>
-                                    new Date(d).getTime(),
-                                  ),
-                                ),
-                              ).toLocaleDateString()
-                            : "Unknown"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* CPE Identifier */}
-                  {selectedPackage.cpe && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-500">
-                        CPE Identifier:
-                      </span>
-                      <p className="font-mono text-sm text-gray-200">
-                        {selectedPackage.cpe}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Dependencies */}
-                  {selectedPackage.dependencies &&
-                    selectedPackage.dependencies.length > 0 && (
-                      <div>
-                        <span className="text-sm font-medium text-gray-500">
-                          Dependencies:
-                        </span>
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {selectedPackage.dependencies
-                            .slice(0, 10)
-                            .map((dep, index) => (
-                              <span
-                                key={index}
-                                className="inline-flex rounded bg-blue-500/20 px-2 py-1 text-xs font-medium text-blue-300"
-                              >
-                                {dep}
-                              </span>
-                            ))}
-                          {selectedPackage.dependencies.length > 10 && (
-                            <span className="text-xs text-gray-500">
-                              +{selectedPackage.dependencies.length - 10} more
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">
-                      Installed on Hosts:
-                    </span>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {selectedPackage.hosts.map((host) => (
-                        <span
-                          key={host}
-                          className="inline-flex rounded-full border border-violet-500/20 bg-gray-900/50 px-2 py-1 text-xs font-medium text-gray-200"
-                        >
-                          {host}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">
-                      Security Status:
-                    </span>
-                    <div className="mt-2">
-                      {getVulnerabilityBadge(
-                        selectedPackage.vulnerability_count,
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-violet-500/10 px-6 py-4 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  className="mt-3 inline-flex w-full justify-center rounded-md border border-violet-500/20 bg-gray-900/50 px-4 py-2 text-base font-medium text-gray-200 shadow-sm transition-colors hover:bg-gray-900/70 focus:outline-none focus:ring-2 focus:ring-violet-500 sm:ml-3 sm:mt-0 sm:w-auto sm:text-sm"
-                  onClick={() => setSelectedPackage(null)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
+      {showFilters && (
+        <div className="mb-4 grid grid-cols-1 gap-3 rounded-md border border-violet-500/10 bg-gray-900/40 p-3 sm:grid-cols-2 lg:grid-cols-4">
+          <label className="block text-xs text-gray-400">
+            Publisher
+            <select
+              value={filters.publisher}
+              onChange={(e) => setFilter("publisher", e.target.value)}
+              className={selectClass}
+            >
+              <option value="">All publishers</option>
+              {filterOptions.publishers.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-xs text-gray-400">
+            Architecture
+            <select
+              value={filters.architecture}
+              onChange={(e) => setFilter("architecture", e.target.value)}
+              className={selectClass}
+            >
+              <option value="">All architectures</option>
+              {filterOptions.architectures.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-xs text-gray-400">
+            Source
+            <select
+              value={filters.source}
+              onChange={(e) => setFilter("source", e.target.value)}
+              className={selectClass}
+            >
+              <option value="">All sources</option>
+              {filterOptions.sources.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex items-end">
+            <button type="button" onClick={clearFilters} className={toolbarButton}>
+              <X className="h-3.5 w-3.5" aria-hidden />
+              Clear
+            </button>
           </div>
         </div>
       )}
-    </div>
+
+      {/* Package table */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] table-fixed border-collapse text-sm">
+          <colgroup>
+            <col />
+            <col className="w-48" />
+            <col className="w-32" />
+            <col className="w-24" />
+            <col className="w-20" />
+            <col className="w-12" />
+          </colgroup>
+          <thead>
+            <tr className="border-b border-violet-500/10 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <th scope="col" className="px-3 py-2">Package</th>
+              <th scope="col" className="px-3 py-2">Publisher</th>
+              <th scope="col" className="px-3 py-2">Architecture</th>
+              <th scope="col" className="px-3 py-2">Size</th>
+              <th scope="col" className="px-3 py-2 text-right">Hosts</th>
+              <th scope="col" className="px-3 py-2">
+                <span className="sr-only">Details</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {inventoryQuery.isLoading &&
+              Array.from({ length: 4 }, (_, i) => (
+                <tr key={`skeleton-${i}`} className="border-b border-violet-500/5">
+                  {Array.from({ length: 5 }, (__, j) => (
+                    <td key={j} className="px-3 py-3">
+                      <Skeleton className="h-3 w-full max-w-[8rem] bg-gray-800" />
+                    </td>
+                  ))}
+                  <td />
+                </tr>
+              ))}
+
+            {!inventoryQuery.isLoading && packages.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-3 py-10 text-center text-sm text-gray-500">
+                  <span className="inline-flex items-center gap-2">
+                    No packages match
+                    <button type="button" onClick={clearFilters} className="text-violet-400 hover:text-violet-300">
+                      Clear filters
+                    </button>
+                  </span>
+                </td>
+              </tr>
+            )}
+
+            {!inventoryQuery.isLoading &&
+              packages.map((pkg, index) => (
+                <tr
+                  key={`${pkg.name}-${pkg.version}-${pkg.architecture}-${index}`}
+                  onClick={() => setSelectedPackage(pkg)}
+                  className="cursor-pointer border-b border-violet-500/5 transition-colors hover:bg-violet-500/5"
+                >
+                  <td className="overflow-hidden px-3 py-2.5">
+                    <div className="truncate font-medium text-gray-100" title={pkg.name}>
+                      {pkg.name}
+                    </div>
+                    <div className="truncate font-mono text-xs text-gray-500">{pkg.version}</div>
+                  </td>
+                  <td className="truncate px-3 py-2.5 text-gray-300">{pkg.publisher || "—"}</td>
+                  <td className="px-3 py-2.5">
+                    <span className="rounded border border-gray-700/70 bg-gray-800/60 px-1.5 py-0.5 font-mono text-[11px] text-gray-300">
+                      {pkg.architecture || "any"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-xs tabular-nums text-gray-400">{sizeLabel(pkg) ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums text-gray-300">
+                    {pkg.host_count.toLocaleString("en-US")}
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPackage(pkg);
+                      }}
+                      aria-label={`Details for ${pkg.name}`}
+                      className="rounded p-1 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300"
+                    >
+                      <Eye className="h-4 w-4" aria-hidden />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+
+      {!inventoryQuery.isLoading && packages.length > 0 && total > packages.length && (
+        <p className="mt-3 text-xs text-gray-500">
+          Showing the first {packages.length.toLocaleString("en-US")} of {total.toLocaleString("en-US")}. Search to
+          narrow the list.
+        </p>
+      )}
+
+      {/* Package details (portaled above the header by Dialog) */}
+      <Dialog open={!!selectedPackage} onOpenChange={(open) => !open && setSelectedPackage(null)}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto border-violet-500/20 bg-gray-900 text-gray-100">
+          {selectedPackage && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-base text-white">{selectedPackage.name}</DialogTitle>
+                <DialogDescription className="font-mono text-xs text-gray-400">
+                  {selectedPackage.version}
+                </DialogDescription>
+              </DialogHeader>
+              {selectedPackage.description && (
+                <p className="text-sm text-gray-300">{selectedPackage.description}</p>
+              )}
+              <dl className="grid grid-cols-2 gap-4">
+                <Detail label="Publisher">{selectedPackage.publisher || "—"}</Detail>
+                <Detail label="Architecture">{selectedPackage.architecture || "any"}</Detail>
+                <Detail label="Source">{selectedPackage.source || "—"}</Detail>
+                <Detail label="Size">{sizeLabel(selectedPackage) ?? "—"}</Detail>
+                <Detail label="Hosts">{selectedPackage.host_count.toLocaleString("en-US")}</Detail>
+                <Detail label="Latest install">{formatDateTime(latestInstall(selectedPackage))}</Detail>
+              </dl>
+              {selectedPackage.cpe && (
+                <Detail label="CPE">
+                  <span className="font-mono text-xs">{selectedPackage.cpe}</span>
+                </Detail>
+              )}
+              {selectedPackage.dependencies && selectedPackage.dependencies.length > 0 && (
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                    Dependencies
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {selectedPackage.dependencies.slice(0, 10).map((dep) => (
+                      <span
+                        key={dep}
+                        className="rounded border border-gray-700/70 bg-gray-800/60 px-1.5 py-0.5 font-mono text-[11px] text-gray-300"
+                      >
+                        {dep}
+                      </span>
+                    ))}
+                    {selectedPackage.dependencies.length > 10 && (
+                      <span className="text-xs text-gray-500">
+                        +{selectedPackage.dependencies.length - 10} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                  Installed on
+                </div>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {selectedPackage.hosts.map((host) => (
+                    <span
+                      key={host}
+                      className="inline-flex items-center gap-1 rounded-md border border-violet-500/20 bg-gray-900/50 px-2 py-0.5 text-xs text-gray-200"
+                    >
+                      <Server className="h-3 w-3 text-gray-500" aria-hidden />
+                      {host}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </section>
   );
 };
 

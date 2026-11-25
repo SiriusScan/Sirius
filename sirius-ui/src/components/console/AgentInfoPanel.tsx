@@ -7,6 +7,7 @@ import {
   Server,
   ChevronRight,
 } from "lucide-react";
+import { formatLastSeen } from "./agentStatus";
 import type { DisplayedAgentDetails } from "./types";
 
 interface AgentInfoPanelProps {
@@ -28,22 +29,6 @@ export const AgentInfoPanel: React.FC<AgentInfoPanelProps> = ({
   onRefresh,
   onViewDetails,
 }) => {
-  const formatLastSeen = (isoString: string | null | undefined): string => {
-    if (!isoString) return "Never";
-    try {
-      const date = new Date(isoString);
-      const seconds = Math.round((Date.now() - date.getTime()) / 1000);
-      if (seconds < 60) return `${seconds}s ago`;
-      const minutes = Math.round(seconds / 60);
-      if (minutes < 60) return `${minutes}m ago`;
-      const hours = Math.round(minutes / 60);
-      if (hours < 24) return `${hours}h ago`;
-      return date.toLocaleString();
-    } catch {
-      return "Invalid Date";
-    }
-  };
-
   const isOnline = details.status?.toLowerCase() === "online";
 
   return (

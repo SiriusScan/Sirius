@@ -1070,8 +1070,13 @@ const TemplateEditorTab: React.FC<TemplateEditorTabProps> = ({
                           <Badge
                             variant="outline"
                             className="bg-violet-800/20 text-violet-200"
+                            title={
+                              protocol === "*"
+                                ? "The script manifest records no protocol for these scripts"
+                                : undefined
+                            }
                           >
-                            {protocol}
+                            {protocol === "*" ? "Unclassified" : protocol}
                           </Badge>
                           <span className="text-sm text-gray-400">
                             {protocolScripts.length}{" "}

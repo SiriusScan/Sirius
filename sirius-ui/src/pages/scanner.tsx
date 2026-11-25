@@ -1,460 +1,368 @@
-// In src/components/scanner/Scanner.tsx
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter } from "next/router";
-import Layout from "~/components/Layout";
-import { parseTargets, type ParsedTarget } from "~/utils/targetParser";
-import { ScanStatus } from "~/components/scanner/ScanStatusPanel";
-import { EnvironmentDataTable } from "~/components/EnvironmentDataTable";
+/**
+ * Scanner (R03, ADR-7): for running and watching scans only. Profiles,
+ * scripts, templates and agent settings live in Settings › Scanning.
+ *
+ * - No scan yet: the form.
+ * - A scan running: the running scan (one Stop beside its progress) replaces
+ *   the form, followed by this scan's findings, the hosts it found and its
+ *   findings table. The backend runs one scan at a time, so there is no
+ *   queue; the form comes back when the scan ends.
+ * - A scan ended: the same layout reads "Scan completed"; "New scan" opens
+ *   the form.
+ *
+ * Numbers here are this scan's only (ADR-2); inventory totals live on the
+ * Dashboard, whose summary is refreshed when a scan ends.
+ */
 
-import {
-  type VulnerabilityTableData,
-  type AgentScanConfig,
-} from "~/types/scanTypes";
-import {
-  generateVulnerabilityReportHtml,
-  openReportInNewWindow,
-} from "~/utils/reportGenerator";
-import { useScanResults } from "~/hooks/useScanResults";
-import { useScanDataMapping } from "~/hooks/useScanDataMapping";
-import { useScanOrchestration } from "~/hooks/useScanOrchestration";
-import { Button } from "~/components/lib/ui/button";
-import { type ScanProfile } from "~/types/scanTypes";
-import ProfileManager from "~/components/scanner/profile/ProfileManager";
-import AdvancedView from "~/components/scanner/AdvancedView";
-import { VulnerabilityTable } from "~/components/VulnerabilityTable";
-import { scannerVulnerabilityColumns } from "~/components/ScannerVulnerabilityColumns";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { RotateCw, SlidersHorizontal } from "lucide-react";
+import Layout from "~/components/Layout";
 import ScanIcon from "~/components/icons/ScanIcon";
+import { Button } from "~/components/lib/ui/button";
+import { Skeleton } from "~/components/lib/ui/skeleton";
+import { EmptyState } from "~/components/shared/EmptyState";
+import { HeaderChip, PageHeader } from "~/components/shared/PageHeader";
+import { isScanActive } from "~/components/shared/scanSummary";
+import { useSeverityParam } from "~/components/shared/useSeverityParam";
+import { MANAGE_PROFILES_HREF, ScanControls } from "~/components/scanner/ScanControls";
+import { ScanFindingsSummary, ScanFindingsTable } from "~/components/scanner/shared/ScanFindings";
+import { ScanHostsFound } from "~/components/scanner/shared/ScanHostsFound";
+import { ScanRunCard } from "~/components/scanner/shared/ScanRunCard";
 import {
-  Play,
-  Server,
-  AlertTriangle,
-  CheckCircle,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
-import { cn } from "~/components/lib/utils";
-import { scanHostColumns } from "~/components/scanner/ScanHostColumns";
-import { ScanNavigator } from "~/components/scanner/ScanNavigator";
-import { ScanControls } from "~/components/scanner/ScanControls";
+  aggregateScanFindings,
+  isScanEnded,
+  profileInfo,
+  scanProfileId,
+  scanSeverityCounts,
+  scanTargetLabels,
+} from "~/components/scanner/shared/scanRunModel";
+import { useScanDataMapping } from "~/hooks/useScanDataMapping";
+import { useAgentScanSettings } from "~/components/settings/scanning/useAgentScanSettings";
+import { useScanOrchestration } from "~/hooks/useScanOrchestration";
+import { useScanResults } from "~/hooks/useScanResults";
+import { invalidateSummary } from "~/hooks/useSummaryStats";
+import type { HostFreshnessEntry } from "~/types/riskSummary";
+import type { ScanProfile } from "~/types/scanTypes";
+import { api } from "~/utils/api";
+import { formatDateTime } from "~/utils/formatDateTime";
+import { generateVulnerabilityReportHtml, openReportInNewWindow } from "~/utils/reportGenerator";
+import { compareRisk } from "~/utils/risk";
+import { parseTargets, type ParsedTarget } from "~/utils/targetParser";
+
+const PROFILE_STORAGE_KEY = "scanner.selectedProfile";
+const DEFAULT_PROFILE: ScanProfile = "high-risk";
+/** host.getHostFreshness takes at most 50 IPs. */
+const MAX_FRESHNESS_IPS = 50;
+
+function readStoredProfile(): ScanProfile | null {
+  try {
+    return window.localStorage.getItem(PROFILE_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function storeProfile(profile: ScanProfile): void {
+  try {
+    window.localStorage.setItem(PROFILE_STORAGE_KEY, profile);
+  } catch {
+    // Remembering the profile is a convenience; the scan still starts.
+  }
+}
+
+function firstParam(value: string | string[] | undefined): string | undefined {
+  const v = Array.isArray(value) ? value[0] : value;
+  return v?.trim() ? v : undefined;
+}
 
 const ScannerContent: React.FC = () => {
   const router = useRouter();
-  const [activeView, setActiveView] = useState("scan");
-  const [activeTable, setActiveTable] = useState<"host-table" | "vuln-table">(
-    "host-table"
-  );
-  const [targets, setTargets] = useState<string[]>([]);
-  const [parsedTargets, setParsedTargets] = useState<ParsedTarget[]>([]);
-  const [displayScanDetails, setDisplayScanDetails] = useState(true);
-  const scanResults = useScanResults();
+  const utils = api.useContext();
+  const { scanResult: scan, scanStatusQuery } = useScanResults();
   const { hostList, vulnerabilityList } = useScanDataMapping();
-  const [selectedProfile, setSelectedProfileState] = useState<ScanProfile>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("scanner.selectedProfile") ?? "high-risk";
-    }
-    return "high-risk";
-  });
+  const [severities, , toggleSeverity] = useSeverityParam();
+  const { data: profiles } = api.templates.getTemplates.useQuery();
+
+  const status = scan?.status;
+  const scanActive = isScanActive(status);
+
+  // The profile picked in the form, remembered per browser.
+  const [selectedProfile, setSelectedProfileState] = useState<ScanProfile>(DEFAULT_PROFILE);
+  useEffect(() => {
+    const stored = readStoredProfile();
+    if (stored) setSelectedProfileState(stored);
+  }, []);
   const setSelectedProfile = useCallback((profile: ScanProfile) => {
     setSelectedProfileState(profile);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("scanner.selectedProfile", profile);
-    }
+    storeProfile(profile);
   }, []);
-  const [advancedAgentConfig, setAdvancedAgentConfig] = useState<
-    AgentScanConfig | undefined
-  >(undefined);
-  // Vulnerability selection state - reserved for future export/action features
-  const [, setSelectedVulnerabilities] = useState<string[]>([]);
 
-  const scanOrchestration = useScanOrchestration({
-    parsedTargets,
-    targets,
-    selectedProfile,
-    advancedAgentConfig,
-    scanId: scanResults.scanResult?.id,
-    previousScanTargets: scanResults.scanResult?.targets,
+  // The form: shown when there is no scan, or on request once a scan has
+  // ended. A new seed (from ?target= or "Scan again") remounts it.
+  const [parsedTargets, setParsedTargets] = useState<ParsedTarget[]>([]);
+  const [formRequested, setFormRequested] = useState(false);
+  const [formSeed, setFormSeed] = useState<{ key: number; targets: ParsedTarget[] }>({
+    key: 0,
+    targets: [],
   });
+  const openForm = useCallback((targets?: ParsedTarget[]) => {
+    if (targets) setFormSeed((s) => ({ key: s.key + 1, targets }));
+    setFormRequested(true);
+  }, []);
+
+  // ?target=a,b pre-fills the form (rescan links). While a scan runs the
+  // form waits for it to end.
+  const urlTarget = router.isReady ? firstParam(router.query.target) : undefined;
+  useEffect(() => {
+    if (!urlTarget) return;
+    const targets = parseTargets(urlTarget);
+    if (targets.length > 0) openForm(targets);
+  }, [urlTarget, openForm]);
+
+  const { scanConfig: agentScanConfig } = useAgentScanSettings();
   const {
-    handleScan: orchestrationHandleScan,
+    handleScan: startScan,
     handleStopScan,
     handleForceStop,
     handleResetScan,
-    isProfileAgentEnabled,
     isProfileAgentOnly,
     isLoading,
     isStopping,
     stopStage,
-    error,
+    error: startError,
     unconfirmedScanId,
     stopError,
     handleScanStatusChange,
-  } = scanOrchestration;
-
-  // Notify the stop hook when scan status changes (for auto-reset of stop stage)
-  useEffect(() => {
-    handleScanStatusChange(scanResults.scanResult?.status);
-  }, [scanResults.scanResult?.status, handleScanStatusChange]);
-
-  // Parse initial targets from URL query parameters
-  const initialTargetsFromUrl = useMemo((): ParsedTarget[] => {
-    if (!router.isReady) return [];
-    const targetParam = router.query.target;
-    if (!targetParam) return [];
-    const targetValue = Array.isArray(targetParam) ? targetParam[0] : targetParam;
-    if (!targetValue) return [];
-    return parseTargets(targetValue);
-  }, [router.isReady, router.query.target]);
-
-  // Collapsible controls state
-  const [controlsCollapsed, setControlsCollapsed] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("scanner.controlsCollapsed");
-      return stored ? stored === "true" : false;
-    }
-    return false;
+  } = useScanOrchestration({
+    parsedTargets,
+    targets: parsedTargets.map((t) => t.value),
+    selectedProfile,
+    // Agent scanning defaults from Settings › Scanning (used only when
+    // enabled there); a profile's own agent settings still take precedence.
+    advancedAgentConfig: agentScanConfig,
+    scanId: scan?.id,
   });
 
-  // Force-expand controls when arriving with a ?target= param so the
-  // pre-filled target is immediately visible to the operator.
+  // Reset the stop escalation once the scan is no longer running.
   useEffect(() => {
-    if (router.isReady && router.query.target) {
-      setControlsCollapsed(false);
+    handleScanStatusChange(status);
+  }, [status, handleScanStatusChange]);
+
+  // Close the form once the scan it started is running.
+  const startedFromForm = useRef(false);
+  const handleScan = useCallback(async () => {
+    startedFromForm.current = true;
+    storeProfile(selectedProfile);
+    await startScan();
+  }, [startScan, selectedProfile]);
+  useEffect(() => {
+    if (scanActive && startedFromForm.current) {
+      startedFromForm.current = false;
+      setFormRequested(false);
     }
-  }, [router.isReady, router.query.target]);
-  // Simplified source info for scanner (disabled for now)
-  // const [showSourceInfo, setShowSourceInfo] = useState(false);
-  // const [sourceFilters, setSourceFilters] = useState<SourceFilterState>({
-  //   sources: [],
-  //   confidence: [],
-  //   dateRange: {},
-  //   searchTerm: "",
-  // });
+  }, [scanActive]);
 
-  // Handle report generation — delegates to reportGenerator utility
-  const handleGenerateReport = (selectedVulns: VulnerabilityTableData[]) => {
-    const data = selectedVulns.map((v) => ({
-      cve: v.cve,
-      severity: v.severity,
-      description: v.description,
-      cvss: v.cvss,
-      count: v.count,
-    }));
-    const options = {
-      title: "Sirius Scan Vulnerability Report",
-      scanProfile:
-        selectedProfile.charAt(0).toUpperCase() + selectedProfile.slice(1),
-      targetsCount: targets.length,
-      hostsAffected: scanResults.hosts.length,
-      targetsList: targets.join(", ") || "None",
-      scanDate: new Date().toLocaleDateString(),
-    };
-    const html = generateVulnerabilityReportHtml(data, options);
-    openReportInNewWindow(html);
-  };
+  // When a scan ends, refresh the counts other pages show (ADR-2).
+  const previousStatus = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const previous = previousStatus.current;
+    previousStatus.current = status;
+    if (isScanActive(previous) && isScanEnded(status)) {
+      void invalidateSummary(utils);
+      void utils.host.getInventoryIps.invalidate();
+      void utils.host.getHostFreshness.invalidate();
+    }
+  }, [status, utils]);
 
-  // Source filtering disabled for scanner interface simplicity
-  // const { filteredData: filteredVulnerabilities } = useSourceFiltering(
-  //   showSourceInfo ? (vulnerabilityList as any) : [],
-  //   sourceFilters
-  // );
-
-  const handleTargetsChange = useCallback(
-    (targets: import("~/utils/targetParser").ParsedTarget[]) => {
-      setParsedTargets(targets);
-      // Also update the local targets state for report generation
-      setTargets(targets.map((t) => t.value));
+  // "Saved to inventory <time>" for the found hosts that are in the
+  // inventory, riskiest first (those are the ones shown).
+  const freshnessIps = useMemo(
+    () =>
+      hostList
+        .filter((h) => h.inInventory)
+        .sort(compareRisk)
+        .slice(0, MAX_FRESHNESS_IPS)
+        .map((h) => h.ip)
+        .sort(),
+    [hostList],
+  );
+  const freshnessQuery = api.host.getHostFreshness.useQuery(
+    { ips: freshnessIps },
+    {
+      enabled: freshnessIps.length > 0,
+      staleTime: 30_000,
+      refetchInterval: scanActive ? 30_000 : false,
+      refetchOnWindowFocus: false,
+      keepPreviousData: true,
     },
-    []
+  );
+  const freshnessByIp = useMemo(
+    () => new Map<string, HostFreshnessEntry>((freshnessQuery.data ?? []).map((e) => [e.ip, e] as const)),
+    [freshnessQuery.data],
   );
 
-  /** Wraps orchestration handleScan with UI side effects (collapse controls). Tables clear via useScanDataMapping when scan result is cleared. */
-  const handleScan = useCallback(async () => {
-    setControlsCollapsed(true);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("scanner.controlsCollapsed", "true");
-      localStorage.setItem("scanner.selectedProfile", selectedProfile);
-    }
-    await orchestrationHandleScan();
-  }, [orchestrationHandleScan, selectedProfile]);
+  // The scan's profile, only when the scan state or the scanner's source
+  // config records it.
+  const profile = useMemo(
+    () =>
+      profileInfo(
+        scanProfileId(
+          scan,
+          (freshnessQuery.data ?? []).map((e) => e.lastScan),
+        ),
+        profiles,
+      ),
+    [scan, freshnessQuery.data, profiles],
+  );
 
-  // Persist collapsed state
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(
-        "scanner.controlsCollapsed",
-        String(controlsCollapsed)
-      );
-    }
-  }, [controlsCollapsed]);
+  const findingRows = useMemo(() => aggregateScanFindings(vulnerabilityList), [vulnerabilityList]);
+  const findingCounts = useMemo(() => scanSeverityCounts(vulnerabilityList), [vulnerabilityList]);
+  const scanTargets = useMemo(() => scanTargetLabels(scan?.targets), [scan?.targets]);
 
-  // Auto-collapse when scan is running
-  useEffect(() => {
-    if (isLoading && !controlsCollapsed) {
-      setControlsCollapsed(true);
-    }
-  }, [isLoading, controlsCollapsed]);
+  const handleReport = useCallback(() => {
+    if (!scan) return;
+    const html = generateVulnerabilityReportHtml(
+      findingRows.map((r) => ({
+        cve: r.id,
+        severity: r.severity,
+        description: r.summary,
+        cvss: r.cvss,
+        count: r.hosts,
+      })),
+      {
+        title: "Sirius scan report",
+        ...(profile ? { scanProfile: profile.name } : {}),
+        targetsCount: scanTargets.length,
+        hostsAffected: hostList.filter((h) => h.findings > 0).length,
+        ...(scanTargets.length > 0 ? { targetsList: scanTargets.join(", ") } : {}),
+        scanDate: formatDateTime(scan.start_time, "long"),
+      },
+    );
+    openReportInNewWindow(html);
+  }, [scan, findingRows, profile, scanTargets, hostList]);
 
-  const handleViewChange = useCallback((newView: string) => {
-    setActiveView(newView);
-  }, []);
-
+  const showForm = !scanActive && (!scan || formRequested);
+  const loading = scanStatusQuery.isLoading;
 
   return (
     <div className="relative z-20 -mt-14 space-y-6">
-      {/* Compact Page Header */}
-      <div className="sticky top-2 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/10 ring-2 ring-violet-500/20">
-            <ScanIcon
-              width="24px"
-              height="24px"
-              fill="currentColor"
-              className="text-violet-400"
+      <PageHeader
+        icon={<ScanIcon className="h-5 w-5 text-violet-400" fill="currentColor" />}
+        title="Scanner"
+        meta={
+          scanActive ? (
+            <HeaderChip>
+              <span
+                className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400 align-middle"
+                aria-hidden
+              />
+              {status === "cancelling" ? "Stopping scan" : "1 scan running"}
+            </HeaderChip>
+          ) : undefined
+        }
+        actions={
+          <Button asChild variant="ghost" size="sm">
+            <Link href={MANAGE_PROFILES_HREF} aria-label="Manage profiles" title="Manage profiles in Settings › Scanning">
+              <SlidersHorizontal className="h-3.5 w-3.5 sm:mr-1.5" aria-hidden />
+              <span className="hidden sm:inline">Manage profiles</span>
+            </Link>
+          </Button>
+        }
+      />
+
+      {loading ? (
+        <div className="scanner-section scanner-section-padding space-y-4" aria-busy="true">
+          <Skeleton className="h-4 w-40 bg-gray-800" />
+          <Skeleton className="h-6 w-2/3 bg-gray-800" />
+          <Skeleton className="h-2 w-full bg-gray-800" />
+        </div>
+      ) : (
+        <>
+          {scanStatusQuery.isError && !scan && (
+            <EmptyState
+              variant="error"
+              size="compact"
+              title="Couldn’t load the current scan"
+              reason="Sirius couldn’t read the scanner state. You can still start a scan."
+              primary={{ label: "Retry", icon: RotateCw, onClick: () => void scanStatusQuery.refetch() }}
+            />
+          )}
+
+          {/* Kept mounted while hidden, so typed targets survive a scan. */}
+          <div hidden={!showForm}>
+            <ScanControls
+              key={formSeed.key}
+              initialTargets={formSeed.targets}
+              onTargetsChange={setParsedTargets}
+              selectedProfile={selectedProfile}
+              onProfileChange={setSelectedProfile}
+              handleScan={handleScan}
+              isLoading={isLoading}
+              scanResult={scan}
+              parsedTargets={parsedTargets}
+              isProfileAgentOnly={isProfileAgentOnly}
+              // An unconfirmed submission that did record its scan is shown by
+              // the run card instead of an error.
+              error={startError && unconfirmedScanId !== scan?.id ? startError : null}
+              onClose={scan ? () => setFormRequested(false) : undefined}
             />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
-            Scan Dashboard
-          </h1>
-        </div>
-      </div>
 
-      {/* Navigation Tabs with Show Controls Button */}
-      <div className="-mx-4 flex items-center justify-between px-4 md:-mx-6 md:px-6">
-        <ScanNavigator
-          view={activeView}
-          handleViewNavigator={handleViewChange}
-        />
-        {/* Show Controls Button - Aligned with tabs */}
-        {activeView === "scan" &&
-          scanResults.scanResult &&
-          controlsCollapsed && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setControlsCollapsed(false)}
-              className="border-violet-500/20 bg-violet-500/5 text-violet-300 duration-200 animate-in fade-in-50 hover:bg-violet-500/10"
-            >
-              <ChevronDown className="mr-2 h-4 w-4" />
-              Show Controls
-            </Button>
+          {scan ? (
+            <>
+              <ScanRunCard
+                scan={scan}
+                profile={profile}
+                stopStage={stopStage}
+                isStopping={isStopping}
+                stopError={stopError}
+                onStop={() => void handleStopScan()}
+                onForceStop={() => void handleForceStop()}
+                onReset={() => void handleResetScan()}
+                onNewScan={showForm ? undefined : () => openForm()}
+                onScanAgain={
+                  showForm || scanTargets.length === 0
+                    ? undefined
+                    : () => openForm(parseTargets(scanTargets.join(",")))
+                }
+                waitingTargets={
+                  scanActive && formRequested ? parsedTargets.map((t) => t.value) : undefined
+                }
+              />
+              <ScanFindingsSummary
+                counts={findingCounts}
+                selected={severities}
+                onSelect={toggleSeverity}
+                scanActive={scanActive}
+              />
+              <ScanHostsFound
+                hosts={hostList}
+                freshnessByIp={freshnessByIp}
+                scanId={scan.id}
+                scanStart={scan.start_time}
+                scanActive={scanActive}
+              />
+              <ScanFindingsTable
+                rows={findingRows}
+                total={vulnerabilityList.length}
+                severityFilter={severities}
+                scanActive={scanActive}
+                onReport={handleReport}
+              />
+            </>
+          ) : (
+            !scanStatusQuery.isError && (
+              <EmptyState
+                variant="no-data"
+                title="No scan yet"
+                reason="Add targets and start a scan. Its progress, the hosts it finds and their findings show here."
+              />
+            )
           )}
-      </div>
-
-      <div className="space-y-6">
-        {activeView === "scan" && (
-          <>
-            {(!controlsCollapsed || !scanResults.scanResult) && (
-              <div
-                className={cn(
-                  "scanner-section-primary scanner-section-padding space-y-4 overflow-hidden transition-all duration-300 ease-in-out",
-                  controlsCollapsed && scanResults.scanResult
-                    ? "-mt-6 mb-0 max-h-0 py-0 opacity-0"
-                    : "max-h-[800px] opacity-100 animate-in fade-in-50 slide-in-from-top-2"
-                )}
-              >
-                {/* Collapsible Header - Only show when scan results exist */}
-                {scanResults.scanResult && (
-                  <button
-                    onClick={() => {
-                      setControlsCollapsed(true);
-                      if (typeof window !== "undefined") {
-                        localStorage.setItem(
-                          "scanner.controlsCollapsed",
-                          "true"
-                        );
-                      }
-                    }}
-                    className="flex w-full items-center justify-between text-left"
-                  >
-                    <h2 className="text-lg font-semibold text-violet-300">
-                      Scan Controls
-                    </h2>
-                    <ChevronUp className="h-4 w-4 text-violet-400" />
-                  </button>
-                )}
-                {!scanResults.scanResult && (
-                  <h2 className="text-lg font-semibold text-violet-300">
-                    Scan Controls
-                  </h2>
-                )}
-
-                <ScanControls
-                  initialTargets={initialTargetsFromUrl}
-                  onTargetsChange={handleTargetsChange}
-                  selectedProfile={selectedProfile}
-                  onProfileChange={setSelectedProfile}
-                  handleScan={handleScan}
-                  handleStopScan={handleStopScan}
-                  handleForceStop={handleForceStop}
-                  handleResetScan={handleResetScan}
-                  isLoading={isLoading}
-                  isStopping={isStopping}
-                  stopStage={stopStage}
-                  scanResult={scanResults.scanResult ?? null}
-                  stopError={stopError ?? null}
-                  parsedTargets={parsedTargets}
-                  isProfileAgentEnabled={isProfileAgentEnabled}
-                  isProfileAgentOnly={isProfileAgentOnly}
-                  advancedAgentConfig={advancedAgentConfig}
-                  setAdvancedAgentConfig={setAdvancedAgentConfig}
-                />
-              </div>
-            )}
-
-            {error && unconfirmedScanId !== scanResults.scanResult?.id && (
-              <p role="alert" className="rounded-lg bg-red-900/30 px-4 py-3 text-sm text-red-200">
-                {error}
-              </p>
-            )}
-
-            {/* Results Section */}
-            {scanResults.scanResult ? (
-              <div className="scanner-section scanner-section-padding scanner-section-hover min-h-[400px]">
-                <ScanStatus
-                  results={scanResults.scanResult}
-                  onStopScan={handleStopScan}
-                  onForceStop={handleForceStop}
-                  onResetScan={handleResetScan}
-                  isStopping={isStopping}
-                  stopStage={stopStage}
-                  onRescan={handleScan}
-                  isRescanLoading={isLoading}
-                />
-
-                <div className="scanner-divider"></div>
-
-                {/* Enhanced Tab Navigation with Collapse Toggle */}
-                <div className="mb-4 flex items-center justify-between border-b border-violet-500/20">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setActiveTable("host-table");
-                        setDisplayScanDetails(true);
-                      }}
-                      className={cn(
-                        "flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
-                        activeTable === "host-table"
-                          ? "border-violet-500 text-violet-300"
-                          : "border-transparent text-gray-400 hover:text-gray-200"
-                      )}
-                    >
-                      <Server className="h-4 w-4" />
-                      Hosts
-                      {hostList.length > 0 && (
-                        <span className="ml-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-xs">
-                          {hostList.length}
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setActiveTable("vuln-table");
-                        setDisplayScanDetails(true);
-                      }}
-                      className={cn(
-                        "flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
-                        activeTable === "vuln-table"
-                          ? "border-violet-500 text-violet-300"
-                          : "border-transparent text-gray-400 hover:text-gray-200"
-                      )}
-                    >
-                      <AlertTriangle className="h-4 w-4" />
-                      Vulnerabilities
-                      {vulnerabilityList.length > 0 && (
-                        <span className="ml-1 rounded-full bg-red-500/20 px-2 py-0.5 text-xs text-red-300">
-                          {vulnerabilityList.length}
-                        </span>
-                      )}
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => setDisplayScanDetails(!displayScanDetails)}
-                    className="flex items-center gap-2 text-sm text-violet-300 hover:text-violet-200"
-                  >
-                    {displayScanDetails ? (
-                      <>
-                        <ChevronUp className="h-4 w-4" />
-                        Hide Details
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="h-4 w-4" />
-                        Show Details
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {displayScanDetails && (
-                  <div className="duration-300 animate-in fade-in-50">
-                    {activeTable === "host-table" && (
-                      <div className="scanner-table-wrapper mt-4">
-                        <EnvironmentDataTable
-                          columns={scanHostColumns}
-                          data={hostList as any}
-                        />
-                      </div>
-                    )}
-                    {activeTable === "vuln-table" && (
-                      <div className="scanner-table-wrapper mt-4">
-                        <VulnerabilityTable
-                          columns={scannerVulnerabilityColumns}
-                          data={vulnerabilityList}
-                          onSelectionChange={(selected) => {
-                            setSelectedVulnerabilities(
-                              selected.map((v) => v.cve)
-                            );
-                          }}
-                          onGenerateReport={handleGenerateReport}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="scanner-section scanner-section-hover flex min-h-[400px] flex-col items-center justify-center p-12 text-center">
-                <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-violet-500/20">
-                  <Server className="h-10 w-10 text-violet-400" />
-                </div>
-                <h3 className="mb-2 text-lg font-semibold text-white">
-                  No Scan Results Yet
-                </h3>
-                <p className="mb-6 text-sm text-gray-400">
-                  Configure your targets and profile above, then click "Start
-                  Scan" to begin vulnerability scanning.
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-gray-500">
-                  <div className="flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    Add targets
-                  </div>
-                  <span className="hidden md:inline">→</span>
-                  <div className="flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    Select profile
-                  </div>
-                  <span className="hidden md:inline">→</span>
-                  <div className="flex items-center gap-1">
-                    <Play className="h-3 w-3" />
-                    Start scan
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-        {activeView === "profiles" && (
-          <div className="scanner-section scanner-section-padding scanner-section-hover">
-            <ProfileManager />
-          </div>
-        )}
-        {activeView === "advanced" && (
-          <div className="scanner-section scanner-section-padding scanner-section-hover">
-            <AdvancedView onAgentConfigChange={setAdvancedAgentConfig} />
-          </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 };

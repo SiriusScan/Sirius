@@ -17,13 +17,23 @@ import {
   UserCog,
   Pencil,
   Check,
+  Download,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
-import { toast } from "sonner";
+import { EmptyState } from "~/components/shared/EmptyState";
+import { formatLastSeen, openAgentDownloads } from "./agentStatus";
 import type { DisplayedAgentDetails } from "./types";
+
+/** State of the console's agent list, for the view's empty states. */
+export type AgentListState = "loading" | "error" | "empty" | "ready";
 
 interface AgentDetailViewProps {
   agentId: string | null;
   details: DisplayedAgentDetails | null;
+  /** Shown when no agent is selected. Defaults to "ready". */
+  agentList?: AgentListState;
+  onRetryAgents?: () => void;
   tags: string[];
   note: string;
   onRunScan: () => void;
@@ -37,6 +47,8 @@ interface AgentDetailViewProps {
 export const AgentDetailView: React.FC<AgentDetailViewProps> = ({
   agentId,
   details,
+  agentList = "ready",
+  onRetryAgents,
   tags,
   note,
   onRunScan,
@@ -70,34 +82,9 @@ export const AgentDetailView: React.FC<AgentDetailViewProps> = ({
     setEditingNote(false);
   }, [noteInput, onSetNote]);
 
-  const formatLastSeen = (isoString: string | null | undefined): string => {
-    if (!isoString) return "Never";
-    try {
-      const date = new Date(isoString);
-      const seconds = Math.round((Date.now() - date.getTime()) / 1000);
-      if (seconds < 60) return `${seconds}s ago`;
-      const minutes = Math.round(seconds / 60);
-      if (minutes < 60) return `${minutes}m ago`;
-      const hours = Math.round(minutes / 60);
-      if (hours < 24) return `${hours}h ago`;
-      return date.toLocaleString();
-    } catch {
-      return "Invalid Date";
-    }
-  };
-
-  // ── Empty state ──────────────────────────────────────────────────────────
+  // ── Empty states ─────────────────────────────────────────────────────────
   if (!agentId || !details) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center bg-gray-950/30 text-gray-500">
-        <UserCog className="mb-3 h-8 w-8 text-gray-400" />
-        <p className="text-sm font-medium">No Agent Selected</p>
-        <p className="mt-1 max-w-xs text-center text-xs text-gray-400">
-          Select an agent from the sidebar to view its details, manage tags, and
-          add notes.
-        </p>
-      </div>
-    );
+    return <AgentViewEmpty agentList={agentList} onRetry={onRetryAgents} />;
   }
 
   const isOnline = details.status?.toLowerCase() === "online";
@@ -158,7 +145,7 @@ export const AgentDetailView: React.FC<AgentDetailViewProps> = ({
               className="flex items-center gap-1.5 rounded-lg border border-violet-500/20 bg-gray-900/50 px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              View Host
+              View host
             </button>
           </div>
         </div>
@@ -302,6 +289,60 @@ export const AgentDetailView: React.FC<AgentDetailViewProps> = ({
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
+
+/**
+ * The Agent view with no agent open (R13): a way forward when no agent has
+ * connected, a retry when the list failed, otherwise a pointer to the list.
+ */
+const AgentViewEmpty: React.FC<{
+  agentList: AgentListState;
+  onRetry?: () => void;
+}> = ({ agentList, onRetry }) => {
+  let content: React.ReactNode;
+  if (agentList === "loading") {
+    content = (
+      <div
+        className="flex items-center justify-center gap-2 py-12 text-sm text-gray-400"
+        role="status"
+      >
+        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        Loading agents
+      </div>
+    );
+  } else if (agentList === "error") {
+    content = (
+      <EmptyState
+        variant="error"
+        title="Couldn't load agents"
+        reason="The agent list didn't answer. The terminal still runs commands on the Sirius engine."
+        primary={onRetry ? { label: "Retry", icon: RefreshCw, onClick: onRetry } : undefined}
+      />
+    );
+  } else if (agentList === "empty") {
+    content = (
+      <EmptyState
+        variant="needs-agent"
+        title="No agents connected"
+        reason="Install the Sirius agent on a host to run commands and scans from inside it."
+        primary={{ label: "Get the agent", icon: Download, onClick: openAgentDownloads }}
+      />
+    );
+  } else {
+    content = (
+      <EmptyState
+        variant="no-data"
+        icon={UserCog}
+        title="No agent selected"
+        reason="Choose an agent in the list to see its details, tags and notes."
+      />
+    );
+  }
+  return (
+    <div className="flex h-full flex-col overflow-y-auto bg-gray-950/30 p-6">
+      {content}
+    </div>
+  );
+};
 
 const SectionHeader: React.FC<{
   icon: React.ElementType;

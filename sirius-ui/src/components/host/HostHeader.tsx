@@ -1,126 +1,92 @@
 /**
- * HostHeader — v4 sticky header following the standard pattern used by
- * Dashboard, Vulnerability Navigator, Scanner, and Console pages.
- *
- * sticky top-2 · glassmorphism · icon container with ring · 2xl bold title
+ * HostHeader (R05) — the host page's sticky header, built on the kit's
+ * PageHeader: the server icon tile, an "Environment" breadcrumb above the
+ * hostname, chips for the IP, the OS and each source, and the actions
+ * Edit and "Rescan host" (the primary action: the verify loop). The tabs
+ * sit on its bottom border.
  */
 
 import React from "react";
-import { useRouter } from "next/router";
-import {
-  Server,
-  RefreshCw,
-  Pencil,
-  ChevronRight,
-  Monitor,
-} from "lucide-react";
+import Link from "next/link";
+import { Monitor, Pencil, RotateCw, Server } from "lucide-react";
+import { HeaderChip, PageHeader } from "~/components/shared/PageHeader";
 import { SourceBadge } from "~/components/shared/SourceBadge";
-import type { HostPageData } from "./types";
+import { osLabel, realText, rescanHref } from "./hostModel";
+
+export interface HostHeaderHost {
+  hostname?: string | null;
+  os?: string | null;
+  osversion?: string | null;
+  sources?: readonly string[];
+}
 
 interface HostHeaderProps {
-  host: HostPageData;
+  ip: string;
+  /** Null while loading: the header shows the address and no actions. */
+  host?: HostHeaderHost | null;
+  tabs?: React.ReactNode;
   onEdit?: () => void;
 }
 
-export const HostHeader: React.FC<HostHeaderProps> = ({ host, onEdit }) => {
-  const router = useRouter();
+const BREADCRUMB = [{ label: "Environment", href: "/environment" }] as const;
 
-  const handleScanNow = () => {
-    void router.push(`/scanner?target=${encodeURIComponent(host.ip)}`);
-  };
+/** The solid violet primary action, sized for the header. */
+const PRIMARY_ACTION =
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md bg-violet-600 px-3 text-xs font-medium text-white transition-colors hover:bg-violet-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/60";
+
+/** The lib/ui ghost button look, at the header's size. */
+const GHOST_ACTION =
+  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-xs font-medium text-gray-400 transition-colors hover:bg-gray-800/60 hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40";
+
+export const HostHeader: React.FC<HostHeaderProps> = ({ ip, host, tabs, onEdit }) => {
+  const hostname = realText(host?.hostname);
+  const os = host ? osLabel(host.os, host.osversion) : undefined;
+  const sources = host?.sources ?? [];
+
+  const meta = host ? (
+    <>
+      {hostname && (
+        <HeaderChip mono title="IP address">
+          {ip}
+        </HeaderChip>
+      )}
+      {os && (
+        <HeaderChip icon={Monitor} title="Operating system">
+          {os}
+        </HeaderChip>
+      )}
+      {sources.map((source) => (
+        <SourceBadge key={source} source={source} className="px-2 py-0.5 text-[11px]" />
+      ))}
+    </>
+  ) : undefined;
+
+  const actions = host ? (
+    <>
+      {onEdit && (
+        <button type="button" className={GHOST_ACTION} onClick={onEdit}>
+          <Pencil className="h-3.5 w-3.5" aria-hidden />
+          <span className="hidden sm:inline">Edit</span>
+          <span className="sr-only sm:hidden">Edit host</span>
+        </button>
+      )}
+      <Link href={rescanHref(ip)} className={PRIMARY_ACTION} title={`Scan ${ip} again`}>
+        <RotateCw className="h-3.5 w-3.5" aria-hidden />
+        <span className="hidden sm:inline">Rescan host</span>
+        <span className="sr-only sm:hidden">Rescan host</span>
+      </Link>
+    </>
+  ) : undefined;
 
   return (
-    <div className="sticky top-2 z-30 -mx-4 border-b border-violet-500/20 bg-gray-900/95 px-4 py-3 shadow-lg shadow-black/20 backdrop-blur-sm md:-mx-6 md:px-6">
-      <div className="flex items-center gap-3">
-        {/* Standard v4 icon container */}
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 ring-2 ring-violet-500/20">
-          <Server className="h-6 w-6 text-violet-400" />
-        </div>
-
-        {/* Title area with inline breadcrumb */}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => void router.push("/environment")}
-              className="shrink-0 text-sm text-gray-500 transition-colors hover:text-violet-400"
-            >
-              Environment
-            </button>
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-600" />
-            <h1 className="truncate text-2xl font-bold tracking-tight text-white">
-              {host.hostname || host.ip}
-            </h1>
-          </div>
-
-          {/* Metadata row */}
-          <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-400">
-            <span className="font-mono">{host.ip}</span>
-
-            {/* OS badge */}
-            {host.os && (
-              <span className="flex items-center gap-1 rounded border border-violet-500/10 bg-gray-900/50 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
-                <Monitor className="h-3 w-3" />
-                {host.os}
-                {host.osversion ? ` ${host.osversion}` : ""}
-              </span>
-            )}
-
-            {/* Vuln count pill */}
-            <span
-              className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                host.vulnerabilityCount === 0
-                  ? "bg-gray-800/80 text-gray-400"
-                  : "bg-yellow-500/15 text-yellow-400"
-              }`}
-            >
-              {host.vulnerabilityCount === 0
-                ? "No recorded findings"
-                : `${host.vulnerabilityCount} findings`}
-            </span>
-
-            {/* Port count */}
-            {host.portCount > 0 && (
-              <span className="rounded-full bg-gray-800/80 px-2 py-0.5 text-[10px] font-medium text-gray-400">
-                {host.portCount} ports
-              </span>
-            )}
-
-            {/* Source badges */}
-            {host.sources.length > 0 && (
-              <div className="flex items-center gap-1">
-                {host.sources.map((source) => (
-                  <SourceBadge key={source} source={source} />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-        {/* Actions (right side) */}
-        <div className="flex shrink-0 items-center gap-2 pr-14">
-          <button
-            className="flex items-center gap-1.5 rounded-md border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 transition-colors hover:border-violet-500/30 hover:bg-violet-500/20"
-            onClick={handleScanNow}
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Scan Now
-          </button>
-
-          {onEdit && (
-            <button
-              className="flex items-center gap-1.5 rounded-md border border-violet-500/10 px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:border-violet-500/20 hover:text-gray-300"
-              onClick={onEdit}
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
+    <PageHeader
+      icon={Server}
+      breadcrumb={BREADCRUMB}
+      title={hostname ?? (ip ? <span className="font-mono">{ip}</span> : "Host")}
+      meta={meta}
+      actions={actions}
+      tabs={tabs}
+    />
   );
 };
 

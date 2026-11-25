@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "~/components/lib/ui/button";
 import { Badge } from "~/components/lib/ui/badge";
 import { Input } from "~/components/lib/ui/input";
@@ -13,6 +13,15 @@ import {
 import { type NmapScript } from "./mockScriptsData";
 import MonacoEditor from "~/components/editor/MonacoEditor";
 import { api } from "~/utils/api";
+import {
+  formatNsePortRule,
+  isPlaceholderAuthor,
+  isPlaceholderDescription,
+  parseNseAuthor,
+  parseNseCategories,
+  parseNseDescription,
+  parseNsePortRule,
+} from "~/components/settings/scanning/nseScriptMeta";
 
 const NSE_TEMPLATE = `-- NSE Script Template
 -- https://nmap.org/book/nse-tutorial.html
@@ -209,19 +218,47 @@ const ScriptNavigator: React.FC<ScriptNavigatorProps> = ({
     return "border-violet-500/20 bg-violet-500/10 hover:bg-violet-500/20";
   };
 
+  // Repository scripts are synced with stand-in metadata ("System",
+  // tags ["*"], "NSE script for * protocol"); show what the code says.
+  const codeMeta = useMemo(
+    () =>
+      isNew
+        ? null
+        : {
+            author: parseNseAuthor(script.code),
+            description: parseNseDescription(script.code),
+            categories: parseNseCategories(script.code),
+            port: formatNsePortRule(parseNsePortRule(script.code)),
+          },
+    [isNew, script.code]
+  );
+
+  const storedTags = (script.tags || []).filter(
+    (t) => t.trim() && t.trim() !== "*" && t.trim() !== (script.protocol ?? "").trim()
+  );
   const parsedTags = isNew
     ? scriptTags
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean)
-    : script.tags || [];
+    : codeMeta && codeMeta.categories.length > 0
+      ? codeMeta.categories
+      : storedTags;
 
   const displayName = isNew ? scriptName || "New Script" : script.name;
-  const displayAuthor = isNew ? scriptAuthor || "User" : script.author;
-  const displayProtocol = isNew ? scriptProtocol : script.protocol;
+  const displayAuthor = isNew
+    ? scriptAuthor || "User"
+    : isPlaceholderAuthor(script.author) && codeMeta?.author
+      ? codeMeta.author
+      : script.author;
+  const displayPort = isNew ? null : codeMeta?.port ?? null;
   const displayDescription = isNew
     ? scriptDescription || "No description yet."
-    : script.description;
+    : isPlaceholderDescription(script.description)
+      ? codeMeta?.description
+        ? codeMeta.description
+        : "The script has no description."
+      : script.description;
 
   return (
     <div className="flex h-full flex-col space-y-4">
@@ -233,7 +270,7 @@ const ScriptNavigator: React.FC<ScriptNavigatorProps> = ({
           <p className="text-sm text-gray-400">
             {isNew
               ? "Define a custom NSE script for network scanning."
-              : `Author: ${displayAuthor} ${displayProtocol ? `| Protocol: ${displayProtocol}` : ""}`}
+              : `Author: ${displayAuthor || "unknown"}${displayPort ? ` | Port: ${displayPort.label}` : ""}`}
           </p>
           {!isNew && script.path && (
             <p className="text-xs text-gray-500">Path: {script.path}</p>

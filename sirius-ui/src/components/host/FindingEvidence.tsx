@@ -1,137 +1,126 @@
+/**
+ * FindingEvidence — every source's stored record of one finding on a host
+ * (#198): the newest observation per source, with its status, times,
+ * confidence, port/service and notes, plus that source's own snapshot of the
+ * finding (title, description, reported severity, remediation, evidence and
+ * HTTP(S) references), all shown as text. Unknown values read "Unknown";
+ * nothing is filled in. Shown in the host Vulnerabilities tab's expanded row.
+ */
+
+import React from "react";
 import { SourceBadge } from "~/components/shared/SourceBadge";
-import type { DeduplicatedVulnerability, HostFindingSnapshot } from "./types";
+import { formatDateTime } from "~/utils/formatDateTime";
+import type { HostFindingObservation, HostFindingSnapshot } from "./types";
 
 function ObservationTime({ value }: { value?: string }) {
   return value ? (
-    <time dateTime={value}>{new Date(value).toLocaleString()}</time>
+    <time dateTime={value} title={formatDateTime(value, "long")}>
+      {formatDateTime(value)}
+    </time>
   ) : (
-    "Unknown"
+    <span className="text-gray-500">Unknown</span>
+  );
+}
+
+function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] uppercase tracking-wider text-gray-500">{label}</dt>
+      <dd className="mt-0.5 break-words text-xs text-gray-200">{children}</dd>
+    </div>
   );
 }
 
 function RecordedSnapshot({ snapshot }: { snapshot?: HostFindingSnapshot }) {
   if (!snapshot) {
-    return (
-      <p className="mt-3 text-xs text-gray-400">Source finding details unavailable.</p>
-    );
+    return <p className="mt-3 text-xs text-gray-500">Source finding details unavailable.</p>;
   }
 
   return (
-    <div className="mt-3 space-y-2 border-t border-violet-500/15 pt-2 text-xs">
-      {snapshot.title && <p className="font-medium text-gray-200">{snapshot.title}</p>}
-      {snapshot.description && (
-        <p className="whitespace-pre-wrap break-words">{snapshot.description}</p>
-      )}
+    <div className="mt-3 space-y-2 border-t border-violet-500/10 pt-3 text-xs text-gray-300">
+      {snapshot.title && <p className="font-medium text-gray-100">{snapshot.title}</p>}
+      {snapshot.description && <p className="whitespace-pre-wrap break-words">{snapshot.description}</p>}
       <dl className="space-y-2">
-        {snapshot.severity && (
-          <div>
-            <dt className="text-gray-400">Reported severity</dt>
-            <dd>{snapshot.severity}</dd>
-          </div>
-        )}
+        {snapshot.severity && <Fact label="Reported severity">{snapshot.severity}</Fact>}
         {snapshot.remediation && (
-          <div>
-            <dt className="text-gray-400">Remediation</dt>
-            <dd className="whitespace-pre-wrap break-words">{snapshot.remediation}</dd>
-          </div>
+          <Fact label="Remediation">
+            <span className="whitespace-pre-wrap">{snapshot.remediation}</span>
+          </Fact>
         )}
         {snapshot.evidence.map(({ label, text }) => (
-          <div key={label}>
-            <dt className="text-gray-400">{label}</dt>
-            <dd className="whitespace-pre-wrap break-words">{text}</dd>
-          </div>
+          <Fact key={label} label={label}>
+            <span className="whitespace-pre-wrap font-mono text-[11px] text-gray-300">{text}</span>
+          </Fact>
         ))}
         {snapshot.references.length > 0 && (
-          <div>
-            <dt className="text-gray-400">References</dt>
-            <dd>
-              <ul className="space-y-1">
-                {snapshot.references.map((reference) => (
-                  <li key={reference}>
-                    <a
-                      href={reference}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="break-all text-violet-300 underline hover:text-violet-200"
-                    >
-                      {reference}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </dd>
-          </div>
+          <Fact label="References">
+            <ul className="space-y-1">
+              {snapshot.references.map((reference) => (
+                <li key={reference}>
+                  <a
+                    href={reference}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="break-all text-violet-300 underline-offset-2 transition-colors hover:text-violet-200 hover:underline"
+                  >
+                    {reference}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </Fact>
         )}
       </dl>
     </div>
   );
 }
 
-export function FindingEvidence({ finding }: { finding: DeduplicatedVulnerability }) {
-  const count = finding.observations.length;
+export function FindingEvidence({ observations }: { observations: readonly HostFindingObservation[] }) {
+  if (observations.length === 0) {
+    return <p className="text-xs text-gray-500">No stored source records for this finding.</p>;
+  }
   return (
-    <details className="min-w-48" onClick={(event) => event.stopPropagation()}>
-      <summary className="cursor-pointer text-xs font-medium text-violet-300 hover:text-violet-200">
-        <span>View {count} source {count === 1 ? "record" : "records"}</span>
-        <span className="mt-1 flex flex-wrap gap-1">
-          {finding.sources.map((source) => (
-            <SourceBadge key={source} source={source} />
-          ))}
-          {finding.sources.length === 0 && <span className="text-gray-400">Unknown source</span>}
-        </span>
-      </summary>
-      <ul className="mt-2 space-y-2">
-        {finding.observations.map((observation) => (
-          <li
-            key={observation.key}
-            className="rounded border border-violet-500/20 bg-gray-900/60 p-2"
-          >
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              {observation.source ? (
-                <SourceBadge source={observation.source} />
+    <ul className="grid gap-3 lg:grid-cols-2" aria-label="Source records">
+      {observations.map((observation) => (
+        <li key={observation.key} className="min-w-0 rounded-md border border-violet-500/15 bg-gray-900/60 p-3">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {observation.source ? (
+              <SourceBadge source={observation.source} />
+            ) : (
+              <span className="text-xs text-gray-400">Unknown source</span>
+            )}
+            {observation.version && <span className="text-[11px] text-gray-500">{observation.version}</span>}
+          </div>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+            <Fact label="Status">{observation.status ?? <span className="text-gray-500">Unknown</span>}</Fact>
+            <Fact label="First seen">
+              <ObservationTime value={observation.firstSeen} />
+            </Fact>
+            <Fact label="Last seen">
+              <ObservationTime value={observation.lastSeen} />
+            </Fact>
+            <Fact label="Confidence">
+              {observation.confidence === undefined ? (
+                <span className="text-gray-500">Unknown</span>
               ) : (
-                <span className="text-xs text-gray-400">Unknown source</span>
+                `${Math.round(observation.confidence * 100)}%`
               )}
-              {observation.version && (
-                <span className="text-xs text-gray-400">{observation.version}</span>
-              )}
-            </div>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-              <dt className="text-gray-400">Status</dt>
-              <dd>{observation.status ?? "Unknown"}</dd>
-              <dt className="text-gray-400">First seen</dt>
-              <dd><ObservationTime value={observation.firstSeen} /></dd>
-              <dt className="text-gray-400">Last seen</dt>
-              <dd><ObservationTime value={observation.lastSeen} /></dd>
-              <dt className="text-gray-400">Confidence</dt>
-              <dd>
-                {observation.confidence === undefined
-                  ? "Unknown"
-                  : `${Math.round(observation.confidence * 100)}%`}
-              </dd>
-              {observation.port !== undefined && (
-                <>
-                  <dt className="text-gray-400">Port</dt>
-                  <dd>{observation.port}</dd>
-                </>
-              )}
-              {observation.serviceInfo && (
-                <>
-                  <dt className="text-gray-400">Service</dt>
-                  <dd className="break-words">{observation.serviceInfo}</dd>
-                </>
-              )}
-              {observation.notes && (
-                <>
-                  <dt className="text-gray-400">Notes</dt>
-                  <dd className="whitespace-pre-wrap break-words">{observation.notes}</dd>
-                </>
-              )}
-            </dl>
-            <RecordedSnapshot snapshot={observation.snapshot} />
-          </li>
-        ))}
-      </ul>
-    </details>
+            </Fact>
+            {observation.port !== undefined && <Fact label="Port">{observation.port}</Fact>}
+            {observation.serviceInfo && <Fact label="Service">{observation.serviceInfo}</Fact>}
+            {observation.notes && (
+              <div className="col-span-2 sm:col-span-4">
+                <Fact label="Notes">
+                  <span className="whitespace-pre-wrap">{observation.notes}</span>
+                </Fact>
+              </div>
+            )}
+          </dl>
+          <RecordedSnapshot snapshot={observation.snapshot} />
+        </li>
+      ))}
+    </ul>
   );
 }
+
+export default FindingEvidence;

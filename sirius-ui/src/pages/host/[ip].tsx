@@ -1,92 +1,158 @@
 /**
- * Host Detail Page — v4 Orchestrator
+ * Host page (R05 Overview, R06 Vulnerabilities).
  *
- * Pure orchestration: hooks provide data, components render it.
- * All data fetching, deduplication, and persistence live in hooks.
+ * Pure orchestration: useHostData brings the server's host summary (risk,
+ * counts, findings with clean summaries, open ports, freshness), the
+ * components render it. The active tab lives in `?tab=` (ADR-6):
+ * overview | vulnerabilities | system | network | history.
  *
- * Page wrapper follows the standard v4 pattern:
- *   relative z-20 -mt-14 space-y-6
- * matching Dashboard, Scanner, etc.
+ * Page wrapper follows the standard pattern: relative z-20 -mt-14 space-y-6.
  */
 
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { Radar, RotateCw } from "lucide-react";
 import Layout from "~/components/Layout";
-import { VulnerabilityTable } from "~/components/VulnerabilityTable";
-import { columns, type VulnTableData } from "~/components/VulnerabilityTableColumns";
-import { FindingEvidence } from "~/components/host/FindingEvidence";
+import { Skeleton } from "~/components/lib/ui/skeleton";
+import { EmptyState } from "~/components/shared/EmptyState";
 import HostHeader from "~/components/host/HostHeader";
-import HostTabs from "~/components/host/HostTabs";
+import HostTabs, { useHostTab } from "~/components/host/HostTabs";
 import HostOverview from "~/components/host/HostOverview";
+import HostVulnerabilities from "~/components/host/HostVulnerabilities";
 import HostSystemInfo from "~/components/host/HostSystemInfo";
 import HostNetwork from "~/components/host/HostNetwork";
 import HostHistory from "~/components/host/HostHistory";
+import { useHostAgentData } from "~/components/host/useHostAgentData";
+import { noteLines, realText } from "~/components/host/hostModel";
 import { HostForm } from "~/components/environment/HostForm";
 import { useHostData } from "~/hooks/useHostData";
-import { useHostPersistence } from "~/hooks/useHostPersistence";
+
+function HostSkeleton() {
+  return (
+    <div className="space-y-4" aria-busy="true" aria-label="Loading host">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
+        {["xl:col-span-3", "md:col-span-2 xl:col-span-6", "xl:col-span-3"].map((span) => (
+          <div key={span} className={`scanner-section space-y-3 p-4 ${span}`}>
+            <Skeleton className="h-4 w-28 bg-gray-800" />
+            <Skeleton className="h-16 w-full bg-gray-800" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="scanner-section space-y-3 p-4 xl:col-span-2">
+          <Skeleton className="h-4 w-32 bg-gray-800" />
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-6 w-full bg-gray-800" />
+          ))}
+        </div>
+        <div className="scanner-section space-y-3 p-4">
+          <Skeleton className="h-4 w-24 bg-gray-800" />
+          <Skeleton className="h-20 w-full bg-gray-800" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const HostDetailsPage = () => {
   const router = useRouter();
   const ip = typeof router.query.ip === "string" ? router.query.ip : undefined;
 
-  const { hostData, vulnerabilities, editFormData, isLoading, isError, refetch } = useHostData(ip);
-  const { state: prefs, setActiveTab, setSystemSubTab } = useHostPersistence(ip);
+  const { hostData, editFormData, isLoading, isError, refetch } = useHostData(ip);
+  const agent = useHostAgentData(ip, hostData?.agentId ?? 0);
+  const tab = useHostTab();
   const [isEditMode, setIsEditMode] = useState(false);
 
-  const findingsById = useMemo(
-    () => new Map(vulnerabilities.map((finding) => [finding.cve, finding])),
-    [vulnerabilities],
-  );
-
-  const enhancedColumns = useMemo(() => [
-    ...columns,
-    {
-      accessorKey: "sources",
-      header: "Source evidence",
-      cell: ({ row }: { row: { original: VulnTableData } }) => {
-        const finding = findingsById.get(row.original.cve);
-        return finding ? <FindingEvidence finding={finding} /> : null;
-      },
-    },
-  ], [findingsById]);
+  // Leaving a host (or opening another) ends edit mode.
+  useEffect(() => setIsEditMode(false), [ip]);
 
   // ── Loading ─────────────────────────────────────────────────────────────
   if (!router.isReady || (ip && isLoading)) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center py-20">
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-violet-500 border-t-transparent" />
-          <span className="ml-2 text-sm text-gray-400">Loading host…</span>
+      <Layout title={ip ?? "Host"}>
+        <div className="relative z-20 -mt-14 space-y-6">
+          <HostHeader ip={ip ?? ""} host={null} />
+          <HostSkeleton />
         </div>
       </Layout>
     );
   }
 
-  // ── Error ───────────────────────────────────────────────────────────────
-  if (isError || !hostData) {
+  // ── Couldn't load ───────────────────────────────────────────────────────
+  if (isError) {
     return (
-      <Layout>
-        <div className="mx-auto max-w-lg py-20 text-center">
-          <h2 className="mb-2 text-lg font-semibold text-white">Host data unavailable</h2>
-          <p className="mb-6 text-sm text-gray-400">
-            {ip ? `Could not load stored host data for ${ip}.` : "No host address was provided."}
-          </p>
-          <div className="flex justify-center gap-3">
-            {ip && <button onClick={() => void refetch()} className="rounded-md border border-violet-500/20 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800">Retry</button>}
-            <button onClick={() => router.back()} className="rounded-md border border-violet-500/20 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800">Go Back</button>
-            <button onClick={() => void router.push("/environment")} className="rounded-md bg-violet-500 px-4 py-2 text-sm text-white hover:bg-violet-600">All Hosts</button>
-          </div>
+      <Layout title={ip ?? "Host"}>
+        <div className="mx-auto max-w-2xl py-16">
+          <EmptyState
+            variant="error"
+            title="Couldn't load this host"
+            reason="Sirius didn't get an answer for this address. The rest of the app still works."
+            primary={{ label: "Retry", icon: RotateCw, onClick: () => void refetch() }}
+            secondary={{ label: "Back to Environment", href: "/environment" }}
+          />
         </div>
       </Layout>
     );
   }
+
+  // ── No address ──────────────────────────────────────────────────────────
+  if (!ip) {
+    return (
+      <Layout title="Host">
+        <div className="mx-auto max-w-2xl py-16">
+          <EmptyState
+            variant="not-found"
+            title="No host address"
+            reason="No host address was provided."
+            primary={{ label: "Back to Environment", href: "/environment" }}
+          />
+        </div>
+      </Layout>
+    );
+  }
+
+  // ── Not in inventory ────────────────────────────────────────────────────
+  if (!hostData) {
+    const address = ip ?? "";
+    return (
+      <Layout>
+        <div className="mx-auto max-w-2xl py-16">
+          <EmptyState
+            variant="not-found"
+            icon={Radar}
+            title={`${address} isn't in your inventory`}
+            reason="No scan has reached this address yet. Scanned hosts are added automatically, so this only happens for addresses you typed or linked."
+            primary={{
+              label: `Scan ${address}`,
+              icon: Radar,
+              href: `/scanner?target=${encodeURIComponent(address)}`,
+            }}
+            secondary={{
+              label: "Add it by hand",
+              href: `/environment?add=${encodeURIComponent(address)}`,
+            }}
+          />
+        </div>
+      </Layout>
+    );
+  }
+
+  const pageTitle = realText(hostData.hostname) ?? hostData.ip;
 
   // ── Edit mode ───────────────────────────────────────────────────────────
   if (isEditMode) {
     return (
-      <Layout>
+      <Layout title={`Edit ${pageTitle}`}>
         <div className="container mx-auto px-4 py-6">
-          <HostForm mode="edit" initialData={editFormData} onCancel={() => setIsEditMode(false)} onSuccess={() => { setIsEditMode(false); void refetch(); }} />
+          <HostForm
+            mode="edit"
+            initialData={editFormData && { ...editFormData, notes: noteLines(editFormData.notes) }}
+            onCancel={() => setIsEditMode(false)}
+            onSuccess={() => {
+              setIsEditMode(false);
+              void refetch();
+            }}
+          />
         </div>
       </Layout>
     );
@@ -94,41 +160,22 @@ const HostDetailsPage = () => {
 
   // ── Main render ─────────────────────────────────────────────────────────
   return (
-    <Layout>
+    <Layout title={pageTitle}>
       <div className="relative z-20 -mt-14 space-y-6">
-        <HostHeader host={hostData} onEdit={() => setIsEditMode(true)} />
-        <HostTabs activeTab={prefs.activeTab} onTabChange={setActiveTab} vulnerabilityCount={hostData.vulnerabilityCount} portCount={hostData.portCount} />
+        <HostHeader
+          ip={hostData.ip}
+          host={hostData}
+          onEdit={() => setIsEditMode(true)}
+          tabs={<HostTabs vulnerabilityCount={hostData.openFindings} portCount={hostData.openPorts.length} />}
+        />
 
-        {prefs.activeTab === "overview" && (
-          <HostOverview
-            host={hostData}
-            vulnerabilities={vulnerabilities}
-            onTabChange={setActiveTab}
-          />
+        {tab === "overview" && <HostOverview host={hostData} agent={agent} />}
+        {tab === "vulnerabilities" && <HostVulnerabilities host={hostData} />}
+        {tab === "system" && <HostSystemInfo host={hostData} agent={agent} />}
+        {tab === "network" && <HostNetwork host={hostData} agent={agent} />}
+        {tab === "history" && (
+          <HostHistory hostIp={hostData.ip} sourceFreshness={hostData.freshness.sources} />
         )}
-
-        {prefs.activeTab === "vulnerabilities" && (
-          vulnerabilities.length > 0 ? (
-            <div className="scanner-table-wrapper">
-              <VulnerabilityTable
-                columns={enhancedColumns}
-                data={vulnerabilities}
-                onRowClick={(vuln) => {
-                  void router.push(`/vulnerability?id=${encodeURIComponent(vuln.cve)}`);
-                }}
-              />
-            </div>
-          ) : (
-            <div className="scanner-section scanner-section-padding">
-              <p className="text-sm text-gray-300">No findings recorded for this host.</p>
-              <p className="mt-1 text-xs text-gray-400">Assessment coverage is unknown.</p>
-            </div>
-          )
-        )}
-
-        {prefs.activeTab === "system" && <HostSystemInfo host={hostData} activeSubTab={prefs.systemSubTab} onSubTabChange={setSystemSubTab} />}
-        {prefs.activeTab === "network" && <HostNetwork host={hostData} />}
-        {prefs.activeTab === "history" && <HostHistory hostIp={ip as string} />}
       </div>
     </Layout>
   );

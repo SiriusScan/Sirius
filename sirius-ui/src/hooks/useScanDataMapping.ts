@@ -12,19 +12,19 @@ import {
   severityToRiskScore,
   riskScoreToSeverity,
 } from "~/utils/riskScoreCalculator";
-import { useScanResults } from "~/hooks/useScanResults";
 
 /**
  * Maps raw scan results (hosts + vulnerabilities from useScanResults) into
  * display-ready hostList and vulnerabilityList. Fetches db hosts for OS
  * enrichment and derives CVSS/severity consistently.
  */
-export function useScanDataMapping(): {
+export function useScanDataMapping(
+  hosts: HostEntry[],
+  vulnerabilities: VulnerabilitySummary[],
+): {
   hostList: EnvironmentTableData[];
   vulnerabilityList: VulnerabilityTableData[];
 } {
-  const { hosts, vulnerabilities } = useScanResults();
-
   const { data: dbHosts } = api.host.getEnvironmentSummary.useQuery(
     undefined,
     { refetchInterval: 5000, refetchOnWindowFocus: false }

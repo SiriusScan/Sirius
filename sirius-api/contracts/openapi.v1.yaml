@@ -1446,6 +1446,60 @@ components:
           type: string
         end_time:
           type: string
+        network_inventory:
+          $ref: '#/components/schemas/NetworkInventoryStatus'
+    NetworkInventoryStatus:
+      type: object
+      description: Network report acknowledgements. Omitted for idle and agent-only runs.
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [complete, incomplete, unavailable, untracked, provisional, no_attempts]
+          description: >
+            Complete means the network worker finalized a summary with at least one
+            report and all reports accepted. Incomplete means at least one report
+            was rejected in a finalized summary. Unavailable means confirmations
+            are missing or the summary could not be read. Untracked means no
+            summary was recorded. Provisional counts do not cover a finalized run.
+            No attempts means the worker finalized without submitting a report.
+        summary:
+          $ref: '#/components/schemas/NetworkInventorySummary'
+    NetworkInventorySummary:
+      type: object
+      description: Sanitized version 1 counts when the worker supplied a valid summary.
+      required: [version, finalized, attempted, accepted, rejected, unknown]
+      properties:
+        version:
+          type: integer
+          enum: [1]
+        finalized:
+          type: boolean
+        attempted:
+          $ref: '#/components/schemas/NetworkInventoryCount'
+        accepted:
+          $ref: '#/components/schemas/NetworkInventoryCount'
+        rejected:
+          $ref: '#/components/schemas/NetworkInventoryCount'
+        unknown:
+          $ref: '#/components/schemas/NetworkInventoryCount'
+        reasons:
+          type: object
+          properties:
+            local_error:
+              $ref: '#/components/schemas/NetworkInventoryCount'
+            http_rejected:
+              $ref: '#/components/schemas/NetworkInventoryCount'
+            timeout:
+              $ref: '#/components/schemas/NetworkInventoryCount'
+            transport_error:
+              $ref: '#/components/schemas/NetworkInventoryCount'
+            http_unconfirmed:
+              $ref: '#/components/schemas/NetworkInventoryCount'
+    NetworkInventoryCount:
+      type: integer
+      minimum: 0
+      maximum: 9007199254740991
     SystemResourceObservations:
       type: object
       description: Additive observation fields for the v1 resource response.

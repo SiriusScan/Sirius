@@ -189,6 +189,10 @@ jobs:
         run: npm ci
         working-directory: sirius-ui
 
+      - name: Run network inventory UI and export fixtures
+        run: npm run test:network-inventory
+        working-directory: sirius-ui
+
       - name: Lint UI code
         continue-on-error: true
         run: npm run lint
@@ -384,6 +388,10 @@ jobs:
         run: go test ./handlers -run '^TestScanStop' -v -count=1
         working-directory: sirius-api
 
+      - name: Test network inventory REST projection
+        run: go test -v ./handlers -run '^TestScanStatusNetworkInventoryFixtures$' -count=1
+        working-directory: sirius-api
+
       - name: Run API tests (non-blocking)
         continue-on-error: true
         run: go test ./... -short -count=1
@@ -553,7 +561,7 @@ jobs:
           # See documentation/dev/architecture/README.engine-component-pinning.md.
           build-args: |
             GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || '18f26a4cacb098975791be91d13f2a88eca546b1' }}
-            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'cb294ea1616619b458fe9352b49e525aa4299e01' }}
+            APP_SCANNER_COMMIT_SHA=${{ env.APP_SCANNER_COMMIT_SHA || 'f8dc73f16a62e4d218521cdec4aabecfeb70bd5a' }}
             APP_TERMINAL_COMMIT_SHA=${{ env.APP_TERMINAL_COMMIT_SHA || '55d76dc405e6c2d49ae39222705d5fa24a4343c0' }}
             SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9' }}
             APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '34d8dee3abb733f9b9b291867c13d2bbe12a6a90' }}

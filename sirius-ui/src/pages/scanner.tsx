@@ -15,6 +15,7 @@ import {
   openReportInNewWindow,
 } from "~/utils/reportGenerator";
 import { useScanResults } from "~/hooks/useScanResults";
+import { createLiveScanExport, liveScanExportFields } from "~/utils/networkInventory";
 import { useScanDataMapping } from "~/hooks/useScanDataMapping";
 import { useScanOrchestration } from "~/hooks/useScanOrchestration";
 import { Button } from "~/components/lib/ui/button";
@@ -47,7 +48,11 @@ const ScannerContent: React.FC = () => {
   const [parsedTargets, setParsedTargets] = useState<ParsedTarget[]>([]);
   const [displayScanDetails, setDisplayScanDetails] = useState(true);
   const scanResults = useScanResults();
-  const { hostList, vulnerabilityList } = useScanDataMapping();
+  const { hostList, vulnerabilityList } = useScanDataMapping(
+    scanResults.hosts, scanResults.vulnerabilities,
+  );
+  const liveScan = createLiveScanExport(scanResults.scanResult);
+  const exportMetadata = liveScanExportFields(liveScan);
   const [selectedProfile, setSelectedProfileState] = useState<ScanProfile>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("scanner.selectedProfile") ?? "high-risk";
@@ -141,12 +146,9 @@ const ScannerContent: React.FC = () => {
     }));
     const options = {
       title: "Sirius Scan Vulnerability Report",
-      scanProfile:
-        selectedProfile.charAt(0).toUpperCase() + selectedProfile.slice(1),
-      targetsCount: targets.length,
       hostsAffected: scanResults.hosts.length,
-      targetsList: targets.join(", ") || "None",
       scanDate: new Date().toLocaleDateString(),
+      liveScan,
     };
     const html = generateVulnerabilityReportHtml(data, options);
     openReportInNewWindow(html);
@@ -392,6 +394,8 @@ const ScannerContent: React.FC = () => {
                         <EnvironmentDataTable
                           columns={scanHostColumns}
                           data={hostList as any}
+                          exportMetadata={exportMetadata}
+                          onExportEmptyRun={() => handleGenerateReport(vulnerabilityList)}
                         />
                       </div>
                     )}
@@ -406,6 +410,7 @@ const ScannerContent: React.FC = () => {
                             );
                           }}
                           onGenerateReport={handleGenerateReport}
+                          exportMetadata={exportMetadata}
                         />
                       </div>
                     )}

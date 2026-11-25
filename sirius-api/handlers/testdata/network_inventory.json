@@ -1,0 +1,719 @@
+[
+  {
+    "name": "mixed and agent completed",
+    "scan": {
+      "id": "fixture-mixed",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [
+        {
+          "id": "fixture-finding",
+          "title": "Synthetic live finding",
+          "severity": "medium",
+          "scan_source": "network"
+        }
+      ],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 5,
+              "accepted": 2,
+              "rejected": 1,
+              "unknown": 2,
+              "reasons": {
+                "http_rejected": 1,
+                "timeout": 1,
+                "transport_error": 1,
+                "raw_response": "synthetic private response"
+              },
+              "raw_error": "synthetic private response"
+            }
+          }
+        },
+        "agent": {
+          "type": "agent",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "agent_statuses": []
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z",
+      "targets": [
+        "203.0.113.10",
+        {
+          "hostname": "fixture.example"
+        }
+      ]
+    },
+    "expected": {
+      "status": "incomplete",
+      "summary": {
+        "version": 1,
+        "finalized": true,
+        "attempted": 5,
+        "accepted": 2,
+        "rejected": 1,
+        "unknown": 2,
+        "reasons": {
+          "http_rejected": 1,
+          "timeout": 1,
+          "transport_error": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "all accepted",
+    "scan": {
+      "id": "fixture-complete",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "complete",
+      "summary": {
+        "version": 1,
+        "finalized": true,
+        "attempted": 3,
+        "accepted": 3,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  },
+  {
+    "name": "only confirmation unavailable",
+    "scan": {
+      "id": "fixture-uncertain",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 2,
+              "accepted": 1,
+              "rejected": 0,
+              "unknown": 1,
+              "reasons": {
+                "timeout": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable",
+      "summary": {
+        "version": 1,
+        "finalized": true,
+        "attempted": 2,
+        "accepted": 1,
+        "rejected": 0,
+        "unknown": 1,
+        "reasons": {
+          "timeout": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "no attempts",
+    "scan": {
+      "id": "fixture-empty",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 0,
+              "accepted": 0,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "no_attempts",
+      "summary": {
+        "version": 1,
+        "finalized": true,
+        "attempted": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  },
+  {
+    "name": "cancelled provisional",
+    "scan": {
+      "id": "fixture-cancelled",
+      "status": "cancelled",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "running",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": false,
+              "attempted": 1,
+              "accepted": 1,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "provisional",
+      "summary": {
+        "version": 1,
+        "finalized": false,
+        "attempted": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  },
+  {
+    "name": "running provisional",
+    "scan": {
+      "id": "fixture-running",
+      "status": "running",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "running",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": false,
+              "attempted": 1,
+              "accepted": 1,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "provisional",
+      "summary": {
+        "version": 1,
+        "finalized": false,
+        "attempted": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  },
+  {
+    "name": "interrupted then completed",
+    "scan": {
+      "id": "fixture-interrupted",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": false,
+              "attempted": 1,
+              "accepted": 1,
+              "rejected": 0,
+              "unknown": 0,
+              "interrupted": true
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "provisional",
+      "summary": {
+        "version": 1,
+        "finalized": false,
+        "attempted": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  },
+  {
+    "name": "contradictory finalization",
+    "scan": {
+      "id": "fixture-contradictory",
+      "status": "running",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "running",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "legacy no subscans",
+    "scan": {
+      "id": "fixture-legacy",
+      "status": "completed",
+      "hosts": [],
+      "hosts_completed": 0,
+      "vulnerabilities": []
+    },
+    "expected": {
+      "status": "untracked"
+    }
+  },
+  {
+    "name": "legacy no metadata",
+    "scan": {
+      "id": "fixture-old-network",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {}
+        }
+      }
+    },
+    "expected": {
+      "status": "untracked"
+    }
+  },
+  {
+    "name": "unsupported version",
+    "scan": {
+      "id": "fixture-future",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 2,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "malformed metadata",
+    "scan": {
+      "id": "fixture-malformed",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": "synthetic private response"
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "inconsistent counts",
+    "scan": {
+      "id": "fixture-inconsistent",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 2,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "negative count",
+    "scan": {
+      "id": "fixture-negative",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 0,
+              "accepted": -1,
+              "rejected": 1,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "out of range count",
+    "scan": {
+      "id": "fixture-oversize",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 9007199254740992,
+              "accepted": 9007199254740992,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "reason count cannot exceed its category",
+    "scan": {
+      "id": "fixture-reason",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 2,
+              "accepted": 1,
+              "rejected": 1,
+              "unknown": 0,
+              "reasons": {
+                "timeout": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "agent only",
+    "scan": {
+      "id": "fixture-agent",
+      "status": "completed",
+      "sub_scans": {
+        "agent": {
+          "enabled": true,
+          "status": "completed"
+        }
+      }
+    },
+    "expected": null
+  },
+  {
+    "name": "network disabled",
+    "scan": {
+      "id": "fixture-agent-disabled",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": false,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        },
+        "agent": {
+          "enabled": true,
+          "status": "completed"
+        }
+      }
+    },
+    "expected": null
+  },
+  {
+    "name": "tracked summary without enablement",
+    "scan": {
+      "id": "fixture-missing-enabled",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "tracked summary with invalid enablement",
+    "scan": {
+      "id": "fixture-invalid-enabled",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": "true",
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "interrupted cannot finalize",
+    "scan": {
+      "id": "fixture-interrupted-finalized",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0,
+              "interrupted": true
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "malformed interruption flag",
+    "scan": {
+      "id": "fixture-interrupted-malformed",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0,
+              "interrupted": "false"
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "malformed network metadata",
+    "scan": {
+      "id": "fixture-metadata-malformed",
+      "status": "completed",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": null
+        }
+      }
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "empty stored scan",
+    "scan": null,
+    "expected": null
+  },
+  {
+    "name": "malformed scan ID",
+    "scan": {
+      "id": 45,
+      "status": "completed",
+      "hosts": [],
+      "vulnerabilities": []
+    },
+    "expected": {
+      "status": "untracked"
+    }
+  },
+  {
+    "name": "aggregate cancellation retains completed network acknowledgement",
+    "scan": {
+      "id": "fixture-completed-network-cancelled-agent",
+      "status": "cancelled",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "complete",
+      "summary": {
+        "version": 1,
+        "finalized": true,
+        "attempted": 3,
+        "accepted": 3,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  }
+]

@@ -45,7 +45,7 @@
       "go_api_version": "v0.0.36",
       "go_api_commit": "fe05fc09c64655246352e924c8858cc4e1e9da35",
       "pingpp_version": "v0.0.0-20261125012228-a6e4289ccaf4",
-      "source_commit": "cb294ea1616619b458fe9352b49e525aa4299e01"
+      "source_commit": "f8dc73f16a62e4d218521cdec4aabecfeb70bd5a"
     },
     "app-agent": {
       "go_api_version": "v0.0.24",
@@ -57,7 +57,7 @@
     "APP_SYSTEM_MONITOR_COMMIT_SHA": "abbeea729b909a239a376806f5b3541bc3b585bc",
     "APP_ADMINISTRATOR_COMMIT_SHA": "b156de9ebfa79f74c776187ac29f1016e5397a80",
     "GO_API_COMMIT_SHA": "18f26a4cacb098975791be91d13f2a88eca546b1",
-    "APP_SCANNER_COMMIT_SHA": "cb294ea1616619b458fe9352b49e525aa4299e01",
+    "APP_SCANNER_COMMIT_SHA": "f8dc73f16a62e4d218521cdec4aabecfeb70bd5a",
     "APP_TERMINAL_COMMIT_SHA": "55d76dc405e6c2d49ae39222705d5fa24a4343c0",
     "SIRIUS_NSE_COMMIT_SHA": "a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9",
     "APP_AGENT_COMMIT_SHA": "34d8dee3abb733f9b9b291867c13d2bbe12a6a90",

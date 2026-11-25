@@ -305,6 +305,15 @@ The worker caps captured stdout and stderr at 64 KiB each, continues draining
 overflow, and marks truncated replies in the existing text format. The
 Dockerfile, CI fallback, and Core manifest fixture use the same revision.
 
+### November 24 follow-up for network inventory report status
+
+The engine advances app-scanner from `cb294ea1616619b458fe9352b49e525aa4299e01` to
+`f8dc73f16a62e4d218521cdec4aabecfeb70bd5a` after [app-scanner #26](https://github.com/SiriusScan/app-scanner/pull/26).
+The worker records a version 1 summary of accepted, rejected and unconfirmed
+inventory submissions as part of the network scan state. The deployment
+retains the scanner's Go SDK v0.0.36 and pingpp module locks. Core projects the
+summary in the scanner dashboard, exports and REST status.
+
 ## Risk register
 
 - `**app-scanner` sed → source rewrite (Phase 2)** is the highest-risk

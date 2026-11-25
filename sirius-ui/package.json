@@ -7,6 +7,7 @@
     "dev": "npx next dev",
     "postinstall": "npx prisma generate",
     "lint": "npx lint",
+    "test:network-inventory": "tsx --test src/utils/networkInventory.test.tsx",
     "test:capabilities": "tsx src/contracts/capabilities.test.ts",
     "test:ui-extensions": "tsx src/ui/extensions/registry.test.ts",
     "test:server-extensions": "tsx src/server/extensions/registry.test.ts",

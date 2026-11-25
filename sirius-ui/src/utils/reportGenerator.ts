@@ -9,6 +9,7 @@ import {
   normalizeSeverity,
   getSeverityPriority,
 } from "~/utils/riskScoreCalculator";
+import { describeNetworkInventory, type LiveScanExport } from "~/utils/networkInventory";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -32,6 +33,7 @@ export interface ReportOptions {
   hostsAffected?: number;
   targetsList?: string;
   scanDate?: string;
+  liveScan?: LiveScanExport;
 }
 
 /* ------------------------------------------------------------------ */
@@ -79,6 +81,8 @@ export function generateVulnerabilityReportHtml(
 ): string {
   const title = options.title ?? "Vulnerability Report";
   const date = options.scanDate ?? new Date().toLocaleDateString();
+  const targetsCount = options.liveScan ? options.liveScan.targets?.length : options.targetsCount;
+  const targetsList = options.liveScan ? options.liveScan.targets?.join(", ") : options.targetsList;
 
   // Sort by severity (critical first)
   const sorted = [...data].sort(
@@ -132,16 +136,28 @@ export function generateVulnerabilityReportHtml(
 `;
 
   // Scan info section
-  if (options.scanProfile || options.targetsCount || options.hostsAffected) {
+  if (options.scanProfile || targetsCount || options.hostsAffected || options.liveScan) {
     html += `    <div class="scan-info"><dl>`;
+    if (options.liveScan) {
+      html += `<dt>Data source</dt><dd>Live scan results</dd>`;
+      if (options.liveScan.scanId) {
+        html += `<dt>Scan ID</dt><dd>${escapeHtml(options.liveScan.scanId)}</dd>`;
+      }
+      if (options.liveScan.networkInventory) {
+        const { label, counts, reasons } = describeNetworkInventory(options.liveScan.networkInventory);
+        html += `<dt>Network report acknowledgements for this scan</dt><dd>${escapeHtml(label)}</dd>`;
+        if (counts) html += `<dd>${escapeHtml(counts)}</dd>`;
+        if (reasons) html += `<dd>${escapeHtml(reasons)}</dd>`;
+      }
+    }
     if (options.scanProfile)
       html += `<dt>Profile</dt><dd>${escapeHtml(options.scanProfile)}</dd>`;
-    if (options.targetsCount !== undefined)
-      html += `<dt>Targets Scanned</dt><dd>${options.targetsCount}</dd>`;
+    if (targetsCount !== undefined)
+      html += `<dt>Targets Scanned</dt><dd>${targetsCount}</dd>`;
     if (options.hostsAffected !== undefined)
       html += `<dt>Hosts Affected</dt><dd>${options.hostsAffected}</dd>`;
-    if (options.targetsList)
-      html += `<dt>Target List</dt><dd>${escapeHtml(options.targetsList)}</dd>`;
+    if (targetsList)
+      html += `<dt>Target List</dt><dd>${escapeHtml(targetsList)}</dd>`;
     html += `</dl></div>\n`;
   }
 

@@ -155,6 +155,10 @@ Terminal notifications with `"engine_promotion": "source-pin-v1"` also
 record the revision for a reviewed engine pin PR. Older notifications
 without the marker continue to request an engine build.
 
+Each informational notification uses its own CI concurrency group.
+Release-producing pushes and actionable dispatches share the existing
+group for their Git ref.
+
 ### Bumping the scanner and pingpp
 
 Publish the scanner's updated pingpp module lock first. Then update

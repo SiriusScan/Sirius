@@ -16,10 +16,22 @@ on:
   repository_dispatch:
     types: [submodule-update]
 
-# Prevent overlapping main/dispatch runs from racing on mutable `latest` digests
-# while a core-build-inventory snapshot is being produced.
+# Serialize image-producing events per ref while taking a `latest` snapshot.
+# Informational dispatches have their own slots so they cannot replace a pending build.
+# Keep the notification selector aligned with scripts/ci-dispatch-allowlist.sh.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: >-
+    ${{ github.workflow }}-${{ github.ref }}${{
+      github.event_name == 'repository_dispatch' && (
+        contains(
+          fromJSON('["SiriusScan/go-api","go-api","SiriusScan/app-scanner","app-scanner"]'),
+          github.event.client_payload.submodule
+        ) || (
+          github.event.client_payload.engine_promotion == 'source-pin-v1' &&
+          contains(fromJSON('["SiriusScan/app-terminal","app-terminal"]'), github.event.client_payload.submodule)
+        )
+      ) && format('-notification-{0}', github.run_id) || ''
+    }}
   cancel-in-progress: ${{ (github.ref != 'refs/heads/main' && github.ref != 'refs/heads/release/1.2.x') || github.event_name == 'pull_request' }}
 
 env:

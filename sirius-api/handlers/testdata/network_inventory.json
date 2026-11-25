@@ -1,0 +1,743 @@
+[
+  {
+    "name": "mixed and agent completed",
+    "scan": {
+      "id": "fixture-mixed",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [
+        {
+          "id": "fixture-finding",
+          "title": "Synthetic live finding",
+          "severity": "medium",
+          "scan_source": "network"
+        }
+      ],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 5,
+              "accepted": 2,
+              "rejected": 1,
+              "unknown": 2,
+              "reasons": {
+                "http_rejected": 1,
+                "timeout": 1,
+                "transport_error": 1,
+                "raw_response": "synthetic private response"
+              },
+              "raw_error": "synthetic private response"
+            }
+          }
+        },
+        "agent": {
+          "type": "agent",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "agent_statuses": []
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "incomplete",
+      "summary": {
+        "version": 1,
+        "finalized": true,
+        "attempted": 5,
+        "accepted": 2,
+        "rejected": 1,
+        "unknown": 2,
+        "reasons": {
+          "http_rejected": 1,
+          "timeout": 1,
+          "transport_error": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "all accepted",
+    "scan": {
+      "id": "fixture-complete",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "complete",
+      "summary": {
+        "version": 1,
+        "finalized": true,
+        "attempted": 3,
+        "accepted": 3,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  },
+  {
+    "name": "only confirmation unavailable",
+    "scan": {
+      "id": "fixture-uncertain",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 2,
+              "accepted": 1,
+              "rejected": 0,
+              "unknown": 1,
+              "reasons": {
+                "timeout": 1
+              }
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable",
+      "summary": {
+        "version": 1,
+        "finalized": true,
+        "attempted": 2,
+        "accepted": 1,
+        "rejected": 0,
+        "unknown": 1,
+        "reasons": {
+          "timeout": 1
+        }
+      }
+    }
+  },
+  {
+    "name": "no attempts",
+    "scan": {
+      "id": "fixture-empty",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 0,
+              "accepted": 0,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "no_attempts",
+      "summary": {
+        "version": 1,
+        "finalized": true,
+        "attempted": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  },
+  {
+    "name": "cancelled provisional",
+    "scan": {
+      "id": "fixture-cancelled",
+      "status": "cancelled",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "running",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": false,
+              "attempted": 1,
+              "accepted": 1,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "provisional",
+      "summary": {
+        "version": 1,
+        "finalized": false,
+        "attempted": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  },
+  {
+    "name": "running provisional",
+    "scan": {
+      "id": "fixture-running",
+      "status": "running",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "running",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": false,
+              "attempted": 1,
+              "accepted": 1,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "provisional",
+      "summary": {
+        "version": 1,
+        "finalized": false,
+        "attempted": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  },
+  {
+    "name": "interrupted then completed",
+    "scan": {
+      "id": "fixture-interrupted",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": false,
+              "attempted": 1,
+              "accepted": 1,
+              "rejected": 0,
+              "unknown": 0,
+              "interrupted": true
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "provisional",
+      "summary": {
+        "version": 1,
+        "finalized": false,
+        "attempted": 1,
+        "accepted": 1,
+        "rejected": 0,
+        "unknown": 0
+      }
+    }
+  },
+  {
+    "name": "contradictory finalization",
+    "scan": {
+      "id": "fixture-contradictory",
+      "status": "running",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "running",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "legacy no subscans",
+    "scan": {
+      "id": "fixture-legacy",
+      "status": "completed",
+      "hosts": [],
+      "hosts_completed": 0,
+      "vulnerabilities": []
+    },
+    "expected": {
+      "status": "untracked"
+    }
+  },
+  {
+    "name": "legacy no metadata",
+    "scan": {
+      "id": "fixture-old-network",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {}
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "untracked"
+    }
+  },
+  {
+    "name": "unsupported version",
+    "scan": {
+      "id": "fixture-future",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 2,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "malformed metadata",
+    "scan": {
+      "id": "fixture-malformed",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": "synthetic private response"
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "inconsistent counts",
+    "scan": {
+      "id": "fixture-inconsistent",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 2,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "negative count",
+    "scan": {
+      "id": "fixture-negative",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 0,
+              "accepted": -1,
+              "rejected": 1,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "out of range count",
+    "scan": {
+      "id": "fixture-oversize",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 9007199254740992,
+              "accepted": 9007199254740992,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "reason count cannot exceed its category",
+    "scan": {
+      "id": "fixture-reason",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 2,
+              "accepted": 1,
+              "rejected": 1,
+              "unknown": 0,
+              "reasons": {
+                "timeout": 1
+              }
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "agent only",
+    "scan": {
+      "id": "fixture-agent",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "agent": {
+          "type": "agent",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "agent_statuses": []
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": null
+  },
+  {
+    "name": "network disabled",
+    "scan": {
+      "id": "fixture-agent-disabled",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": false,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        },
+        "agent": {
+          "type": "agent",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "agent_statuses": []
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": null
+  }
+]

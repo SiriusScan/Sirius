@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { type ScanResult, type SubScan } from "~/types/scanTypes";
+import { describeNetworkInventory, projectNetworkInventory } from "~/utils/networkInventory";
 import { normalizeSeverity } from "~/utils/riskScoreCalculator";
 import { SEVERITY_COLORS, type SeverityLevel } from "~/utils/severityTheme";
 import type { StopStage } from "~/hooks/useStopScan";
@@ -211,6 +212,12 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({
 }) => {
   const [unconfirmedScanId, setUnconfirmedScanId] = useState<string | null>(null);
   const { id, start_time: startedAt, status } = results;
+  const inventory = projectNetworkInventory(results);
+  const showInventory = inventory && (
+    inventory.status !== "untracked" || status === "completed" || status === "cancelled" ||
+    status === "failed" || results.sub_scans?.network?.status === "completed"
+  );
+  const inventoryDetails = showInventory ? describeNetworkInventory(inventory) : null;
 
   useEffect(() => {
     if (status !== "pending") return;
@@ -421,6 +428,18 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({
           </div>
         </div>
       </div>
+
+      {inventoryDetails && (
+        <div className="mt-3 space-y-1 border-t border-violet-500/10 px-4 pt-3 text-xs" role="status">
+          <p className="font-medium text-violet-100">{inventoryDetails.label}</p>
+          {inventoryDetails.counts && (
+            <p className="text-slate-300">{inventoryDetails.counts}</p>
+          )}
+          {inventoryDetails.reasons && (
+            <p className="text-slate-400">{inventoryDetails.reasons}</p>
+          )}
+        </div>
+      )}
 
       {/* Modular sub-scan indicators */}
       {results?.sub_scans && Object.keys(results.sub_scans).length > 0 && (

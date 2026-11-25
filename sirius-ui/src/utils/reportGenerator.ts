@@ -9,6 +9,7 @@ import {
   normalizeSeverity,
   getSeverityPriority,
 } from "~/utils/riskScoreCalculator";
+import { describeNetworkInventory, type LiveScanExport } from "~/utils/networkInventory";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -32,6 +33,7 @@ export interface ReportOptions {
   hostsAffected?: number;
   targetsList?: string;
   scanDate?: string;
+  liveScan?: LiveScanExport;
 }
 
 /* ------------------------------------------------------------------ */
@@ -132,8 +134,20 @@ export function generateVulnerabilityReportHtml(
 `;
 
   // Scan info section
-  if (options.scanProfile || options.targetsCount || options.hostsAffected) {
+  if (options.scanProfile || options.targetsCount || options.hostsAffected || options.liveScan) {
     html += `    <div class="scan-info"><dl>`;
+    if (options.liveScan) {
+      html += `<dt>Data source</dt><dd>Live scan results</dd>`;
+      if (options.liveScan.scanId) {
+        html += `<dt>Scan ID</dt><dd>${escapeHtml(options.liveScan.scanId)}</dd>`;
+      }
+      if (options.liveScan.networkInventory) {
+        const { label, counts, reasons } = describeNetworkInventory(options.liveScan.networkInventory);
+        html += `<dt>Network inventory</dt><dd>${escapeHtml(label)}</dd>`;
+        if (counts) html += `<dd>${escapeHtml(counts)}</dd>`;
+        if (reasons) html += `<dd>${escapeHtml(reasons)}</dd>`;
+      }
+    }
     if (options.scanProfile)
       html += `<dt>Profile</dt><dd>${escapeHtml(options.scanProfile)}</dd>`;
     if (options.targetsCount !== undefined)

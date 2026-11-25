@@ -22,15 +22,16 @@ type ControlMessage struct {
 
 // ScanStatusResponse represents the current scan status
 type ScanStatusResponse struct {
-	ID              string   `json:"id,omitempty"`
-	Status          string   `json:"status"`
-	Targets         []string `json:"targets,omitempty"`
-	Hosts           []string `json:"hosts,omitempty"`
-	HostsCompleted  int      `json:"hosts_completed"`
-	TotalHosts      int      `json:"total_hosts"`
-	Vulnerabilities int      `json:"vulnerabilities"`
-	StartTime       string   `json:"start_time,omitempty"`
-	EndTime         string   `json:"end_time,omitempty"`
+	ID               string                  `json:"id,omitempty"`
+	Status           string                  `json:"status"`
+	Targets          []string                `json:"targets,omitempty"`
+	Hosts            []string                `json:"hosts,omitempty"`
+	HostsCompleted   int                     `json:"hosts_completed"`
+	TotalHosts       int                     `json:"total_hosts"`
+	Vulnerabilities  int                     `json:"vulnerabilities"`
+	StartTime        string                  `json:"start_time,omitempty"`
+	EndTime          string                  `json:"end_time,omitempty"`
+	NetworkInventory *NetworkInventoryStatus `json:"network_inventory,omitempty"`
 }
 
 const (
@@ -205,9 +206,13 @@ func GetScanStatus(c *fiber.Ctx) error {
 		})
 	}
 
-	// Build response
+	return c.JSON(projectScanStatus(scanResult))
+}
+
+func projectScanStatus(scanResult map[string]any) ScanStatusResponse {
 	response := ScanStatusResponse{
-		Status: getStringField(scanResult, "status"),
+		Status:           getStringField(scanResult, "status"),
+		NetworkInventory: projectNetworkInventory(scanResult),
 	}
 	if response.Status == "pending" {
 		subScans, _ := scanResult["sub_scans"].(map[string]interface{})
@@ -242,7 +247,7 @@ func GetScanStatus(c *fiber.Ctx) error {
 		response.EndTime = endTime
 	}
 
-	return c.JSON(response)
+	return response
 }
 
 // ForceStopScan handles the POST /api/v1/scans/force-stop endpoint.

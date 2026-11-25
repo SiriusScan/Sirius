@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
-import { handleSendMsg, waitForResponse } from "./queue";
+import { handleSendMsg, QueueResponseTimeoutError, waitForResponse } from "./queue";
 import { valkey } from "~/server/valkey";
 
 // Define target types
@@ -71,45 +71,27 @@ async function pollCommandResponse(commandId: string): Promise<string | null> {
   const parts = commandId.split(":");
   if (parts.length < 2) {
     // Basic check for agentId:timestamp format
-    console.error(
-      `[Terminal:pollCommandResponse] Invalid commandId format for polling: ${commandId}`
-    );
+    console.error("[Terminal] Invalid command ID for response polling");
     return null;
   }
   const agentId = parts[0];
   const valkeyKey = `cmd:response:${agentId}:${commandId}`;
 
-  console.log(
-    `[Terminal:pollCommandResponse] Starting polling for key: ${valkeyKey} (using commandId: ${commandId})`
-  );
+  let storeReadFailed = false;
 
   while (Date.now() - startTime < POLL_TIMEOUT) {
     try {
       const response = await valkey.get(valkeyKey);
-      console.log(
-        `[Terminal:pollCommandResponse] Polling ${valkeyKey}. Result:`,
-        response ? `'${response}'` : null
-      );
-      if (response) {
-        console.log(
-          `[Terminal:pollCommandResponse] Found response for ${valkeyKey}`
-        );
-        return response;
-      }
-    } catch (error) {
-      console.error(
-        `[Terminal:pollCommandResponse] Error getting key ${valkeyKey} from Valkey:`,
-        error
-      );
-      // Decide if we should stop polling on error or just log and continue
-      // For now, let's continue polling
+      if (response) return response;
+    } catch {
+      storeReadFailed = true;
     }
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
   }
 
-  console.log(
-    `[Terminal:pollCommandResponse] Polling timed out for key: ${valkeyKey}`
-  );
+  console.warn("[Terminal] Command response polling timed out", {
+    storeReadFailed,
+  });
   return null;
 }
 
@@ -126,9 +108,6 @@ export const terminalRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       try {
-        console.log("[Terminal] Executing command:", input.command);
-        console.log("[Terminal] Target:", input.target);
-
         if (!input.command.trim()) {
           return { success: false, output: "Empty command" };
         }
@@ -160,15 +139,14 @@ export const terminalRouter = createTRPCRouter({
           };
         }
 
-        console.log(`[Terminal] Sending message to ${queueName}:`, message);
         await handleSendMsg(queueName, JSON.stringify(message));
-        console.log(
-          `[Terminal] Message sent, waiting for response on ${responseQueue}`
-        );
 
         const response = await waitForResponse(responseQueue);
         if (!response) {
-          throw new Error("Command acknowledgement timed out");
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Command acknowledgement timed out",
+          });
         }
 
         if (input.target.type === "engine") {
@@ -178,19 +156,22 @@ export const terminalRouter = createTRPCRouter({
         // Agent command: Parse acknowledgement and poll Valkey
         const responseObj = JSON.parse(response);
         if (responseObj.error) {
-          throw new Error(`Command rejected: ${responseObj.error}`);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Command rejected",
+          });
         }
 
         // Acknowledegement received, now poll Valkey for actual output
         if (input.target.id) {
           // Construct the command ID used by the backend (agentId:timestamp)
           const commandIdForPolling = `${input.target.id}:${timestamp}`;
-          console.log(
-            `[Terminal] Polling Valkey for agent command response using commandId: ${commandIdForPolling}`
-          );
           const output = await pollCommandResponse(commandIdForPolling);
           if (!output) {
-            throw new Error("Command response polling timed out");
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Command response polling timed out",
+            });
           }
           // Assume output in Valkey is the final, plain text response
           // Parse the JSON response string from Valkey
@@ -210,23 +191,18 @@ export const terminalRouter = createTRPCRouter({
             } else {
               // Handle other statuses (e.g., pending, running) if needed,
               // or treat as unexpected.
-              console.warn(
-                `[Terminal] Received unexpected status from Valkey: ${parsedResponse.status}`,
-                parsedResponse
-              );
+              console.warn("[Terminal] Received unexpected command status");
               return {
                 success: false,
                 output: `Command status: ${parsedResponse.status}`,
               };
             }
-          } catch (parseError) {
-            console.error(
-              "[Terminal] Failed to parse Valkey response JSON:",
-              parseError,
-              "Raw data:",
-              output
-            );
-            throw new Error("Failed to parse command response from storage");
+          } catch {
+            console.error("[Terminal] Failed to parse command response from storage");
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Failed to parse command response from storage",
+            });
           }
         } else {
           // Should not happen if target is agent, but handle defensively
@@ -236,10 +212,16 @@ export const terminalRouter = createTRPCRouter({
           };
         }
       } catch (error) {
-        console.error("[Terminal] Failed to execute command:", error);
-        const message =
-          error instanceof Error ? error.message : "Failed to execute command";
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message });
+        console.error("[Terminal] Failed to execute command", {
+          targetType: input.target.type,
+        });
+        if (error instanceof TRPCError) throw error;
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: error instanceof QueueResponseTimeoutError
+            ? "Command timed out"
+            : "Failed to execute command",
+        });
       }
     }),
 
@@ -254,8 +236,8 @@ export const terminalRouter = createTRPCRouter({
         const parsed = JSON.parse(json) as z.infer<typeof CommandHistoryEntrySchema>;
         return parsed;
       });
-    } catch (error) {
-      console.error("[Terminal:getHistory] Failed to load history:", error);
+    } catch {
+      console.error("[Terminal:getHistory] Failed to load history");
       return [];
     }
   }),
@@ -269,8 +251,8 @@ export const terminalRouter = createTRPCRouter({
         await valkey.lpush(key, JSON.stringify(input));
         await valkey.ltrim(key, 0, HISTORY_MAX_ENTRIES - 1);
         return { success: true };
-      } catch (error) {
-        console.error("[Terminal:addHistoryEntry] Failed to save:", error);
+      } catch {
+        console.error("[Terminal:addHistoryEntry] Failed to save");
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to save history entry",
@@ -303,8 +285,8 @@ export const terminalRouter = createTRPCRouter({
         }
         await pipeline.exec();
         return { success: true };
-      } catch (error) {
-        console.error("[Terminal:deleteHistoryEntry] Failed:", error);
+      } catch {
+        console.error("[Terminal:deleteHistoryEntry] Failed");
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Failed to delete history entry",
@@ -318,8 +300,8 @@ export const terminalRouter = createTRPCRouter({
     try {
       await valkey.del(key);
       return { success: true };
-    } catch (error) {
-      console.error("[Terminal:clearHistory] Failed:", error);
+    } catch {
+      console.error("[Terminal:clearHistory] Failed");
       throw new TRPCError({
         code: "INTERNAL_SERVER_ERROR",
         message: "Failed to clear history",

@@ -9,6 +9,7 @@ import { createTRPCNext } from "@trpc/next";
 import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import superjson from "superjson";
 import { type AppRouter } from "~/server/api/root";
+import { skipTerminalLogging } from "./api-logger";
 
 const getBaseUrl = () => {
   if (typeof window !== "undefined") return ""; // browser should use relative url
@@ -35,11 +36,11 @@ export const api = createTRPCNext<AppRouter>({
        * @see https://trpc.io/docs/links
        */
       links: [
-        loggerLink({
+        skipTerminalLogging(loggerLink<AppRouter>({
           enabled: (opts) =>
             process.env.NODE_ENV === "development" ||
             (opts.direction === "down" && opts.result instanceof Error),
-        }),
+        })),
         httpBatchLink({
           url: `${getBaseUrl()}/api/trpc`,
           // Add fetch configuration with longer timeout for terminal operations

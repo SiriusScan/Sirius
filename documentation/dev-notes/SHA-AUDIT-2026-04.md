@@ -297,6 +297,14 @@ observations encode unsupported measurements as JSON null and retain measured
 zero. The Dockerfile defaults, CI fallback arguments and core manifest fixture
 use the same SHA. [Upstream collector update](https://github.com/SiriusScan/app-system-monitor/pull/4)
 
+### November 24 follow-up for terminal output capture
+
+The engine advances `app-terminal` from `5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1` to
+`55d76dc405e6c2d49ae39222705d5fa24a4343c0` after [app-terminal #4](https://github.com/SiriusScan/app-terminal/pull/4).
+The worker caps captured stdout and stderr at 64 KiB each, continues draining
+overflow, and marks truncated replies in the existing text format. The
+Dockerfile, CI fallback, and Core manifest fixture use the same revision.
+
 ## Risk register
 
 - `**app-scanner` sed → source rewrite (Phase 2)** is the highest-risk

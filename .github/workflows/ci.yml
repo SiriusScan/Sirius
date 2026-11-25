@@ -206,6 +206,8 @@ jobs:
           context: ./sirius-ui
           platforms: linux/${{ matrix.platform }}
           push: true
+          build-args: |
+            APP_SYSTEM_MONITOR_COMMIT_SHA=${{ env.APP_SYSTEM_MONITOR_COMMIT_SHA || '5e6b8db1a0d15e31519aa2fba62a9d9ce401a3c2' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-ui:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
   # Merge arch-specific UI images into a single multi-arch manifest
@@ -383,6 +385,7 @@ jobs:
           # Enforced by .github/workflows/check-pin-consistency.yml.
           build-args: |
             GO_API_COMMIT_SHA=${{ env.GO_API_COMMIT_SHA || '2ceb0951105d9f322b9825210e84086632b624b3' }}
+            APP_SYSTEM_MONITOR_COMMIT_SHA=${{ env.APP_SYSTEM_MONITOR_COMMIT_SHA || '5e6b8db1a0d15e31519aa2fba62a9d9ce401a3c2' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-api:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
   # Merge arch-specific API images into a single multi-arch manifest
@@ -527,7 +530,7 @@ jobs:
             SIRIUS_NSE_COMMIT_SHA=${{ env.SIRIUS_NSE_COMMIT_SHA || 'a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9' }}
             APP_AGENT_COMMIT_SHA=${{ env.APP_AGENT_COMMIT_SHA || '9df3f87a9f59e0fdb1f6237e46ca67b90b185378' }}
             PINGPP_COMMIT_SHA=${{ env.PINGPP_COMMIT_SHA || '9508a16c40a49746feb7cab4b8c1c358246169b0' }}
-            APP_SYSTEM_MONITOR_COMMIT_SHA=${{ env.APP_SYSTEM_MONITOR_COMMIT_SHA || 'd4780cff46c98d6d030d03a4c73a40a78c7895ae' }}
+            APP_SYSTEM_MONITOR_COMMIT_SHA=${{ env.APP_SYSTEM_MONITOR_COMMIT_SHA || '5e6b8db1a0d15e31519aa2fba62a9d9ce401a3c2' }}
             APP_ADMINISTRATOR_COMMIT_SHA=${{ env.APP_ADMINISTRATOR_COMMIT_SHA || '142ac93b620ac8a52a033f312fc2cb86c1f2979d' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/sirius-engine:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
@@ -640,6 +643,8 @@ jobs:
           context: ./${{ matrix.service }}
           platforms: linux/${{ matrix.platform }}
           push: true
+          build-args: |
+            APP_SYSTEM_MONITOR_COMMIT_SHA=${{ env.APP_SYSTEM_MONITOR_COMMIT_SHA || '5e6b8db1a0d15e31519aa2fba62a9d9ce401a3c2' }}
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ matrix.service }}:${{ steps.meta.outputs.image_tag }}-${{ matrix.platform }}
 
   merge-infra:

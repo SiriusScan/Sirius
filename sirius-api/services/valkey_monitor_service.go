@@ -3,7 +3,11 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/SiriusScan/go-api/sirius/store"
 )
@@ -11,15 +15,17 @@ import (
 // ValkeyMonitorService handles reading system metrics from Valkey
 type ValkeyMonitorService struct {
 	valkeyStore store.KVStore
+	freshness   time.Duration
+	now         func() time.Time
 }
 
 // SystemMetrics represents system resource metrics from Valkey
 type SystemMetrics struct {
 	ContainerName   string  `json:"container_name"`
 	Timestamp       string  `json:"timestamp"`
-	CPUPercent      float64 `json:"cpu_percent"`
-	MemoryUsage     int64   `json:"memory_usage_bytes"`
-	MemoryPercent   float64 `json:"memory_percent"`
+	CPUPercent      *float64 `json:"cpu_percent"`
+	MemoryUsage     *int64  `json:"memory_usage_bytes"`
+	MemoryPercent   *float64 `json:"memory_percent"`
 	NetworkRx       int64   `json:"network_rx_bytes"`
 	NetworkTx       int64   `json:"network_tx_bytes"`
 	DiskRead        int64   `json:"disk_read_bytes"`
@@ -32,8 +38,10 @@ type SystemMetrics struct {
 	LoadAverage1m   float64 `json:"load_average_1m"`
 	LoadAverage5m   float64 `json:"load_average_5m"`
 	LoadAverage15m  float64 `json:"load_average_15m"`
-	Uptime          int64   `json:"uptime_seconds"`
+	Uptime          *int64  `json:"uptime_seconds"`
 	Status          string  `json:"status"`
+	CollectorStartedAt string `json:"collector_started_at"`
+	CollectorUptimeSeconds *int64 `json:"collector_uptime_seconds"`
 }
 
 // ValkeyContainerLog represents a container log entry from Valkey
@@ -61,6 +69,10 @@ type ValkeyContainerResource struct {
 	LoadAverage15m  float64 `json:"load_average_15m"`
 	Uptime          string  `json:"uptime"`
 	Status          string  `json:"status"`
+	ObservedAt      *time.Time `json:"observed_at,omitempty"`
+	TelemetryStatus string `json:"telemetry_status"`
+	CollectorStartedAt *time.Time `json:"collector_started_at,omitempty"`
+	CollectorUptimeSeconds *int64 `json:"collector_uptime_seconds,omitempty"`
 }
 
 // ValkeySystemResourcesSummary represents system resource summary
@@ -70,99 +82,166 @@ type ValkeySystemResourcesSummary struct {
 	TotalCPUPercent    float64 `json:"total_cpu_percent"`
 	TotalMemoryUsage   string  `json:"total_memory_usage"`
 	TotalMemoryPercent float64 `json:"total_memory_percent"`
+	FreshContainers       int `json:"fresh_containers"`
+	StaleContainers       int `json:"stale_containers"`
+	MissingContainers     int `json:"missing_containers"`
+	InvalidContainers     int `json:"invalid_containers"`
+	UnavailableContainers int `json:"unavailable_containers"`
+	LatestObservedAt *time.Time `json:"latest_observed_at,omitempty"`
 }
 
-// NewValkeyMonitorService creates a new Valkey monitor service
-func NewValkeyMonitorService() (*ValkeyMonitorService, error) {
-	valkeyStore, err := store.NewValkeyStore()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Valkey store: %w", err)
+type SystemResourcesObservation struct {
+	Message          string                       `json:"message"`
+	Timestamp        time.Time                    `json:"timestamp"`
+	Availability     string                       `json:"availability"`
+	FreshnessSeconds int                          `json:"freshness_seconds"`
+	Containers       []ValkeyContainerResource    `json:"containers"`
+	Summary          ValkeySystemResourcesSummary `json:"summary"`
+}
+
+var ErrResourcesStoreUnavailable = errors.New("resource telemetry store unavailable")
+
+var monitoredContainers = [...]string{
+	"sirius-api", "sirius-ui", "sirius-engine", "sirius-postgres", "sirius-valkey", "sirius-rabbitmq",
+}
+
+const defaultMetricsFreshness = 20 * time.Second
+
+// NewValkeyMonitorService uses the API process's already-configured store.
+func NewValkeyMonitorService(kv store.KVStore) *ValkeyMonitorService {
+	freshness := defaultMetricsFreshness
+	if seconds, err := strconv.Atoi(os.Getenv("SIRIUS_METRICS_FRESHNESS_SECONDS")); err == nil && seconds > 0 && seconds <= 3600 {
+		freshness = time.Duration(seconds) * time.Second
 	}
-
-	return &ValkeyMonitorService{
-		valkeyStore: valkeyStore,
-	}, nil
+	return &ValkeyMonitorService{valkeyStore: kv, freshness: freshness, now: time.Now}
 }
 
-// GetContainerResources retrieves system resources from Valkey
-func (v *ValkeyMonitorService) GetContainerResources(ctx context.Context) ([]ValkeyContainerResource, ValkeySystemResourcesSummary, error) {
-	// Get all container names
-	containerNames := []string{"sirius-api", "sirius-ui", "sirius-engine", "sirius-postgres", "sirius-valkey", "sirius-rabbitmq"}
-
-	var resources []ValkeyContainerResource
-	var totalCPU float64
-	var totalMemory float64
+func (v *ValkeyMonitorService) GetContainerResources(ctx context.Context) (SystemResourcesObservation, error) {
+	response := SystemResourcesObservation{
+		Message:          "System resource observations",
+		Availability:     "unavailable",
+		FreshnessSeconds: int(v.freshness / time.Second),
+		Containers:       make([]ValkeyContainerResource, 0, len(monitoredContainers)),
+	}
+	summary := &response.Summary
+	summary.TotalContainers = len(monitoredContainers)
 	var totalMemoryBytes int64
-	var runningCount int
 
-	for _, containerName := range containerNames {
-		// Get metrics from Valkey
-		metrics, err := v.getContainerMetrics(ctx, containerName)
-		if err != nil {
-			// If no metrics found, create a default entry
-			resource := ValkeyContainerResource{
-				Name:            containerName,
-				CPUPercent:      0.0,
-				MemoryUsage:     "0B",
-				MemoryPercent:   0.0,
-				NetworkIO:       "0B / 0B",
-				BlockIO:         "0B / 0B",
-				DiskUsage:       "0B / 0B",
-				DiskPercent:     0.0,
-				ProcessCount:    0,
-				FileDescriptors: 0,
-				LoadAverage1m:   0.0,
-				LoadAverage5m:   0.0,
-				LoadAverage15m:  0.0,
-				Uptime:          "0s",
-				Status:          "unknown",
+	for _, name := range monitoredContainers {
+		resource, memoryBytes := v.readResource(ctx, name)
+		response.Containers = append(response.Containers, resource)
+		if at := resource.ObservedAt; at != nil &&
+			(summary.LatestObservedAt == nil || at.After(*summary.LatestObservedAt)) {
+			summary.LatestObservedAt = at
+		}
+
+		switch resource.TelemetryStatus {
+		case "fresh":
+			summary.FreshContainers++
+			summary.TotalCPUPercent += resource.CPUPercent
+			summary.TotalMemoryPercent += resource.MemoryPercent
+			totalMemoryBytes += memoryBytes
+			if resource.Status == "running" {
+				summary.RunningContainers++
 			}
-			resources = append(resources, resource)
-			continue
-		}
-
-		// Convert SystemMetrics to ValkeyContainerResource
-		resource := ValkeyContainerResource{
-			Name:            metrics.ContainerName,
-			CPUPercent:      metrics.CPUPercent,
-			MemoryUsage:     v.formatBytes(metrics.MemoryUsage),
-			MemoryPercent:   metrics.MemoryPercent,
-			NetworkIO:       fmt.Sprintf("%s / %s", v.formatBytes(metrics.NetworkRx), v.formatBytes(metrics.NetworkTx)),
-			BlockIO:         fmt.Sprintf("%s / %s", v.formatBytes(metrics.DiskRead), v.formatBytes(metrics.DiskWrite)),
-			DiskUsage:       fmt.Sprintf("%s / %s", v.formatBytes(metrics.DiskUsage), v.formatBytes(metrics.DiskTotal)),
-			DiskPercent:     metrics.DiskPercent,
-			ProcessCount:    metrics.ProcessCount,
-			FileDescriptors: metrics.FileDescriptors,
-			LoadAverage1m:   metrics.LoadAverage1m,
-			LoadAverage5m:   metrics.LoadAverage5m,
-			LoadAverage15m:  metrics.LoadAverage15m,
-			Uptime:          v.formatUptime(metrics.Uptime),
-			Status:          metrics.Status,
-		}
-		resources = append(resources, resource)
-
-		// Update totals
-		if metrics.Status == "running" {
-			totalCPU += metrics.CPUPercent
-			totalMemory += metrics.MemoryPercent
-			totalMemoryBytes += metrics.MemoryUsage
-			runningCount++
+		case "stale":
+			summary.StaleContainers++
+		case "missing":
+			summary.MissingContainers++
+		case "invalid":
+			summary.InvalidContainers++
+		case "unavailable":
+			summary.UnavailableContainers++
 		}
 	}
 
-	summary := ValkeySystemResourcesSummary{
-		TotalContainers:    len(containerNames),
-		RunningContainers:  runningCount,
-		TotalCPUPercent:    totalCPU,
-		TotalMemoryUsage:   v.formatBytes(totalMemoryBytes),
-		TotalMemoryPercent: totalMemory,
+	response.Timestamp = v.now().UTC()
+	summary.TotalMemoryUsage = v.formatBytes(totalMemoryBytes)
+	switch {
+	case summary.FreshContainers == summary.TotalContainers:
+		response.Availability = "available"
+	case summary.FreshContainers > 0:
+		response.Availability = "partial"
+	case summary.UnavailableContainers == summary.TotalContainers:
+		response.Message = "System resource telemetry store unavailable"
+		return response, ErrResourcesStoreUnavailable
+	}
+	return response, nil
+}
+
+func (v *ValkeyMonitorService) readResource(ctx context.Context, name string) (ValkeyContainerResource, int64) {
+	row := ValkeyContainerResource{
+		Name: name, Status: "unknown", TelemetryStatus: "unavailable",
+		MemoryUsage: "0B", NetworkIO: "0B / 0B", BlockIO: "0B / 0B", DiskUsage: "0B / 0B", Uptime: "0s",
+	}
+	if v.valkeyStore == nil {
+		return row, 0
+	}
+	response, err := v.valkeyStore.GetValue(ctx, "system:metrics:"+name)
+	if errors.Is(err, store.ErrKeyNotFound) {
+		row.TelemetryStatus = "missing"
+		return row, 0
+	}
+	if err != nil {
+		return row, 0
+	}
+	var metrics SystemMetrics
+	if err := json.Unmarshal([]byte(response.Message.Value), &metrics); err != nil ||
+		metrics.ContainerName != name || metrics.CPUPercent == nil || metrics.MemoryUsage == nil ||
+		metrics.MemoryPercent == nil {
+		row.TelemetryStatus = "invalid"
+		return row, 0
+	}
+	now := v.now()
+	observed, err := time.Parse(time.RFC3339Nano, metrics.Timestamp)
+	if err != nil || observed.After(now) {
+		row.TelemetryStatus = "invalid"
+		return row, 0
+	}
+	observed = observed.UTC()
+	row.ObservedAt = &observed
+	row.TelemetryStatus = "stale"
+	if now.Sub(observed) <= v.freshness {
+		row.TelemetryStatus = "fresh"
+		row.Status = metrics.Status
+		if row.Status == "" {
+			row.Status = "unknown"
+		}
 	}
 
-	return resources, summary, nil
+	row.CPUPercent = *metrics.CPUPercent
+	row.MemoryUsage = v.formatBytes(*metrics.MemoryUsage)
+	row.MemoryPercent = *metrics.MemoryPercent
+	row.NetworkIO = fmt.Sprintf("%s / %s", v.formatBytes(metrics.NetworkRx), v.formatBytes(metrics.NetworkTx))
+	row.BlockIO = fmt.Sprintf("%s / %s", v.formatBytes(metrics.DiskRead), v.formatBytes(metrics.DiskWrite))
+	row.DiskUsage = fmt.Sprintf("%s / %s", v.formatBytes(metrics.DiskUsage), v.formatBytes(metrics.DiskTotal))
+	row.DiskPercent = metrics.DiskPercent
+	row.ProcessCount = metrics.ProcessCount
+	row.FileDescriptors = metrics.FileDescriptors
+	row.LoadAverage1m = metrics.LoadAverage1m
+	row.LoadAverage5m = metrics.LoadAverage5m
+	row.LoadAverage15m = metrics.LoadAverage15m
+
+	if started, err := time.Parse(time.RFC3339Nano, metrics.CollectorStartedAt); err == nil && !started.After(observed) {
+		started = started.UTC()
+		row.CollectorStartedAt = &started
+	}
+	if metrics.CollectorUptimeSeconds != nil && *metrics.CollectorUptimeSeconds >= 0 {
+		row.CollectorUptimeSeconds = metrics.CollectorUptimeSeconds
+	} else if metrics.Uptime != nil && *metrics.Uptime >= 0 {
+		row.CollectorUptimeSeconds = metrics.Uptime
+	}
+	if row.CollectorUptimeSeconds != nil {
+		row.Uptime = v.formatUptime(*row.CollectorUptimeSeconds)
+	}
+	return row, *metrics.MemoryUsage
 }
 
 // GetDockerLogs retrieves container logs from Valkey
 func (v *ValkeyMonitorService) GetDockerLogs(ctx context.Context, containerNameFilter string, lines int) ([]ValkeyContainerLog, []string, error) {
+	if v.valkeyStore == nil {
+		return nil, nil, errors.New("Valkey log store unavailable")
+	}
 	// Get all log keys from Valkey
 	pattern := "system:logs:*"
 	keys, err := v.valkeyStore.ListKeys(ctx, pattern)
@@ -216,23 +295,6 @@ func (v *ValkeyMonitorService) GetDockerLogs(ctx context.Context, containerNameF
 	return logs, containerNames, nil
 }
 
-// getContainerMetrics retrieves metrics for a specific container from Valkey
-func (v *ValkeyMonitorService) getContainerMetrics(ctx context.Context, containerName string) (*SystemMetrics, error) {
-	key := fmt.Sprintf("system:metrics:%s", containerName)
-
-	response, err := v.valkeyStore.GetValue(ctx, key)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get metrics for %s: %w", containerName, err)
-	}
-
-	var metrics SystemMetrics
-	if err := json.Unmarshal([]byte(response.Message.Value), &metrics); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal metrics for %s: %w", containerName, err)
-	}
-
-	return &metrics, nil
-}
-
 // formatBytes formats bytes into human-readable format
 func (v *ValkeyMonitorService) formatBytes(bytes int64) string {
 	if bytes == 0 {
@@ -262,14 +324,4 @@ func (v *ValkeyMonitorService) formatUptime(seconds int64) string {
 	} else {
 		return fmt.Sprintf("%dd %dh", seconds/86400, (seconds%86400)/3600)
 	}
-}
-
-// GetValkeyStore returns the Valkey store for external use
-func (v *ValkeyMonitorService) GetValkeyStore() store.KVStore {
-	return v.valkeyStore
-}
-
-// Close closes the Valkey connection
-func (v *ValkeyMonitorService) Close() error {
-	return v.valkeyStore.Close()
 }

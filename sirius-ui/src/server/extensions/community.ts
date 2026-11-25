@@ -45,5 +45,6 @@ export const communityServerExtension: SiriusServerExtension = {
     { namespace: "agentScan", requiredCapabilities: ["engine.agent_runtime"] },
     { namespace: "apikeys", requiredCapabilities: ["auth.api_keys"] },
     { namespace: "logs", requiredCapabilities: ["api.events"] },
+    { namespace: "system", requiredCapabilities: ["api.events"] },
   ],
 };

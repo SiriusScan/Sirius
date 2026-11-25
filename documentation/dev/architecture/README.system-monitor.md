@@ -50,7 +50,7 @@ The SystemMonitor is a critical component that provides real-time system resourc
 - Support for both development (`go run`) and production (binary) modes
 - Multi-architecture support (amd64, arm64)
 - CPU drift-free monitoring with time-based calculations
-- Automatic fallback mechanisms for missing metrics
+- Explicit stale and missing telemetry states
 
 ## Architecture
 
@@ -868,3 +868,11 @@ System monitor started with PID: 8
 ---
 
 _This documentation covers SystemMonitor v2.1+ with development mode support, CPU drift fixes, and multi-stage Docker builds. For older versions, refer to historical documentation or upgrade to the latest version._
+
+## Resource observation availability
+
+The collector writes `system:metrics:{container_name}` with a 60-second expiry. `timestamp` records when it gathered the sample. Its starting time and age identify the collector process. The REST response keeps its own generation timestamp and reports each valid sample time in `observed_at`.
+
+The API uses a 20-second freshness window by default. Set `SIRIUS_METRICS_FRESHNESS_SECONDS` in the API process environment to configure it. Fresh rows alone contribute to current totals. Stale rows retain their last observations. Missing, invalid, and unreadable rows have separate telemetry states. The API returns HTTP 503 if every read fails.
+
+Older collectors' timestamps and reported process ages are supported. The new Resources and Dashboard views use the protected session-backed query and require the updated API. Independent probes supply service health, while resource observations supply collector uptime.

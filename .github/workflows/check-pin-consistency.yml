@@ -14,12 +14,22 @@ on:
   pull_request:
     paths:
       - "sirius-engine/Dockerfile"
+      - "sirius-api/Dockerfile"
+      - "sirius-ui/Dockerfile"
+      - "sirius-postgres/Dockerfile"
+      - "sirius-rabbitmq/Dockerfile"
+      - "sirius-valkey/Dockerfile"
       - ".github/workflows/ci.yml"
       - ".github/workflows/check-pin-consistency.yml"
   push:
     branches: [main]
     paths:
       - "sirius-engine/Dockerfile"
+      - "sirius-api/Dockerfile"
+      - "sirius-ui/Dockerfile"
+      - "sirius-postgres/Dockerfile"
+      - "sirius-rabbitmq/Dockerfile"
+      - "sirius-valkey/Dockerfile"
       - ".github/workflows/ci.yml"
       - ".github/workflows/check-pin-consistency.yml"
   workflow_dispatch:
@@ -90,6 +100,21 @@ jobs:
               echo "OK ${arg_name}=${dockerfile_value}"
             fi
           done
+
+          monitor_pin="$(sed -n 's/^ARG APP_SYSTEM_MONITOR_COMMIT_SHA=//p' "$DOCKERFILE")"
+          for service in sirius-api sirius-ui sirius-postgres sirius-rabbitmq sirius-valkey; do
+            service_pin="$(sed -n 's/^ARG APP_SYSTEM_MONITOR_COMMIT_SHA=//p' "$service/Dockerfile")"
+            if [ "$monitor_pin" != "$service_pin" ]; then
+              echo "::error file=$service/Dockerfile::Collector pin must match $DOCKERFILE"
+              fail=1
+            fi
+          done
+          ci_monitor_lines="$(grep -E '^[[:space:]]+APP_SYSTEM_MONITOR_COMMIT_SHA=' "$CI")"
+          if [ "$(printf '%s\n' "$ci_monitor_lines" | grep -Fc "'$monitor_pin'")" -ne 4 ] ||
+             [ "$(printf '%s\n' "$ci_monitor_lines" | wc -l)" -ne 4 ]; then
+            echo "::error file=$CI::All four image build jobs must use the same collector pin"
+            fail=1
+          fi
 
           # Bonus: forbid `sed -i` blocks against minor-project source in
           # the engine Dockerfile. Patches must be upstreamed.

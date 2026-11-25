@@ -1,20 +1,8 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React from "react";
+import { useSystemResources } from "~/hooks/useSystemResources";
 import { useRouter } from "next/router";
 import { Skeleton } from "~/components/lib/ui/skeleton";
 import { Cpu, MemoryStick, Activity, ChevronRight } from "lucide-react";
-
-interface SystemResourcesSummary {
-  total_containers: number;
-  running_containers: number;
-  total_cpu_percent: number;
-  total_memory_usage: string;
-  total_memory_percent: number;
-}
-
-interface SystemResourcesData {
-  summary: SystemResourcesSummary;
-  timestamp: string;
-}
 
 interface SystemHealthMiniWidgetProps {
   className?: string;
@@ -26,47 +14,7 @@ export const SystemHealthMiniWidget: React.FC<SystemHealthMiniWidgetProps> = ({
   refreshInterval = 10000, // 10s default
 }) => {
   const router = useRouter();
-  const [data, setData] = useState<SystemResourcesData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadSystemResources = useCallback(async () => {
-    try {
-      setError(null);
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/resources`
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const apiData = await response.json();
-      setData(apiData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load");
-      console.error("Failed to load system resources:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadSystemResources();
-  }, [loadSystemResources]);
-
-  // Auto-refresh
-  useEffect(() => {
-    if (refreshInterval <= 0) return;
-
-    const interval = setInterval(() => {
-      loadSystemResources();
-    }, refreshInterval);
-
-    return () => clearInterval(interval);
-  }, [refreshInterval, loadSystemResources]);
+  const { data, loading, hasFresh, stale } = useSystemResources(refreshInterval);
 
   const getCpuColor = (cpuPercent: number) => {
     if (cpuPercent < 25) return "text-green-500";
@@ -86,20 +34,21 @@ export const SystemHealthMiniWidget: React.FC<SystemHealthMiniWidgetProps> = ({
     return <SystemHealthMiniWidgetSkeleton />;
   }
 
-  if (error && !data) {
+  if (!data || !hasFresh) {
+    const observedAt = data?.summary.latest_observed_at;
     return (
-      <div
-        className={`rounded-lg border border-red-500/30 bg-red-500/10 p-4 ${className}`}
-      >
-        <div className="text-sm text-red-400">
-          Failed to load system metrics
-        </div>
+      <div className={`rounded-lg border bg-card p-4 ${className}`}>
+        <h3 className="text-sm font-medium">System Telemetry</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {stale ? "Current telemetry is stale." : "Current telemetry is unavailable."}
+        </p>
+        {observedAt && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Latest observation {new Date(observedAt).toLocaleString()}
+          </p>
+        )}
       </div>
     );
-  }
-
-  if (!data) {
-    return null;
   }
 
   const { summary } = data;
@@ -112,7 +61,7 @@ export const SystemHealthMiniWidget: React.FC<SystemHealthMiniWidgetProps> = ({
       <div className="mb-3 flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-medium">
           <Activity className="h-4 w-4" />
-          System Health
+          System Telemetry
         </h3>
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
       </div>
@@ -125,12 +74,10 @@ export const SystemHealthMiniWidget: React.FC<SystemHealthMiniWidgetProps> = ({
             <span className="text-xs">Containers</span>
           </div>
           <div className="text-lg font-bold">
-            {summary.running_containers}/{summary.total_containers}
+            {summary.fresh_containers}/{summary.total_containers}
           </div>
           <div className="text-xs text-muted-foreground">
-            {summary.running_containers === summary.total_containers
-              ? "All online"
-              : "Some offline"}
+            With fresh telemetry
           </div>
         </div>
 
@@ -172,7 +119,9 @@ export const SystemHealthMiniWidget: React.FC<SystemHealthMiniWidgetProps> = ({
       </div>
 
       <div className="mt-3 border-t pt-3 text-center text-xs text-muted-foreground">
-        Click to view detailed metrics
+        {summary.latest_observed_at && (
+          <>Latest observation {new Date(summary.latest_observed_at).toLocaleString()}</>
+        )}
       </div>
     </div>
   );

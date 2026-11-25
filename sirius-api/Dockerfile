@@ -7,10 +7,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 FROM golang:1.24-alpine AS utility-go-binaries
 
+ARG APP_SYSTEM_MONITOR_COMMIT_SHA=5e6b8db1a0d15e31519aa2fba62a9d9ce401a3c2
+
 RUN apk add --no-cache git ca-certificates tzdata
 
 RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
     cd /tmp/system-monitor && \
+    git checkout ${APP_SYSTEM_MONITOR_COMMIT_SHA} && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/system-monitor main.go && \
     rm -rf /tmp/system-monitor

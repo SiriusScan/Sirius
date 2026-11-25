@@ -2,6 +2,7 @@
 package routes
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -14,22 +15,9 @@ import (
 )
 
 type AppRouteSetter struct {
-	valkeyOnce           sync.Once
-	rabbitMQOnce         sync.Once
-	valkeyMonitorService *services.ValkeyMonitorService
-	rabbitMQService      *services.RabbitMQService
-}
-
-func (h *AppRouteSetter) ensureValkeyMonitorService() *services.ValkeyMonitorService {
-	h.valkeyOnce.Do(func() {
-		var err error
-		h.valkeyMonitorService, err = services.NewValkeyMonitorService()
-		if err != nil {
-			fmt.Printf("Warning: Failed to initialize Valkey monitor service: %v\n", err)
-			fmt.Println("Falling back to mock data for system monitoring endpoints")
-		}
-	})
-	return h.valkeyMonitorService
+	Monitor         *services.ValkeyMonitorService
+	rabbitMQOnce    sync.Once
+	rabbitMQService *services.RabbitMQService
 }
 
 func (h *AppRouteSetter) ensureRabbitMQService() *services.RabbitMQService {
@@ -45,6 +33,11 @@ func (h *AppRouteSetter) ensureRabbitMQService() *services.RabbitMQService {
 }
 
 func (h *AppRouteSetter) SetupRoutes(app *fiber.App) {
+	monitor := h.Monitor
+	if monitor == nil {
+		monitor = services.NewValkeyMonitorService(nil)
+	}
+
 	// Health check route at root level
 	app.Get("/health", handlers.HealthHandler)
 
@@ -64,26 +57,21 @@ func (h *AppRouteSetter) SetupRoutes(app *fiber.App) {
 		linesStr := c.Query("lines", "100")
 		lines, _ := strconv.Atoi(linesStr)
 
-		if valkeyMonitorService := h.ensureValkeyMonitorService(); valkeyMonitorService != nil {
-			// Use real Valkey integration
-			logs, containerNames, err := valkeyMonitorService.GetDockerLogs(c.Context(), containerName, lines)
-			if err != nil {
-				fmt.Printf("Error getting Docker logs: %v\n", err)
-				// Fall back to mock data on error
-			} else {
-				return c.JSON(fiber.Map{
-					"message":   "Docker logs endpoint is working (real data)",
-					"timestamp": time.Now(),
-					"container": containerName,
-					"lines":     linesStr,
-					"logs":      logs,
-					"summary": fiber.Map{
-						"total_logs": len(logs),
-						"containers": containerNames,
-					},
-				})
-			}
+		logs, containerNames, err := monitor.GetDockerLogs(c.Context(), containerName, lines)
+		if err == nil {
+			return c.JSON(fiber.Map{
+				"message":   "Docker logs endpoint is working (real data)",
+				"timestamp": time.Now(),
+				"container": containerName,
+				"lines":     linesStr,
+				"logs":      logs,
+				"summary": fiber.Map{
+					"total_logs": len(logs),
+					"containers": containerNames,
+				},
+			})
 		}
+		fmt.Printf("Error getting Docker logs: %v\n", err)
 
 		// Fallback to mock data
 		mockLogs := []fiber.Map{
@@ -143,93 +131,14 @@ func (h *AppRouteSetter) SetupRoutes(app *fiber.App) {
 		})
 	})
 
-	// System resource monitoring route
 	app.Get("/api/v1/system/resources", func(c *fiber.Ctx) error {
-
-		if valkeyMonitorService := h.ensureValkeyMonitorService(); valkeyMonitorService != nil {
-			// Use real Valkey integration
-			resources, summary, err := valkeyMonitorService.GetContainerResources(c.Context())
-			if err != nil {
-				fmt.Printf("Error getting container resources: %v\n", err)
-				// Fall back to mock data on error
-			} else {
-				return c.JSON(fiber.Map{
-					"message":    "System resource monitoring endpoint is working (real data)",
-					"timestamp":  time.Now(),
-					"containers": resources,
-					"summary":    summary,
-				})
-			}
+		ctx, cancel := context.WithTimeout(c.UserContext(), 3*time.Second)
+		defer cancel()
+		response, err := monitor.GetContainerResources(ctx)
+		if err != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(response)
 		}
-
-		// Fallback to mock data
-		return c.JSON(fiber.Map{
-			"message":   "System resource monitoring endpoint is working (mock data)",
-			"timestamp": time.Now(),
-			"containers": []fiber.Map{
-				{
-					"name":           "sirius-api",
-					"cpu_percent":    2.5,
-					"memory_usage":   "45.2MB",
-					"memory_percent": 1.2,
-					"network_io":     "1.2kB / 856B",
-					"block_io":       "0B / 0B",
-					"status":         "running",
-				},
-				{
-					"name":           "sirius-ui",
-					"cpu_percent":    1.8,
-					"memory_usage":   "128.5MB",
-					"memory_percent": 3.4,
-					"network_io":     "2.1kB / 1.2kB",
-					"block_io":       "0B / 0B",
-					"status":         "running",
-				},
-				{
-					"name":           "sirius-engine",
-					"cpu_percent":    0.5,
-					"memory_usage":   "89.3MB",
-					"memory_percent": 2.1,
-					"network_io":     "856B / 432B",
-					"block_io":       "0B / 0B",
-					"status":         "running",
-				},
-				{
-					"name":           "sirius-postgres",
-					"cpu_percent":    0.2,
-					"memory_usage":   "156.7MB",
-					"memory_percent": 4.1,
-					"network_io":     "3.2kB / 2.1kB",
-					"block_io":       "1.2MB / 856kB",
-					"status":         "running",
-				},
-				{
-					"name":           "sirius-valkey",
-					"cpu_percent":    0.1,
-					"memory_usage":   "12.3MB",
-					"memory_percent": 0.3,
-					"network_io":     "432B / 256B",
-					"block_io":       "0B / 0B",
-					"status":         "running",
-				},
-				{
-					"name":           "sirius-rabbitmq",
-					"cpu_percent":    0.3,
-					"memory_usage":   "67.8MB",
-					"memory_percent": 1.8,
-					"network_io":     "1.5kB / 1.1kB",
-					"block_io":       "0B / 0B",
-					"status":         "running",
-				},
-			},
-			"summary": fiber.Map{
-				"total_containers":     6,
-				"running_containers":   6,
-				"total_cpu_percent":    5.4,
-				"total_memory_usage":   "499.8MB",
-				"total_memory_percent": 13.1,
-			},
-		})
+		return c.JSON(response)
 	})
 
 	// Admin command route

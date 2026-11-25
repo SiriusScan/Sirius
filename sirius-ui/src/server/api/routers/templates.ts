@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { AgentScanConfig } from "~/types/scanTypes";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
+import { readApiJson, requireApiOk } from "~/server/api/shared/apiErrors";
 
 // Agent scan config interface - duplicates AgentScanConfig from scanTypes.ts
 // Kept for Zod schema compatibility, but uses canonical type for actual data
@@ -64,11 +65,9 @@ export const templatesRouter = createTRPCRouter({
     try {
       const response = await apiFetch(`${API_BASE_URL}/templates`);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch templates: ${response.statusText}`);
-      }
+      requireApiOk(response, "Failed to fetch templates");
 
-      const templates = (await response.json()) as Template[];
+      const templates = (await readApiJson(response)) as Template[];
       return templates;
     } catch (error) {
       console.error("Error fetching templates:", error);
@@ -83,14 +82,12 @@ export const templatesRouter = createTRPCRouter({
       try {
         const response = await apiFetch(`${API_BASE_URL}/templates/${input.id}`);
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            return null;
-          }
-          throw new Error(`Failed to fetch template: ${response.statusText}`);
+        if (response.status === 404) {
+          return null;
         }
+        requireApiOk(response, "Failed to fetch template");
 
-        const template = (await response.json()) as Template;
+        const template = (await readApiJson(response)) as Template;
         return template;
       } catch (error) {
         console.error("Error fetching template:", error);
@@ -108,12 +105,9 @@ export const templatesRouter = createTRPCRouter({
           body: JSON.stringify(input),
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to create template");
-        }
+        requireApiOk(response, "Failed to create template");
 
-        const template = (await response.json()) as Template;
+        const template = (await readApiJson(response)) as Template;
         return template;
       } catch (error) {
         console.error("Error creating template:", error);
@@ -131,12 +125,9 @@ export const templatesRouter = createTRPCRouter({
           body: JSON.stringify(input),
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to update template");
-        }
+        requireApiOk(response, "Failed to update template");
 
-        const template = (await response.json()) as Template;
+        const template = (await readApiJson(response)) as Template;
         return template;
       } catch (error) {
         console.error("Error updating template:", error);
@@ -153,10 +144,7 @@ export const templatesRouter = createTRPCRouter({
           method: "DELETE",
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to delete template");
-        }
+        requireApiOk(response, "Failed to delete template");
 
         return { success: true };
       } catch (error) {

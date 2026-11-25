@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { Repository, SyncStatus } from "~/types/repositoryTypes";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
+import { readApiJson, requireApiOk } from "~/server/api/shared/apiErrors";
 
 // Zod schemas for validation
 const addRepositorySchema = z.object({
@@ -38,7 +39,7 @@ export const repositoriesRouter = createTRPCRouter({
         return []; // Return empty array on error
       }
 
-      return (await response.json()) as Repository[];
+      return (await readApiJson(response)) as Repository[];
     } catch (error) {
       console.error("Error fetching repositories:", error);
       return [];
@@ -61,12 +62,9 @@ export const repositoriesRouter = createTRPCRouter({
           }
         );
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to add repository");
-        }
+        requireApiOk(response, "Failed to add repository");
 
-        return (await response.json()) as Repository;
+        return (await readApiJson(response)) as Repository;
       } catch (error) {
         console.error("Error adding repository:", error);
         throw error;
@@ -90,12 +88,9 @@ export const repositoriesRouter = createTRPCRouter({
           }
         );
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to update repository");
-        }
+        requireApiOk(response, "Failed to update repository");
 
-        return (await response.json()) as Repository;
+        return (await readApiJson(response)) as Repository;
       } catch (error) {
         console.error("Error updating repository:", error);
         throw error;
@@ -114,12 +109,9 @@ export const repositoriesRouter = createTRPCRouter({
           }
         );
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to delete repository");
-        }
+        requireApiOk(response, "Failed to delete repository");
 
-        return await response.json();
+        return await readApiJson(response);
       } catch (error) {
         console.error("Error deleting repository:", error);
         throw error;
@@ -138,12 +130,9 @@ export const repositoriesRouter = createTRPCRouter({
           }
         );
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to start sync");
-        }
+        requireApiOk(response, "Failed to start sync");
 
-        return await response.json();
+        return await readApiJson(response);
       } catch (error) {
         console.error("Error starting sync:", error);
         throw error;
@@ -159,14 +148,12 @@ export const repositoriesRouter = createTRPCRouter({
           `${API_BASE_URL}/api/agent-templates/repositories/${input.id}/sync-status`
         );
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            return null;
-          }
-          throw new Error("Failed to fetch sync status");
+        if (response.status === 404) {
+          return null;
         }
+        requireApiOk(response, "Failed to fetch sync status");
 
-        return (await response.json()) as SyncStatus;
+        return (await readApiJson(response)) as SyncStatus;
       } catch (error) {
         console.error("Error fetching sync status:", error);
         return null;

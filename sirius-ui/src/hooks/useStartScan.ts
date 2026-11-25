@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { api } from "~/utils/api";
 import { b64Decode } from "~/utils/std";
-import { createInitialScan } from "~/utils/scanSubmission";
 import {
   type ScanResult,
   type AgentScanConfig,
+  type SubScan,
 } from "~/types/scanTypes";
 
 export type TargetType =
@@ -20,12 +20,22 @@ interface Target {
   type: TargetType;
 }
 
+interface ScanRequest {
+  id: string;
+  targets: Target[];
+  options: {
+    template_id: string;
+  };
+  priority: number;
+}
+
 export const useStartScan = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const submitNetworkScan = api.scanner.submitNetworkScan.useMutation({
     retry: false,
   });
+  const sendMessage = api.queue.sendMsg.useMutation();
   const updateScan = api.store.setValue.useMutation();
   const dispatchAgentScan = api.agentScan.dispatchAgentScan.useMutation();
   const utils = api.useContext();
@@ -50,42 +60,88 @@ export const useStartScan = () => {
       const hasNetworkScan = targets.length > 0 && !skipNetworkScan;
       const hasAgentScan = agentScanConfig?.enabled ?? false;
 
-      const agentMode = hasAgentScan
-        ? agentScanConfig?.mode ?? "comprehensive"
-        : undefined;
-      let scan: ScanResult;
-
-      if (hasNetworkScan) {
+      if (hasNetworkScan && !hasAgentScan) {
         const receipt = await submitNetworkScan.mutateAsync({
           scanId,
           targets,
           templateId,
           priority,
-          agentMode,
-        }).catch((cause: unknown) => {
-          console.error("Scan submission response was unavailable", scanId, cause);
-          throw new Error(
-            "Could not confirm scan submission. Check the dashboard before retrying."
-          );
-        });
-        if (receipt.outcome === "not_recorded") {
-          throw new Error("Could not record the scan. No scan request was published.");
+        }).catch(() => ({ outcome: "unconfirmed" } as const));
+
+        if ("scan" in receipt && receipt.scan) return receipt.scan;
+        switch (receipt.outcome) {
+          case "unsupported":
+            throw new Error("This API version does not support network scan submission.");
+          case "rejected":
+            throw new Error("The API rejected the network scan request.");
+          case "busy":
+            throw new Error("A scan is already active or its state cannot be replaced.");
+          case "failed":
+            throw new Error("The network scan could not be submitted.");
+          case "not_recorded":
+            throw new Error("Could not record the scan. No scan request was published.");
+          default:
+            throw new Error("Could not confirm scan submission. Check the dashboard before retrying.");
         }
-        if (receipt.outcome === "failed") {
-          throw new Error("The network scan could not be submitted.");
-        }
-        scan = receipt.scan;
-      } else {
-        scan = createInitialScan(
-          scanId,
-          targets.map((target) => target.value),
-          false,
-          agentMode
-        );
-        await updateScan.mutateAsync({
-          key: "currentScan",
-          value: btoa(JSON.stringify(scan)),
-        });
+      }
+
+      // Agent-only and combined profiles still use their legacy dispatch.
+      // Select that path before any network submission is attempted.
+      const subScans: Record<string, SubScan> = {};
+
+      if (hasNetworkScan) {
+        subScans.network = {
+          type: "network",
+          enabled: true,
+          status: "running",
+          progress: { completed: 0, total: 0, label: "hosts" },
+        };
+      }
+
+      if (hasAgentScan) {
+        subScans.agent = {
+          type: "agent",
+          enabled: true,
+          status: "dispatching",
+          progress: { completed: 0, total: 0, label: "agents" },
+          metadata: {
+            mode: agentScanConfig?.mode ?? "comprehensive",
+            dispatched_agents: [],
+            agent_statuses: [],
+          },
+        };
+      }
+
+      // Create the initial scan state in ValKey
+      const scan: ScanResult = {
+        id: scanId,
+        status: "running",
+        targets: targets.map((t) => t.value),
+        hosts: [],
+        hosts_completed: 0,
+        vulnerabilities: [],
+        start_time: new Date().toISOString(),
+        sub_scans: subScans,
+      };
+
+      await updateScan.mutateAsync({
+        key: "currentScan",
+        value: btoa(JSON.stringify(scan)),
+      });
+
+      // Dispatch network scan if we have targets
+      if (hasNetworkScan) {
+        const scanRequest: ScanRequest = {
+          id: scanId,
+          targets,
+          options: {
+            template_id: templateId,
+          },
+          priority,
+        };
+
+        const message = JSON.stringify(scanRequest);
+        await sendMessage.mutateAsync({ message, queue: "scan" });
       }
 
       // Dispatch agent scan if enabled

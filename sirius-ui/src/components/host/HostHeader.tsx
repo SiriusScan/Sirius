@@ -69,13 +69,13 @@ export const HostHeader: React.FC<HostHeaderProps> = ({ host, onEdit }) => {
             <span
               className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                 host.vulnerabilityCount === 0
-                  ? "bg-emerald-500/15 text-emerald-400"
+                  ? "bg-gray-800/80 text-gray-400"
                   : "bg-yellow-500/15 text-yellow-400"
               }`}
             >
               {host.vulnerabilityCount === 0
-                ? "Clean"
-                : `${host.vulnerabilityCount} vulns`}
+                ? "No recorded findings"
+                : `${host.vulnerabilityCount} findings`}
             </span>
 
             {/* Port count */}

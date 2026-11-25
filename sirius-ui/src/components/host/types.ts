@@ -39,15 +39,24 @@ export interface DeduplicatedVulnerability {
   severity: SeverityLevel;
   description: string;
   title?: string;
-  published: string;
-  lastModified: string;
   references: string[];
   affectedHosts: string[];
   riskScore: number;
   sources: string[];
+  observations: HostFindingObservation[];
+}
+
+export interface HostFindingObservation {
+  key: string;
+  source?: string;
+  version?: string;
+  firstSeen?: string;
+  lastSeen?: string;
+  status?: string;
+  confidence?: number;
   port?: number;
   serviceInfo?: string;
-  confidence?: number;
+  notes?: string;
 }
 
 /** A port deduplicated across sources with service info. */

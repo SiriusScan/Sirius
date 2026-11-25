@@ -329,7 +329,10 @@ function OpenPortsCard({ host }: { host: HostPageDataWithRisk }) {
                   {p.port}/{p.protocol}
                 </span>
                 {p.serviceLabel ? (
-                  <span className="min-w-0 flex-1 truncate text-gray-300" title={p.serviceLabel}>
+                  <span
+                    className="min-w-0 flex-1 truncate text-gray-300"
+                    title={p.serviceDetail ?? p.serviceLabel}
+                  >
                     {p.serviceLabel}
                   </span>
                 ) : (

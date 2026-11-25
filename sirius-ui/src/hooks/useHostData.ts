@@ -70,7 +70,7 @@ export interface HostRiskSummary {
   /** Open findings by severity (kit keys). */
   counts: RiskSeverityCounts;
   openFindings: number;
-  /** Open ports with the sources that saw them; no service data is stored. */
+  /** Open ports with the sources that saw them and the service a scan identified. */
   openPorts: OpenPort[];
   freshness: HostFreshness;
   firstSeen: string | null;
@@ -135,8 +135,8 @@ export function useHostData(ip: string | undefined) {
       state: p.state ?? "",
       sources: p.sources ?? [],
       service:
-        p.service || p.version
-          ? { name: p.service, version: p.version }
+        p.service || p.product || p.version || p.extraInfo
+          ? { name: p.service, product: p.product, version: p.version, extraInfo: p.extraInfo }
           : undefined,
     }));
   }, [hostWithSources?.openPorts]);

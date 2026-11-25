@@ -32,10 +32,14 @@ export interface HostRiskFields {
 export interface OpenPort {
   port: number;
   protocol: string;
-  /** Service name, only when a scan recorded one. */
+  /** Service name ("http-proxy"), only when a scan recorded one. */
   service?: string;
-  /** Service version, only when a scan recorded one. */
+  /** Service product ("Squid http proxy"), only when a scan recorded one. */
+  product?: string;
+  /** Service version ("5.7"), only when a scan recorded one. */
   version?: string;
+  /** Extra service detail ("Protocol v1.3"), only when a scan recorded one. */
+  extraInfo?: string;
   /** Port state as reported ("open"). */
   state?: string;
   /** Sources that reported the port, when known (host page only). */

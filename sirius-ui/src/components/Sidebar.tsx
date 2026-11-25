@@ -5,17 +5,24 @@ import { useRouter } from "next/router";
 import SiriusIcon from "./icons/SiriusIcon";
 import { uiExtensionRegistry, useCapabilities } from "~/ui/extensions";
 
-// Tooltips render in a document.body portal strictly inside the 80px rail
-// (w-20) with pointer-events-none on the root element so they never cover page
-// content beside the rail (such as Chat's conversation search) and never block
-// pointer events on adjacent sidebar icons.
+// Tooltips render in a document.body portal with pointer-events-none, so they
+// never block pointer events on page content or adjacent sidebar icons. Each
+// label stays on one line (whitespace-nowrap), centered on the 80px rail
+// (w-20, center x = 40px). A label wider than 72px is anchored 4px from the
+// viewport's left edge instead of centered, so it never clips off-screen:
+// translateX(max(-50%, -36px)) shifts by half the tooltip's own width, but at
+// most 36px. Labels up to 72px wide (Dashboard, Scanner, Vulnerabilities,
+// Environment, Settings) stay centered inside the rail, so the Scanner tip
+// never reaches Chat's conversation search beside it; the wider ones
+// (Operator Console, Vulnerability Studio) sit lower, clear of that box.
 const TOOLTIP_CLASS =
-  "pointer-events-none fixed z-[100] max-w-[76px] rounded-md border border-violet-500/50 bg-[#161224] px-1 py-1 text-center font-sans text-[10px] font-medium leading-tight tracking-tight text-white shadow-lg shadow-black/60";
+  "pointer-events-none fixed z-[100] whitespace-nowrap rounded-md border border-violet-500/50 bg-[#161224] px-1 py-1 text-center font-sans text-[10px] font-medium leading-tight tracking-tight text-white shadow-lg shadow-black/60";
+const RAIL_CENTER_X = 40;
+const TOOLTIP_SHIFT_X = "max(-50%, -36px)";
 
 interface ActiveTooltip {
   label: string;
   side: "top" | "bottom";
-  centerX: number;
   y: number;
 }
 
@@ -51,11 +58,8 @@ const Sidebar = () => {
   const showTooltip = useCallback(
     (el: HTMLElement, label: string, side: "top" | "bottom") => {
       const rect = el.getBoundingClientRect();
-      // Keep the tooltip centered inside the 80px rail (40px center) so it
-      // never overhangs past x=80px into page content.
-      const centerX = Math.min(40, Math.max(40, rect.left + rect.width / 2));
       const y = side === "top" ? rect.top - 4 : rect.bottom + 4;
-      setActiveTooltip({ label, side, centerX, y });
+      setActiveTooltip({ label, side, y });
     },
     [],
   );
@@ -224,12 +228,12 @@ const Sidebar = () => {
             role="tooltip"
             className={TOOLTIP_CLASS}
             style={{
-              left: `${activeTooltip.centerX}px`,
+              left: `${RAIL_CENTER_X}px`,
               top: `${activeTooltip.y}px`,
               transform:
                 activeTooltip.side === "top"
-                  ? "translate(-50%, -100%)"
-                  : "translateX(-50%)",
+                  ? `translate(${TOOLTIP_SHIFT_X}, -100%)`
+                  : `translateX(${TOOLTIP_SHIFT_X})`,
             }}
           >
             {activeTooltip.label}

@@ -8,6 +8,7 @@ import {
   itemsLabel,
   submittedItemsLabel,
   findingToVulnRow,
+  formatPortServiceMeta,
   hostCsvFilename,
   hostFindingsCsv,
   hostSeverityHref,
@@ -198,12 +199,73 @@ assert.deepEqual(
   ),
   [
     { port: 22, protocol: "tcp", sources: ["naabu", "nmap"], serviceLabel: "ssh (OpenSSH 10.0p2 Debian 7+deb13u4)" },
-    { port: 8009, protocol: "tcp", service: "ajp13", version: "Apache Jserv", serviceLabel: "ajp13 Apache Jserv" },
+    { port: 8009, protocol: "tcp", service: "ajp13", version: "Apache Jserv", serviceLabel: "ajp13 (Apache Jserv)" },
     { port: 8080, protocol: "tcp", serviceLabel: "http (Apache Tomcat 8.5.19)" },
     { port: 9999, protocol: "udp" },
   ],
 );
 assert.deepEqual(openPortServices([], [finding({ id: "CVE-A", port: 22, serviceInfo: "ssh" })]), []);
+
+// ── Port-level service metadata (host_ports service_* columns) ──────────────
+// Values from the cogitator02 lab: ports with and without CVE findings.
+assert.equal(
+  formatPortServiceMeta({ service: "http-proxy", product: "Squid http proxy", version: "5.7" }),
+  "http-proxy (Squid http proxy 5.7)",
+);
+// A product that repeats the name is not said twice.
+assert.equal(
+  formatPortServiceMeta({ service: "rpcbind", product: "rpcbind", version: "2-4", extraInfo: "RPC #100000" }),
+  "rpcbind (2-4)",
+);
+assert.equal(
+  formatPortServiceMeta(
+    { service: "rpcbind", product: "RPCBind", version: "2-4", extraInfo: "RPC #100000" },
+    { full: true },
+  ),
+  "rpcbind (2-4, RPC #100000)",
+);
+assert.equal(formatPortServiceMeta({ service: "rpcbind", product: "rpcbind" }), "rpcbind");
+assert.equal(formatPortServiceMeta({ service: "ajp13", extraInfo: "Protocol v1.3" }), "ajp13 (Protocol v1.3)");
+assert.equal(formatPortServiceMeta({ service: "rpcbind", version: "2-4" }), "rpcbind (2-4)");
+assert.equal(formatPortServiceMeta({ service: "https" }), "https");
+assert.equal(
+  formatPortServiceMeta({ service: "https", product: "Proxmox Virtual Environment" }),
+  "https (Proxmox Virtual Environment)",
+);
+assert.equal(
+  formatPortServiceMeta({ service: "ssh", product: "OpenSSH", version: "10.0p2 Debian 7+deb13u4", extraInfo: "protocol 2.0" }),
+  "ssh (OpenSSH 10.0p2 Debian 7+deb13u4)",
+);
+assert.equal(formatPortServiceMeta({ product: "Apache Tomcat", version: "8.5.19" }), "Apache Tomcat 8.5.19");
+assert.equal(formatPortServiceMeta({ service: " ", product: "", version: undefined }), undefined);
+assert.equal(formatPortServiceMeta({ service: "unknown" }), undefined);
+assert.equal(formatPortServiceMeta({ extraInfo: "Protocol v1.3" }), undefined);
+
+// Port-level metadata wins; finding serviceInfo is only the fallback.
+assert.deepEqual(
+  openPortServices(
+    [
+      { port: 22, protocol: "tcp", service: "ssh", product: "OpenSSH", version: "10.0p2 Debian 7+deb13u4" },
+      { port: 111, protocol: "tcp", service: "rpcbind", product: "rpcbind", version: "2-4", extraInfo: "RPC #100000" },
+      { port: 3128, protocol: "tcp", service: "http-proxy", product: "Squid http proxy", version: "5.7" },
+      { port: 8009, protocol: "tcp", service: "ajp13", product: "Apache Jserv", extraInfo: "Protocol v1.3" },
+      { port: 8080, protocol: "tcp" },
+      { port: 9000, protocol: "tcp" },
+    ],
+    [
+      finding({ id: "CVE-A", port: 22, serviceInfo: "ssh (finding text)" }),
+      finding({ id: "CVE-B", port: 8080, serviceInfo: "http (Apache Tomcat 8.5.19)" }),
+    ],
+  ).map(({ port, serviceLabel, serviceDetail }) => ({ port, serviceLabel, serviceDetail })),
+  [
+    { port: 22, serviceLabel: "ssh (OpenSSH 10.0p2 Debian 7+deb13u4)", serviceDetail: undefined },
+    { port: 111, serviceLabel: "rpcbind (2-4)", serviceDetail: "rpcbind (2-4, RPC #100000)" },
+    { port: 3128, serviceLabel: "http-proxy (Squid http proxy 5.7)", serviceDetail: undefined },
+    { port: 8009, serviceLabel: "ajp13 (Apache Jserv)", serviceDetail: "ajp13 (Apache Jserv, Protocol v1.3)" },
+    { port: 8080, serviceLabel: "http (Apache Tomcat 8.5.19)", serviceDetail: undefined },
+    { port: 9000, serviceLabel: undefined, serviceDetail: undefined },
+  ],
+);
 
 // ── Agent data ──────────────────────────────────────────────────────────────
 // What the API returns for a scan-only host (empty JSONB columns).

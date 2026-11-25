@@ -92,7 +92,9 @@ export interface DeduplicatedPort {
   sources: string[];
   service?: {
     name?: string;
+    product?: string;
     version?: string;
+    extraInfo?: string;
   };
 }
 

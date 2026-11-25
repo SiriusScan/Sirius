@@ -217,16 +217,54 @@ export function sourceName(source: Pick<SourceFreshness, "name" | "version">): s
 
 // ─── Open ports with their services (Open ports card) ───────────────────────
 
+/** A port's own service identification, as the scanner stores it. */
+export type PortServiceMeta = Pick<OpenPort, "service" | "product" | "version" | "extraInfo">;
+
+const sameText = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/**
+ * One label from a port's service fields:
+ *   http-proxy + Squid http proxy + 5.7     → "http-proxy (Squid http proxy 5.7)"
+ *   rpcbind + rpcbind + 2-4                 → "rpcbind (2-4)"  (product repeats the name)
+ *   ajp13 + Protocol v1.3 (extra info only) → "ajp13 (Protocol v1.3)"
+ *   https                                   → "https"
+ * Extra info is the detail only when there is no product or version, unless
+ * `full` is set (the hover text), which appends it: "rpcbind (2-4, RPC #100000)".
+ * With no service name, the product and version stand alone. undefined when
+ * nothing real is recorded.
+ */
+export function formatPortServiceMeta(
+  meta: PortServiceMeta,
+  { full = false }: { full?: boolean } = {},
+): string | undefined {
+  const name = realText(meta.service);
+  const rawProduct = realText(meta.product);
+  const product = rawProduct && name && sameText(rawProduct, name) ? undefined : rawProduct;
+  const version = realText(meta.version);
+  const extra = realText(meta.extraInfo);
+  const productVersion = [product, version].filter(Boolean).join(" ");
+  const detail = productVersion
+    ? full && extra
+      ? `${productVersion}, ${extra}`
+      : productVersion
+    : extra;
+  if (!name) return productVersion || undefined;
+  return detail ? `${name} (${detail})` : name;
+}
+
 export type PortWithService<P extends OpenPort = OpenPort> = P & {
   /** "ssh (OpenSSH 10.0p2 Debian 7+deb13u4)", when a scan recorded one. */
   serviceLabel?: string;
+  /** The full text for the hover, when it says more than the label. */
+  serviceDetail?: string;
 };
 
 /**
  * Each open port with the service a scan recorded for it: the port's own
- * service name and version when present, otherwise the service the
- * scanner's findings on that port name (their structured `serviceInfo`;
- * the most common one when they differ). Nothing is parsed from free text.
+ * service metadata (service_name/product/version/extrainfo) first; only
+ * when the port has none, the service the scanner's findings on that port
+ * name (their structured `serviceInfo`; the most common one when they
+ * differ). Nothing is parsed from free text.
  */
 export function openPortServices<P extends OpenPort>(
   ports: readonly P[],
@@ -241,7 +279,11 @@ export function openPortServices<P extends OpenPort>(
     byPort.set(f.port, counts);
   }
   return ports.map((p) => {
-    const own = [realText(p.service), realText(p.version)].filter(Boolean).join(" ");
+    const own = formatPortServiceMeta(p);
+    if (own) {
+      const full = formatPortServiceMeta(p, { full: true });
+      return { ...p, serviceLabel: own, ...(full && full !== own ? { serviceDetail: full } : {}) };
+    }
     let fromFindings: string | undefined;
     let best = 0;
     for (const [info, n] of byPort.get(p.port) ?? []) {
@@ -250,8 +292,7 @@ export function openPortServices<P extends OpenPort>(
         best = n;
       }
     }
-    const serviceLabel = own || fromFindings;
-    return serviceLabel ? { ...p, serviceLabel } : { ...p };
+    return fromFindings ? { ...p, serviceLabel: fromFindings } : { ...p };
   });
 }
 

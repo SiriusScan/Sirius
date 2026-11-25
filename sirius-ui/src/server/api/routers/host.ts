@@ -50,7 +50,15 @@ export type SiriusHost = {
   users?: User[];
 };
 
-type Port = {
+/** Service identification a scan recorded on a port (all optional). */
+type PortServiceFields = {
+  service_name?: string;
+  service_product?: string;
+  service_version?: string;
+  service_extrainfo?: string;
+};
+
+type Port = PortServiceFields & {
   number: number;
   protocol: string;
   state: string;
@@ -407,7 +415,7 @@ export type VulnerabilityWithSource = {
   } | null;
 };
 
-export type PortWithSource = {
+export type PortWithSource = PortServiceFields & {
   ID: number;
   Number: number; // The actual port number (22, 80, 443, etc.)
   CreatedAt: string;
@@ -583,9 +591,60 @@ function sortPorts<P extends OpenPort>(ports: P[]): P[] {
   );
 }
 
+type PortService = Pick<OpenPort, "service" | "product" | "version" | "extraInfo">;
+
+function serviceText(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/** The service fields a port row records, without empty values. */
+export function portServiceFields(p: PortServiceFields | null | undefined): PortService {
+  const service = serviceText(p?.service_name);
+  const product = serviceText(p?.service_product);
+  const version = serviceText(p?.service_version);
+  const extraInfo = serviceText(p?.service_extrainfo);
+  return {
+    ...(service ? { service } : {}),
+    ...(product ? { product } : {}),
+    ...(version ? { version } : {}),
+    ...(extraInfo ? { extraInfo } : {}),
+  };
+}
+
+function serviceFieldCount(s: PortService): number {
+  return [s.service, s.product, s.version, s.extraInfo].filter(Boolean).length;
+}
+
 /**
- * Open ports from GET /host/. The scanner records number, protocol and state;
- * no service name or version is stored today, so those stay unset.
+ * Whether `next` (from `nextSource`) identifies the service better than
+ * `current` (from `currentSource`): any service info beats none, nmap beats
+ * other sources (naabu records no service), then more fields win. The fields
+ * are taken from one row as a whole, never mixed across sources.
+ */
+function betterService(
+  current: PortService,
+  currentSource: string | undefined,
+  next: PortService,
+  nextSource: string | undefined,
+): boolean {
+  const n = serviceFieldCount(next);
+  if (n === 0) return false;
+  const c = serviceFieldCount(current);
+  if (c === 0) return true;
+  const nmap = (s: string | undefined) => (s ?? "").toLowerCase().startsWith("nmap");
+  if (nmap(nextSource) !== nmap(currentSource)) return nmap(nextSource);
+  return n > c;
+}
+
+function withService<P extends OpenPort>(port: P, service: PortService): P {
+  const { service: _s, product: _p, version: _v, extraInfo: _e, ...rest } = port;
+  return { ...rest, ...service } as P;
+}
+
+/**
+ * Open ports from GET /host/: number, protocol and state, with the service a
+ * scan identified on the port (service_name/product/version/extrainfo) when
+ * one is stored.
  */
 export function openPortsForHost(host: Pick<SiriusHost, "ports">): OpenPort[] {
   const byKey = new Map<string, OpenPort>();
@@ -594,12 +653,17 @@ export function openPortsForHost(host: Pick<SiriusHost, "ports">): OpenPort[] {
     if (CLOSED_PORT_STATES.has((p.state ?? "").toLowerCase())) continue;
     const protocol = (p.protocol || "tcp").toLowerCase();
     const key = `${p.number}/${protocol}`;
-    if (!byKey.has(key)) {
+    const service = portServiceFields(p);
+    const existing = byKey.get(key);
+    if (!existing) {
       byKey.set(key, {
         port: p.number,
         protocol,
         ...(p.state ? { state: p.state } : {}),
+        ...service,
       });
+    } else if (betterService(existing, undefined, service, undefined)) {
+      byKey.set(key, withService(existing, service));
     }
   }
   return sortPorts([...byKey.values()]);
@@ -609,21 +673,30 @@ function isActive(status: string | null | undefined): boolean {
   return !status || status === "active";
 }
 
-/** Open ports from /host/{ip}/sources, with the sources that saw each. */
-function openPortsFromSources(
+/**
+ * Open ports from /host/{ip}/sources, with the sources that saw each and the
+ * best service identification among them (nmap's non-empty row over
+ * naabu's empty one; see betterService).
+ */
+export function openPortsFromSources(
   ports: PortWithSource[] | null | undefined,
 ): OpenPort[] {
-  const byKey = new Map<string, OpenPort & { sources: string[] }>();
+  type Entry = OpenPort & { sources: string[]; serviceSource?: string };
+  const byKey = new Map<string, Entry>();
   for (const p of ports ?? []) {
     if (!p || typeof p.Number !== "number" || p.Number <= 0) continue;
     if (!isActive(p.status)) continue;
     if (CLOSED_PORT_STATES.has((p.State ?? "").toLowerCase())) continue;
     const protocol = (p.Protocol || "tcp").toLowerCase();
     const key = `${p.Number}/${protocol}`;
+    const service = portServiceFields(p);
     const existing = byKey.get(key);
     if (existing) {
       if (p.source && !existing.sources.includes(p.source)) {
         existing.sources.push(p.source);
+      }
+      if (betterService(existing, existing.serviceSource, service, p.source)) {
+        byKey.set(key, { ...withService(existing, service), serviceSource: p.source });
       }
     } else {
       byKey.set(key, {
@@ -631,10 +704,14 @@ function openPortsFromSources(
         protocol,
         ...(p.State ? { state: p.State } : {}),
         sources: p.source ? [p.source] : [],
+        ...service,
+        ...(serviceFieldCount(service) > 0 ? { serviceSource: p.source } : {}),
       });
     }
   }
-  return sortPorts([...byKey.values()]);
+  return sortPorts(
+    [...byKey.values()].map(({ serviceSource: _src, ...port }) => port),
+  );
 }
 
 /** Epoch ms for an ISO time, ignoring Go's zero time. */

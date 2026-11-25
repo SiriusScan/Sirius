@@ -11,12 +11,13 @@ import { EmptyState } from "~/components/shared/EmptyState";
 import { SourceBadge } from "~/components/shared/SourceBadge";
 import { SECTION_HEADER } from "~/utils/themeConstants";
 import { NeedsAgentState } from "./NeedsAgentState";
-import { readAgentNetwork, rescanHref } from "./hostModel";
+import { openPortServices, readAgentNetwork, rescanHref, type PortWithService } from "./hostModel";
 import type { AgentDataState } from "./useHostAgentData";
-import type { HostPageData, DeduplicatedPort } from "./types";
+import type { DeduplicatedPort } from "./types";
+import type { HostPageDataWithRisk } from "~/hooks/useHostData";
 
 interface HostNetworkProps {
-  host: HostPageData;
+  host: HostPageDataWithRisk;
   agent: AgentDataState;
 }
 
@@ -35,7 +36,15 @@ export const HostNetwork: React.FC<HostNetworkProps> = ({ host, agent }) => {
     () => [...host.ports].sort((a, b) => a.number - b.number || a.protocol.localeCompare(b.protocol)),
     [host.ports],
   );
-  const anyService = ports.some((p) => p.service?.name);
+  // Port-level service metadata first, the findings' service as fallback.
+  const services = useMemo(() => {
+    const byKey = new Map<string, PortWithService>();
+    for (const p of openPortServices(host.openPorts, host.findings)) {
+      if (p.serviceLabel) byKey.set(`${p.port}/${p.protocol}`, p);
+    }
+    return byKey;
+  }, [host.openPorts, host.findings]);
+  const anyService = services.size > 0;
 
   return (
     <div className="space-y-4">
@@ -58,34 +67,38 @@ export const HostNetwork: React.FC<HostNetworkProps> = ({ host, agent }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-violet-500/5">
-                {ports.map((port: DeduplicatedPort) => (
-                  <tr key={`${port.number}/${port.protocol}`} className="text-gray-300">
-                    <td className="py-1.5 pr-4 font-mono font-medium text-white">{port.number}</td>
-                    <td className="py-1.5 pr-4 font-mono text-gray-400">{port.protocol}</td>
-                    <td className="py-1.5 pr-4">
-                      <PortStateBadge state={port.state} />
-                    </td>
-                    {anyService && (
-                      <td className="py-1.5 pr-4 text-gray-400">
-                        {port.service?.name
-                          ? `${port.service.name}${port.service.version ? ` ${port.service.version}` : ""}`
-                          : "—"}
+                {ports.map((port: DeduplicatedPort) => {
+                  const service = services.get(`${port.number}/${port.protocol}`);
+                  return (
+                    <tr key={`${port.number}/${port.protocol}`} className="text-gray-300">
+                      <td className="py-1.5 pr-4 font-mono font-medium text-white">{port.number}</td>
+                      <td className="py-1.5 pr-4 font-mono text-gray-400">{port.protocol}</td>
+                      <td className="py-1.5 pr-4">
+                        <PortStateBadge state={port.state} />
                       </td>
-                    )}
-                    <td className="py-1.5">
-                      <div className="flex flex-wrap gap-1">
-                        {port.sources.map((s) => (
-                          <SourceBadge key={s} source={s} />
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      {anyService && (
+                        <td
+                          className="max-w-[28rem] truncate py-1.5 pr-4 text-gray-300"
+                          title={service ? service.serviceDetail ?? service.serviceLabel : undefined}
+                        >
+                          {service?.serviceLabel ?? <span className="text-gray-600">—</span>}
+                        </td>
+                      )}
+                      <td className="py-1.5">
+                        <div className="flex flex-wrap gap-1">
+                          {port.sources.map((s) => (
+                            <SourceBadge key={s} source={s} />
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             {!anyService && (
               <p className="mt-3 text-[11px] text-gray-500">
-                The scan records port, protocol and state; service names aren&apos;t stored yet.
+                No service has been identified on these ports yet.
               </p>
             )}
           </div>

@@ -1,0 +1,40 @@
+name: Verify published November 24 SDK checksum
+on:
+  push:
+    branches: [bughunt/2026-11-24-verify-sdk-pins]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: false
+      - name: Verify released module against the public checksum database
+        env:
+          SDK_COMMIT: 617b961315d5818c010120fd09c18dd96fcca344
+          GOPROXY: https://proxy.golang.org
+          GOSUMDB: sum.golang.org
+          GOWORK: 'off'
+        run: |
+          set -euo pipefail
+          tag=""
+          for attempt in {1..50}; do
+            tag=$(git ls-remote --tags --refs https://github.com/SiriusScan/go-api.git 'refs/tags/v*' | awk -v sha="$SDK_COMMIT" '$1 == sha {sub(/^refs\/tags\//, "", $2); print $2}' | sort -V | tail -1)
+            if [[ -n "$tag" ]]; then break; fi
+            sleep 10
+          done
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          cd "$RUNNER_TEMP"
+          go mod init example.org/verify-published-sdk
+          for attempt in {1..5}; do
+            if go mod download -json "github.com/SiriusScan/go-api@$tag" > verified.json; then
+              jq -e '{Path,Version,Sum,GoModSum} | select(.Sum and .GoModSum)' verified.json
+              exit 0
+            fi
+            sleep 12
+          done
+          exit 1

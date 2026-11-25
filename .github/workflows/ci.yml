@@ -188,6 +188,10 @@ jobs:
         run: npm run test:extensions
         working-directory: sirius-ui
 
+      - name: Test scanner cancellation with fake stores and publishers
+        run: npm run test:scanner-cancellation
+        working-directory: sirius-ui
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -357,6 +361,11 @@ jobs:
         run: |
           go test . -run 'TestCommunityModuleInventory|TestCommunityRouteInventory|TestExtensionModuleAddsRouteWithoutChangingCommunityComposition|TestLiveRouteContractCoverage|TestUnclassifiedLiveRouteIsRejected|TestProductionMiddlewareAuthAndRequestID|TestProductionMiddlewareLoggingUsesInProcessSink|TestFixedRoutesNotShadowedByParams' -count=1
           go test ./internal/contract/ ./middleware/ -count=1
+        working-directory: sirius-api
+
+
+      - name: Test scan stop interleavings with fake stores and publishers
+        run: go test ./handlers -run '^TestScanStop' -v -count=1
         working-directory: sirius-api
 
       - name: Run API tests (non-blocking)

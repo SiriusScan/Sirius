@@ -7,7 +7,7 @@ test("scanner cancellation reports the state the dashboard can confirm", async (
   process.env.SKIP_ENV_VALIDATION = "1";
   process.env.NEXTAUTH_SECRET = "offline-scanner-cancellation-test";
 
-  const [{ createInnerTRPCContext, createTRPCRouter }, { createCancelScanProcedure }] =
+  const [{ createInnerTRPCContext, createTRPCRouter }, { createCancelScanProcedure, createForceStopScanProcedure }] =
     await Promise.all([import("../trpc"), import("./scanner-cancellation")]);
 
   const scanId = "scan-1234-abcd";
@@ -38,24 +38,26 @@ test("scanner cancellation reports the state the dashboard can confirm", async (
     const updates: ScanResult[] = [];
     const snapshot = (scan: ScanResult) => ({ raw: JSON.stringify(scan), scan });
     let current = initial ? snapshot(initial) : null;
+    const loadScan = () => options.loadError
+      ? Promise.reject(options.loadError)
+      : Promise.resolve(current);
+    const publishCancel = (message: string) => {
+      commands.push(message);
+      if (options.publishError) return Promise.reject(options.publishError);
+      if (options.replaceAfterPublish) current = snapshot(options.replaceAfterPublish);
+      return Promise.resolve();
+    };
+    const compareAndSet = (expected: string, scan: ScanResult) => {
+      if (options.markError) return Promise.reject(options.markError);
+      if (current?.raw !== expected) return Promise.resolve(false);
+      updates.push(scan);
+      current = snapshot(scan);
+      return Promise.resolve(true);
+    };
     const router = createTRPCRouter({
       scanner: createTRPCRouter({
-        cancelScan: createCancelScanProcedure({
-          loadScan: () => options.loadError ? Promise.reject(options.loadError) : Promise.resolve(current),
-          publishCancel: (message) => {
-            commands.push(message);
-            if (options.publishError) return Promise.reject(options.publishError);
-            if (options.replaceAfterPublish) current = snapshot(options.replaceAfterPublish);
-            return Promise.resolve();
-          },
-          markCancelling: (expected, scan) => {
-            if (options.markError) return Promise.reject(options.markError);
-            if (current?.raw !== expected) return Promise.resolve(false);
-            updates.push(scan);
-            current = snapshot(scan);
-            return Promise.resolve(true);
-          },
-        }),
+        cancelScan: createCancelScanProcedure({ loadScan, publishCancel, markCancelling: compareAndSet }),
+        forceStopScan: createForceStopScanProcedure({ loadScan, publishCancel, markCancelled: compareAndSet }),
       }),
     });
     const caller = router.createCaller(createInnerTRPCContext({
@@ -66,7 +68,13 @@ test("scanner cancellation reports the state the dashboard can confirm", async (
         capabilities: ["api.scan_control"],
       },
     }));
-    return { cancelScan: caller.scanner.cancelScan, commands, updates, getScan: () => current?.scan };
+    return {
+      cancelScan: caller.scanner.cancelScan,
+      forceStopScan: caller.scanner.forceStopScan,
+      commands,
+      updates,
+      getScan: () => current?.scan,
+    };
   }
 
   await t.test("a pending scan sends an exact-ID request and awaits the worker", async () => {
@@ -144,5 +152,60 @@ test("scanner cancellation reports the state the dashboard can confirm", async (
     assert.deepEqual(await cancelScan(), { success: false, message: "No scan to stop" });
     assert.deepEqual(commands, []);
     assert.deepEqual(updates, []);
+  });
+
+  await t.test("force stop binds omitted IDs and rejects a stale explicit ID", async () => {
+    const active = cancellationFixture(runningScan);
+    const accepted = await active.forceStopScan();
+    assert.equal(accepted.success, true);
+    assert.equal(accepted.status, "cancelled");
+    assert.equal(active.commands.length, 1);
+    assert.match(active.commands[0] ?? "", /"action":"force_cancel","scan_id":"scan-1234-abcd"/);
+    assert.equal(active.getScan()?.status, "cancelled");
+
+    const stale = cancellationFixture(runningScan);
+    const rejected = await stale.forceStopScan({ scanId: "formerly-current" });
+    assert.equal(rejected.success, false);
+    assert.deepEqual(stale.commands, []);
+    assert.deepEqual(stale.updates, []);
+  });
+
+  await t.test("force stop preserves any projection committed during publication", async () => {
+    const afterPublish = [
+      { ...pendingScan, id: "scan-1235-efgh" },
+      { ...runningScan, hosts_completed: 2 },
+      { ...runningScan, status: "completed", end_time: "2026-11-25T01:00:00Z" } satisfies ScanResult,
+    ];
+    for (const newer of afterPublish) {
+      const fixture = cancellationFixture(runningScan, { replaceAfterPublish: newer });
+      assert.deepEqual(await fixture.forceStopScan({ scanId }), {
+        success: true,
+        message: "Force-stop request sent. Waiting for scanner confirmation.",
+      });
+      assert.equal(fixture.commands.length, 1);
+      assert.deepEqual(fixture.updates, []);
+      assert.deepEqual(fixture.getScan(), newer);
+    }
+  });
+
+  await t.test("force stop preserves terminal state and does not project after a publication error", async () => {
+    const terminal: ScanResult = {
+      ...runningScan,
+      status: "failed",
+      end_time: "2026-11-25T01:00:00Z",
+    };
+    const settled = cancellationFixture(terminal);
+    const result = await settled.forceStopScan({ scanId });
+    assert.equal(result.status, "failed");
+    assert.deepEqual(settled.commands, []);
+    assert.deepEqual(settled.getScan(), terminal);
+
+    const failure = cancellationFixture(runningScan, { publishError: new Error("inert broker failure") });
+    assert.deepEqual(await failure.forceStopScan({ scanId }), {
+      success: false,
+      message: "Could not confirm whether the force-stop request was sent.",
+    });
+    assert.deepEqual(failure.getScan(), runningScan);
+    assert.deepEqual(failure.updates, []);
   });
 });

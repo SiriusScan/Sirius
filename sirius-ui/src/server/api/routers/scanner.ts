@@ -4,12 +4,12 @@ import { apiClient } from "~/server/api/shared/apiClient";
 import type { ScanResult } from "~/types/scanTypes";
 import { handleSendMsg } from "~/server/api/routers/queue";
 import { valkey } from "~/server/valkey";
-import { createCancelScanProcedure } from "./scanner-cancellation";
+import { createCancelScanProcedure, createForceStopScanProcedure } from "./scanner-cancellation";
 
-export type { CancelScanResponse } from "./scanner-cancellation";
+export type { CancelScanResponse, ForceStopResponse } from "./scanner-cancellation";
 
 const CURRENT_SCAN_KEY = "currentScan";
-const MARK_SCAN_CANCELLING = `
+const COMPARE_AND_SET_SCAN = `
   if redis.call("GET", KEYS[1]) ~= ARGV[1] then
     return 0
   end
@@ -30,15 +30,15 @@ async function loadCurrentScan() {
   return raw ? { raw, scan: decodeScanState(raw) } : null;
 }
 
-async function getCurrentScan(): Promise<ScanResult | null> {
-  return (await loadCurrentScan())?.scan ?? null;
-}
-
-export interface ForceStopResponse {
-  success: boolean;
-  message: string;
-  status?: string;
-  error?: string;
+async function compareAndSetScan(expected: string, scan: ScanResult): Promise<boolean> {
+  const updated = await valkey.eval(
+    COMPARE_AND_SET_SCAN,
+    1,
+    CURRENT_SCAN_KEY,
+    expected,
+    encodeScanState(scan),
+  );
+  return updated === 1;
 }
 
 export interface ResetScanResponse {
@@ -113,63 +113,14 @@ export const scannerRouter = createTRPCRouter({
   cancelScan: createCancelScanProcedure({
     loadScan: loadCurrentScan,
     publishCancel: (message) => handleSendMsg("scan_control", message),
-    markCancelling: async (expected, scan) => {
-      const updated = await valkey.eval(
-        MARK_SCAN_CANCELLING,
-        1,
-        CURRENT_SCAN_KEY,
-        expected,
-        encodeScanState(scan),
-      );
-      return updated === 1;
-    },
+    markCancelling: compareAndSetScan,
   }),
 
-  forceStopScan: protectedProcedure
-    .input(
-      z
-        .object({
-          scanId: z.string().optional(),
-        })
-        .optional()
-    )
-    .mutation(async ({ input }): Promise<ForceStopResponse> => {
-      try {
-        const cancelCommand = JSON.stringify({
-          action: "force_cancel",
-          scan_id: input?.scanId ?? "",
-          timestamp: new Date().toISOString(),
-        });
-        await handleSendMsg("scan_control", cancelCommand).catch(() => {});
-
-        const current = await getCurrentScan();
-        if (current) {
-          current.status = "cancelled";
-          current.end_time = new Date().toISOString();
-          if (current.sub_scans) {
-            for (const sub of Object.values(current.sub_scans)) {
-              if (sub.status === "running" || sub.status === "dispatching") {
-                sub.status = "failed";
-              }
-            }
-          }
-          await valkey.set(CURRENT_SCAN_KEY, encodeScanState(current));
-        }
-
-        return {
-          success: true,
-          message: "Scan force stopped",
-          status: "cancelled",
-        };
-      } catch (error) {
-        console.error("Error force stopping scan:", error);
-        return {
-          success: false,
-          message: "Failed to force stop scan",
-          error: error instanceof Error ? error.message : "Unknown error",
-        };
-      }
-    }),
+  forceStopScan: createForceStopScanProcedure({
+    loadScan: loadCurrentScan,
+    publishCancel: (message) => handleSendMsg("scan_control", message),
+    markCancelled: compareAndSetScan,
+  }),
 
   // Reset scan dashboard state - Tier 3 last resort: directly clears ValKey
   resetScanState: protectedProcedure.mutation(

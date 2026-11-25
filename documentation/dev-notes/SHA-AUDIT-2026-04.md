@@ -264,6 +264,17 @@ Sirius integration test.
 
 The scanner still uses Go SDK v0.0.26 and the agent uses v0.0.24 at these revisions.
 
+### November 24 follow-up for template repository imports
+
+The packaged engine advances app-agent from `9df3f87a9f59e0fdb1f6237e46ca67b90b185378` to
+`34d8dee3abb733f9b9b291867c13d2bbe12a6a90` after [app-agent #18](https://github.com/SiriusScan/app-agent/pull/18).
+The engine checks the complete repository before updating catalog records and
+publishes each standard template with a Valkey ownership check. The official
+module manifests passed offline validation on Linux and Windows before the
+engine pin advanced.
+
+The agent uses Go SDK `v0.0.24`, protocol `1.0.0`, and admission contract `1.0.0` at this pin.
+
 ## Risk register
 
 - `**app-scanner` sed → source rewrite (Phase 2)** is the highest-risk

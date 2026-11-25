@@ -23,6 +23,10 @@
     "9df3f87a9f59e0fdb1f6237e46ca67b90b185378": {
       "go_api_version": "v0.0.24",
       "go_api_commit": "2d98e281fd0a37c278e8122c1e5f7543c44ba4c7"
+    },
+    "34d8dee3abb733f9b9b291867c13d2bbe12a6a90": {
+      "go_api_version": "v0.0.24",
+      "go_api_commit": "2d98e281fd0a37c278e8122c1e5f7543c44ba4c7"
     }
   },
   "sdk_releases": {

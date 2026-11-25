@@ -15,7 +15,7 @@ jobs:
           cache: false
       - name: Verify released module against the public checksum database
         env:
-          SDK_COMMIT: 617b961315d5818c010120fd09c18dd96fcca344
+          SDK_COMMIT: eec099d012845817d22a37c72db8f89e8c609032
           GOPROXY: https://proxy.golang.org
           GOSUMDB: sum.golang.org
           GOWORK: 'off'

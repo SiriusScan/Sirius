@@ -99,3 +99,62 @@ test("preserves unknown times and unattributed observations", () => {
   assert.equal(observedTimestamp(null), undefined);
   assert.deepEqual(normalizeHostFindings(null), []);
 });
+
+test("keeps independent source snapshots and allowlists evidence and web references", () => {
+  const [finding] = normalizeHostFindings([
+    row({
+      source: "network-fixture",
+      last_seen: later,
+      finding: {
+        title: "Network source title",
+        description: "<b>Stored as text</b>",
+        remediation: "Upgrade network component",
+        severity: "high",
+        metadata: {
+          evidence: {
+            path: "/fixture",
+            summary: "Network observation",
+            internal: "ignore this field",
+          },
+          references: [
+            "https://fixture.invalid/advisory",
+            "http://fixture.invalid/legacy",
+            "https://fixture.invalid/advisory",
+            "ftp://fixture.invalid/file",
+            "https://account@fixture.invalid/ignored",
+            "/relative",
+            { url: "https://fixture.invalid/untyped" },
+          ],
+        },
+      },
+    }),
+    row({
+      source: "agent-fixture",
+      finding: {
+        title: "Agent source title",
+        remediation: "Upgrade agent component",
+        metadata: { evidence: "Agent text evidence" },
+      },
+    }),
+    row({ source: "legacy-fixture" }),
+  ]);
+  assert.ok(finding);
+  const [network, agent, legacy] = finding.observations;
+  assert.deepEqual(network?.snapshot, {
+    title: "Network source title",
+    description: "<b>Stored as text</b>",
+    remediation: "Upgrade network component",
+    severity: "high",
+    evidence: [
+      { label: "Evidence summary", text: "Network observation" },
+      { label: "Evidence path", text: "/fixture" },
+    ],
+    references: ["https://fixture.invalid/advisory", "http://fixture.invalid/legacy"],
+  });
+  assert.equal(agent?.snapshot?.title, "Agent source title");
+  assert.equal(agent?.snapshot?.remediation, "Upgrade agent component");
+  assert.deepEqual(agent?.snapshot?.evidence, [
+    { label: "Evidence", text: "Agent text evidence" },
+  ]);
+  assert.equal(legacy?.snapshot, undefined);
+});

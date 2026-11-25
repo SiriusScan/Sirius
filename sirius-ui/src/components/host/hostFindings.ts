@@ -2,6 +2,7 @@ import { riskScoreToSeverity } from "~/utils/riskScoreCalculator";
 import type {
   DeduplicatedVulnerability,
   HostFindingObservation,
+  HostFindingSnapshot,
   SeverityLevel,
   VulnerabilityWithSource,
 } from "./types";
@@ -44,6 +45,62 @@ function newestFirst(
   );
 }
 
+function readText(value: unknown): string | undefined {
+  return typeof value === "string" ? value.trim() || undefined : undefined;
+}
+
+function readSnapshotEvidence(value: unknown): HostFindingSnapshot["evidence"] {
+  const text = readText(value);
+  if (text) return [{ label: "Evidence", text }];
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return [];
+  }
+
+  const evidence: HostFindingSnapshot["evidence"] = [];
+  const summary = "summary" in value ? readText(value.summary) : undefined;
+  const path = "path" in value ? readText(value.path) : undefined;
+  if (summary) evidence.push({ label: "Evidence summary", text: summary });
+  if (path) evidence.push({ label: "Evidence path", text: path });
+  return evidence;
+}
+
+function readSnapshotReferences(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const references = new Set<string>();
+  for (const item of value as unknown[]) {
+    const text = readText(item);
+    if (!text) continue;
+    try {
+      const url = new URL(text);
+      if (
+        (url.protocol === "http:" || url.protocol === "https:") &&
+        !url.username &&
+        !url.password
+      ) {
+        references.add(url.href);
+      }
+    } catch {
+      // Legacy references may contain arbitrary text instead of URLs.
+    }
+  }
+  return Array.from(references);
+}
+
+function readSnapshot(
+  finding: VulnerabilityWithSource["finding"],
+): HostFindingSnapshot | undefined {
+  if (!finding) return undefined;
+  return {
+    title: readText(finding.title),
+    description: readText(finding.description),
+    severity: readText(finding.severity),
+    remediation: readText(finding.remediation),
+    evidence: readSnapshotEvidence(finding.metadata?.evidence),
+    references: readSnapshotReferences(finding.metadata?.references),
+  };
+}
+
 export function normalizeHostFindings(
   rows?: readonly VulnerabilityWithSource[] | null,
   ip?: string,
@@ -78,6 +135,7 @@ export function normalizeHostFindings(
           : undefined,
       serviceInfo: row.service_info?.trim() || undefined,
       notes: row.notes?.trim() || undefined,
+      snapshot: readSnapshot(row.finding),
     };
 
     const bySource = findings.get(id) ?? new Map<string, Observation>();

@@ -5,10 +5,11 @@
  * trivial to extend the data model. Follows the same pattern as console/types.ts.
  */
 
+import type { VulnerabilityWithSource as SourceRow } from "~/server/api/routers/host";
+
 // Re-export upstream types consumers may need
 export type {
   HostWithSources,
-  VulnerabilityWithSource,
   PortWithSource,
   EnvironmentTableData,
   SiriusHost,
@@ -46,6 +47,29 @@ export interface DeduplicatedVulnerability {
   observations: HostFindingObservation[];
 }
 
+/** The deployed SDK sends a source finding snapshot on newer observations. */
+export type VulnerabilityWithSource = SourceRow & {
+  finding?: {
+    title?: string;
+    description?: string;
+    severity?: string;
+    remediation?: string;
+    metadata?: {
+      evidence?: unknown;
+      references?: unknown;
+    } | null;
+  } | null;
+};
+
+export interface HostFindingSnapshot {
+  title?: string;
+  description?: string;
+  severity?: string;
+  remediation?: string;
+  evidence: { label: string; text: string }[];
+  references: string[];
+}
+
 export interface HostFindingObservation {
   key: string;
   source?: string;
@@ -57,6 +81,7 @@ export interface HostFindingObservation {
   port?: number;
   serviceInfo?: string;
   notes?: string;
+  snapshot?: HostFindingSnapshot;
 }
 
 /** A port deduplicated across sources with service info. */

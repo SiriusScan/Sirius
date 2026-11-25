@@ -1,11 +1,69 @@
 import { SourceBadge } from "~/components/shared/SourceBadge";
-import type { DeduplicatedVulnerability } from "./types";
+import type { DeduplicatedVulnerability, HostFindingSnapshot } from "./types";
 
 function ObservationTime({ value }: { value?: string }) {
   return value ? (
     <time dateTime={value}>{new Date(value).toLocaleString()}</time>
   ) : (
     "Unknown"
+  );
+}
+
+function RecordedSnapshot({ snapshot }: { snapshot?: HostFindingSnapshot }) {
+  if (!snapshot) {
+    return (
+      <p className="mt-3 text-xs text-gray-400">Source finding details unavailable.</p>
+    );
+  }
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-violet-500/15 pt-2 text-xs">
+      {snapshot.title && <p className="font-medium text-gray-200">{snapshot.title}</p>}
+      {snapshot.description && (
+        <p className="whitespace-pre-wrap break-words">{snapshot.description}</p>
+      )}
+      <dl className="space-y-2">
+        {snapshot.severity && (
+          <div>
+            <dt className="text-gray-400">Reported severity</dt>
+            <dd>{snapshot.severity}</dd>
+          </div>
+        )}
+        {snapshot.remediation && (
+          <div>
+            <dt className="text-gray-400">Remediation</dt>
+            <dd className="whitespace-pre-wrap break-words">{snapshot.remediation}</dd>
+          </div>
+        )}
+        {snapshot.evidence.map(({ label, text }) => (
+          <div key={label}>
+            <dt className="text-gray-400">{label}</dt>
+            <dd className="whitespace-pre-wrap break-words">{text}</dd>
+          </div>
+        ))}
+        {snapshot.references.length > 0 && (
+          <div>
+            <dt className="text-gray-400">References</dt>
+            <dd>
+              <ul className="space-y-1">
+                {snapshot.references.map((reference) => (
+                  <li key={reference}>
+                    <a
+                      href={reference}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-violet-300 underline hover:text-violet-200"
+                    >
+                      {reference}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+        )}
+      </dl>
+    </div>
   );
 }
 
@@ -70,6 +128,7 @@ export function FindingEvidence({ finding }: { finding: DeduplicatedVulnerabilit
                 </>
               )}
             </dl>
+            <RecordedSnapshot snapshot={observation.snapshot} />
           </li>
         ))}
       </ul>

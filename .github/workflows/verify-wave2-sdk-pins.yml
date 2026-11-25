@@ -1,0 +1,80 @@
+name: Verify Wave 2 SDK checksums and packaging
+on:
+  push:
+    branches: [bughunt/2026-11-24-verify-wave2-sdk]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.4'
+          cache: false
+      - name: Verify released module against the public checksum database
+        env:
+          SDK_COMMIT: 18f26a4cacb098975791be91d13f2a88eca546b1
+          GOPROXY: https://proxy.golang.org
+          GOSUMDB: sum.golang.org
+          GOWORK: 'off'
+        run: |
+          set -euo pipefail
+          tag=""
+          for attempt in {1..50}; do
+            tag=$(git ls-remote --tags --refs https://github.com/SiriusScan/go-api.git 'refs/tags/v*' | awk -v sha="$SDK_COMMIT" '$1 == sha {sub(/^refs\/tags\//, "", $2); print $2}' | sort -V | tail -1)
+            if [[ -n "$tag" ]]; then break; fi
+            sleep 10
+          done
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          cd "$RUNNER_TEMP"
+          go mod init example.org/verify-published-sdk
+          for attempt in {1..5}; do
+            if go mod download -json "github.com/SiriusScan/go-api@$tag" > verified.json; then
+              jq -e --arg revision "$SDK_COMMIT" '{Path,Version,Sum,GoModSum,Revision:$revision} | select(.Sum and .GoModSum)' verified.json
+              exit 0
+            fi
+            sleep 12
+          done
+          exit 1
+      - name: Check out the packaged SDK source
+        uses: actions/checkout@v4
+        with:
+          repository: SiriusScan/go-api
+          ref: 18f26a4cacb098975791be91d13f2a88eca546b1
+          path: package-check/go-api
+          persist-credentials: false
+      - name: Check out the packaged terminal source
+        uses: actions/checkout@v4
+        with:
+          repository: SiriusScan/app-terminal
+          ref: 5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1
+          path: package-check/app-terminal
+          persist-credentials: false
+      - name: Compile the packaged one-shot migrator
+        working-directory: package-check/go-api
+        env:
+          GOWORK: 'off'
+          CGO_ENABLED: '0'
+          GOOS: linux
+        run: go build -ldflags="-w -s" -o "$RUNNER_TEMP/migrate" ./cmd/migrate
+      - name: Compile the packaged terminal with the exact sibling SDK
+        working-directory: package-check/app-terminal
+        env:
+          SDK_COMMIT: 18f26a4cacb098975791be91d13f2a88eca546b1
+          TERMINAL_COMMIT: 5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1
+          GOWORK: 'off'
+          CGO_ENABLED: '0'
+          GOOS: linux
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TERMINAL_COMMIT"
+          test "$(git -C ../go-api rev-parse HEAD)" = "$SDK_COMMIT"
+          go mod download
+          go build -ldflags="-w -s" -o "$RUNNER_TEMP/terminal" cmd/main.go
+          go version -m "$RUNNER_TEMP/terminal" | awk '
+            $1 == "dep" { sdk = $2 == "github.com/SiriusScan/go-api" }
+            sdk && $1 == "=>" && $2 == "../go-api" { print; found = 1 }
+            END { exit !found }'
+          printf 'Built terminal %s with SDK %s\n' "$TERMINAL_COMMIT" "$SDK_COMMIT"

@@ -1,66 +1,19 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log/slog"
-	"net"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/SiriusScan/go-api/sirius/logging"
-	"github.com/SiriusScan/go-api/sirius/migrate"
 	"github.com/SiriusScan/go-api/sirius/module"
 	"github.com/SiriusScan/go-api/sirius/slogger"
 	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/SiriusScan/sirius-api/internal/infraauth"
 	"github.com/gofiber/fiber/v2"
 )
-
-// waitForDatabase waits for PostgreSQL to be available before running migrations
-func waitForDatabase() error {
-	dbHost := os.Getenv("POSTGRES_HOST")
-	dbPort := os.Getenv("POSTGRES_PORT")
-	if dbHost == "" {
-		dbHost = "sirius-postgres"
-	}
-	if dbPort == "" {
-		dbPort = "5432"
-	}
-
-	address := net.JoinHostPort(dbHost, dbPort)
-	slog.Info("Waiting for database", "address", address)
-
-	for attempts := 0; attempts < 30; attempts++ {
-		conn, err := net.DialTimeout("tcp", address, 3*time.Second)
-		if err == nil {
-			conn.Close()
-			slog.Info("Database is available", "address", address)
-			return nil
-		}
-		slog.Debug("Database not ready, retrying", "attempt", attempts+1, "max", 30)
-		time.Sleep(2 * time.Second)
-	}
-
-	return fmt.Errorf("database not available after 30 attempts")
-}
-
-// runMigrations applies forward-only core schema migrations via go-api's
-// schema_migrations_core ledger. Failures are fatal (no silent skip).
-func runMigrations() error {
-	slog.Info("Running database migrations")
-
-	if err := waitForDatabase(); err != nil {
-		return fmt.Errorf("database connectivity check failed: %w", err)
-	}
-
-	if err := migrate.UpFromDefault(); err != nil {
-		return fmt.Errorf("core schema migrations failed: %w", err)
-	}
-
-	slog.Info("Database migrations completed")
-	return nil
-}
 
 func main() {
 	// Initialize structured logging (reads LOG_LEVEL env var)
@@ -74,15 +27,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := prepareDatabase(context.Background()); err != nil {
+		slog.Error("Failed to prepare database schema", "error", err)
+		os.Exit(1)
+	}
+
 	// Initialize the logging SDK
 	logging.Init()
 	defer logging.Close()
-
-	// Run database migrations before starting the API
-	if err := runMigrations(); err != nil {
-		slog.Error("Failed to run migrations", "error", err)
-		os.Exit(1)
-	}
 
 	// Initialize Valkey store for dynamic API key management.
 	kvStore, err := store.NewValkeyStore()

@@ -27,6 +27,9 @@ services:
   sirius-api:
     image: ghcr.io/siriusscan/sirius-api:${IMAGE_TAG:-latest}
     environment:
+      - SIRIUS_SCHEMA_MODE=${SIRIUS_SCHEMA_MODE:-apply}
+      - SIRIUS_SCHEMA_STARTUP_TIMEOUT=${SIRIUS_SCHEMA_STARTUP_TIMEOUT:-10m}
+      - PGCONNECT_TIMEOUT=${PGCONNECT_TIMEOUT:-10}
       - SIRIUS_API_KEY_FILE=${SIRIUS_API_KEY_FILE:-}
       - SIRIUS_API_KEY=${SIRIUS_API_KEY:-}
     networks:

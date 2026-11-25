@@ -16,7 +16,7 @@ RUN apk add --no-cache git ca-certificates tzdata
 # Pin policy (utility binaries): ARG defaults MUST match ci.yml build-args.
 # Enforced by .github/workflows/check-pin-consistency.yml.
 ARG APP_SYSTEM_MONITOR_COMMIT_SHA=abbeea729b909a239a376806f5b3541bc3b585bc
-ARG APP_ADMINISTRATOR_COMMIT_SHA=142ac93b620ac8a52a033f312fc2cb86c1f2979d
+ARG APP_ADMINISTRATOR_COMMIT_SHA=b156de9ebfa79f74c776187ac29f1016e5397a80
 
 RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
     cd /tmp/system-monitor && \

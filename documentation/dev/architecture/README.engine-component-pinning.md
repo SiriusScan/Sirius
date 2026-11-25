@@ -159,6 +159,10 @@ Each informational notification uses its own CI concurrency group.
 Release-producing pushes and actionable dispatches share the existing
 group for their Git ref.
 
+The dispatch allowlist rejects unknown promotion modes before selecting
+any image build. Only Go API, scanner and terminal support `source-pin-v1`.
+An invalid repository name or source SHA also fails validation.
+
 ### Bumping the scanner and pingpp
 
 Publish the scanner's updated pingpp module lock first. Then update

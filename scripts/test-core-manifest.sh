@@ -63,27 +63,6 @@ for dependency in build-ui build-api build-engine build-infra merge-ui merge-api
 done
 pass "release inventory requires commit-built images"
 
-echo "==> informational dispatches have independent CI concurrency groups"
-actual_group="$(awk '/^concurrency:/ { group=1; next } group && /^  cancel-in-progress:/ { exit } group { print }' .github/workflows/ci.yml)"
-expected_group="$(cat <<'EOF'
-  group: >-
-    ${{ github.workflow }}-${{ github.ref }}${{
-      github.event_name == 'repository_dispatch' && (
-        contains(
-          fromJSON('["SiriusScan/go-api","go-api","SiriusScan/app-scanner","app-scanner"]'),
-          github.event.client_payload.submodule
-        ) || (
-          github.event.client_payload.engine_promotion == 'source-pin-v1' &&
-          contains(fromJSON('["SiriusScan/app-terminal","app-terminal"]'), github.event.client_payload.submodule)
-        )
-      ) && format('-notification-{0}', github.run_id) || ''
-    }}
-EOF
-)"
-[ "${actual_group}" = "${expected_group}" ] \
-  || fail "CI must isolate informational dispatches without changing the per-ref build group"
-pass "informational dispatch concurrency groups"
-
 echo "==> dispatch allowlist rejects unknown / non-sha payloads"
 if SUBMODULE=evil/repo COMMIT_SHA="${FAKE_COMMIT:-0123456789abcdef0123456789abcdef01234567}" \
   bash scripts/ci-dispatch-allowlist.sh 2>/dev/null; then

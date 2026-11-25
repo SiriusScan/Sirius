@@ -119,6 +119,9 @@ services:
       - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
       - INITIAL_ADMIN_PASSWORD=${INITIAL_ADMIN_PASSWORD:?INITIAL_ADMIN_PASSWORD is required for sirius-ui. Run installer first using docker compose -f docker-compose.installer.yaml run --rm sirius-installer}
       - SIRIUS_API_URL=${SIRIUS_API_URL:-http://sirius-api:9001}
+      - VALKEY_HOST=${VALKEY_HOST:-sirius-valkey}
+      - VALKEY_PORT=${VALKEY_PORT:-6379}
+      - RABBITMQ_URL=${RABBITMQ_URL:-amqp://guest:guest@sirius-rabbitmq:5672/}
       - NEXT_PUBLIC_SIRIUS_API_URL=${NEXT_PUBLIC_SIRIUS_API_URL:-http://localhost:9001}
       - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID:-dummy_client_id}
       - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET:-dummy_client_secret}

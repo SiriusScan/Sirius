@@ -77,31 +77,39 @@ if SUBMODULE=go-api COMMIT_SHA=v0.0.19 bash scripts/ci-dispatch-allowlist.sh 2>/
 fi
 TMP_OUT="${TMP_DIR}/dispatch.out"
 TMP_ENV="${TMP_DIR}/dispatch.env"
-: > "${TMP_OUT}"
-: > "${TMP_ENV}"
-GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" \
-  SUBMODULE=SiriusScan/go-api \
-  COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
-  APPLY_PIN=1 EMIT_CHANGES=1 \
-  bash scripts/ci-dispatch-allowlist.sh
-grep -q '^GO_API_COMMIT_SHA=0123456789abcdef0123456789abcdef01234567$' "${TMP_ENV}" \
-  || fail "expected exact GO_API_COMMIT_SHA pin mapping"
-grep -q 'sirius_api_changes=true' "${TMP_OUT}" || fail "expected api change flag"
-grep -q 'sirius_engine_changes=true' "${TMP_OUT}" || fail "expected engine change flag"
+TMP_SUMMARY="${TMP_DIR}/dispatch-summary.md"
+DISPATCH_SHA=0123456789abcdef0123456789abcdef01234567
+for sdk_repo in SiriusScan/go-api go-api; do
+  for promotion in "" source-pin-v1; do
+    : > "${TMP_OUT}"
+    : > "${TMP_ENV}"
+    : > "${TMP_SUMMARY}"
+    SUBMODULE="${sdk_repo}" COMMIT_SHA="${DISPATCH_SHA}" ENGINE_PROMOTION="${promotion}" \
+      EMIT_CHANGES=1 GITHUB_OUTPUT="${TMP_OUT}" GITHUB_STEP_SUMMARY="${TMP_SUMMARY}" \
+      bash scripts/ci-dispatch-allowlist.sh
+    expected_flags=$(printf '%s\n' "sirius_api_changes=false" "sirius_engine_changes=false")
+    [ "$(cat "${TMP_OUT}")" = "${expected_flags}" ] || fail "SDK notification requested a build"
+    grep -Fxq "Go API SDK revision ${DISPATCH_SHA} awaits a Core source-pin PR." "${TMP_SUMMARY}" \
+      || fail "missing SDK dispatch summary"
+    SUBMODULE="${sdk_repo}" COMMIT_SHA="${DISPATCH_SHA}" ENGINE_PROMOTION="${promotion}" \
+      APPLY_PIN=1 GITHUB_ENV="${TMP_ENV}" bash scripts/ci-dispatch-allowlist.sh
+    [ ! -s "${TMP_ENV}" ] || fail "SDK notification applied a source pin"
+  done
+done
 
 : > "${TMP_OUT}"
-GITHUB_OUTPUT="${TMP_OUT}" \
-  SUBMODULE=SiriusScan/app-system-monitor \
-  COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
-  EMIT_CHANGES=1 \
-  bash scripts/ci-dispatch-allowlist.sh
-grep -q 'sirius_api_changes=true' "${TMP_OUT}" \
+GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" \
+  SUBMODULE=SiriusScan/app-system-monitor COMMIT_SHA="${DISPATCH_SHA}" \
+  APPLY_PIN=1 EMIT_CHANGES=1 bash scripts/ci-dispatch-allowlist.sh
+grep -Fxq "APP_SYSTEM_MONITOR_COMMIT_SHA=${DISPATCH_SHA}" "${TMP_ENV}" \
+  || fail "expected system monitor dispatch to apply its pin"
+grep -Fxq "sirius_api_changes=true" "${TMP_OUT}" \
   || fail "expected system monitor dispatch to rebuild api"
-grep -q 'sirius_engine_changes=true' "${TMP_OUT}" \
+grep -Fxq "sirius_engine_changes=true" "${TMP_OUT}" \
   || fail "expected system monitor dispatch to rebuild engine"
 : > "${TMP_OUT}"
 : > "${TMP_ENV}"
-TMP_SUMMARY="${TMP_DIR}/dispatch-summary.md"
+: > "${TMP_SUMMARY}"
 GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" GITHUB_STEP_SUMMARY="${TMP_SUMMARY}" \
   SUBMODULE=SiriusScan/app-scanner \
   COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
@@ -110,9 +118,9 @@ GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" GITHUB_STEP_SUMMARY="${TMP_SU
 [ ! -s "${TMP_ENV}" ] || fail "pending scanner dispatch applied a source pin"
 grep -q '^sirius_engine_changes=false$' "${TMP_OUT}" || fail "pending scanner dispatch requested an engine build"
 grep -q 'awaits an engine source-pin PR' "${TMP_SUMMARY}" || fail "missing scanner dispatch summary"
-if SUBMODULE=SiriusScan/go-api COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
+if SUBMODULE=SiriusScan/app-agent COMMIT_SHA="${DISPATCH_SHA}" \
   ENGINE_PROMOTION=source-pin-v1 bash scripts/ci-dispatch-allowlist.sh 2>/dev/null; then
-  fail "accepted a scanner promotion mode for another component"
+  fail "accepted source-pin-v1 for an unsupported component"
 fi
 : > "${TMP_OUT}"
 : > "${TMP_ENV}"

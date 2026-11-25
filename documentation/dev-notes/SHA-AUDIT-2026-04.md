@@ -265,6 +265,17 @@ Sirius integration test.
 
 The scanner still uses Go SDK v0.0.26 and the agent uses v0.0.24 at these revisions.
 
+### November 24 follow-up for report history and PostgreSQL credentials
+
+The API module locks, one-shot migrator and engine SDK source use go-api
+`v0.0.38` at `18f26a4cacb098975791be91d13f2a88eca546b1`. The release adds
+core migration `012_scan_history_journal` for the host journal index
+and preserves password characters when the API and migrator connect to
+PostgreSQL. The scanner and agent retain the SDK versions selected by
+their own module locks. The packaged terminal uses this SDK source via
+`../go-api`. Its standalone CI checks a v0.0.36 sibling checkout.
+[Standalone terminal CI](https://github.com/SiriusScan/app-terminal/pull/5)
+
 ### November 24 follow-up for template repository imports
 
 The packaged engine advances app-agent from `9df3f87a9f59e0fdb1f6237e46ca67b90b185378` to

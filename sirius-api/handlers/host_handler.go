@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/SiriusScan/go-api/nvd"
 	"github.com/SiriusScan/go-api/sirius"
@@ -15,6 +18,153 @@ import (
 	"github.com/SiriusScan/go-api/sirius/vulnerability"
 	"github.com/gofiber/fiber/v2"
 )
+
+const (
+	hostVulnEnrichWorkers = 12
+	hostVulnEnrichTimeout = 25 * time.Second
+)
+
+// enrichHostVulnerabilities ensures every vulnerability on an ingested host
+// exists in the catalog with a real CVE description (via local catalog, shared
+// Valkey cache, NVD, or CVE.org fallback) instead of raw scanner boilerplate.
+func enrichHostVulnerabilities(ctx context.Context, vulns []sirius.Vulnerability) error {
+	if len(vulns) == 0 {
+		return nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	type vidState struct {
+		vid      string
+		sample   sirius.Vulnerability
+		exists   bool
+		existing *localCatalogRecord
+		resolved *nvd.CveItem
+	}
+
+	uniqueOrder := make([]string, 0, len(vulns))
+	states := make(map[string]*vidState, len(vulns))
+	for _, v := range vulns {
+		vid := normalizeVulnerabilityID(v.VID)
+		if vid == "" {
+			continue
+		}
+		if _, ok := states[vid]; !ok {
+			uniqueOrder = append(uniqueOrder, vid)
+			states[vid] = &vidState{vid: vid, sample: v}
+		}
+	}
+
+	needsFetch := make([]*vidState, 0, len(uniqueOrder))
+	for _, vid := range uniqueOrder {
+		st := states[vid]
+		if rec, err := defaultLookupLocalCatalog(ctx, vid); err == nil && rec != nil {
+			st.exists = true
+			st.existing = rec
+			if !isScannerBoilerplateDescription(rec.Description) {
+				continue
+			}
+		} else if vulnerability.CheckVulnerabilityExists(vid) {
+			st.exists = true
+		}
+		needsFetch = append(needsFetch, st)
+	}
+
+	if len(needsFetch) > 0 {
+		enrichCtx, cancel := context.WithTimeout(ctx, hostVulnEnrichTimeout)
+		defer cancel()
+
+		workers := hostVulnEnrichWorkers
+		if len(needsFetch) < workers {
+			workers = len(needsFetch)
+		}
+		jobs := make(chan *vidState, len(needsFetch))
+		for _, st := range needsFetch {
+			jobs <- st
+		}
+		close(jobs)
+
+		var wg sync.WaitGroup
+		for w := 0; w < workers; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for st := range jobs {
+					if enrichCtx.Err() != nil {
+						return
+					}
+					if item, ok := ResolveVulnerabilityForIngest(enrichCtx, st.vid); ok {
+						itemCopy := item
+						st.resolved = &itemCopy
+					}
+				}
+			}()
+		}
+		wg.Wait()
+	}
+
+	for _, vid := range uniqueOrder {
+		st := states[vid]
+		if st.resolved != nil {
+			desc := extractEnglishDescription(*st.resolved)
+			title := st.sample.Title
+			if strings.TrimSpace(st.resolved.ID) != "" {
+				title = st.resolved.ID
+			}
+			riskScore := st.sample.RiskScore
+			if score := extractCVSSScore(*st.resolved); score > 0 {
+				riskScore = score
+			}
+			if !st.exists {
+				if desc == "" {
+					desc = st.sample.Description
+				}
+				if err := vulnerability.AddVulnerability(sirius.Vulnerability{
+					VID:         st.sample.VID,
+					Description: desc,
+					Title:       title,
+					RiskScore:   riskScore,
+				}); err != nil {
+					return err
+				}
+			} else if desc != "" {
+				defaultBackfillLocalCatalog(ctx, vid, *st.resolved)
+			}
+			continue
+		}
+		if !st.exists {
+			if err := vulnerability.AddVulnerability(sirius.Vulnerability{
+				VID:         st.sample.VID,
+				Description: st.sample.Description,
+				Title:       st.sample.Title,
+				RiskScore:   st.sample.RiskScore,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+
+	for i := range vulns {
+		vid := normalizeVulnerabilityID(vulns[i].VID)
+		st, ok := states[vid]
+		if !ok || !isScannerBoilerplateDescription(vulns[i].Description) {
+			continue
+		}
+		if st.resolved != nil {
+			if desc := extractEnglishDescription(*st.resolved); desc != "" {
+				vulns[i].Description = desc
+			}
+			if score := extractCVSSScore(*st.resolved); score > 0 && vulns[i].RiskScore == 0 {
+				vulns[i].RiskScore = score
+			}
+		} else if st.existing != nil && !isScannerBoilerplateDescription(st.existing.Description) {
+			vulns[i].Description = st.existing.Description
+		}
+	}
+
+	return nil
+}
 
 func isValidSingleHostIP(ip string) bool {
 	candidate := strings.TrimSpace(ip)
@@ -208,53 +358,11 @@ func AddHost(c *fiber.Ctx) error {
 	source := detectSourceFromRequest(c)
 	slog.Info("Detected source", "name", source.Name, "version", source.Version)
 
-	// Check all host vulns to confirm that they all exist in the database. If they do not, add them.
-	for _, vuln := range newHost.Vulnerabilities {
-		if !vulnerability.CheckVulnerabilityExists(vuln.VID) {
-			slog.Info("Vulnerability not in database, adding", "vid", vuln.VID)
-
-			cve, err := nvd.GetCVE(vuln.VID)
-			if err != nil {
-				slog.Warn("Failed to get CVE data", "vid", vuln.VID, "error", err)
-				// Use provided vulnerability data as fallback
-				vuln = sirius.Vulnerability{
-					VID:         vuln.VID,
-					Description: vuln.Description,
-					Title:       vuln.Title,
-					RiskScore:   vuln.RiskScore,
-				}
-			} else {
-				// Safely extract CVE data with fallbacks
-				description := vuln.Description
-				if len(cve.Descriptions) > 0 {
-					description = cve.Descriptions[0].Value
-				}
-
-				title := vuln.Title
-				if cve.ID != "" {
-					title = cve.ID
-				}
-
-				riskScore := vuln.RiskScore
-				if len(cve.Metrics.CvssMetricV31) > 0 {
-					riskScore = cve.Metrics.CvssMetricV31[0].CvssData.BaseScore
-				}
-
-				vuln = sirius.Vulnerability{
-					VID:         vuln.VID,
-					Description: description,
-					Title:       title,
-					RiskScore:   riskScore,
-				}
-			}
-
-			err = vulnerability.AddVulnerability(vuln)
-			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Error adding vulnerability: " + err.Error(),
-				})
-			}
-		}
+	// Ensure all host vulnerabilities exist in the catalog with real CVE descriptions.
+	if err := enrichHostVulnerabilities(c.UserContext(), newHost.Vulnerabilities); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error adding vulnerability: " + err.Error(),
+		})
 	}
 
 	// Route to source-aware function if source detected, otherwise use legacy function
@@ -624,53 +732,11 @@ func AddHostWithSource(c *fiber.Ctx) error {
 		})
 	}
 
-	// Ensure vulnerabilities exist in database (same logic as original AddHost)
-	for _, vuln := range request.Host.Vulnerabilities {
-		if !vulnerability.CheckVulnerabilityExists(vuln.VID) {
-			slog.Info("Vulnerability not in database, adding", "vid", vuln.VID)
-
-			cve, err := nvd.GetCVE(vuln.VID)
-			if err != nil {
-				slog.Warn("Failed to get CVE data", "vid", vuln.VID, "error", err)
-				// Use provided vulnerability data as fallback
-				vuln = sirius.Vulnerability{
-					VID:         vuln.VID,
-					Description: vuln.Description,
-					Title:       vuln.Title,
-					RiskScore:   vuln.RiskScore,
-				}
-			} else {
-				// Safely extract CVE data with fallbacks
-				description := vuln.Description
-				if len(cve.Descriptions) > 0 {
-					description = cve.Descriptions[0].Value
-				}
-
-				title := vuln.Title
-				if cve.ID != "" {
-					title = cve.ID
-				}
-
-				riskScore := vuln.RiskScore
-				if len(cve.Metrics.CvssMetricV31) > 0 {
-					riskScore = cve.Metrics.CvssMetricV31[0].CvssData.BaseScore
-				}
-
-				vuln = sirius.Vulnerability{
-					VID:         vuln.VID,
-					Description: description,
-					Title:       title,
-					RiskScore:   riskScore,
-				}
-			}
-
-			err = vulnerability.AddVulnerability(vuln)
-			if err != nil {
-				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-					"error": "Error adding vulnerability: " + err.Error(),
-				})
-			}
-		}
+	// Ensure vulnerabilities exist in the catalog with real CVE descriptions.
+	if err := enrichHostVulnerabilities(c.UserContext(), request.Host.Vulnerabilities); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Error adding vulnerability: " + err.Error(),
+		})
 	}
 
 	// Use enhanced source-aware function if we have enhanced data

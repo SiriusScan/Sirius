@@ -45,7 +45,7 @@
       "go_api_version": "v0.0.36",
       "go_api_commit": "fe05fc09c64655246352e924c8858cc4e1e9da35",
       "pingpp_version": "v0.0.0-20261125012228-a6e4289ccaf4",
-      "source_commit": "cb294ea1616619b458fe9352b49e525aa4299e01"
+      "source_commit": "f8dc73f16a62e4d218521cdec4aabecfeb70bd5a"
     },
     "app-agent": {
       "go_api_version": "v0.0.24",

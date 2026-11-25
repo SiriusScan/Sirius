@@ -8,36 +8,15 @@
 
 import { useMemo } from "react";
 import { api } from "~/utils/api";
-import {
-  riskScoreToSeverity,
-  normalizeSeverity,
-} from "~/utils/riskScoreCalculator";
+import { normalizeSeverity } from "~/utils/riskScoreCalculator";
+import { normalizeHostFindings } from "~/components/host/hostFindings";
 import type {
   HostPageData,
   DeduplicatedVulnerability,
   DeduplicatedPort,
   SeverityCounts,
-  SeverityLevel,
   HostEditFormData,
-  HostHistoryTimeline,
 } from "~/components/host/types";
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Maps a CVSS risk score to an uppercase severity label.
- */
-function determineSeverity(cvssScore: number): SeverityLevel {
-  const severity = riskScoreToSeverity(cvssScore);
-  const upperMap: Record<string, SeverityLevel> = {
-    critical: "CRITICAL",
-    high: "HIGH",
-    medium: "MEDIUM",
-    low: "LOW",
-    info: "INFORMATIONAL",
-  };
-  return upperMap[severity] ?? "INFORMATIONAL";
-}
 
 // ─── Hook ───────────────────────────────────────────────────────────────────
 
@@ -86,44 +65,10 @@ export function useHostData(ip: string | undefined) {
   }, [hostWithSources?.port_sources]);
 
   // ── Deduplicate vulnerabilities ─────────────────────────────────────────
-  const deduplicatedVulnerabilities = useMemo<DeduplicatedVulnerability[]>(() => {
-    if (!hostWithSources?.vulnerability_sources) return [];
-
-    const vulnMap = new Map<string, DeduplicatedVulnerability>();
-
-    hostWithSources.vulnerability_sources.forEach((vulnSource) => {
-      const vulnId = vulnSource.VID;
-
-      if (vulnMap.has(vulnId)) {
-        const existing = vulnMap.get(vulnId)!;
-        if (!existing.sources.includes(vulnSource.source)) {
-          existing.sources.push(vulnSource.source);
-        }
-        // Keep the highest confidence
-        if (vulnSource.confidence > (existing.confidence ?? 0)) {
-          existing.confidence = vulnSource.confidence;
-        }
-      } else {
-        vulnMap.set(vulnId, {
-          cve: vulnSource.VID,
-          severity: determineSeverity(vulnSource.RiskScore),
-          description: vulnSource.Description || "No description available",
-          title: vulnSource.Title || undefined,
-          published: vulnSource.first_seen || new Date().toISOString(),
-          lastModified: vulnSource.last_seen || new Date().toISOString(),
-          references: [],
-          affectedHosts: [ip as string],
-          riskScore: vulnSource.RiskScore,
-          sources: [vulnSource.source],
-          port: vulnSource.port,
-          serviceInfo: vulnSource.service_info,
-          confidence: vulnSource.confidence,
-        });
-      }
-    });
-
-    return Array.from(vulnMap.values());
-  }, [hostWithSources?.vulnerability_sources, ip]);
+  const deduplicatedVulnerabilities = useMemo<DeduplicatedVulnerability[]>(
+    () => normalizeHostFindings(hostWithSources?.vulnerability_sources, ip),
+    [hostWithSources?.vulnerability_sources, ip],
+  );
 
   // ── Severity counts ─────────────────────────────────────────────────────
   const severityCounts = useMemo<SeverityCounts>(() => {

@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { storeMockHosts } from "./shared-mock-data";
 import { type VulnerabilitySeverityCounts } from "~/components/VulnerabilityBarGraph";
 import { apiClient as httpClient } from "~/server/api/shared/apiClient";
+import { apiErrorDiagnostics } from "~/server/api/shared/apiErrors";
 
 import {
   mockHostData,
@@ -697,7 +698,7 @@ export const hostRouter = createTRPCRouter({
 
         return hostWithSources;
       } catch (error) {
-        console.error("Error fetching host with sources:", error);
+        console.error("Error fetching host with sources:", apiErrorDiagnostics(error));
         return null;
       }
     }),

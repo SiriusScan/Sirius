@@ -40,6 +40,8 @@ export interface SecurityEventRow {
   timestamp: string;
   /** The host or CVE the event is about, when it names one. */
   href?: string;
+  /** Hover text for the detail when it shortens something (the full scan id). */
+  detailTitle?: string;
 }
 
 type Meta = Record<string, unknown>;
@@ -80,9 +82,17 @@ function hostHref(ip: string | undefined): string | undefined {
   return ip ? `/host/${encodeURIComponent(ip)}` : undefined;
 }
 
-function scanIdOf(event: SecurityEventInput, meta: Meta): string | undefined {
-  const id = str(meta, "scan_id") ?? (event.entity_type === "scan" ? event.entity_id ?? undefined : undefined);
-  return shortScanId(id);
+function fullScanIdOf(event: SecurityEventInput, meta: Meta): string | undefined {
+  const id = str(meta, "scan_id") ?? (event.entity_type === "scan" ? event.entity_id?.trim() : undefined);
+  return id ? id : undefined;
+}
+
+/** "Scan all3 · …" over "Scan scan-1795609195467-all3 · …" on hover. */
+function scanDetailTitle(fullId: string | undefined, detail: string): { detailTitle?: string } {
+  if (!fullId || !detail) return {};
+  const short = shortScanId(fullId);
+  if (!short || short === fullId) return {};
+  return { detailTitle: detail.replace(`Scan ${short}`, `Scan ${fullId}`) };
 }
 
 function join(parts: Array<string | undefined | false>): string {
@@ -98,32 +108,38 @@ export function toSecurityEventRow(event: SecurityEventInput): SecurityEventRow 
     case "scan_started": {
       const targets = strings(meta, "targets");
       const count = num(meta, "target_count") ?? targets?.length;
-      const scan = scanIdOf(event, meta);
+      const fullId = fullScanIdOf(event, meta);
+      const scan = shortScanId(fullId);
+      const detail =
+        join([
+          scan && `Scan ${scan}`,
+          targetsLabel(targets) ?? (count !== undefined && plural(count, "target")),
+        ]) || fallbackDetail;
       return {
         ...base,
         kind: "scan_started",
         title: "Scan started",
-        detail:
-          join([
-            scan && `Scan ${scan}`,
-            targetsLabel(targets) ?? (count !== undefined && plural(count, "target")),
-          ]) || fallbackDetail,
+        detail,
+        ...scanDetailTitle(fullId, detail),
       };
     }
     case "scan_completed": {
       const hosts = num(meta, "hosts_discovered");
       const findings = num(meta, "vulnerabilities_found");
-      const scan = scanIdOf(event, meta);
+      const fullId = fullScanIdOf(event, meta);
+      const scan = shortScanId(fullId);
+      const detail =
+        join([
+          scan && `Scan ${scan}`,
+          hosts !== undefined && `${plural(hosts, "host")} found`,
+          findings !== undefined && plural(findings, "finding"),
+        ]) || fallbackDetail;
       return {
         ...base,
         kind: "scan_completed",
         title: "Scan completed",
-        detail:
-          join([
-            scan && `Scan ${scan}`,
-            hosts !== undefined && `${plural(hosts, "host")} found`,
-            findings !== undefined && plural(findings, "finding"),
-          ]) || fallbackDetail,
+        detail,
+        ...scanDetailTitle(fullId, detail),
       };
     }
     case "host_discovered": {

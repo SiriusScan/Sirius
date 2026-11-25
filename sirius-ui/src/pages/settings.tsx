@@ -115,13 +115,21 @@ const Settings: NextPage = () => {
                 </h2>
                 <div className="max-w-lg space-y-5">
                   <div className="space-y-2">
-                    <Label className="text-gray-400">Email</Label>
-                    <Input
-                      type="email"
-                      value={sessionData?.user?.email ?? ""}
-                      readOnly
-                      className="border-gray-700 bg-gray-800/50 text-gray-300"
-                    />
+                    <div className="flex items-center gap-2">
+                      <span id="settings-email-label" className="text-sm font-medium text-gray-400">
+                        Email
+                      </span>
+                      <span className="rounded border border-gray-700/60 px-1.5 py-px text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                        Read-only
+                      </span>
+                    </div>
+                    <p
+                      aria-labelledby="settings-email-label"
+                      className="truncate rounded-md bg-gray-900/40 px-3 py-2 text-sm text-gray-300"
+                      title={sessionData?.user?.email ?? undefined}
+                    >
+                      {sessionData?.user?.email ? sessionData.user.email : <span className="text-gray-500">Not set</span>}
+                    </p>
                   </div>
 
                   <div className="space-y-2">

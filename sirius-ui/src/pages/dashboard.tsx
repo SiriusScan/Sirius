@@ -35,14 +35,24 @@ function DashboardContent({ summary }: { summary: SummaryStats }) {
     <div className="space-y-4">
       <SinceLastScanCard summary={summary} />
 
-      <div className="grid items-start gap-4 lg:grid-cols-3">
-        <DashboardPanel icon={Activity} title="Open findings by severity" className="lg:col-span-2">
+      {/*
+        The two cards share the row's height: the severity tiles grow to fill
+        it, so the card has no empty space under them next to a taller
+        Riskiest hosts list.
+      */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <DashboardPanel
+          icon={Activity}
+          title="Open findings by severity"
+          className="lg:col-span-2"
+          bodyClassName="flex flex-col"
+        >
           <SeverityStrip
             variant="tiles"
             counts={summary.findings.bySeverity}
             getHref={severityHref}
             aria-label="Open findings by severity"
-            className="grid-cols-3 sm:grid-cols-5"
+            className="grid-cols-3 sm:grid-cols-5 lg:flex-1"
           />
           <p className="mt-2 text-xs text-gray-500">
             Select a level to open Vulnerabilities filtered to it.

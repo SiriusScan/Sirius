@@ -19,6 +19,8 @@ export interface DashboardPanelProps {
   footer?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  /** Extra classes for the body, e.g. "flex flex-col" to let content fill. */
+  bodyClassName?: string;
 }
 
 export function DashboardPanel({
@@ -28,6 +30,7 @@ export function DashboardPanel({
   footer,
   children,
   className,
+  bodyClassName,
 }: DashboardPanelProps) {
   const headingId = useId();
   return (
@@ -39,7 +42,7 @@ export function DashboardPanel({
         </h2>
         {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
       </div>
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className={cn("min-w-0 flex-1", bodyClassName)}>{children}</div>
       {footer && <div className="mt-3">{footer}</div>}
     </section>
   );

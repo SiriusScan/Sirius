@@ -204,7 +204,12 @@ const Header: React.FC<HeaderProps> = ({ title, overlay = false }) => {
       <div className="pointer-events-auto flex items-center">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="focus:outline-none">
+            <button
+              type="button"
+              aria-label="Account menu"
+              title="Account menu"
+              className="focus:outline-none"
+            >
               <Avatar />
             </button>
           </DropdownMenuTrigger>

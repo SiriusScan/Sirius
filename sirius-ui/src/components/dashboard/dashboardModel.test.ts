@@ -5,7 +5,9 @@ import {
   lastScanEndedAt,
   lastScanHeading,
   lastScanMeta,
+  lastScanMetaTitle,
   lastScanNote,
+  openFindingsNote,
   plural,
   scanPhase,
   severityHref,
@@ -37,6 +39,11 @@ assert.equal(shortScanId("lab-target03-20261121"), "lab-target03-20261121");
 assert.equal(shortScanId("a".repeat(40)), `${"a".repeat(23)}…`);
 assert.equal(shortScanId(""), undefined);
 assert.equal(shortScanId(undefined), undefined);
+// The scanner's "scan-<epoch ms>-<suffix>" ids keep only the suffix.
+assert.equal(shortScanId("scan-1795609195467-all3"), "all3");
+assert.equal(shortScanId(" scan-1795609195467-lab-target03 "), "lab-target03");
+assert.equal(shortScanId("scan-1795609195467"), "scan-1795609195467");
+assert.equal(shortScanId(`scan-1795609195467-${"b".repeat(30)}`), `${"b".repeat(23)}…`);
 assert.equal(targetsLabel(["192.0.2.12"]), "192.0.2.12");
 assert.equal(targetsLabel(["a", "b"]), "a, b");
 assert.equal(targetsLabel(["a", "b", "c", "d"]), "a, b and 2 more");
@@ -105,6 +112,20 @@ assert.equal(lastScanNote({ ...done, status: "running" }, 4), "4 so far in this 
 assert.equal(lastScanNote(done, undefined), undefined);
 assert.equal(lastScanNote(null, 3), undefined);
 
+assert.equal(openFindingsNote(253, "12 in the last scan"), "253 unique CVEs · 12 in the last scan");
+assert.equal(openFindingsNote(1, undefined), "1 unique CVE");
+assert.equal(openFindingsNote(1204, undefined), "1,204 unique CVEs");
+assert.equal(openFindingsNote(undefined, "4 so far in this scan"), "4 so far in this scan");
+assert.equal(openFindingsNote(Number.NaN, undefined), undefined);
+
+assert.equal(
+  lastScanMetaTitle({ ...done, id: "scan-1795609195467-all3", targets: ["192.0.2.12", "10.0.0.0/24"] }),
+  "Scan scan-1795609195467-all3 · 192.0.2.12, 10.0.0.0/24",
+);
+assert.equal(lastScanMetaTitle({ origin: "events", status: "completed" }), undefined);
+assert.equal(lastScanMetaTitle(null), undefined);
+assert.equal(lastScanMeta({ ...done, id: "scan-1795609195467-all3" }), "Scan all3 · 1 target");
+
 /* ---- links ---- */
 assert.equal(severityHref("high"), "/vulnerabilities?severity=high");
 assert.equal(severityHref("info"), "/vulnerabilities?severity=info");
@@ -164,7 +185,32 @@ assert.deepEqual(
     kind: "scan_completed",
     title: "Scan completed",
     detail: "Scan eec1dfcc · 1 host found · 102 findings",
+    detailTitle: "Scan eec1dfcc-2e64-4279-a938-d221f98e9286 · 1 host found · 102 findings",
   },
+);
+{
+  const row = toSecurityEventRow({
+    event_id: "e1b",
+    event_type: "scan_completed",
+    title: "Scan completed",
+    timestamp: at,
+    entity_type: "scan",
+    entity_id: "scan-1795609195467-all3",
+    metadata: { scan_id: "scan-1795609195467-all3", hosts_discovered: 3, vulnerabilities_found: 362 },
+  });
+  assert.equal(row.detail, "Scan all3 · 3 hosts found · 362 findings");
+  assert.equal(row.detailTitle, "Scan scan-1795609195467-all3 · 3 hosts found · 362 findings");
+}
+// An id short enough to show whole needs no hover text.
+assert.equal(
+  toSecurityEventRow({
+    event_id: "e1c",
+    event_type: "scan_started",
+    title: "Scan started",
+    timestamp: at,
+    metadata: { scan_id: "lab-1", targets: ["192.0.2.12"] },
+  }).detailTitle,
+  undefined,
 );
 assert.deepEqual(
   toSecurityEventRow({

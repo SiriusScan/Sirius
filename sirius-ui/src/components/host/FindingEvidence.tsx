@@ -80,7 +80,10 @@ export function FindingEvidence({ observations }: { observations: readonly HostF
     return <p className="text-xs text-gray-500">No stored source records for this finding.</p>;
   }
   return (
-    <ul className="grid gap-3 lg:grid-cols-2" aria-label="Source records">
+    <ul
+      className={observations.length > 1 ? "grid gap-3 lg:grid-cols-2" : "grid gap-3"}
+      aria-label="Source records"
+    >
       {observations.map((observation) => (
         <li key={observation.key} className="min-w-0 rounded-md border border-violet-500/15 bg-gray-900/60 p-3">
           <div className="mb-2 flex flex-wrap items-center gap-2">

@@ -52,7 +52,7 @@ function EventRow({ row }: { row: SecurityEventRow }) {
           </time>
         </span>
         {row.detail && (
-          <span className="block truncate text-xs text-gray-500" title={row.detail}>
+          <span className="block truncate text-xs text-gray-500" title={row.detailTitle ?? row.detail}>
             {row.detail}
           </span>
         )}

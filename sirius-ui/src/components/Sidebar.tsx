@@ -35,7 +35,7 @@ const Sidebar = () => {
         {/* Sirius Logo */}
         <Tooltip.Root>
           <Tooltip.Trigger asChild>
-            <Link href="/dashboard" passHref>
+            <Link href="/dashboard" passHref aria-label="Dashboard">
               <div
                 className={`
                   group relative mb-2 flex h-16 w-16 cursor-pointer items-center justify-center 
@@ -110,7 +110,12 @@ const Sidebar = () => {
               return (
                 <Tooltip.Root key={item.href}>
                   <Tooltip.Trigger asChild>
-                    <Link href={item.href} passHref>
+                    <Link
+                      href={item.href}
+                      passHref
+                      aria-label={item.label}
+                      aria-current={isActive ? "page" : undefined}
+                    >
                       <div
                         className="group relative block cursor-pointer"
                         style={{

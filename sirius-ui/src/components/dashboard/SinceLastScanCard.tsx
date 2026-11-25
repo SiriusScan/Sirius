@@ -16,7 +16,14 @@ import { riskBandLabel } from "~/utils/riskBand";
 import { severityColors } from "~/components/shared/severity";
 import { hostHref } from "~/components/shared/HostCell";
 import { PanelLink } from "./DashboardPanel";
-import { hostLabel, lastScanHeading, lastScanMeta, lastScanNote } from "./dashboardModel";
+import {
+  hostLabel,
+  lastScanHeading,
+  lastScanMeta,
+  lastScanMetaTitle,
+  lastScanNote,
+  openFindingsNote,
+} from "./dashboardModel";
 
 function Stat({
   label,
@@ -36,7 +43,14 @@ function Stat({
       <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{label}</div>
       <div className="mt-1 flex min-w-0 items-baseline gap-2">
         <span className={cn("text-2xl font-bold leading-8 tabular-nums text-white", valueClassName)}>{value}</span>
-        {note && <span className="min-w-0 truncate text-xs text-gray-400">{note}</span>}
+        {note && (
+          <span
+            className="min-w-0 truncate text-xs text-gray-400"
+            title={typeof note === "string" ? note : undefined}
+          >
+            {note}
+          </span>
+        )}
       </div>
       {link && (
         <div className="mt-1">
@@ -71,7 +85,7 @@ export function SinceLastScanCard({ summary }: { summary: SummaryStats }) {
         {meta && (
           <span
             className="truncate text-xs text-gray-500"
-            title={lastScan?.targets?.length ? lastScan.targets.join(", ") : undefined}
+            title={lastScanMetaTitle(lastScan)}
           >
             {meta}
           </span>
@@ -88,7 +102,7 @@ export function SinceLastScanCard({ summary }: { summary: SummaryStats }) {
         <Stat
           label="Open findings"
           value={fmt(summary.findings.open)}
-          note={lastScanNote(lastScan, lastScan?.findings)}
+          note={openFindingsNote(summary.vulnerabilities?.unique, lastScanNote(lastScan, lastScan?.findings))}
           link={{ href: "/vulnerabilities", label: "Review findings" }}
         />
         {highestRisk ? (

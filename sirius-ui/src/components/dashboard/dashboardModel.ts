@@ -35,12 +35,20 @@ export function plural(n: number, one: string, many = `${one}s`): string {
 }
 
 const UUID_PREFIX = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
+/** The scanner's own ids: "scan-<epoch ms>-<suffix>". */
+const SCANNER_ID = /^scan-\d{10,}-([A-Za-z0-9_.-]+)$/;
 
-/** "eec1dfcc-2e64-…" -> "eec1dfcc"; other ids are kept, long ones cut. */
+/**
+ * A scan id short enough for one line; show the full id in a `title`.
+ * "eec1dfcc-2e64-…" -> "eec1dfcc", "scan-1795609195467-all3" -> "all3";
+ * other ids are kept, long ones cut.
+ */
 export function shortScanId(id: string | null | undefined): string | undefined {
   const value = id?.trim();
   if (!value) return undefined;
   if (UUID_PREFIX.test(value)) return value.slice(0, 8);
+  const scanner = SCANNER_ID.exec(value);
+  if (scanner?.[1]) return shortScanId(scanner[1]);
   return value.length > 24 ? `${value.slice(0, 23)}…` : value;
 }
 
@@ -121,6 +129,37 @@ export function lastScanMeta(scan: SummaryLastScan | null | undefined): string |
   if (id) parts.push(`Scan ${id}`);
   const targets = (scan.targets ?? []).filter((t) => t.trim());
   if (targets.length > 0) parts.push(plural(targets.length, "target"));
+  return parts.length ? parts.join(" · ") : undefined;
+}
+
+/**
+ * Hover text for the card's scan line: the full scan id and every target,
+ * so nothing the compact line cuts is lost.
+ */
+export function lastScanMetaTitle(scan: SummaryLastScan | null | undefined): string | undefined {
+  if (!scan) return undefined;
+  const parts: string[] = [];
+  const id = scan.id?.trim();
+  if (id) parts.push(`Scan ${id}`);
+  const targets = (scan.targets ?? []).map((t) => t.trim()).filter(Boolean);
+  if (targets.length > 0) parts.push(targets.join(", "));
+  return parts.length ? parts.join(" · ") : undefined;
+}
+
+/**
+ * The "Open findings" stat's note: open findings count every host a CVE is
+ * on, so the unique CVE count (what /vulnerabilities lists) is shown beside
+ * it, then the last scan's own note. "253 unique CVEs · 12 in the last scan".
+ */
+export function openFindingsNote(
+  uniqueCves: number | undefined,
+  scanNote: string | undefined,
+): string | undefined {
+  const unique =
+    typeof uniqueCves === "number" && Number.isFinite(uniqueCves) && uniqueCves >= 0
+      ? plural(uniqueCves, "unique CVE")
+      : undefined;
+  const parts = [unique, scanNote].filter((p): p is string => !!p);
   return parts.length ? parts.join(" · ") : undefined;
 }
 

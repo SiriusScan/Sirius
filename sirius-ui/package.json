@@ -10,6 +10,7 @@
     "test:capabilities": "tsx src/contracts/capabilities.test.ts",
     "test:ui-extensions": "tsx src/ui/extensions/registry.test.ts",
     "test:server-extensions": "tsx src/server/extensions/registry.test.ts",
+    "test:user-profile": "tsx --test src/server/api/routers/user.test.ts",
     "test:extensions": "npm run test:capabilities && npm run test:ui-extensions && npm run test:server-extensions",
     "start": "npx next start"
   },

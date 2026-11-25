@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { hash, compare } from "bcrypt";
@@ -19,6 +20,27 @@ export interface ChangePasswordResponse {
   message?: string;
 }
 
+const profileSelect = {
+  id: true,
+  email: true,
+  name: true,
+} as const;
+
+function requireProfileOwner(sessionId: string, requestedId: number): number {
+  const userId = Number(sessionId);
+  if (
+    !Number.isSafeInteger(userId) ||
+    userId <= 0 ||
+    String(sessionId) !== String(userId)
+  ) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  if (userId !== requestedId) {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return userId;
+}
+
 export const userRouter = createTRPCRouter({
   updateProfile: protectedProcedure
     .input(
@@ -28,12 +50,14 @@ export const userRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const userId = requireProfileOwner(ctx.session.user.id, input.userId);
+
       try {
         const user = await ctx.prisma.user.update({
-          where: { id: input.userId },
-          data: {
-            name: input.displayName,
-          },
+          where: { id: userId },
+          // Credentials use User.name as the sign-in name.
+          data: { name: input.displayName },
+          select: profileSelect,
         });
         return { success: true, user };
       } catch (error) {
@@ -56,10 +80,12 @@ export const userRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const userId = requireProfileOwner(ctx.session.user.id, input.userId);
+
       try {
         // Get user with current password hash
         const user = await ctx.prisma.user.findUnique({
-          where: { id: input.userId },
+          where: { id: userId },
           select: { id: true, password: true },
         });
 
@@ -76,8 +102,9 @@ export const userRouter = createTRPCRouter({
         // Hash new password and update
         const hashedPassword = await hash(input.newPassword, 10);
         await ctx.prisma.user.update({
-          where: { id: input.userId },
+          where: { id: userId },
           data: { password: hashedPassword },
+          select: { id: true },
         });
 
         return { success: true };
@@ -90,14 +117,12 @@ export const userRouter = createTRPCRouter({
   getProfile: protectedProcedure
     .input(z.object({ userId: z.coerce.number().int().positive() }))
     .query(async ({ ctx, input }) => {
+      const userId = requireProfileOwner(ctx.session.user.id, input.userId);
+
       try {
         const user = await ctx.prisma.user.findUnique({
-          where: { id: input.userId },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-          },
+          where: { id: userId },
+          select: profileSelect,
         });
         return user;
       } catch (error) {
@@ -105,4 +130,4 @@ export const userRouter = createTRPCRouter({
         return null;
       }
     }),
-}); 
+});

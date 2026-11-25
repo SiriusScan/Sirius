@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
+import { currentScanStore } from "~/server/currentScan";
 import { recordAgentDispatch } from "./agent-scan-dispatch";
 import { handleSendMsg, waitForResponse } from "./queue";
 import { valkey } from "~/server/valkey";
@@ -11,14 +12,6 @@ const AGENT_RESPONSE_QUEUE = "agent_response";
 
 // ValKey key prefixes
 const AGENT_SCAN_KEY_PREFIX = "agent_scan:";
-const CURRENT_SCAN_KEY = "currentScan";
-const UPDATE_CURRENT_SCAN = `
-  if redis.call("GET", KEYS[1]) ~= ARGV[1] then
-    return 0
-  end
-  redis.call("SET", KEYS[1], ARGV[2], "KEEPTTL")
-  return 1
-`;
 
 interface AgentScanDispatchResult {
   scanId: string;
@@ -285,15 +278,7 @@ export const agentScanRouter = createTRPCRouter({
         // Dispatch has already happened. A projection failure cannot turn the
         // same request into a failed dispatch or justify issuing the work again.
         try {
-          await recordAgentDispatch(
-            {
-              read: () => valkey.get(CURRENT_SCAN_KEY),
-              compareAndSet: async (expected, updated) =>
-                (await valkey.eval(UPDATE_CURRENT_SCAN, 1, CURRENT_SCAN_KEY, expected, updated)) === 1,
-            },
-            input.scanId,
-            dispatchedAgents,
-          );
+          await recordAgentDispatch(currentScanStore, input.scanId, dispatchedAgents);
         } catch {
           console.warn("[AgentScan] Could not update current scan dispatch metadata");
         }

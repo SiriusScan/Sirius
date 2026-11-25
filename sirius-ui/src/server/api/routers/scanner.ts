@@ -4,6 +4,9 @@ import { apiClient } from "~/server/api/shared/apiClient";
 import type { ScanResult } from "~/types/scanTypes";
 import { handleSendMsg } from "~/server/api/routers/queue";
 import { valkey } from "~/server/valkey";
+import { createCancelScanProcedure } from "./scanner-cancellation";
+
+export type { CancelScanResponse } from "./scanner-cancellation";
 
 const CURRENT_SCAN_KEY = "currentScan";
 
@@ -19,13 +22,6 @@ async function getCurrentScan(): Promise<ScanResult | null> {
   const raw = await valkey.get(CURRENT_SCAN_KEY);
   if (!raw) return null;
   return decodeScanState(raw);
-}
-
-export interface CancelScanResponse {
-  success: boolean;
-  message: string;
-  status?: string;
-  error?: string;
 }
 
 export interface ForceStopResponse {
@@ -104,45 +100,13 @@ export const scannerRouter = createTRPCRouter({
       return { outcome: "unconfirmed" } as const;
     }),
 
-  cancelScan: protectedProcedure
-    .input(
-      z
-        .object({
-          scanId: z.string().optional(),
-        })
-        .optional()
-    )
-    .mutation(async ({ input }): Promise<CancelScanResponse> => {
-      try {
-        const current = await getCurrentScan();
-        const scanId = input?.scanId ?? current?.id;
-
-        const cancelCommand = JSON.stringify({
-          action: "cancel",
-          scan_id: scanId ?? "",
-          timestamp: new Date().toISOString(),
-        });
-        await handleSendMsg("scan_control", cancelCommand);
-
-        if (current && current.id === scanId && current.status === "running") {
-          current.status = "cancelling";
-          await valkey.set(CURRENT_SCAN_KEY, encodeScanState(current));
-        }
-
-        return {
-          success: true,
-          message: "Scan cancellation requested",
-          status: "cancelling",
-        };
-      } catch (error) {
-        console.error("Error cancelling scan:", error);
-        return {
-          success: false,
-          message: "Failed to cancel scan",
-          error: error instanceof Error ? error.message : "Unknown error",
-        };
-      }
-    }),
+  cancelScan: createCancelScanProcedure({
+    loadScan: getCurrentScan,
+    publishCancel: (message) => handleSendMsg("scan_control", message),
+    writeScan: async (scan) => {
+      await valkey.set(CURRENT_SCAN_KEY, encodeScanState(scan));
+    },
+  }),
 
   forceStopScan: protectedProcedure
     .input(

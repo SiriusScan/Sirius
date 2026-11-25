@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
+import { readApiJson, requireApiOk } from "~/server/api/shared/apiErrors";
 
 // Script interfaces
 export interface Script {
@@ -48,11 +49,9 @@ export const scriptsRouter = createTRPCRouter({
     try {
       const response = await apiFetch(`${API_BASE_URL}/scripts`);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch scripts: ${response.statusText}`);
-      }
+      requireApiOk(response, "Failed to fetch scripts");
 
-      const scripts = (await response.json()) as Script[];
+      const scripts = (await readApiJson(response)) as Script[];
       return scripts;
     } catch (error) {
       console.error("Error fetching scripts:", error);
@@ -67,14 +66,12 @@ export const scriptsRouter = createTRPCRouter({
       try {
         const response = await apiFetch(`${API_BASE_URL}/scripts/${input.id}`);
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            return null;
-          }
-          throw new Error(`Failed to fetch script: ${response.statusText}`);
+        if (response.status === 404) {
+          return null;
         }
+        requireApiOk(response, "Failed to fetch script");
 
-        const script = (await response.json()) as Script;
+        const script = (await readApiJson(response)) as Script;
         return script;
       } catch (error) {
         console.error("Error fetching script:", error);
@@ -97,12 +94,9 @@ export const scriptsRouter = createTRPCRouter({
           body: JSON.stringify(input.content),
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to update script");
-        }
+        requireApiOk(response, "Failed to update script");
 
-        const result = await response.json();
+        const result = await readApiJson(response);
         return result;
       } catch (error) {
         console.error("Error updating script:", error);
@@ -120,12 +114,9 @@ export const scriptsRouter = createTRPCRouter({
           body: JSON.stringify(input),
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to create script");
-        }
+        requireApiOk(response, "Failed to create script");
 
-        const script = (await response.json()) as Script;
+        const script = (await readApiJson(response)) as Script;
         return script;
       } catch (error) {
         console.error("Error creating script:", error);
@@ -142,10 +133,7 @@ export const scriptsRouter = createTRPCRouter({
           method: "DELETE",
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to delete script");
-        }
+        requireApiOk(response, "Failed to delete script");
 
         return { success: true };
       } catch (error) {

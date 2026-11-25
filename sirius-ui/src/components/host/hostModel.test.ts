@@ -15,7 +15,6 @@ import {
   hostTabHref,
   hostTabs,
   lastScanDetail,
-  matchedSoftware,
   noteLines,
   openPortServices,
   osLabel,
@@ -26,7 +25,6 @@ import {
   realText,
   rescanHref,
   riskCaption,
-  sourceName,
 } from "./hostModel";
 
 const APACHE = {
@@ -134,48 +132,31 @@ assert.equal("firstSeen" in bare, false);
 // ── Risk caption ────────────────────────────────────────────────────────────
 assert.equal(plural(1, "open finding"), "1 open finding");
 assert.equal(plural(1162, "open finding"), "1,162 open findings");
-assert.deepEqual(riskCaption({ riskScore: 0, openFindings: 0 }), { text: "No open findings" });
-assert.deepEqual(riskCaption({ riskScore: 0, openFindings: 4 }), { text: "No CVSS score among 4 open findings" });
-assert.deepEqual(
+assert.equal(riskCaption({ riskScore: 0, openFindings: 0 }), "No open findings");
+assert.equal(riskCaption({ riskScore: 0, openFindings: 4 }), "No CVSS score among 4 open findings");
+assert.equal(
   riskCaption({
     riskScore: 9.8,
     riskCve: "CVE-2022-23943",
     openFindings: 162,
     findings: [{ id: "CVE-2022-23943", cvss: 9.8 }],
   }),
-  { text: "Highest CVSS among 162 open findings", cve: "CVE-2022-23943" },
+  "Highest CVSS among 162 open findings",
 );
-assert.deepEqual(
+assert.equal(
   riskCaption({
     riskScore: 7,
     riskCve: "CVE-9",
     openFindings: 1,
     findings: [{ id: "CVE-9", cvss: 0 }],
   }),
-  { text: "Highest severity among 1 open finding; no CVSS was reported", cve: "CVE-9" },
+  "Highest severity among 1 open finding; no CVSS was reported",
 );
 
-// ── Freshness ───────────────────────────────────────────────────────────────
+// ── Last scan ───────────────────────────────────────────────────────────────
 assert.equal(lastScanDetail({ source: "nmap" }), "nmap");
 assert.equal(lastScanDetail({ source: "nmap", version: "7.95", profile: "quick" }), "nmap 7.95 · Quick profile");
 assert.equal(lastScanDetail({ source: "nmap", profile: "high-risk" }), "nmap · High risk profile");
-assert.equal(sourceName({ name: "naabu" }), "naabu");
-assert.equal(sourceName({ name: "nmap", version: "7.95" }), "nmap 7.95");
-
-// ── Matched software ────────────────────────────────────────────────────────
-assert.deepEqual(
-  matchedSoftware([
-    { component: APACHE, severity: "medium" },
-    { component: OPENSSH, severity: "medium" },
-    { component: APACHE, severity: "critical" },
-    { severity: "high" },
-  ]),
-  [
-    { label: "apache http_server 2.4.49", findings: 2, severity: "critical" },
-    { label: "openbsd openssh 10.0p2", findings: 1, severity: "medium" },
-  ],
-);
-assert.deepEqual(matchedSoftware([]), []);
 
 // ── Open ports with their services ──────────────────────────────────────────
 // Values captured from a live lab host (cogitator04).

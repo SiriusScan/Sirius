@@ -1,15 +1,14 @@
 /**
- * hostModel.ts — the host page's pure parts (R05, R06): tab ids and links,
- * header labels, finding rows for VulnTable, the risk caption, data
- * freshness lines, software the scanner matched, agent data detection and
- * the findings CSV. Tested in hostModel.test.ts.
+ * hostModel.ts — the host page's pure parts: tab ids and links, header
+ * labels, finding rows for VulnTable, the risk caption, the last-scan line,
+ * open ports with their services, agent data detection and the findings CSV. Tested in hostModel.test.ts.
  *
  * Nothing here computes risk or severity counts: those come from the server
  * (ADR-3, ADR-2). These helpers only shape what the server returned.
  */
 
 import type { HostFinding } from "~/server/api/routers/host";
-import type { HostLastScan, OpenPort, SourceFreshness } from "~/types/riskSummary";
+import type { HostLastScan, OpenPort } from "~/types/riskSummary";
 import {
   SEVERITIES,
   SEVERITY_LABELS,
@@ -162,20 +161,14 @@ export function findingToVulnRow(finding: HostFinding): VulnRow {
   };
 }
 
-// ─── Risk caption (R05) ─────────────────────────────────────────────────────
+// ─── Risk caption ───────────────────────────────────────────────────────────
 
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 }
 
-export interface RiskCaption {
-  text: string;
-  /** The CVE that sets the score, for "Set by". */
-  cve?: string;
-}
-
 /**
- * The line under the risk ring. The score is the server's (ADR-3); this
+ * The line under the risk score. The score is the server's (ADR-3); this
  * only says where it came from.
  */
 export function riskCaption(host: {
@@ -183,20 +176,18 @@ export function riskCaption(host: {
   riskCve?: string;
   openFindings: number;
   findings?: readonly Pick<HostFinding, "id" | "cvss">[];
-}): RiskCaption {
+}): string {
   const n = host.openFindings;
-  if (n <= 0) return { text: "No open findings" };
+  if (n <= 0) return "No open findings";
   const among = `among ${plural(n, "open finding")}`;
-  if (!(host.riskScore > 0)) return { text: `No CVSS score ${among}` };
+  if (!(host.riskScore > 0)) return `No CVSS score ${among}`;
   const setter = host.riskCve ? host.findings?.find((f) => f.id === host.riskCve) : undefined;
-  const text =
-    setter && !(setter.cvss > 0)
-      ? `Highest severity ${among}; no CVSS was reported`
-      : `Highest CVSS ${among}`;
-  return host.riskCve ? { text, cve: host.riskCve } : { text };
+  return setter && !(setter.cvss > 0)
+    ? `Highest severity ${among}; no CVSS was reported`
+    : `Highest CVSS ${among}`;
 }
 
-// ─── Data freshness (R05) ───────────────────────────────────────────────────
+// ─── Last scan (Recent activity) ───────────────────────────────────────────────────
 
 /** "quick" -> "Quick", "high-risk" -> "High risk". */
 export function profileLabel(profile: string): string {
@@ -210,12 +201,7 @@ export function lastScanDetail(scan: Pick<HostLastScan, "source" | "version" | "
   return scan.profile ? `${source} · ${profileLabel(scan.profile)} profile` : source;
 }
 
-/** "nmap 7.95" for a source row. */
-export function sourceName(source: Pick<SourceFreshness, "name" | "version">): string {
-  return [source.name, source.version].filter(Boolean).join(" ");
-}
-
-// ─── Open ports with their services (Open ports card) ───────────────────────
+// ─── Open ports with their services ───────────────────────
 
 /** A port's own service identification, as the scanner stores it. */
 export type PortServiceMeta = Pick<OpenPort, "service" | "product" | "version" | "extraInfo">;
@@ -294,40 +280,6 @@ export function openPortServices<P extends OpenPort>(
     }
     return fromFindings ? { ...p, serviceLabel: fromFindings } : { ...p };
   });
-}
-
-// ─── Software the scanner matched (Open ports card) ─────────────────────────
-
-export interface MatchedSoftware {
-  label: string;
-  findings: number;
-  /** The most severe level among those findings. */
-  severity: Severity;
-}
-
-/**
- * Products named by the scanner's CPEs, with how many open findings each
- * carries, most findings first. Not every finding records a port, so this
- * is listed beside the ports rather than joined to them.
- */
-export function matchedSoftware(
-  findings: readonly Pick<HostFinding, "component" | "severity">[],
-): MatchedSoftware[] {
-  const byLabel = new Map<string, MatchedSoftware>();
-  for (const f of findings) {
-    const label = f.component?.label;
-    if (!label) continue;
-    const entry = byLabel.get(label);
-    if (!entry) {
-      byLabel.set(label, { label, findings: 1, severity: f.severity });
-    } else {
-      entry.findings += 1;
-      if (severityRank(f.severity) > severityRank(entry.severity)) entry.severity = f.severity;
-    }
-  }
-  return [...byLabel.values()].sort(
-    (a, b) => b.findings - a.findings || a.label.localeCompare(b.label),
-  );
 }
 
 // ─── Agent data (System card and tab) ───────────────────────────────────────

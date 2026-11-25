@@ -1,5 +1,5 @@
 /**
- * Host page (R05 Overview, R06 Vulnerabilities).
+ * Host page.
  *
  * Pure orchestration: useHostData brings the server's host summary (risk,
  * counts, findings with clean summaries, open ports, freshness), the
@@ -29,23 +29,23 @@ import { useHostData } from "~/hooks/useHostData";
 
 function HostSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true" aria-label="Loading host">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
-        {["xl:col-span-3", "md:col-span-2 xl:col-span-6", "xl:col-span-3"].map((span) => (
-          <div key={span} className={`scanner-section space-y-3 p-4 ${span}`}>
+    <div className="space-y-6" aria-busy="true" aria-label="Loading host">
+      <div className="grid gap-6 md:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="scanner-section space-y-3 p-6">
             <Skeleton className="h-4 w-28 bg-gray-800" />
-            <Skeleton className="h-16 w-full bg-gray-800" />
+            <Skeleton className="h-12 w-20 bg-gray-800" />
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="scanner-section space-y-3 p-4 xl:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="scanner-section space-y-3 p-6 lg:col-span-2">
           <Skeleton className="h-4 w-32 bg-gray-800" />
           {[1, 2, 3, 4, 5].map((i) => (
             <Skeleton key={i} className="h-6 w-full bg-gray-800" />
           ))}
         </div>
-        <div className="scanner-section space-y-3 p-4">
+        <div className="scanner-section space-y-3 p-5">
           <Skeleton className="h-4 w-24 bg-gray-800" />
           <Skeleton className="h-20 w-full bg-gray-800" />
         </div>

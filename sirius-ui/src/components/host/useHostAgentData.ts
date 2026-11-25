@@ -1,7 +1,7 @@
 /**
  * useHostAgentData — what the Sirius agent has reported for a host
  * (packages, users, services, hardware). A network scan can't see inside a
- * host, so scan-only hosts have none; the Overview's System card and the
+ * host, so scan-only hosts have none; the Overview's System summary and the
  * System and Network tabs then show one "needs the agent" state instead of
  * rows of zeros.
  *

@@ -19,6 +19,12 @@
       "go_api_commit": "bbcc77cbf8c43746f5678994981cbf2dfe931cb9",
       "pingpp_version": "v0.0.0-20261125012228-a6e4289ccaf4",
       "pingpp_commit": "a6e4289ccaf46421257f418d3f4a8b30c76d863b"
+    },
+    "cb294ea1616619b458fe9352b49e525aa4299e01": {
+      "go_api_version": "v0.0.36",
+      "go_api_commit": "fe05fc09c64655246352e924c8858cc4e1e9da35",
+      "pingpp_version": "v0.0.0-20261125012228-a6e4289ccaf4",
+      "pingpp_commit": "a6e4289ccaf46421257f418d3f4a8b30c76d863b"
     }
   },
   "app-agent": {
@@ -42,6 +48,7 @@
     "v0.0.29": "2ceb0951105d9f322b9825210e84086632b624b3",
     "v0.0.33": "eec099d012845817d22a37c72db8f89e8c609032",
     "v0.0.34": "06b0c2f072c012be92cd76e0dc34e4b7a4469f23",
-    "v0.0.35": "bbcc77cbf8c43746f5678994981cbf2dfe931cb9"
+    "v0.0.35": "bbcc77cbf8c43746f5678994981cbf2dfe931cb9",
+    "v0.0.36": "fe05fc09c64655246352e924c8858cc4e1e9da35"
   }
 }

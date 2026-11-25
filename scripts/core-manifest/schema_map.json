@@ -72,5 +72,16 @@
       "scan_control": "1.0",
       "api_module": "v1"
     }
+  },
+  "fe05fc09c64655246352e924c8858cc4e1e9da35": {
+    "ledger_table": "schema_migrations_core",
+    "latest_migration": "011_host_port_service",
+    "contracts": {
+      "resource_scope": "1.0",
+      "message_envelope": "1.0",
+      "scan_job": "1.0",
+      "scan_control": "1.0",
+      "api_module": "v1"
+    }
   }
 }

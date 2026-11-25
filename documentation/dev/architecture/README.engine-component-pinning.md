@@ -37,7 +37,7 @@ mechanically (see `.github/workflows/check-pin-consistency.yml`).
 
 | ARG | Repository | Used by | Notes |
 | --- | --- | --- | --- |
-| `GO_API_COMMIT_SHA` | `SiriusScan/go-api` | All Go services in the engine + the standalone `sirius-api` image | Pinned by **tag** (`vX.Y.Z`). Tag is created in the `go-api` repo first, then bumped here. |
+| `GO_API_COMMIT_SHA` | `SiriusScan/go-api` | Packaged migrator and SDK source in the engine image | Full SHA of the SDK tag locked in the API Go module files. Workers use their own Go module locks. |
 | `APP_SCANNER_COMMIT_SHA` | `SiriusScan/app-scanner` | Scanner binary (`/scanner`) | Full SHA. CGO build, depends on `libpcap` and `pingpp`. |
 | `APP_TERMINAL_COMMIT_SHA` | `SiriusScan/app-terminal` | Terminal binary (`/terminal`) | Full SHA. |
 | `SIRIUS_NSE_COMMIT_SHA` | `SiriusScan/sirius-nse` | NSE script repo bundled with the scanner | Full SHA. |
@@ -61,9 +61,8 @@ agree.
    CI passes `${{ env.X_COMMIT_SHA || '<fallback>' }}` for every pin in
    the `build-engine` and `build-api` jobs. The `<fallback>` literals
    must match the Dockerfile defaults exactly. The `env.*` vars are
-   only populated when CI is triggered by a `repository_dispatch` from
-   a minor-project's release workflow (see "Bumping a pin via dispatch"
-   below).
+   populated by `repository_dispatch` only for components that allow
+   build overrides. See "Handling release notifications" below.
 
 There is also a per-build override:
 
@@ -79,9 +78,9 @@ There is also a per-build override:
    a full 40-character SHA or a semver tag.
 2. **Dockerfile and CI must agree.** The
    `check-pin-consistency.yml` workflow fails any PR that drifts.
-3. **Tag preferred for `go-api`.** Other Sirius services consume
-   `go-api` as a Go module via `go.mod`. Bumping the tag in two places
-   (its own `go.mod` and ours) is easier with a tag than a SHA.
+3. **Keep the SDK tag and SHA aligned.** The API module locks use the
+   published Go version. The migrator and engine source pins use the
+   commit that tag points to.
 4. **Bumps are atomic.** A pin bump PR must update the Dockerfile, the
    CI fallback, and the audit doc (current: `SHA-AUDIT-2026-04.md`,
    future: a successor file) in one change set.
@@ -109,7 +108,7 @@ docker compose -f docker-compose.yaml -f docker-compose.dev.yaml build --no-cach
 #    if Dockerfile and CI disagree, or if you used a floating ref.
 ```
 
-### Bumping a pin via repository dispatch
+### Handling release notifications
 
 When a minor-project finishes its own release, its
 `Notify Sirius` workflow fires a `repository_dispatch` event with:
@@ -126,8 +125,8 @@ When a minor-project finishes its own release, its
 
 The Sirius `ci.yml` workflow:
 
-1. Derives the env-var name from `submodule` (e.g. `app-agent` →
-   `APP_AGENT_COMMIT_SHA`).
+1. Resolves the component and its optional build override through the
+   dispatch allowlist. For example, `app-agent` maps to `APP_AGENT_COMMIT_SHA`.
 2. Sets `env.APP_AGENT_COMMIT_SHA = <commit_sha>` for the run.
 3. Builds the engine image with the new SHA via
    `${{ env.APP_AGENT_COMMIT_SHA || '<fallback>' }}`.
@@ -143,6 +142,18 @@ Scanner update notifications remain visible as CI runs, including the
 `"engine_promotion": "source-pin-v1"` form. The Actions summary records the scanner source
 SHA awaiting a reviewed engine pin PR. The PR is where the engine pin,
 lockfile dependency provenance and release metadata advance together.
+
+Go API SDK notifications also record the source SHA in the Actions summary.
+The API and engine builds are skipped for both legacy notifications and
+`"engine_promotion": "source-pin-v1"` notifications. A Core pin PR advances
+the API Go module locks, migrator and engine source SHAs, Compose build
+input, CI fallbacks, and schema and release manifest metadata together. The
+reviewed change keeps the API binary and one-shot migrator on the same SDK
+release.
+
+Terminal notifications with `"engine_promotion": "source-pin-v1"` also
+record the revision for a reviewed engine pin PR. Older notifications
+without the marker continue to request an engine build.
 
 ### Bumping the scanner and pingpp
 

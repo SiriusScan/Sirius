@@ -6,9 +6,9 @@
 #   COMMIT_SHA  - must be a full 40-hex git SHA
 #
 # Optional env:
-#   APPLY_PIN=1      - append the mapped ENV=COMMIT_SHA to GITHUB_ENV
+#   APPLY_PIN=1      - append a build override to GITHUB_ENV when allowed
 #   EMIT_CHANGES=1   - append sirius_*_changes outputs to GITHUB_OUTPUT
-#   ENGINE_PROMOTION - source-pin-v1 records a scanner update for reviewed promotion
+#   ENGINE_PROMOTION - source-pin-v1 records revisions for reviewed promotion
 #
 # Never dynamically constructs environment variable names.
 set -euo pipefail
@@ -27,7 +27,7 @@ printf '%s' "${COMMIT_SHA}" | grep -Eq '^[a-f0-9]{40}$' || die "COMMIT_SHA must 
 PIN_ENV=""
 # Accept only the canonical SiriusScan path or the exact short name.
 case "${SUBMODULE}" in
-  SiriusScan/go-api|go-api) REPO_SHORT="go-api"; PIN_ENV="GO_API_COMMIT_SHA" ;;
+  SiriusScan/go-api|go-api) REPO_SHORT="go-api" ;;
   SiriusScan/app-scanner|app-scanner) REPO_SHORT="app-scanner" ;;
   SiriusScan/app-terminal|app-terminal) REPO_SHORT="app-terminal"; PIN_ENV="APP_TERMINAL_COMMIT_SHA" ;;
   SiriusScan/sirius-nse|sirius-nse) REPO_SHORT="sirius-nse"; PIN_ENV="SIRIUS_NSE_COMMIT_SHA" ;;
@@ -39,34 +39,39 @@ case "${SUBMODULE}" in
     ;;
 esac
 
-promotion="${ENGINE_PROMOTION:-}"
-if [ "${REPO_SHORT}" = "app-scanner" ] && [ -z "${promotion}" ]; then
-  promotion=source-pin-v1
-fi
-case "${promotion}" in
-  "") ;;
-  source-pin-v1)
-    [ "${REPO_SHORT}" = "app-scanner" ] || die "source-pin-v1 is supported only for app-scanner"
+message=""
+case "${REPO_SHORT}:${ENGINE_PROMOTION:-}" in
+  app-scanner:|app-scanner:source-pin-v1)
     message="Scanner revision ${COMMIT_SHA} awaits an engine source-pin PR."
-    printf '%s\n' "${message}"
-    if [ "${EMIT_CHANGES}" = "1" ]; then
-      [ -n "${GITHUB_OUTPUT:-}" ] || die "GITHUB_OUTPUT is required when EMIT_CHANGES=1"
-      printf '%s\n' "sirius_api_changes=false" "sirius_engine_changes=false" >> "${GITHUB_OUTPUT}"
-      if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
-        printf '%s\n' "${message}" >> "${GITHUB_STEP_SUMMARY}"
-      fi
-    fi
-    exit 0
     ;;
+  go-api:|go-api:source-pin-v1)
+    message="Go API SDK revision ${COMMIT_SHA} awaits a Core source-pin PR."
+    ;;
+  app-terminal:source-pin-v1)
+    message="Terminal revision ${COMMIT_SHA} awaits an engine source-pin PR."
+    ;;
+  *:) ;;
+  *:source-pin-v1) die "source-pin-v1 is supported only for app-scanner, go-api, and app-terminal" ;;
   *) die "unknown engine promotion mode" ;;
 esac
+
+if [ -n "${message}" ]; then
+  printf '%s\n' "${message}"
+  if [ "${EMIT_CHANGES}" = "1" ]; then
+    [ -n "${GITHUB_OUTPUT:-}" ] || die "GITHUB_OUTPUT is required when EMIT_CHANGES=1"
+    printf '%s\n' "sirius_api_changes=false" "sirius_engine_changes=false" >> "${GITHUB_OUTPUT}"
+    if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+      printf '%s\n' "${message}" >> "${GITHUB_STEP_SUMMARY}"
+    fi
+  fi
+  exit 0
+fi
 
 echo "Validated dispatch submodule=${REPO_SHORT} pin_env=${PIN_ENV} commit=${COMMIT_SHA}"
 
 if [ "${APPLY_PIN}" = "1" ]; then
   [ -n "${GITHUB_ENV:-}" ] || die "GITHUB_ENV is required when APPLY_PIN=1"
   case "${PIN_ENV}" in
-    GO_API_COMMIT_SHA) echo "GO_API_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
     APP_TERMINAL_COMMIT_SHA) echo "APP_TERMINAL_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
     SIRIUS_NSE_COMMIT_SHA) echo "SIRIUS_NSE_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
     APP_AGENT_COMMIT_SHA) echo "APP_AGENT_COMMIT_SHA=${COMMIT_SHA}" >> "${GITHUB_ENV}" ;;
@@ -79,10 +84,6 @@ fi
 if [ "${EMIT_CHANGES}" = "1" ]; then
   [ -n "${GITHUB_OUTPUT:-}" ] || die "GITHUB_OUTPUT is required when EMIT_CHANGES=1"
   case "${REPO_SHORT}" in
-    go-api)
-      echo "sirius_api_changes=true" >> "${GITHUB_OUTPUT}"
-      echo "sirius_engine_changes=true" >> "${GITHUB_OUTPUT}"
-      ;;
     app-system-monitor|app-administrator)
       echo "sirius_api_changes=true" >> "${GITHUB_OUTPUT}"
       echo "sirius_engine_changes=true" >> "${GITHUB_OUTPUT}"

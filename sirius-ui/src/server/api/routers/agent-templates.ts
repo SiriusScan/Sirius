@@ -7,6 +7,7 @@ import type {
   TemplateAnalytics,
 } from "~/types/agentTemplateTypes";
 import { API_BASE_URL, apiFetch } from "~/server/api/shared/apiClient";
+import { readApiJson, requireApiOk } from "~/server/api/shared/apiErrors";
 
 // Zod schemas for validation
 const templateIdSchema = z.object({
@@ -45,10 +46,8 @@ export const agentTemplatesRouter = createTRPCRouter({
   getTemplates: protectedProcedure.query(async (): Promise<AgentTemplate[]> => {
     try {
       const response = await apiFetch(`${API_BASE_URL}/api/agent-templates`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch templates: ${response.statusText}`);
-      }
-      return (await response.json()) as AgentTemplate[];
+      requireApiOk(response, "Failed to fetch templates");
+      return (await readApiJson(response)) as AgentTemplate[];
     } catch (error) {
       console.error("Error fetching agent templates:", error);
       return [];
@@ -63,13 +62,11 @@ export const agentTemplatesRouter = createTRPCRouter({
         const response = await apiFetch(
           `${API_BASE_URL}/api/agent-templates/${input.id}`
         );
-        if (!response.ok) {
-          if (response.status === 404) {
-            return null;
-          }
-          throw new Error(`Failed to fetch template: ${response.statusText}`);
+        if (response.status === 404) {
+          return null;
         }
-        return (await response.json()) as AgentTemplate;
+        requireApiOk(response, "Failed to fetch template");
+        return (await readApiJson(response)) as AgentTemplate;
       } catch (error) {
         console.error("Error fetching agent template:", error);
         return null;
@@ -97,12 +94,9 @@ export const agentTemplatesRouter = createTRPCRouter({
           }),
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to upload template");
-        }
+        requireApiOk(response, "Failed to upload template");
 
-        return await response.json();
+        return await readApiJson(response);
       } catch (error) {
         console.error("Error uploading template:", error);
         throw error;
@@ -125,11 +119,9 @@ export const agentTemplatesRouter = createTRPCRouter({
           }
         );
 
-        if (!response.ok) {
-          throw new Error(`Validation request failed: ${response.statusText}`);
-        }
+        requireApiOk(response, "Validation request failed");
 
-        return (await response.json()) as ValidationResult;
+        return (await readApiJson(response)) as ValidationResult;
       } catch (error) {
         console.error("Error validating template:", error);
         return {
@@ -160,12 +152,9 @@ export const agentTemplatesRouter = createTRPCRouter({
           }
         );
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to update template");
-        }
+        requireApiOk(response, "Failed to update template");
 
-        return await response.json();
+        return await readApiJson(response);
       } catch (error) {
         console.error("Error updating template:", error);
         throw error;
@@ -184,12 +173,9 @@ export const agentTemplatesRouter = createTRPCRouter({
           }
         );
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to delete template");
-        }
+        requireApiOk(response, "Failed to delete template");
 
-        return await response.json();
+        return await readApiJson(response);
       } catch (error) {
         console.error("Error deleting template:", error);
         throw error;
@@ -212,12 +198,9 @@ export const agentTemplatesRouter = createTRPCRouter({
           }
         );
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to test template");
-        }
+        requireApiOk(response, "Failed to test template");
 
-        return await response.json();
+        return await readApiJson(response);
       } catch (error) {
         console.error("Error testing template:", error);
         throw error;
@@ -240,12 +223,9 @@ export const agentTemplatesRouter = createTRPCRouter({
           }
         );
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || "Failed to deploy template");
-        }
+        requireApiOk(response, "Failed to deploy template");
 
-        return await response.json();
+        return await readApiJson(response);
       } catch (error) {
         console.error("Error deploying template:", error);
         throw error;
@@ -259,11 +239,9 @@ export const agentTemplatesRouter = createTRPCRouter({
         `${API_BASE_URL}/api/agent-templates/analytics`
       );
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch analytics: ${response.statusText}`);
-      }
+      requireApiOk(response, "Failed to fetch analytics");
 
-      return (await response.json()) as TemplateAnalytics;
+      return (await readApiJson(response)) as TemplateAnalytics;
     } catch (error) {
       console.error("Error fetching template analytics:", error);
       return {
@@ -287,11 +265,9 @@ export const agentTemplatesRouter = createTRPCRouter({
           `${API_BASE_URL}/api/agent-templates/${input.id}/results`
         );
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch results: ${response.statusText}`);
-        }
+        requireApiOk(response, "Failed to fetch results");
 
-        return await response.json();
+        return await readApiJson(response);
       } catch (error) {
         console.error("Error fetching template results:", error);
         return {

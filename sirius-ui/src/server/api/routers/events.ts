@@ -1,7 +1,7 @@
 import { z } from "zod";
-import axios from "axios";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { apiClient } from "~/server/api/shared/apiClient";
+import { apiErrorDiagnostics } from "~/server/api/shared/apiErrors";
 
 /**
  * Events router - handles security and system events
@@ -84,12 +84,7 @@ export const eventsRouter = createTRPCRouter({
           offset: response.data.offset,
         };
       } catch (error) {
-        console.error("Error fetching events:", error);
-        if (axios.isAxiosError(error)) {
-          throw new Error(
-            error.response?.data?.error || "Failed to fetch events"
-          );
-        }
+        console.error("Error fetching events:", apiErrorDiagnostics(error));
         throw new Error("Failed to fetch events");
       }
     }),
@@ -105,12 +100,7 @@ export const eventsRouter = createTRPCRouter({
 
       return response.data;
     } catch (error) {
-      console.error("Error fetching event statistics:", error);
-      if (axios.isAxiosError(error)) {
-        throw new Error(
-          error.response?.data?.error || "Failed to fetch event statistics"
-        );
-      }
+      console.error("Error fetching event statistics:", apiErrorDiagnostics(error));
       throw new Error("Failed to fetch event statistics");
     }
   }),
@@ -147,12 +137,7 @@ export const eventsRouter = createTRPCRouter({
           total: response.data.total,
         };
       } catch (error) {
-        console.error("Error fetching recent events:", error);
-        if (axios.isAxiosError(error)) {
-          throw new Error(
-            error.response?.data?.error || "Failed to fetch recent events"
-          );
-        }
+        console.error("Error fetching recent events:", apiErrorDiagnostics(error));
         throw new Error("Failed to fetch recent events");
       }
     }),
@@ -185,13 +170,7 @@ export const eventsRouter = createTRPCRouter({
           severity: response.data.severity,
         };
       } catch (error) {
-        console.error("Error fetching events by severity:", error);
-        if (axios.isAxiosError(error)) {
-          throw new Error(
-            error.response?.data?.error ||
-              "Failed to fetch events by severity"
-          );
-        }
+        console.error("Error fetching events by severity:", apiErrorDiagnostics(error));
         throw new Error("Failed to fetch events by severity");
       }
     }),

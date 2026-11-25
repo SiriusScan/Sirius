@@ -7,6 +7,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -34,6 +35,10 @@ var requiredComponents = []string{
 	"sirius-valkey",
 }
 
+const pingPPPin = "PINGPP_COMMIT_SHA"
+
+var errDockerfilePinMissing = errors.New("missing Dockerfile pin default")
+
 var requiredPins = []string{
 	"APP_SYSTEM_MONITOR_COMMIT_SHA",
 	"APP_ADMINISTRATOR_COMMIT_SHA",
@@ -42,7 +47,7 @@ var requiredPins = []string{
 	"APP_TERMINAL_COMMIT_SHA",
 	"SIRIUS_NSE_COMMIT_SHA",
 	"APP_AGENT_COMMIT_SHA",
-	"PINGPP_COMMIT_SHA",
+	pingPPPin,
 }
 
 type schemaMapEntry struct {
@@ -73,9 +78,10 @@ type CoreManifest struct {
 }
 
 type ComponentDependency struct {
-	SourceCommit string `json:"source_commit"`
-	GoAPIVersion string `json:"go_api_version"`
-	GoAPICommit  string `json:"go_api_commit"`
+	SourceCommit  string `json:"source_commit"`
+	GoAPIVersion  string `json:"go_api_version"`
+	GoAPICommit   string `json:"go_api_commit"`
+	PingPPVersion string `json:"pingpp_version,omitempty"`
 }
 
 type ManifestMetadata struct {
@@ -256,6 +262,13 @@ func validateManifest(data []byte, opt options) error {
 			}
 		}
 	}
+	scannerPingPP := m.ComponentDependencies["app-scanner"].PingPPVersion
+	if m.ComponentDependencies["sirius-api"].PingPPVersion != "" || m.ComponentDependencies["app-agent"].PingPPVersion != "" {
+		return fmt.Errorf("pingpp dependency metadata is supported only for app-scanner")
+	}
+	if scannerPingPP != "" && m.Contracts["resource_scope"] == "" {
+		return fmt.Errorf("scanner pingpp dependency requires component dependency metadata")
+	}
 	if _, hasScope := m.Contracts["resource_scope"]; hasScope && (m.ComponentDependencies != nil || supportsDependencyMetadata(m.Metadata.ReleaseTag)) {
 		if err := exactDependencyKeys(m.ComponentDependencies); err != nil {
 			return err
@@ -276,8 +289,10 @@ func validateManifest(data []byte, opt options) error {
 		var known struct {
 			Releases map[string]string `json:"sdk_releases"`
 			Scanner  map[string]struct {
-				Version string `json:"go_api_version"`
-				Commit  string `json:"go_api_commit"`
+				Version       string `json:"go_api_version"`
+				Commit        string `json:"go_api_commit"`
+				PingPPVersion string `json:"pingpp_version"`
+				PingPPCommit  string `json:"pingpp_commit"`
 			} `json:"app-scanner"`
 			Agent map[string]struct {
 				Version string `json:"go_api_version"`
@@ -317,11 +332,17 @@ func validateManifest(data []byte, opt options) error {
 				return fmt.Errorf("component_dependencies.%s SDK release mismatch", name)
 			}
 		}
+		knownScanner := known.Scanner[m.ComponentDependencies["app-scanner"].SourceCommit]
+		if scannerPingPP != knownScanner.PingPPVersion ||
+			(scannerPingPP != "" && (!reGitSHA.MatchString(knownScanner.PingPPCommit) || knownScanner.PingPPCommit != m.ComponentPins[pingPPPin])) {
+			return fmt.Errorf("scanner pingpp version or commit differs from the pinned source mapping")
+		}
+
 		for name, expected := range map[string]struct {
 			Version string
 			Commit  string
 		}{
-			"app-scanner": {known.Scanner[m.ComponentDependencies["app-scanner"].SourceCommit].Version, known.Scanner[m.ComponentDependencies["app-scanner"].SourceCommit].Commit},
+			"app-scanner": {knownScanner.Version, knownScanner.Commit},
 			"app-agent":   {known.Agent[m.ComponentDependencies["app-agent"].SourceCommit].Version, known.Agent[m.ComponentDependencies["app-agent"].SourceCommit].Commit},
 		} {
 			dep := m.ComponentDependencies[name]
@@ -364,6 +385,9 @@ func validateManifest(data []byte, opt options) error {
 		if st, err := os.Stat(df); err == nil && !st.IsDir() {
 			for _, pin := range requiredPins {
 				want, err := extractDockerfilePin(df, pin)
+				if pin == pingPPPin && scannerPingPP != "" && errors.Is(err, errDockerfilePinMissing) {
+					continue
+				}
 				if err != nil {
 					return err
 				}
@@ -565,7 +589,7 @@ func extractDockerfilePin(dockerfile, name string) (string, error) {
 			return val, nil
 		}
 	}
-	return "", fmt.Errorf("missing Dockerfile pin default: %s", name)
+	return "", fmt.Errorf("%w: %s", errDockerfilePinMissing, name)
 }
 
 func defaultDockerfile() string {

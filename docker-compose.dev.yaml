@@ -176,7 +176,6 @@ services:
       - ../minor-projects/app-scanner:/app-scanner
       - ../minor-projects/app-terminal:/app-terminal
       - ../minor-projects/go-api:/go-api
-      - ../minor-projects/ping++:/ping++
       - ../minor-projects/sirius-nse:/sirius-nse
       - ../minor-projects/sirius-agent-modules:/app-agent/sirius-agent-modules
       # Add system monitor from separate repository

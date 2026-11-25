@@ -1,7 +1,7 @@
 import { z } from "zod";
-import axios from "axios";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { apiClient } from "~/server/api/shared/apiClient";
+import { apiErrorDiagnostics } from "~/server/api/shared/apiErrors";
 
 /**
  * Statistics router - handles vulnerability statistics, trends, and snapshots
@@ -66,12 +66,7 @@ export const statisticsRouter = createTRPCRouter({
         snapshot: response.data.snapshot,
       };
     } catch (error) {
-      console.error("Error creating snapshot:", error);
-      if (axios.isAxiosError(error)) {
-        throw new Error(
-          error.response?.data?.error || "Failed to create snapshot"
-        );
-      }
+      console.error("Error creating snapshot:", apiErrorDiagnostics(error));
       throw new Error("Failed to create snapshot");
     }
   }),
@@ -108,13 +103,7 @@ export const statisticsRouter = createTRPCRouter({
           days: limit,
         };
       } catch (error) {
-        console.error("Error fetching vulnerability trends:", error);
-        if (axios.isAxiosError(error)) {
-          throw new Error(
-            error.response?.data?.error ||
-              "Failed to fetch vulnerability trends"
-          );
-        }
+        console.error("Error fetching vulnerability trends:", apiErrorDiagnostics(error));
         throw new Error("Failed to fetch vulnerability trends");
       }
     }),
@@ -142,12 +131,7 @@ export const statisticsRouter = createTRPCRouter({
           total: response.data.count,
         };
       } catch (error) {
-        console.error("Error listing snapshots:", error);
-        if (axios.isAxiosError(error)) {
-          throw new Error(
-            error.response?.data?.error || "Failed to list snapshots"
-          );
-        }
+        console.error("Error listing snapshots:", apiErrorDiagnostics(error));
         throw new Error("Failed to list snapshots");
       }
     }),
@@ -197,13 +181,7 @@ export const statisticsRouter = createTRPCRouter({
           cachedAt: response.data.cachedAt,
         };
       } catch (error) {
-        console.error("Error fetching most vulnerable hosts:", error);
-        if (axios.isAxiosError(error)) {
-          throw new Error(
-            error.response?.data?.error ||
-              "Failed to fetch most vulnerable hosts"
-          );
-        }
+        console.error("Error fetching most vulnerable hosts:", apiErrorDiagnostics(error));
         throw new Error("Failed to fetch most vulnerable hosts");
       }
     }),

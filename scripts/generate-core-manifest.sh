@@ -52,7 +52,6 @@ PIN_NAMES=(
   APP_TERMINAL_COMMIT_SHA
   SIRIUS_NSE_COMMIT_SHA
   APP_AGENT_COMMIT_SHA
-  PINGPP_COMMIT_SHA
 )
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -104,12 +103,17 @@ require_cmd jq
 jq -e '(keys | sort) == ["server_extension", "ui_extension"] and all(.[]; type == "string" and test("^[0-9]+\\.[0-9]+\\.[0-9]+$"))' "${UI_VERSIONS}" >/dev/null || die "invalid UI contract versions"
 UI_CONTRACTS="$(jq -c . "${UI_VERSIONS}")"
 
-extract_pin() {
+dockerfile_pin_default() {
   local name="$1"
   local value
   value="$(grep -E "^ARG ${name}=" "${DOCKERFILE}" | head -n 1 | sed -E "s/^ARG ${name}=//" || true)"
-  value="${value%%$'\r'}"
-  [ -n "${value}" ] || die "missing Dockerfile pin default: ${name}"
+  printf '%s' "${value%%$'\r'}"
+}
+
+extract_pin() {
+  local value
+  value="$(dockerfile_pin_default "$1")"
+  [ -n "${value}" ] || die "missing Dockerfile pin default: $1"
   printf '%s' "${value}"
 }
 
@@ -162,7 +166,22 @@ COMPONENT_SDKS="$(jq -ce --arg source "${SOURCE_COMMIT}" --arg sdk "${API_SDK_VE
   . as $root | ($root["app-scanner"][$scanner] // error("unknown scanner source")) as $s |
   ($root["app-agent"][$agent] // error("unknown agent source")) as $a |
   {"sirius-api": {source_commit:$source, go_api_version:$sdk, go_api_commit:$sdkcommit},
-   "app-scanner": ($s + {source_commit:$scanner}), "app-agent": ($a + {source_commit:$agent})}' "${COMPONENT_DEPENDENCIES}")"
+   "app-scanner": (($s | del(.pingpp_commit)) + {source_commit:$scanner}), "app-agent": ($a + {source_commit:$agent})}' "${COMPONENT_DEPENDENCIES}")"
+# Older releases resolve pingpp using their Dockerfile. Canonical scanner
+# builds use the module recorded for the reviewed scanner source.
+legacy_pingpp="$(dockerfile_pin_default PINGPP_COMMIT_SHA)"
+pingpp_version="$(jq -r '.["app-scanner"].pingpp_version // empty' <<<"${COMPONENT_SDKS}")"
+pingpp_commit="$(jq -r --arg scanner "${SCANNER_COMMIT}" '.["app-scanner"][$scanner].pingpp_commit // empty' "${COMPONENT_DEPENDENCIES}")"
+if [ -n "${pingpp_version}" ] || [ -n "${pingpp_commit}" ]; then
+  [[ "${pingpp_version}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][A-Za-z0-9.-]+)?$ ]] && is_git_sha "${pingpp_commit}" \
+    || die "invalid scanner pingpp dependency provenance"
+  [ -z "${legacy_pingpp}" ] || [ "${legacy_pingpp}" = "${pingpp_commit}" ] \
+    || die "Dockerfile pingpp pin differs from the scanner dependency"
+else
+  [ -n "${legacy_pingpp}" ] || die "missing scanner pingpp dependency and legacy Dockerfile pin"
+  pingpp_commit="${legacy_pingpp}"
+fi
+
 SDK_CONTRACTS="$(jq -c --arg v "${GO_API_VERSION}" '.[$v].contracts // {}' "${SCHEMA_MAP}")"
 LEDGER_TABLE="$(jq -r --arg v "${GO_API_VERSION}" '.[$v].ledger_table' "${SCHEMA_MAP}")"
 LATEST_MIGRATION="$(jq -r --arg v "${GO_API_VERSION}" '.[$v].latest_migration' "${SCHEMA_MAP}")"
@@ -185,6 +204,7 @@ for pin in "${PIN_NAMES[@]}"; do
   pins_json="$(jq -c --arg k "${pin}" --arg v "${PIN_VALUES[$i]}" '. + {($k): $v}' <<<"${pins_json}")"
   i=$((i + 1))
 done
+pins_json="$(jq -c --arg v "${pingpp_commit}" '. + {PINGPP_COMMIT_SHA: $v}' <<<"${pins_json}")"
 
 images_json='{}'
 i=0

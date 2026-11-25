@@ -143,7 +143,7 @@ export function generateVulnerabilityReportHtml(
       }
       if (options.liveScan.networkInventory) {
         const { label, counts, reasons } = describeNetworkInventory(options.liveScan.networkInventory);
-        html += `<dt>Network inventory</dt><dd>${escapeHtml(label)}</dd>`;
+        html += `<dt>Network report acknowledgements for this scan</dt><dd>${escapeHtml(label)}</dd>`;
         if (counts) html += `<dd>${escapeHtml(counts)}</dd>`;
         if (reasons) html += `<dd>${escapeHtml(reasons)}</dd>`;
       }

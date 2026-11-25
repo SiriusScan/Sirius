@@ -65,6 +65,10 @@ function parseSummary(raw: unknown): NetworkInventorySummary | null {
     return null;
   }
 
+  if (raw.interrupted !== undefined && (
+    typeof raw.interrupted !== "boolean" || (raw.interrupted && finalized)
+  )) return null;
+
   const summary: NetworkInventorySummary = {
     version: 1, finalized, attempted, accepted, rejected, unknown,
   };
@@ -106,6 +110,8 @@ export function projectNetworkInventory(scan: unknown): NetworkInventoryStatus |
   if (!isRecord(network.metadata)) return unavailable;
   if (network.metadata.inventory_reports === undefined) return untracked;
 
+  if (network.enabled !== true) return unavailable;
+
   const summary = parseSummary(network.metadata.inventory_reports);
   if (!summary || (summary.finalized && network.status !== "completed")) {
     return unavailable;
@@ -126,6 +132,14 @@ export function describeNetworkInventory({ status, summary }: NetworkInventorySt
     return count ? [`${reasons[reason]} (${count})`] : [];
   });
   return { label, counts, reasons: reasonLabels.join(" · ") };
+}
+
+export function createLiveScanExport(scan: unknown): LiveScanExport {
+  const id = isRecord(scan) ? scan.id : undefined;
+  return {
+    scanId: typeof id === "string" && id.trim() ? id : undefined,
+    networkInventory: projectNetworkInventory(scan),
+  };
 }
 
 export function liveScanExportFields({ scanId, networkInventory }: LiveScanExport) {

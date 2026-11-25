@@ -21,7 +21,7 @@ type NetworkInventorySummary struct {
 const maxInventoryCount = 1<<53 - 1
 
 func projectNetworkInventory(scan map[string]any) *NetworkInventoryStatus {
-	if scan["status"] == "idle" {
+	if scan == nil || scan["status"] == "idle" {
 		return nil
 	}
 	untracked := &NetworkInventoryStatus{Status: "untracked"}
@@ -63,6 +63,10 @@ func projectNetworkInventory(scan map[string]any) *NetworkInventoryStatus {
 		return untracked
 	}
 
+	if network["enabled"] != true {
+		return unavailable
+	}
+
 	summary := parseNetworkInventorySummary(rawSummary)
 	if summary == nil || (summary.Finalized && network["status"] != "completed") {
 		return unavailable
@@ -94,6 +98,12 @@ func parseNetworkInventorySummary(value any) *NetworkInventorySummary {
 	if !finalizedOK || !attemptedOK || !acceptedOK || !rejectedOK || !unknownOK ||
 		attempted != accepted+rejected+unknown {
 		return nil
+	}
+	if value, present := raw["interrupted"]; present {
+		interrupted, ok := value.(bool)
+		if !ok || (interrupted && finalized) {
+			return nil
+		}
 	}
 	result := &NetworkInventorySummary{
 		Version: 1, Finalized: finalized, Attempted: attempted,

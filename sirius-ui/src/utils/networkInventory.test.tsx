@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ScanStatus } from "~/components/scanner/ScanStatusPanel";
 import type { ScanResult } from "~/types/scanTypes";
 import {
+  createLiveScanExport,
   liveScanExportFields,
   projectNetworkInventory,
   serializeLiveScanExport,
@@ -15,7 +16,7 @@ import { generateVulnerabilityReportHtml } from "~/utils/reportGenerator";
 
 const fixtures = JSON.parse(
   readFileSync("../sirius-api/handlers/testdata/network_inventory.json", "utf8"),
-) as { name: string; scan: ScanResult; expected: NetworkInventoryStatus | null }[];
+) as { name: string; scan: ScanResult | null; expected: NetworkInventoryStatus | null }[];
 
 for (const fixture of fixtures) {
   test(fixture.name, () => {
@@ -25,9 +26,9 @@ for (const fixture of fixtures) {
 
 test("dashboard and exports keep evidence and disclose incomplete network inventory", () => {
   const fixture = fixtures.find(({ name }) => name === "mixed and agent completed");
-  assert.ok(fixture);
+  assert.ok(fixture?.scan);
   const { scan } = fixture;
-  const liveScan = { scanId: scan.id, networkInventory: projectNetworkInventory(scan) };
+  const liveScan = createLiveScanExport(scan);
   const status = renderToStaticMarkup(<ScanStatus results={scan} />);
   assert.match(status, /Network inventory incomplete/);
   assert.match(status, /5 attempted, 2 accepted, 1 rejected, 2 unconfirmed/);
@@ -62,11 +63,8 @@ test("dashboard and exports keep evidence and disclose incomplete network invent
 
 test("a legacy snapshot includes no inventory counts from an earlier run", () => {
   const fixture = fixtures.find(({ name }) => name === "legacy no subscans");
-  assert.ok(fixture);
-  const liveScan = {
-    scanId: fixture.scan.id,
-    networkInventory: projectNetworkInventory(fixture.scan),
-  };
+  assert.ok(fixture?.scan);
+  const liveScan = createLiveScanExport(fixture.scan);
   const fields = liveScanExportFields(liveScan);
   assert.deepEqual(fields, {
     data_source: "live_scan",
@@ -78,4 +76,15 @@ test("a legacy snapshot includes no inventory counts from an earlier run", () =>
   assert.match(status, /Network inventory persistence untracked/);
   assert.match(report, /Network inventory persistence untracked/);
   assert.doesNotMatch(report, /network inventory incomplete/i);
+});
+
+test("a malformed scan ID does not escape into export metadata", () => {
+  const fixture = fixtures.find(({ name }) => name === "malformed scan ID");
+  assert.ok(fixture?.scan);
+  const liveScan = createLiveScanExport(fixture.scan);
+  assert.equal(liveScan.scanId, undefined);
+  assert.equal(liveScanExportFields(liveScan).scan_id, undefined);
+  const report = generateVulnerabilityReportHtml([], { liveScan });
+  assert.match(report, /Live scan results/);
+  assert.doesNotMatch(report, /<dt>Scan ID<\/dt>/);
 });

@@ -984,10 +984,10 @@ paths:
               properties:
                 scan_id:
                   type: string
-                  description: Optional; ignored parse errors leave it empty
+                  description: Omit to bind the request to the scan that is current when handled.
       responses:
         '200':
-          description: Cancel accepted
+          description: Cancel request submitted to the publisher without worker acknowledgement.
           headers:
             X-Request-ID:
               $ref: '#/components/headers/RequestID'
@@ -1003,8 +1003,9 @@ paths:
                     type: string
                   status:
                     type: string
+                    description: Dashboard state, including unconfirmed if its update could not be recorded for this scan.
         '400':
-          description: Scan already completed or cancelled
+          description: Malformed request or scan already terminal.
           headers:
             X-Request-ID:
               $ref: '#/components/headers/RequestID'
@@ -1018,6 +1019,8 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
+          $ref: '#/components/responses/ScanError'
+        '409':
           $ref: '#/components/responses/ScanError'
         '500':
           $ref: '#/components/responses/ScanError'
@@ -1040,10 +1043,10 @@ paths:
               properties:
                 scan_id:
                   type: string
-                  description: Optional scan identifier forwarded in the force_cancel command
+                  description: Omit to bind the request to the scan that is current when handled.
       responses:
         '200':
-          description: Force-stop accepted (including already-clean idle state)
+          description: Force-stop request submitted, or the dashboard is already idle or terminal.
           headers:
             X-Request-ID:
               $ref: '#/components/headers/RequestID'
@@ -1059,8 +1062,15 @@ paths:
                     type: string
                   status:
                     type: string
+                    description: Dashboard state, including unconfirmed if its update could not be recorded for this scan.
+        '400':
+          $ref: '#/components/responses/ScanError'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/ScanError'
+        '409':
+          $ref: '#/components/responses/ScanError'
         '500':
           $ref: '#/components/responses/ScanError'
 

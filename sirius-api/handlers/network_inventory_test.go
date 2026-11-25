@@ -23,7 +23,9 @@ func TestScanStatusNetworkInventoryFixtures(t *testing.T) {
 	for _, fixture := range fixtures {
 		t.Run(fixture.Name, func(t *testing.T) {
 			response := projectScanStatus(fixture.Scan)
-			if response.ID != fixture.Scan["id"] || response.Status != fixture.Scan["status"] {
+			id, _ := fixture.Scan["id"].(string)
+			status, _ := fixture.Scan["status"].(string)
+			if response.ID != id || response.Status != status {
 				t.Fatal("projection changed the scan ID or lifecycle status")
 			}
 			findings, _ := fixture.Scan["vulnerabilities"].([]any)

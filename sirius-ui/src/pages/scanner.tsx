@@ -15,7 +15,7 @@ import {
   openReportInNewWindow,
 } from "~/utils/reportGenerator";
 import { useScanResults } from "~/hooks/useScanResults";
-import { liveScanExportFields, projectNetworkInventory } from "~/utils/networkInventory";
+import { createLiveScanExport, liveScanExportFields } from "~/utils/networkInventory";
 import { useScanDataMapping } from "~/hooks/useScanDataMapping";
 import { useScanOrchestration } from "~/hooks/useScanOrchestration";
 import { Button } from "~/components/lib/ui/button";
@@ -51,10 +51,7 @@ const ScannerContent: React.FC = () => {
   const { hostList, vulnerabilityList } = useScanDataMapping(
     scanResults.hosts, scanResults.vulnerabilities,
   );
-  const liveScan = {
-    scanId: scanResults.scanResult?.id,
-    networkInventory: projectNetworkInventory(scanResults.scanResult),
-  };
+  const liveScan = createLiveScanExport(scanResults.scanResult);
   const [selectedProfile, setSelectedProfileState] = useState<ScanProfile>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("scanner.selectedProfile") ?? "high-risk";

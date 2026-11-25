@@ -739,5 +739,204 @@
       "end_time": "2026-01-01T00:01:00Z"
     },
     "expected": null
+  },
+  {
+    "name": "tracked summary without enablement",
+    "scan": {
+      "id": "fixture-missing-enabled",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "tracked summary with invalid enablement",
+    "scan": {
+      "id": "fixture-invalid-enabled",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": "true",
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "interrupted cannot finalize",
+    "scan": {
+      "id": "fixture-interrupted-finalized",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0,
+              "interrupted": true
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "malformed interruption flag",
+    "scan": {
+      "id": "fixture-interrupted-malformed",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0,
+              "interrupted": "false"
+            }
+          }
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "malformed network metadata",
+    "scan": {
+      "id": "fixture-metadata-malformed",
+      "status": "completed",
+      "hosts": [
+        "203.0.113.10"
+      ],
+      "hosts_completed": 1,
+      "vulnerabilities": [],
+      "sub_scans": {
+        "network": {
+          "type": "network",
+          "enabled": true,
+          "status": "completed",
+          "progress": {
+            "completed": 1,
+            "total": 1
+          },
+          "metadata": null
+        }
+      },
+      "start_time": "2026-01-01T00:00:00Z",
+      "end_time": "2026-01-01T00:01:00Z"
+    },
+    "expected": {
+      "status": "unavailable"
+    }
+  },
+  {
+    "name": "empty stored scan",
+    "scan": null,
+    "expected": null
+  },
+  {
+    "name": "malformed scan ID",
+    "scan": {
+      "id": 45,
+      "status": "completed",
+      "hosts": [],
+      "vulnerabilities": []
+    },
+    "expected": {
+      "status": "untracked"
+    }
   }
 ]

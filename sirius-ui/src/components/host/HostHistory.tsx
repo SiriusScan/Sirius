@@ -1,4 +1,6 @@
 import { Clock, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
 import { SourceBadge } from "~/components/shared/SourceBadge";
 import { api } from "~/utils/api";
 import { SECTION_HEADER } from "~/utils/themeConstants";
@@ -11,6 +13,7 @@ const buttonClass =
   "flex items-center gap-1.5 rounded-md border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-300 transition-colors hover:bg-violet-500/20 disabled:opacity-50";
 
 export function HostHistory({ hostIp }: HostHistoryProps) {
+  const [failedPageHost, setFailedPageHost] = useState<string>();
   const query = api.host.getHostHistory.useInfiniteQuery(
     { ip: hostIp },
     {
@@ -54,6 +57,16 @@ export function HostHistory({ hostIp }: HostHistoryProps) {
     );
   }
 
+  const olderReportsError = failedPageHost === hostIp;
+  const loadOlderReports = async () => {
+    setFailedPageHost(undefined);
+    try {
+      await query.fetchNextPage({ throwOnError: true });
+    } catch {
+      setFailedPageHost(hostIp);
+    }
+  };
+
   const events = pages.flatMap((page) => page.timeline);
   const reports = events.filter((event) => event.event_type === "report_accepted");
   const discovery = events.find((event) => event.event_type === "host_discovery");
@@ -66,7 +79,15 @@ export function HostHistory({ hostIp }: HostHistoryProps) {
         <h3 className={`${SECTION_HEADER} mb-4`}>Activity Timeline</h3>
 
         {reports.length === 0 && (
-          <p className="mb-3 text-sm text-gray-400">No accepted reports recorded for this host.</p>
+          <div className="mb-3 space-y-2">
+            <p className="text-sm text-gray-400">No accepted reports recorded for this host.</p>
+            <Link
+              href={{ pathname: "/scanner", query: { target: hostIp } }}
+              className={`${buttonClass} w-fit`}
+            >
+              Open scanner
+            </Link>
+          </div>
         )}
 
         <ul className="space-y-3">
@@ -99,7 +120,13 @@ export function HostHistory({ hostIp }: HostHistoryProps) {
           ))}
         </ul>
 
-        {query.isRefetchError && (
+        {olderReportsError && (
+          <p className="mt-3 text-xs text-amber-300" role="status">
+            Older reports could not be loaded.
+          </p>
+        )}
+
+        {query.isRefetchError && !olderReportsError && (
           <div className="mt-3 flex items-center gap-2">
             <p className="text-xs text-amber-300" role="status">
               The report journal could not be refreshed.
@@ -114,9 +141,13 @@ export function HostHistory({ hostIp }: HostHistoryProps) {
             type="button"
             className={`${buttonClass} mt-4`}
             disabled={query.isFetchingNextPage}
-            onClick={() => void query.fetchNextPage()}
+            onClick={() => void loadOlderReports()}
           >
-            {query.isFetchingNextPage ? "Loading…" : "Load older reports"}
+            {query.isFetchingNextPage
+              ? "Loading…"
+              : olderReportsError
+                ? "Retry older reports"
+                : "Load older reports"}
           </button>
         )}
       </div>

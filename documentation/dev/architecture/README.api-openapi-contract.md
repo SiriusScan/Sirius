@@ -138,6 +138,42 @@ Legacy product routes (`/host`, `/vulnerability`, `/templates`,
 `/api/agent-templates`, `/app`) remain classified but are outside the versioned
 OpenAPI document until a later migration.
 
+### Legacy Host History
+
+`GET /host/{id}/history` accepts a concrete IPv4 or IPv6 address. Its default
+response is the legacy host-discovery timeline. Pass `view=accepted_reports`
+to read the bounded report journal for the same host. Both views require the
+existing Community API-key authorization.
+
+| Query parameter | Accepted-report view |
+| --- | --- |
+| `view` | Set to `accepted_reports` to select the journal. |
+| `limit` | Page size from 1 to 100 reports. Defaults to 20. |
+| `cursor` | Omit on the first page. For subsequent pages pass the previous response's `next_cursor` for this host. |
+
+A successful journal response includes `view`, `host_ip`, a `timeline`, and
+the distinct report sources on the current page in `sources`. Responses with
+another page include `next_cursor`. Journal events have stable IDs and are
+ordered by acceptance time and descending journal row ID, with undated rows
+last. The first page includes the separate `host_discovery` event when its
+timestamp is available.
+
+A `report_accepted` event includes the stored report ID, source and source
+version, acceptance time, submitted-item count, and assessment coverage in its
+`report` field. A zero count is recorded as zero. An unknown count or timestamp
+is `null`. Assessment coverage is `unknown` for journal reports. An existing
+host without accepted reports still returns `200` and may include a discovery
+event.
+
+| Status | Meaning |
+| --- | --- |
+| `200` | The journal page loaded, including an empty page. |
+| `400` | Invalid host address, page size, cursor, or cursor for another host. |
+| `401` | API-key authentication failed. |
+| `403` | An authenticated caller was denied access by the API policy or scope resolver. |
+| `404` | The host was not found in the allowed scope. |
+| `503` | The journal could not be read. |
+
 ### Reserved Namespaces
 
 Per ADR-004, the OpenAPI `info.x-sirius-reserved-namespaces` extension reserves:

@@ -9,6 +9,13 @@ import { createCancelScanProcedure } from "./scanner-cancellation";
 export type { CancelScanResponse } from "./scanner-cancellation";
 
 const CURRENT_SCAN_KEY = "currentScan";
+const MARK_SCAN_CANCELLING = `
+  if redis.call("GET", KEYS[1]) ~= ARGV[1] then
+    return 0
+  end
+  redis.call("SET", KEYS[1], ARGV[2], "KEEPTTL")
+  return 1
+`;
 
 function decodeScanState(raw: string): ScanResult {
   return JSON.parse(Buffer.from(raw, "base64").toString("utf-8")) as ScanResult;
@@ -18,10 +25,13 @@ function encodeScanState(state: ScanResult): string {
   return Buffer.from(JSON.stringify(state)).toString("base64");
 }
 
-async function getCurrentScan(): Promise<ScanResult | null> {
+async function loadCurrentScan() {
   const raw = await valkey.get(CURRENT_SCAN_KEY);
-  if (!raw) return null;
-  return decodeScanState(raw);
+  return raw ? { raw, scan: decodeScanState(raw) } : null;
+}
+
+async function getCurrentScan(): Promise<ScanResult | null> {
+  return (await loadCurrentScan())?.scan ?? null;
 }
 
 export interface ForceStopResponse {
@@ -101,10 +111,17 @@ export const scannerRouter = createTRPCRouter({
     }),
 
   cancelScan: createCancelScanProcedure({
-    loadScan: getCurrentScan,
+    loadScan: loadCurrentScan,
     publishCancel: (message) => handleSendMsg("scan_control", message),
-    writeScan: async (scan) => {
-      await valkey.set(CURRENT_SCAN_KEY, encodeScanState(scan));
+    markCancelling: async (expected, scan) => {
+      const updated = await valkey.eval(
+        MARK_SCAN_CANCELLING,
+        1,
+        CURRENT_SCAN_KEY,
+        expected,
+        encodeScanState(scan),
+      );
+      return updated === 1;
     },
   }),
 

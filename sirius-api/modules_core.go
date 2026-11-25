@@ -34,7 +34,7 @@ func buildCommunityModuleRegistry(kvStore store.KVStore) (*module.Registry, erro
 	if err != nil {
 		return nil, err
 	}
-	vulnerability, err := adapt(module.IDVulnerability, &routes.VulnerabilityRouteSetter{})
+	vulnerability, err := adapt(module.IDVulnerability, &routes.VulnerabilityRouteSetter{Store: kvStore})
 	if err != nil {
 		return nil, err
 	}

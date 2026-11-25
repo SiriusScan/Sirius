@@ -47,7 +47,7 @@ supplied. This identifies the existing release lane without an evidence claim
 about the packaged scanner's linked modules.
 
 To compare a candidate lineage receipt from
-[Scribe PR #21](https://github.com/SiriusScan/scribe/pull/21), add
+[Scribe lineage schema 1](https://github.com/SiriusScan/scribe/blob/45fcdd8ccf632dd930e072d725e49427002bce43/docs/compatibility.md#offline-reference-lineage), add
 `--scribe-receipt /path/to/receipt.json`,
 `--scribe-receipt-sha256 sha256:<receipt-hex>`,
 `--scribe-scope <workflow-id>`, and
@@ -61,8 +61,9 @@ revision against the Core manifest. It also checks the pinned scope's case
 counts, terminal verdicts and evidence identities. Drift in release or scope,
 missing evidence and ambiguous platform descriptors produce errors.
 
-A matching receipt reports `scope_matches_core_pins`, with separate pending
-checks for each platform's packaged scanner artifact, its Scribe module
+A matching workflow reports `scope_matches_core_pins` even if another scope
+is unqualified. `scribe_release_qualified` preserves the producer’s decision for
+the complete receipt. The Core result lists separate pending checks for each platform's packaged scanner artifact, its Scribe module
 metadata and the effective catalog digest. The mode reports
 `release_qualified: false` until those checks have verified inputs.
 [Issue #183](https://github.com/SiriusScan/Sirius/issues/183) tracks

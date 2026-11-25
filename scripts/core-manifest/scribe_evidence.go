@@ -35,6 +35,7 @@ type enginePlatform struct {
 type scribeEvidenceStatus struct {
 	Status           string           `json:"status"`
 	ReleaseQualified bool             `json:"release_qualified"`
+	ScribeQualified  *bool            `json:"scribe_release_qualified,omitempty"`
 	SourceCommit     string           `json:"source_commit"`
 	EngineIndex      string           `json:"engine_index_digest"`
 	Platforms        []enginePlatform `json:"platforms"`
@@ -46,13 +47,17 @@ type scribeEvidenceStatus struct {
 
 // These projections read the existing Scribe lineage receipt schema 1.
 type scribeReceipt struct {
-	SchemaVersion    int               `json:"schema_version"`
-	Policy           string            `json:"policy"`
-	ReleaseQualified bool              `json:"release_qualified"`
-	Release          scribeRelease     `json:"release"`
-	ResultsSHA256    string            `json:"results_sha256"`
-	Scopes           json.RawMessage   `json:"scopes"`
-	Unconfigured     []json.RawMessage `json:"unconfigured_records"`
+	SchemaVersion    int                  `json:"schema_version"`
+	Policy           string               `json:"policy"`
+	ReleaseQualified bool                 `json:"release_qualified"`
+	Release          scribeRelease        `json:"release"`
+	ResultsSHA256    string               `json:"results_sha256"`
+	Scopes           json.RawMessage      `json:"scopes"`
+	Unconfigured     []scribeUnconfigured `json:"unconfigured_records"`
+}
+
+type scribeUnconfigured struct {
+	Workflow string `json:"workflow"`
 }
 
 type scribeProducer struct {
@@ -204,11 +209,13 @@ func reviewScribeEvidence(manifestData []byte, opt options, evidence scribeEvide
 	if err != nil {
 		return scribeEvidenceStatus{}, err
 	}
-	if err := matchScribeReceipt(receiptData, manifest, evidence); err != nil {
+	scribeQualified, err := matchScribeReceipt(receiptData, manifest, evidence)
+	if err != nil {
 		return scribeEvidenceStatus{}, err
 	}
 	status.Status = "scope_matches_core_pins"
 	status.ReceiptDigest = evidence.receiptDigest
+	status.ScribeQualified = &scribeQualified
 	status.Scope, status.ScopeDigest = evidence.scopeID, evidence.scopeDigest
 	status.Pending = []string{"platform_scanner_binary_binding", "packaged_scribe_module_resolution", "effective_catalog_digest_verification"}
 	return status, nil
@@ -263,28 +270,25 @@ func enginePlatforms(data []byte, indexDigest string) ([]enginePlatform, error) 
 	return []enginePlatform{{"linux/amd64", digests["amd64"]}, {"linux/arm64", digests["arm64"]}}, nil
 }
 
-func matchScribeReceipt(data []byte, manifest CoreManifest, want scribeEvidenceOptions) error {
+func matchScribeReceipt(data []byte, manifest CoreManifest, want scribeEvidenceOptions) (bool, error) {
 	if scribeArtifactDigest(data) != want.receiptDigest {
-		return fmt.Errorf("Scribe receipt digest does not match the trusted pin")
+		return false, fmt.Errorf("Scribe receipt digest does not match the trusted pin")
 	}
 	if err := rejectDuplicateKeys(data); err != nil {
-		return fmt.Errorf("Scribe receipt: %w", err)
+		return false, fmt.Errorf("Scribe receipt: %w", err)
 	}
 	var receipt scribeReceipt
 	if err := json.Unmarshal(data, &receipt); err != nil {
-		return err
+		return false, err
 	}
 	if receipt.SchemaVersion != 1 || receipt.Policy != "scribe-json-v1" {
-		return fmt.Errorf("unsupported Scribe receipt schema or normalization policy")
-	}
-	if !receipt.ReleaseQualified || len(receipt.Unconfigured) != 0 {
-		return fmt.Errorf("Scribe has not qualified the supplied receipt's declared scope")
+		return false, fmt.Errorf("unsupported Scribe receipt schema or normalization policy")
 	}
 	release := receipt.Release
 	if release.SiriusCommit != manifest.Metadata.Source.Commit ||
 		release.ScannerCommit != manifest.ComponentPins["APP_SCANNER_COMMIT_SHA"] ||
 		release.CatalogRevision != manifest.ComponentPins["SIRIUS_NSE_COMMIT_SHA"] {
-		return fmt.Errorf("Scribe receipt release commit, scanner commit or catalog revision differs from the Core manifest")
+		return false, fmt.Errorf("Scribe receipt release commit, scanner commit or catalog revision differs from the Core manifest")
 	}
 	if !reGitSHA.MatchString(release.ScannerCommit) || !reGitSHA.MatchString(release.CatalogRevision) ||
 		!reGitSHA.MatchString(release.ScribeCommit) || !reGitSHA.MatchString(release.ReferenceRevision) ||
@@ -293,46 +297,56 @@ func matchScribeReceipt(data []byte, manifest CoreManifest, want scribeEvidenceO
 		!release.ScribeProducer.valid() || !release.ReferenceProducer.valid() ||
 		release.ScribeProducer.ID == release.ReferenceProducer.ID ||
 		release.ScribeProducer.SHA256 == release.ReferenceProducer.SHA256 {
-		return fmt.Errorf("Scribe receipt release pins or producer identities are incomplete or invalid")
+		return false, fmt.Errorf("Scribe receipt release pins or producer identities are incomplete or invalid")
 	}
 
 	var compact bytes.Buffer
 	if err := json.Compact(&compact, receipt.Scopes); err != nil {
-		return fmt.Errorf("invalid Scribe scope array: %w", err)
+		return false, fmt.Errorf("invalid Scribe scope array: %w", err)
 	}
 	if scribeArtifactDigest(compact.Bytes()) != "sha256:"+receipt.ResultsSHA256 {
-		return fmt.Errorf("Scribe results digest differs from the scope array")
+		return false, fmt.Errorf("Scribe results digest differs from the scope array")
 	}
 	var scopes []scribeScope
 	if err := json.Unmarshal(receipt.Scopes, &scopes); err != nil {
-		return err
+		return false, err
 	}
 	seen := make(map[string]bool, len(scopes))
+	allQualified := len(scopes) != 0 && len(receipt.Unconfigured) == 0
+	for _, row := range receipt.Unconfigured {
+		if row.Workflow == want.scopeID {
+			return false, fmt.Errorf("required Scribe workflow has unconfigured records")
+		}
+	}
 	var selected *scribeScope
 	for i := range scopes {
 		scope := &scopes[i]
 		if scope.ID == "" || seen[scope.ID] {
-			return fmt.Errorf("invalid or duplicate Scribe workflow scope")
+			return false, fmt.Errorf("invalid or duplicate Scribe workflow scope")
 		}
 		seen[scope.ID] = true
+		allQualified = allQualified && scope.Qualified
 		if scope.ID == want.scopeID {
 			selected = scope
 		}
 	}
+	if receipt.ReleaseQualified != allQualified {
+		return false, fmt.Errorf("Scribe whole-release qualification contradicts its scope and record inventory")
+	}
 	if selected == nil || selected.Digest != want.scopeDigest {
-		return fmt.Errorf("required Scribe workflow scope is missing or has a different digest")
+		return false, fmt.Errorf("required Scribe workflow scope is missing or has a different digest")
 	}
 	if err := checkScribeScope(*selected, release); err != nil {
-		return err
+		return false, err
 	}
 	digest, err := scribeScopeDigest(*selected, receipt)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if digest != selected.Digest {
-		return fmt.Errorf("required Scribe workflow scope digest does not cover the supplied release and case set")
+		return false, fmt.Errorf("required Scribe workflow scope digest does not cover the supplied release and case set")
 	}
-	return nil
+	return receipt.ReleaseQualified, nil
 }
 
 func (p scribeProducer) valid() bool {

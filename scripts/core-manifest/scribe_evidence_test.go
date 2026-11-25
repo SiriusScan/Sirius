@@ -91,7 +91,7 @@ func hypotheticalScribeReceipt(t *testing.T, manifest CoreManifest) (scribeRecei
 			CatalogRevision: manifest.ComponentPins["SIRIUS_NSE_COMMIT_SHA"], CatalogSHA256: strings.Repeat("3", 64),
 			FixtureManifestSHA256: strings.Repeat("4", 64),
 		},
-		Unconfigured: []json.RawMessage{},
+		Unconfigured: []scribeUnconfigured{},
 	}
 	s := scribeScope{
 		ID: "reviewed-workflow", ReferenceKind: "legacy", ReferenceProducer: reference, Qualified: true,
@@ -113,12 +113,12 @@ func hypotheticalScribeReceipt(t *testing.T, manifest CoreManifest) (scribeRecei
 	return r, s
 }
 
-func scribeTestReceipt(t *testing.T, config *scribeEvidenceOptions, r scribeReceipt, s scribeScope) {
+func scribeTestReceipt(t *testing.T, config *scribeEvidenceOptions, r scribeReceipt, scopes ...scribeScope) {
 	t.Helper()
-	r.Scopes = scribeTestJSON(t, []scribeScope{s})
+	r.Scopes = scribeTestJSON(t, scopes)
 	r.ResultsSHA256 = strings.TrimPrefix(scribeArtifactDigest(r.Scopes), "sha256:")
 	receipt := scribeTestJSON(t, r)
-	config.scopeID, config.scopeDigest = s.ID, s.Digest
+	config.scopeID, config.scopeDigest = scopes[0].ID, scopes[0].Digest
 	config.receiptDigest = scribeArtifactDigest(receipt)
 	config.receiptPath = scribeTestWrite(t, filepath.Join(t.TempDir(), "receipt.json"), receipt)
 }
@@ -145,8 +145,53 @@ func TestOfflineScribeCandidateScopes(t *testing.T) {
 		t.Fatal(err)
 	}
 	if status.Status != "scope_matches_core_pins" || status.ReleaseQualified || status.Scope != s.ID ||
-		status.ScopeDigest != s.Digest || status.ReceiptDigest != config.receiptDigest || len(status.Pending) != 3 {
+		status.ScopeDigest != s.Digest || status.ReceiptDigest != config.receiptDigest || len(status.Pending) != 3 ||
+		status.ScribeQualified == nil || !*status.ScribeQualified {
 		t.Fatalf("unexpected status for matching scope with pending platform evidence: %+v", status)
+	}
+}
+
+func TestOfflineScribeKeepsScopeIndependent(t *testing.T) {
+	manifest, opt, config := scribeCoreFixtures(t)
+	receipt, reviewed := hypotheticalScribeReceipt(t, manifest)
+	receipt.ReleaseQualified = false
+	unmeasured := scribeScope{
+		ID: "unmeasured-workflow", ReferenceKind: "legacy", ReferenceProducer: receipt.Release.ReferenceProducer,
+		Required: 1, Unknown: 1,
+		Cases: []scribeCase{{ID: "not-reviewed", InputSHA256: strings.Repeat("9", 64), State: "unknown"}},
+	}
+	var err error
+	unmeasured.Digest, err = scribeScopeDigest(unmeasured, receipt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scribeTestReceipt(t, &config, receipt, reviewed, unmeasured)
+	payload := scribeTestJSON(t, manifest)
+	status, err := reviewScribeEvidence(payload, opt, config)
+	if err != nil || status.Status != "scope_matches_core_pins" || status.Scope != reviewed.ID ||
+		status.ReleaseQualified || status.ScribeQualified == nil || *status.ScribeQualified {
+		t.Fatalf("unmeasured workflow affected independent scope: %+v; %v", status, err)
+	}
+	config.scopeID, config.scopeDigest = unmeasured.ID, unmeasured.Digest
+	if _, err := reviewScribeEvidence(payload, opt, config); err == nil || !strings.Contains(err.Error(), "incomplete or unqualified") {
+		t.Fatalf("unmeasured workflow did not fail its own scope check: %v", err)
+	}
+}
+
+func TestScribeSchemaOneScopeDigest(t *testing.T) {
+	// The synthetic affirmative receipt is pinned in Scribe's schema 1 fixtures.
+	receipt := scribeReceipt{SchemaVersion: 1, Policy: "scribe-json-v1", Release: scribeRelease{
+		ScribeVersion: "v0.0.0-fixture", ScribeCommit: strings.Repeat("1", 40),
+		ScribeProducer: scribeProducer{ID: "fixture-candidate", SHA256: "d35968087e46a4f0f095f0730812f735f36544fa69ac3070cea6cbf3cf53a1a6"},
+	}}
+	scope := scribeScope{
+		ID: "synthetic-affirmative", ReferenceKind: "synthetic",
+		ReferenceProducer: scribeProducer{ID: "fixture-reference-author", SHA256: "1336f1a2361daf971b3fd4591b92e751398a38518bcb44c5b432104e8f379f27"},
+		Cases: []scribeCase{{ID: "marker-present", InputSHA256: "46424d29a147f8f4237b11b245b0477bd34a922fcc2f5ea79acf7cc562101acc"}},
+	}
+	const want = "fd726098e4e143fd3d08fdc0505bdd7dd45506f2953cfc003c7b729eff6c9548"
+	if got, err := scribeScopeDigest(scope, receipt); err != nil || got != want {
+		t.Fatalf("scope digest = %q, %v; want %q", got, err, want)
 	}
 }
 
@@ -156,7 +201,9 @@ func TestOfflineScribeRejectsMismatchedEvidence(t *testing.T) {
 		want string
 		edit func(*scribeReceipt, *scribeScope)
 	}{
-		{"unqualified producer", "has not qualified", func(r *scribeReceipt, _ *scribeScope) { r.ReleaseQualified = false }},
+		{"contradictory whole-release state", "whole-release qualification contradicts", func(r *scribeReceipt, _ *scribeScope) {
+			r.ReleaseQualified = false
+		}},
 		{"stale scanner", "differs from the Core manifest", func(r *scribeReceipt, _ *scribeScope) {
 			r.Release.ScannerCommit = strings.Repeat("d", 40)
 		}},

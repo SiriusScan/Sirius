@@ -2,5 +2,9 @@
   "227f3f8cc1382a60074e73474e4f12ef8b47f589": {
     "agent_protocol": "1.0.0",
     "agent_admission": "1.0.0"
+  },
+  "9df3f87a9f59e0fdb1f6237e46ca67b90b185378": {
+    "agent_protocol": "1.0.0",
+    "agent_admission": "1.0.0"
   }
 }

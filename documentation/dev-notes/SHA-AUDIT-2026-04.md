@@ -246,6 +246,15 @@ route-inventory and extension-registration contract, API runner image constructi
 pin-consistency checks, core-manifest tests, Community-independence scanning, and the
 Sirius integration test.
 
+### November 24 bug hunt component pins
+
+| Component | Previous | Selected | Reason |
+| --- | --- | --- | --- |
+| app-scanner | `15e25fb` | `cbf4535` | Resolve the template once per admitted job and preserve the effective selection for each host. |
+| app-agent | `227f3f8` | `9df3f87` | Provide offline repository validation for content CI. The packaged agent and server retain their existing protocol and admission contracts. |
+
+The scanner still uses Go SDK v0.0.26 and the agent uses v0.0.24 at these revisions.
+
 ## Risk register
 
 - `**app-scanner` sed → source rewrite (Phase 2)** is the highest-risk

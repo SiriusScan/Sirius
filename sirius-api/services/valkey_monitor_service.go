@@ -19,29 +19,36 @@ type ValkeyMonitorService struct {
 	now         func() time.Time
 }
 
-// SystemMetrics represents system resource metrics from Valkey
+// MeasuredResources keeps absence distinct from a measured zero.
+type MeasuredResources struct {
+	CPUPercent      *float64 `json:"cpu_percent,omitempty"`
+	MemoryUsage     *int64   `json:"memory_usage_bytes,omitempty"`
+	MemoryLimit     *int64   `json:"memory_limit_bytes,omitempty"`
+	MemoryPercent   *float64 `json:"memory_percent,omitempty"`
+	NetworkRx       *int64   `json:"network_rx_bytes,omitempty"`
+	NetworkTx       *int64   `json:"network_tx_bytes,omitempty"`
+	DiskRead        *int64   `json:"disk_read_bytes,omitempty"`
+	DiskWrite       *int64   `json:"disk_write_bytes,omitempty"`
+	DiskUsage       *int64   `json:"disk_usage_bytes,omitempty"`
+	DiskTotal       *int64   `json:"disk_total_bytes,omitempty"`
+	DiskPercent     *float64 `json:"disk_percent,omitempty"`
+	ProcessCount    *int     `json:"process_count,omitempty"`
+	FileDescriptors *int     `json:"file_descriptors,omitempty"`
+	LoadAverage1m   *float64 `json:"load_average_1m,omitempty"`
+	LoadAverage5m   *float64 `json:"load_average_5m,omitempty"`
+	LoadAverage15m  *float64 `json:"load_average_15m,omitempty"`
+}
+
+// SystemMetrics represents an observation published by the collector.
 type SystemMetrics struct {
-	ContainerName   string  `json:"container_name"`
-	Timestamp       string  `json:"timestamp"`
-	CPUPercent      *float64 `json:"cpu_percent"`
-	MemoryUsage     *int64  `json:"memory_usage_bytes"`
-	MemoryPercent   *float64 `json:"memory_percent"`
-	NetworkRx       int64   `json:"network_rx_bytes"`
-	NetworkTx       int64   `json:"network_tx_bytes"`
-	DiskRead        int64   `json:"disk_read_bytes"`
-	DiskWrite       int64   `json:"disk_write_bytes"`
-	DiskUsage       int64   `json:"disk_usage_bytes"`
-	DiskTotal       int64   `json:"disk_total_bytes"`
-	DiskPercent     float64 `json:"disk_percent"`
-	ProcessCount    int     `json:"process_count"`
-	FileDescriptors int     `json:"file_descriptors"`
-	LoadAverage1m   float64 `json:"load_average_1m"`
-	LoadAverage5m   float64 `json:"load_average_5m"`
-	LoadAverage15m  float64 `json:"load_average_15m"`
-	Uptime          *int64  `json:"uptime_seconds"`
-	Status          string  `json:"status"`
-	CollectorStartedAt string `json:"collector_started_at"`
+	ContainerName          string `json:"container_name"`
+	Timestamp              string `json:"timestamp"`
+	ObservationVersion     int    `json:"observation_version"`
+	Uptime                 *int64 `json:"uptime_seconds"`
+	Status                 string `json:"status"`
+	CollectorStartedAt     string `json:"collector_started_at"`
 	CollectorUptimeSeconds *int64 `json:"collector_uptime_seconds"`
+	MeasuredResources
 }
 
 // ValkeyContainerLog represents a container log entry from Valkey
@@ -71,6 +78,7 @@ type ValkeyContainerResource struct {
 	Status          string  `json:"status"`
 	ObservedAt      *time.Time `json:"observed_at,omitempty"`
 	TelemetryStatus string `json:"telemetry_status"`
+	Measurements MeasuredResources `json:"measurements"`
 	CollectorStartedAt *time.Time `json:"collector_started_at,omitempty"`
 	CollectorUptimeSeconds *int64 `json:"collector_uptime_seconds,omitempty"`
 }
@@ -88,6 +96,8 @@ type ValkeySystemResourcesSummary struct {
 	InvalidContainers     int `json:"invalid_containers"`
 	UnavailableContainers int `json:"unavailable_containers"`
 	LatestObservedAt *time.Time `json:"latest_observed_at,omitempty"`
+	PeakCPUPercent *float64 `json:"peak_cpu_percent,omitempty"`
+	ObservedMemoryBytes *int64 `json:"observed_memory_bytes,omitempty"`
 }
 
 type SystemResourcesObservation struct {
@@ -128,7 +138,7 @@ func (v *ValkeyMonitorService) GetContainerResources(ctx context.Context) (Syste
 	var totalMemoryBytes int64
 
 	for _, name := range monitoredContainers {
-		resource, memoryBytes := v.readResource(ctx, name)
+		resource := v.readResource(ctx, name)
 		response.Containers = append(response.Containers, resource)
 		if at := resource.ObservedAt; at != nil &&
 			(summary.LatestObservedAt == nil || at.After(*summary.LatestObservedAt)) {
@@ -138,9 +148,14 @@ func (v *ValkeyMonitorService) GetContainerResources(ctx context.Context) (Syste
 		switch resource.TelemetryStatus {
 		case "fresh":
 			summary.FreshContainers++
-			summary.TotalCPUPercent += resource.CPUPercent
-			summary.TotalMemoryPercent += resource.MemoryPercent
-			totalMemoryBytes += memoryBytes
+			if cpu := resource.Measurements.CPUPercent; cpu != nil &&
+				(summary.PeakCPUPercent == nil || *cpu > *summary.PeakCPUPercent) {
+				summary.PeakCPUPercent = cpu
+			}
+			if memory := resource.Measurements.MemoryUsage; memory != nil {
+				totalMemoryBytes += *memory
+				summary.ObservedMemoryBytes = &totalMemoryBytes
+			}
 			if resource.Status == "running" {
 				summary.RunningContainers++
 			}
@@ -169,34 +184,32 @@ func (v *ValkeyMonitorService) GetContainerResources(ctx context.Context) (Syste
 	return response, nil
 }
 
-func (v *ValkeyMonitorService) readResource(ctx context.Context, name string) (ValkeyContainerResource, int64) {
+func (v *ValkeyMonitorService) readResource(ctx context.Context, name string) ValkeyContainerResource {
 	row := ValkeyContainerResource{
 		Name: name, Status: "unknown", TelemetryStatus: "unavailable",
 		MemoryUsage: "0B", NetworkIO: "0B / 0B", BlockIO: "0B / 0B", DiskUsage: "0B / 0B", Uptime: "0s",
 	}
 	if v.valkeyStore == nil {
-		return row, 0
+		return row
 	}
 	response, err := v.valkeyStore.GetValue(ctx, "system:metrics:"+name)
 	if errors.Is(err, store.ErrKeyNotFound) {
 		row.TelemetryStatus = "missing"
-		return row, 0
+		return row
 	}
 	if err != nil {
-		return row, 0
+		return row
 	}
 	var metrics SystemMetrics
-	if err := json.Unmarshal([]byte(response.Message.Value), &metrics); err != nil ||
-		metrics.ContainerName != name || metrics.CPUPercent == nil || metrics.MemoryUsage == nil ||
-		metrics.MemoryPercent == nil {
+	if err := json.Unmarshal([]byte(response.Message.Value), &metrics); err != nil || metrics.ContainerName != name {
 		row.TelemetryStatus = "invalid"
-		return row, 0
+		return row
 	}
 	now := v.now()
 	observed, err := time.Parse(time.RFC3339Nano, metrics.Timestamp)
 	if err != nil || observed.After(now) {
 		row.TelemetryStatus = "invalid"
-		return row, 0
+		return row
 	}
 	observed = observed.UTC()
 	row.ObservedAt = &observed
@@ -209,18 +222,23 @@ func (v *ValkeyMonitorService) readResource(ctx context.Context, name string) (V
 		}
 	}
 
-	row.CPUPercent = *metrics.CPUPercent
-	row.MemoryUsage = v.formatBytes(*metrics.MemoryUsage)
-	row.MemoryPercent = *metrics.MemoryPercent
-	row.NetworkIO = fmt.Sprintf("%s / %s", v.formatBytes(metrics.NetworkRx), v.formatBytes(metrics.NetworkTx))
-	row.BlockIO = fmt.Sprintf("%s / %s", v.formatBytes(metrics.DiskRead), v.formatBytes(metrics.DiskWrite))
-	row.DiskUsage = fmt.Sprintf("%s / %s", v.formatBytes(metrics.DiskUsage), v.formatBytes(metrics.DiskTotal))
-	row.DiskPercent = metrics.DiskPercent
-	row.ProcessCount = metrics.ProcessCount
-	row.FileDescriptors = metrics.FileDescriptors
-	row.LoadAverage1m = metrics.LoadAverage1m
-	row.LoadAverage5m = metrics.LoadAverage5m
-	row.LoadAverage15m = metrics.LoadAverage15m
+	// Legacy collectors used the same numeric fields for measurements and
+	// estimates. Their timestamps and process ages remain readable.
+	if metrics.ObservationVersion == 2 {
+		row.Measurements = metrics.MeasuredResources
+		row.CPUPercent = valueOrZero(metrics.CPUPercent)
+		row.MemoryUsage = v.formatBytes(valueOrZero(metrics.MemoryUsage))
+		row.MemoryPercent = valueOrZero(metrics.MemoryPercent)
+		row.NetworkIO = v.formatBytePair(metrics.NetworkRx, metrics.NetworkTx)
+		row.BlockIO = v.formatBytePair(metrics.DiskRead, metrics.DiskWrite)
+		row.DiskUsage = v.formatBytePair(metrics.DiskUsage, metrics.DiskTotal)
+		row.DiskPercent = valueOrZero(metrics.DiskPercent)
+		row.ProcessCount = valueOrZero(metrics.ProcessCount)
+		row.FileDescriptors = valueOrZero(metrics.FileDescriptors)
+		row.LoadAverage1m = valueOrZero(metrics.LoadAverage1m)
+		row.LoadAverage5m = valueOrZero(metrics.LoadAverage5m)
+		row.LoadAverage15m = valueOrZero(metrics.LoadAverage15m)
+	}
 
 	if started, err := time.Parse(time.RFC3339Nano, metrics.CollectorStartedAt); err == nil && !started.After(observed) {
 		started = started.UTC()
@@ -234,7 +252,25 @@ func (v *ValkeyMonitorService) readResource(ctx context.Context, name string) (V
 	if row.CollectorUptimeSeconds != nil {
 		row.Uptime = v.formatUptime(*row.CollectorUptimeSeconds)
 	}
-	return row, *metrics.MemoryUsage
+	return row
+}
+
+func valueOrZero[T int | int64 | float64](value *T) T {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func (v *ValkeyMonitorService) formatBytePair(first, second *int64) string {
+	left, right := "—", "—"
+	if first != nil {
+		left = v.formatBytes(*first)
+	}
+	if second != nil {
+		right = v.formatBytes(*second)
+	}
+	return left + " / " + right
 }
 
 // GetDockerLogs retrieves container logs from Valkey

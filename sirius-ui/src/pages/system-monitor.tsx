@@ -27,6 +27,7 @@ import { SystemResourcesDashboard } from "~/components/SystemResourcesDashboard"
 import { DockerLogsViewer } from "~/components/DockerLogsViewer";
 import { api } from "~/utils/api";
 import { useSystemResources } from "~/hooks/useSystemResources";
+import { formatResourceBytes } from "~/utils/systemResourceObservations";
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
 type MonitorTab = "services" | "resources" | "logs";
@@ -176,11 +177,14 @@ const SystemMonitor: NextPage = () => {
   const isRefreshing = health.isFetching;
   const {
     data: resourceData,
-    hasFresh: hasFreshResources,
+    freshCount,
+    partial,
+    peakCPU,
+    peakDisk,
+    observedMemory,
     loading: resourceLoading,
     refetch: refetchResources,
   } = useSystemResources(5000, activeTab === "services");
-  const freshResources = resourceData?.containers.filter((row) => row.telemetry_status === "fresh") ?? [];
 
   // Fetch recent events and filter for error/warning/critical
   const { data: eventsData, isLoading: errorEventsLoading } =
@@ -345,7 +349,7 @@ const SystemMonitor: NextPage = () => {
               {resourceData?.summary.latest_observed_at && (
                 <p className="mb-3 text-xs text-gray-400">
                   Latest observation {new Date(resourceData.summary.latest_observed_at).toLocaleString()}
-                  {resourceData.availability === "partial" && hasFreshResources && " · Partial coverage"}
+                  {partial && " · Partial coverage"}
                 </p>
               )}
               {resourceLoading ? (
@@ -355,7 +359,7 @@ const SystemMonitor: NextPage = () => {
                     <span>Loading resource data...</span>
                   </div>
                 </div>
-              ) : hasFreshResources && resourceData ? (
+              ) : freshCount && resourceData ? (
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                   {/* Peak CPU Usage */}
                   <div className="rounded-xl border border-gray-700/50 bg-gray-800/40">
@@ -366,7 +370,7 @@ const SystemMonitor: NextPage = () => {
                         </div>
                         <div>
                           <p className="text-2xl font-bold text-white">
-                            {Math.max(...freshResources.map((row) => row.cpu_percent)).toFixed(1)}%
+                            {peakCPU === undefined ? "—" : `${peakCPU.toFixed(1)}%`}
                           </p>
                           <p className="text-sm text-gray-400">
                             Peak CPU Usage
@@ -385,9 +389,9 @@ const SystemMonitor: NextPage = () => {
                         </div>
                         <div>
                           <p className="text-2xl font-bold text-white">
-                            {resourceData.summary.total_memory_percent.toFixed(1)}%
+                            {freshCount}/{resourceData.summary.total_containers}
                           </p>
-                          <p className="text-sm text-gray-400">Memory Usage</p>
+                          <p className="text-sm text-gray-400">Fresh collectors</p>
                         </div>
                       </div>
                     </div>
@@ -402,7 +406,7 @@ const SystemMonitor: NextPage = () => {
                         </div>
                         <div>
                           <p className="text-2xl font-bold text-white">
-                            {Math.max(...freshResources.map((row) => row.disk_percent)).toFixed(1)}%
+                            {peakDisk === undefined ? "—" : `${peakDisk.toFixed(1)}%`}
                           </p>
                           <p className="text-sm text-gray-400">
                             Peak Disk Usage
@@ -421,9 +425,9 @@ const SystemMonitor: NextPage = () => {
                         </div>
                         <div>
                           <p className="text-2xl font-bold text-white">
-                            {resourceData.summary.total_memory_usage}
+                            {observedMemory === undefined ? "—" : formatResourceBytes(observedMemory)}
                           </p>
-                          <p className="text-sm text-gray-400">Memory Used</p>
+                          <p className="text-sm text-gray-400">Observed memory</p>
                         </div>
                       </div>
                     </div>

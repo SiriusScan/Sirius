@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useSystemResources } from "~/hooks/useSystemResources";
+import { formatResourceBytes } from "~/utils/systemResourceObservations";
 import {
   Card,
   CardContent,
@@ -56,7 +57,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
   className,
 }) => {
   const [refreshInterval, setRefreshInterval] = useState<string>("5");
-  const { data, loading, refreshing, hasFresh, unavailable, stale, refetch } =
+  const { data, loading, refreshing, freshCount, partial, unavailable, stale, peakCPU, observedMemory, refetch } =
     useSystemResources(refreshInterval === "0" ? false : Number(refreshInterval) * 1000);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -193,7 +194,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
         </div>
       </div>
 
-      {(stale || unavailable || data?.availability === "partial") && (
+      {(stale || unavailable || partial) && (
         <div role="status" className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
           <AlertTriangle className="h-5 w-5" />
           {stale
@@ -219,26 +220,24 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                 {data.summary.total_containers}
               </div>
               <p className="text-xs text-muted-foreground">
-                {hasFresh ? `${data.summary.fresh_containers} with fresh telemetry` : "No fresh telemetry"}
+                {freshCount ? `${freshCount} with fresh telemetry` : "No fresh telemetry"}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total CPU</CardTitle>
+              <CardTitle className="text-sm font-medium">Peak reported CPU</CardTitle>
               <Cpu className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${getCpuColor(
-                  data.summary.total_cpu_percent
-                )}`}
+                className="text-2xl font-bold"
               >
-                {hasFresh ? `${data.summary.total_cpu_percent.toFixed(1)}%` : "—"}
+                {peakCPU === undefined ? "—" : `${peakCPU.toFixed(1)}%`}
               </div>
               <p className="text-xs text-muted-foreground">
-                {hasFresh ? "Fresh observations" : "Unavailable"}
+                {peakCPU === undefined ? "Unavailable" : "Fresh observations"}
               </p>
             </CardContent>
           </Card>
@@ -246,20 +245,18 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Total Memory
+                Observed memory
               </CardTitle>
               <MemoryStick className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${getMemoryColor(
-                  data.summary.total_memory_percent
-                )}`}
+                className="text-2xl font-bold"
               >
-                {hasFresh ? data.summary.total_memory_usage : "—"}
+                {observedMemory === undefined ? "—" : formatResourceBytes(observedMemory)}
               </div>
               <p className="text-xs text-muted-foreground">
-                {hasFresh ? `${data.summary.total_memory_percent.toFixed(1)}% of system` : "Unavailable"}
+                {observedMemory === undefined ? "Unavailable" : "Sum of fresh readings"}
               </p>
             </CardContent>
           </Card>
@@ -344,7 +341,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                         <div className="flex items-center space-x-2">
                           <Cpu className="h-4 w-4" />
                           <span className={getCpuColor(container.cpu_percent)}>
-                            {container.observed_at ? `${container.cpu_percent.toFixed(1)}%` : "—"}
+                            {container.measurements.cpu_percent === undefined ? "—" : `${container.cpu_percent.toFixed(1)}%`}
                           </span>
                         </div>
                       </TableCell>
@@ -353,14 +350,14 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                           <MemoryStick className="h-4 w-4" />
                           <div>
                             <div className="font-medium">
-                              {container.observed_at ? container.memory_usage : "—"}
+                              {container.measurements.memory_usage_bytes === undefined ? "—" : container.memory_usage}
                             </div>
                             <div
                               className={`text-xs ${getMemoryColor(
                                 container.memory_percent
                               )}`}
                             >
-                              {container.observed_at ? `${container.memory_percent.toFixed(1)}%` : ""}
+                              {container.measurements.memory_percent === undefined ? "" : `${container.memory_percent.toFixed(1)}%`}
                             </div>
                           </div>
                         </div>
@@ -369,7 +366,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                         <div className="flex items-center space-x-2">
                           <Network className="h-4 w-4" />
                           <span className="font-mono text-sm">
-                            {container.observed_at ? container.network_io : "—"}
+                            {container.measurements.network_rx_bytes === undefined && container.measurements.network_tx_bytes === undefined ? "—" : container.network_io}
                           </span>
                         </div>
                       </TableCell>
@@ -378,14 +375,14 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                           <HardDrive className="h-4 w-4" />
                           <div>
                             <div className="text-sm font-medium">
-                              {container.observed_at ? container.disk_usage : "—"}
+                              {container.measurements.disk_usage_bytes === undefined && container.measurements.disk_total_bytes === undefined ? "—" : container.disk_usage}
                             </div>
                             <div
                               className={`text-xs ${getDiskColor(
                                 container.disk_percent
                               )}`}
                             >
-                              {container.observed_at ? `${container.disk_percent.toFixed(1)}%` : ""}
+                              {container.measurements.disk_percent === undefined ? "" : `${container.disk_percent.toFixed(1)}%`}
                             </div>
                           </div>
                         </div>
@@ -505,7 +502,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                                       Processes
                                     </div>
                                     <div className="text-lg font-bold">
-                                      {container.process_count}
+                                      {container.measurements.process_count ?? "—"}
                                     </div>
                                   </div>
                                 </div>
@@ -516,7 +513,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                                       File Descriptors
                                     </div>
                                     <div className="text-lg font-bold">
-                                      {container.file_descriptors}
+                                      {container.measurements.file_descriptors ?? "—"}
                                     </div>
                                   </div>
                                 </div>
@@ -528,14 +525,14 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                                     </div>
                                     <div className="text-sm">
                                       <div>
-                                        1m: {container.load_average_1m.toFixed(2)}
+                                        1m: {container.measurements.load_average_1m?.toFixed(2) ?? "—"}
                                       </div>
                                       <div>
-                                        5m: {container.load_average_5m.toFixed(2)}
+                                        5m: {container.measurements.load_average_5m?.toFixed(2) ?? "—"}
                                       </div>
                                       <div>
                                         15m:{" "}
-                                        {container.load_average_15m.toFixed(2)}
+                                        {container.measurements.load_average_15m?.toFixed(2) ?? "—"}
                                       </div>
                                     </div>
                                   </div>

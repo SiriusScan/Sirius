@@ -25,10 +25,9 @@ export interface DashboardAgentData {
 
 export interface DashboardSystemMetrics {
   totalContainers: number;
-  runningContainers: number;
-  totalCpuPercent: number;
-  totalMemoryUsage: string;
-  totalMemoryPercent: number;
+  freshContainers: number;
+  peakCpuPercent?: number;
+  observedMemoryBytes?: number;
 }
 
 export interface DashboardData {
@@ -115,16 +114,16 @@ export const useDashboardData = (
     keepPreviousData: true, // Prevent flash on refetch
   });
 
-  const { data: resources, hasFresh, loading: systemMetricsLoading, refetch: refetchResources } =
-    useSystemResources(systemMetricsRefetch, enableSystemMetrics);
-  const summary = resources?.summary;
-  const systemMetrics: DashboardSystemMetrics | null = hasFresh && summary
+  const {
+    data: resources, freshCount, peakCPU, observedMemory,
+    loading: systemMetricsLoading, refetch: refetchResources,
+  } = useSystemResources(systemMetricsRefetch, enableSystemMetrics);
+  const systemMetrics: DashboardSystemMetrics | null = freshCount && resources
     ? {
-        totalContainers: summary.total_containers,
-        runningContainers: summary.running_containers,
-        totalCpuPercent: summary.total_cpu_percent,
-        totalMemoryUsage: summary.total_memory_usage,
-        totalMemoryPercent: summary.total_memory_percent,
+        totalContainers: resources.summary.total_containers,
+        freshContainers: freshCount,
+        peakCpuPercent: peakCPU,
+        observedMemoryBytes: observedMemory,
       }
     : null;
 

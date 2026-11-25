@@ -1,5 +1,6 @@
 import React from "react";
 import { useSystemResources } from "~/hooks/useSystemResources";
+import { formatResourceBytes } from "~/utils/systemResourceObservations";
 import { useRouter } from "next/router";
 import { Skeleton } from "~/components/lib/ui/skeleton";
 import { Cpu, MemoryStick, Activity, ChevronRight } from "lucide-react";
@@ -14,27 +15,14 @@ export const SystemHealthMiniWidget: React.FC<SystemHealthMiniWidgetProps> = ({
   refreshInterval = 10000, // 10s default
 }) => {
   const router = useRouter();
-  const { data, loading, hasFresh, stale } = useSystemResources(refreshInterval);
-
-  const getCpuColor = (cpuPercent: number) => {
-    if (cpuPercent < 25) return "text-green-500";
-    if (cpuPercent < 50) return "text-yellow-500";
-    if (cpuPercent < 75) return "text-orange-500";
-    return "text-red-500";
-  };
-
-  const getMemoryColor = (memoryPercent: number) => {
-    if (memoryPercent < 25) return "text-green-500";
-    if (memoryPercent < 50) return "text-yellow-500";
-    if (memoryPercent < 75) return "text-orange-500";
-    return "text-red-500";
-  };
+  const { data, loading, freshCount, stale, peakCPU, observedMemory } =
+    useSystemResources(refreshInterval);
 
   if (loading && !data) {
     return <SystemHealthMiniWidgetSkeleton />;
   }
 
-  if (!data || !hasFresh) {
+  if (!data || !freshCount) {
     const observedAt = data?.summary.latest_observed_at;
     return (
       <div className={`rounded-lg border bg-card p-4 ${className}`}>
@@ -74,7 +62,7 @@ export const SystemHealthMiniWidget: React.FC<SystemHealthMiniWidgetProps> = ({
             <span className="text-xs">Containers</span>
           </div>
           <div className="text-lg font-bold">
-            {summary.fresh_containers}/{summary.total_containers}
+            {freshCount}/{summary.total_containers}
           </div>
           <div className="text-xs text-muted-foreground">
             With fresh telemetry
@@ -85,17 +73,10 @@ export const SystemHealthMiniWidget: React.FC<SystemHealthMiniWidgetProps> = ({
         <div className="space-y-1">
           <div className="flex items-center gap-1 text-muted-foreground">
             <Cpu className="h-3 w-3" />
-            <span className="text-xs">CPU</span>
+            <span className="text-xs">Peak CPU</span>
           </div>
-          <div
-            className={`text-lg font-bold ${getCpuColor(
-              summary.total_cpu_percent
-            )}`}
-          >
-            {summary.total_cpu_percent.toFixed(1)}%
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {summary.total_cpu_percent < 50 ? "Normal" : "High"}
+          <div className="text-lg font-bold">
+            {peakCPU === undefined ? "—" : `${peakCPU.toFixed(1)}%`}
           </div>
         </div>
 
@@ -105,15 +86,8 @@ export const SystemHealthMiniWidget: React.FC<SystemHealthMiniWidgetProps> = ({
             <MemoryStick className="h-3 w-3" />
             <span className="text-xs">Memory</span>
           </div>
-          <div
-            className={`text-lg font-bold ${getMemoryColor(
-              summary.total_memory_percent
-            )}`}
-          >
-            {summary.total_memory_percent.toFixed(1)}%
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {summary.total_memory_usage}
+          <div className="text-lg font-bold">
+            {observedMemory === undefined ? "—" : formatResourceBytes(observedMemory)}
           </div>
         </div>
       </div>

@@ -31,7 +31,7 @@ func (f *monitorReadFixture) GetValue(_ context.Context, key string) (store.Valk
 func metricFixture(t *testing.T, name string, observed time.Time, cpu float64, memory int64) string {
 	t.Helper()
 	value, err := json.Marshal(map[string]any{
-		"container_name": name, "timestamp": observed,
+		"container_name": name, "timestamp": observed, "observation_version": 2,
 		"cpu_percent": cpu, "memory_usage_bytes": memory, "memory_percent": cpu,
 		"uptime_seconds": 58, "status": "running",
 	})
@@ -41,7 +41,7 @@ func metricFixture(t *testing.T, name string, observed time.Time, cpu float64, m
 	return string(value)
 }
 
-func TestResourcesClassifyLegacyObservations(t *testing.T) {
+func TestResourcesClassifyObservations(t *testing.T) {
 	now := time.Date(2026, 11, 24, 12, 0, 0, 0, time.UTC)
 	fresh := now.Add(-5 * time.Second)
 	stale := now.Add(-21 * time.Second)
@@ -70,7 +70,8 @@ func TestResourcesClassifyLegacyObservations(t *testing.T) {
 		summary.InvalidContainers != 2 || summary.UnavailableContainers != 1 || summary.RunningContainers != 1 {
 		t.Fatalf("unexpected coverage: %+v", summary)
 	}
-	if summary.TotalCPUPercent != 0 || summary.TotalMemoryUsage != "0B" ||
+	if summary.PeakCPUPercent == nil || *summary.PeakCPUPercent != 0 ||
+		summary.ObservedMemoryBytes == nil || *summary.ObservedMemoryBytes != 0 ||
 		summary.LatestObservedAt == nil || !summary.LatestObservedAt.Equal(fresh) {
 		t.Fatalf("fresh measured zero or observation timestamp was lost: %+v", summary)
 	}
@@ -87,7 +88,7 @@ func TestResourcesClassifyLegacyObservations(t *testing.T) {
 		t.Errorf("missing sample has fabricated metadata: %+v", row)
 	}
 	if row := data.Containers[0]; row.CollectorUptimeSeconds == nil || *row.CollectorUptimeSeconds != 58 {
-		t.Errorf("legacy collector age was not retained: %+v", row)
+		t.Errorf("collector age was not retained: %+v", row)
 	}
 }
 
@@ -107,7 +108,7 @@ func TestResourcesRecoverAndShowExpiredSamplesAsMissing(t *testing.T) {
 	}
 	clear(fixture.errors)
 	const key = "system:metrics:sirius-api"
-	fixture.values[key] = `{"container_name":"sirius-api","timestamp":"2026-11-24T12:00:00Z","collector_started_at":"2026-11-24T12:00:00Z","collector_uptime_seconds":0,"cpu_percent":5,"memory_usage_bytes":64,"memory_percent":1,"uptime_seconds":58,"status":"running"}`
+	fixture.values[key] = `{"container_name":"sirius-api","timestamp":"2026-11-24T12:00:00Z","collector_started_at":"2026-11-24T12:00:00Z","collector_uptime_seconds":0,"observation_version":2,"cpu_percent":5,"memory_usage_bytes":64,"memory_percent":1,"uptime_seconds":58,"status":"running"}`
 	for _, status := range []string{"fresh", "stale", "missing"} {
 		data, err = reader.GetContainerResources(context.Background())
 		if err != nil || data.Containers[0].TelemetryStatus != status {
@@ -124,5 +125,36 @@ func TestResourcesRecoverAndShowExpiredSamplesAsMissing(t *testing.T) {
 		if status == "stale" {
 			delete(fixture.values, key)
 		}
+	}
+}
+
+func TestResourcesReadLegacyTimingWithoutAssumingMeasurements(t *testing.T) {
+	now := time.Date(2026, 11, 24, 12, 0, 0, 0, time.UTC)
+	fixture := &monitorReadFixture{values: map[string]string{
+		"system:metrics:sirius-api": `{"container_name":"sirius-api","timestamp":"2026-11-24T12:00:00Z","cpu_percent":12,"memory_usage_bytes":1024,"memory_percent":50,"uptime_seconds":4,"status":"running"}`,
+		"system:metrics:sirius-ui": `{"observation_version":2,"container_name":"sirius-ui","timestamp":"2026-11-24T12:00:00Z","cpu_percent":null,"memory_usage_bytes":512,"memory_percent":null,"network_rx_bytes":0,"network_tx_bytes":null,"uptime_seconds":5,"status":"running"}`,
+	}}
+	reader := NewValkeyMonitorService(fixture)
+	reader.now = func() time.Time { return now }
+
+	data, err := reader.GetContainerResources(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := data.Containers[0]
+	if legacy.TelemetryStatus != "fresh" || legacy.ObservedAt == nil ||
+		legacy.CollectorUptimeSeconds == nil || *legacy.CollectorUptimeSeconds != 4 ||
+		legacy.Measurements.CPUPercent != nil || legacy.Measurements.MemoryUsage != nil {
+		t.Fatalf("legacy sample has incorrect timing or measurement provenance: %+v", legacy)
+	}
+	measured := data.Containers[1].Measurements
+	if measured.CPUPercent != nil || measured.MemoryPercent != nil || measured.NetworkTx != nil ||
+		measured.MemoryUsage == nil || *measured.MemoryUsage != 512 ||
+		measured.NetworkRx == nil || *measured.NetworkRx != 0 {
+		t.Fatalf("nullable measurements did not retain independent observations: %+v", measured)
+	}
+	if data.Summary.PeakCPUPercent != nil || data.Summary.ObservedMemoryBytes == nil ||
+		*data.Summary.ObservedMemoryBytes != 512 {
+		t.Fatalf("unknown measurements contributed to summary: %+v", data.Summary)
 	}
 }

@@ -1345,16 +1345,27 @@ components:
               type: integer
             total_cpu_percent:
               type: number
+              deprecated: true
+              description: Compatibility placeholder. Use peak_cpu_percent for measured observations.
             total_memory_usage:
               type: string
+              description: Legacy formatted observed memory bytes.
             total_memory_percent:
               type: number
+              deprecated: true
+              description: Compatibility placeholder. Individual percentages use different limits.
+            peak_cpu_percent:
+              type: number
+              description: Highest fresh measured collector CPU percentage. Omitted when unavailable.
+            observed_memory_bytes:
+              type: integer
+              description: Sum of fresh measured bytes. Omitted when unavailable.
             latest_observed_at:
               type: string
               format: date-time
     SystemResourceObservation:
       type: object
-      required: [name, telemetry_status]
+      required: [name, telemetry_status, measurements]
       additionalProperties: true
       properties:
         name:
@@ -1370,6 +1381,43 @@ components:
           format: date-time
         collector_uptime_seconds:
           type: integer
+        measurements:
+          type: object
+          description: Verified resource readings. Each field is omitted if unmeasured. A numeric zero represents an observation.
+          additionalProperties: false
+          properties:
+            cpu_percent:
+              type: number
+            memory_usage_bytes:
+              type: integer
+            memory_limit_bytes:
+              type: integer
+            memory_percent:
+              type: number
+            network_rx_bytes:
+              type: integer
+            network_tx_bytes:
+              type: integer
+            disk_read_bytes:
+              type: integer
+            disk_write_bytes:
+              type: integer
+            disk_usage_bytes:
+              type: integer
+            disk_total_bytes:
+              type: integer
+            disk_percent:
+              type: number
+            process_count:
+              type: integer
+            file_descriptors:
+              type: integer
+            load_average_1m:
+              type: number
+            load_average_5m:
+              type: number
+            load_average_15m:
+              type: number
 
   responses:
     Unauthorized:

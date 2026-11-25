@@ -50,6 +50,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_SUBMODULE: ${{ github.event.client_payload.submodule }}
           DISPATCH_COMMIT_SHA: ${{ github.event.client_payload.commit_sha }}
+          DISPATCH_ENGINE_PROMOTION: ${{ github.event.client_payload.engine_promotion }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
@@ -58,7 +59,7 @@ jobs:
           set -euo pipefail
           if [ "${EVENT_NAME}" = "repository_dispatch" ]; then
             echo "submodule_changes=true" >> "$GITHUB_OUTPUT"
-            SUBMODULE="${DISPATCH_SUBMODULE}" COMMIT_SHA="${DISPATCH_COMMIT_SHA}" EMIT_CHANGES=1 \
+            SUBMODULE="${DISPATCH_SUBMODULE}" COMMIT_SHA="${DISPATCH_COMMIT_SHA}" ENGINE_PROMOTION="${DISPATCH_ENGINE_PROMOTION}" EMIT_CHANGES=1 \
               bash scripts/ci-dispatch-allowlist.sh
           else
             if [ "${EVENT_NAME}" = "pull_request" ]; then
@@ -283,10 +284,11 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
           DISPATCH_SUBMODULE: ${{ github.event.client_payload.submodule }}
           DISPATCH_COMMIT_SHA: ${{ github.event.client_payload.commit_sha }}
+          DISPATCH_ENGINE_PROMOTION: ${{ github.event.client_payload.engine_promotion }}
         run: |
           set -euo pipefail
           if [ "${EVENT_NAME}" = "repository_dispatch" ]; then
-            SUBMODULE="${DISPATCH_SUBMODULE}" COMMIT_SHA="${DISPATCH_COMMIT_SHA}" APPLY_PIN=1 \
+            SUBMODULE="${DISPATCH_SUBMODULE}" COMMIT_SHA="${DISPATCH_COMMIT_SHA}" ENGINE_PROMOTION="${DISPATCH_ENGINE_PROMOTION}" APPLY_PIN=1 \
               bash scripts/ci-dispatch-allowlist.sh
           fi
 
@@ -459,10 +461,11 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
           DISPATCH_SUBMODULE: ${{ github.event.client_payload.submodule }}
           DISPATCH_COMMIT_SHA: ${{ github.event.client_payload.commit_sha }}
+          DISPATCH_ENGINE_PROMOTION: ${{ github.event.client_payload.engine_promotion }}
         run: |
           set -euo pipefail
           if [ "${EVENT_NAME}" = "repository_dispatch" ]; then
-            SUBMODULE="${DISPATCH_SUBMODULE}" COMMIT_SHA="${DISPATCH_COMMIT_SHA}" APPLY_PIN=1 \
+            SUBMODULE="${DISPATCH_SUBMODULE}" COMMIT_SHA="${DISPATCH_COMMIT_SHA}" ENGINE_PROMOTION="${DISPATCH_ENGINE_PROMOTION}" APPLY_PIN=1 \
               bash scripts/ci-dispatch-allowlist.sh
           fi
 

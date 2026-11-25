@@ -99,6 +99,184 @@ grep -q 'sirius_api_changes=true' "${TMP_OUT}" \
   || fail "expected system monitor dispatch to rebuild api"
 grep -q 'sirius_engine_changes=true' "${TMP_OUT}" \
   || fail "expected system monitor dispatch to rebuild engine"
+: > "${TMP_OUT}"
+: > "${TMP_ENV}"
+TMP_SUMMARY="${TMP_DIR}/dispatch-summary.md"
+GITHUB_OUTPUT="${TMP_OUT}" GITHUB_ENV="${TMP_ENV}" GITHUB_STEP_SUMMARY="${TMP_SUMMARY}" \
+  SUBMODULE=SiriusScan/app-scanner \
+  COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
+  ENGINE_PROMOTION=source-pin-v1 APPLY_PIN=1 EMIT_CHANGES=1 \
+  bash scripts/ci-dispatch-allowlist.sh
+[ ! -s "${TMP_ENV}" ] || fail "pending scanner dispatch applied a source pin"
+grep -q '^sirius_engine_changes=false
+
+
+echo "==> go build validator"
+(
+  cd scripts/core-manifest
+  go build -o /dev/null .
+)
+pass "go build"
+
+FAKE_COMMIT="0123456789abcdef0123456789abcdef01234567"
+
+echo "==> validate inventory fixture"
+bash scripts/validate-core-manifest.sh --mode inventory --expect-commit "${FAKE_COMMIT}" "${INVENTORY_FIXTURE}"
+pass "inventory fixture"
+
+echo "==> generate manifest from inventory + Dockerfile pins"
+GENERATED="${TMP_DIR}/core-manifest.yaml"
+bash scripts/generate-core-manifest.sh \
+  --tag v1.1.0 \
+  --commit "${FAKE_COMMIT}" \
+  --repo SiriusScan/Sirius \
+  --inventory "${INVENTORY_FIXTURE}" \
+  --output "${GENERATED}"
+[ -f "${GENERATED}" ] || fail "manifest not written"
+pass "generate from inventory"
+
+echo "==> strict validate generated manifest"
+bash scripts/validate-core-manifest.sh --expect-tag v1.1.0 --expect-commit "${FAKE_COMMIT}" "${GENERATED}"
+pass "validate structure"
+[ "$(jq -r '.contracts.rest_api' "${GENERATED}")" = "1.0.0" ] || fail "REST contract version mismatch"
+jq '.contracts.rest_api = "invalid"' "${GENERATED}" > "${TMP_DIR}/bad-contract.yaml"
+if bash scripts/validate-core-manifest.sh "${TMP_DIR}/bad-contract.yaml" 2>/dev/null; then
+  fail "invalid REST contract version accepted"
+fi
+[ "$(jq -r '.contracts.resource_scope' "${GENERATED}")" = "1.0" ] || fail "SDK scope contract version mismatch"
+[ "$(jq -r '.contracts.agent_protocol' "${GENERATED}")" = "1.0.0" ] || fail "agent protocol contract version mismatch"
+jq '.contracts.resource_scope = "9.0"' "${GENERATED}" > "${TMP_DIR}/bad-sdk-contract.yaml"
+if bash scripts/validate-core-manifest.sh "${TMP_DIR}/bad-sdk-contract.yaml" 2>/dev/null; then
+  fail "SDK contract mapping mismatch accepted"
+fi
+pass "application contract version validation"
+
+echo "==> verify digests against mock inspect"
+export CORE_MANIFEST_INSPECT_CMD="bash ${MOCK_INSPECT}"
+bash scripts/validate-core-manifest.sh \
+  --expect-tag v1.1.0 \
+  --verify-digests \
+  "${GENERATED}"
+pass "digest verification via mock"
+
+echo "==> reject non-semver / short commit"
+if bash scripts/generate-core-manifest.sh \
+  --tag latest --commit "${FAKE_COMMIT}" --inventory "${INVENTORY_FIXTURE}" \
+  --output "${TMP_DIR}/bad.yaml" 2>/dev/null; then
+  fail "expected non-semver tag to be rejected"
+fi
+if bash scripts/generate-core-manifest.sh \
+  --tag v1.1.0 --commit abcdef1 --inventory "${INVENTORY_FIXTURE}" \
+  --output "${TMP_DIR}/bad2.yaml" 2>/dev/null; then
+  fail "expected short commit to be rejected"
+fi
+pass "reject bad tag/commit"
+
+echo "==> reject missing Dockerfile pin"
+BAD_DOCKERFILE="${TMP_DIR}/Dockerfile.bad"
+grep -v 'APP_AGENT_COMMIT_SHA' "${PROJECT_ROOT}/sirius-engine/Dockerfile" > "${BAD_DOCKERFILE}" || true
+if bash scripts/generate-core-manifest.sh \
+  --tag v1.1.0 --commit "${FAKE_COMMIT}" --inventory "${INVENTORY_FIXTURE}" \
+  --dockerfile "${BAD_DOCKERFILE}" --output "${TMP_DIR}/missing-pin.yaml" 2>/dev/null; then
+  fail "expected missing pin to be rejected"
+fi
+pass "reject missing pin"
+
+echo "==> reject unknown GO_API pin without schema_map entry"
+UNKNOWN_DF="${TMP_DIR}/Dockerfile.unknown-goapi"
+sed 's/^ARG GO_API_COMMIT_SHA=.*/ARG GO_API_COMMIT_SHA=v9.9.9/' \
+  "${PROJECT_ROOT}/sirius-engine/Dockerfile" > "${UNKNOWN_DF}"
+if bash scripts/generate-core-manifest.sh \
+  --tag v1.1.0 --commit "${FAKE_COMMIT}" --inventory "${INVENTORY_FIXTURE}" \
+  --dockerfile "${UNKNOWN_DF}" --output "${TMP_DIR}/unknown-goapi.yaml" 2>/dev/null; then
+  fail "expected unknown GO_API_COMMIT_SHA mapping to fail"
+fi
+pass "reject unknown GO_API schema mapping"
+
+echo "==> reject duplicate keys / wrong nesting"
+DUP="${TMP_DIR}/dup.yaml"
+printf '%s\n' '{"apiVersion":"siriusscan.dev/v1","apiVersion":"x"}' > "${DUP}"
+if bash scripts/validate-core-manifest.sh "${DUP}" 2>/dev/null; then
+  fail "expected duplicate keys to be rejected"
+fi
+NEST="${TMP_DIR}/nest.yaml"
+jq '.metadata.release_tag = {"oops": true}' "${GENERATED}" > "${NEST}"
+if bash scripts/validate-core-manifest.sh "${NEST}" 2>/dev/null; then
+  fail "expected wrong nesting/types to be rejected"
+fi
+pass "reject duplicates and wrong nesting"
+
+echo "==> reject digest drift"
+DRIFT="${TMP_DIR}/drift.yaml"
+jq '.images["sirius-ui"].digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab" |
+    .images["sirius-ui"].ref = "ghcr.io/siriusscan/sirius-ui@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab"' \
+  "${GENERATED}" > "${DRIFT}"
+if bash scripts/validate-core-manifest.sh --verify-digests "${DRIFT}" 2>/dev/null; then
+  fail "expected digest drift to be rejected"
+fi
+pass "reject digest drift"
+
+echo "==> snapshot inventory via mock (no docker retag)"
+SNAP="${TMP_DIR}/core-build-inventory.json"
+CORE_MANIFEST_INSPECT_CMD="bash ${MOCK_INSPECT}" \
+  bash scripts/snapshot-core-build-inventory.sh \
+    --commit "${FAKE_COMMIT}" \
+    --source-tag v1.1.0 \
+    --smoke 0 \
+    --output "${SNAP}"
+bash scripts/validate-core-manifest.sh --mode inventory --expect-commit "${FAKE_COMMIT}" "${SNAP}"
+pass "snapshot inventory mock path"
+
+echo "==> deterministic ordering (ignore generated_at)"
+SECOND="${TMP_DIR}/core-manifest-2.yaml"
+sleep 1
+bash scripts/generate-core-manifest.sh \
+  --tag v1.1.0 --commit "${FAKE_COMMIT}" --inventory "${INVENTORY_FIXTURE}" \
+  --output "${SECOND}"
+norm() { jq 'del(.metadata.generated_at)' "$1"; }
+if ! diff -u <(norm "${GENERATED}") <(norm "${SECOND}") >/dev/null; then
+  diff -u <(norm "${GENERATED}") <(norm "${SECOND}") || true
+  fail "manifest not stable aside from generated_at"
+fi
+pass "deterministic ordering"
+
+echo "==> golden fixture (read-only; never overwrite checked-in file)"
+GOLDEN="${FIXTURE_DIR}/core-manifest.fixture.yaml"
+[ -f "${GOLDEN}" ] || fail "missing checked-in golden fixture: ${GOLDEN}"
+bash scripts/validate-core-manifest.sh --expect-tag v1.1.0 --expect-commit "${FAKE_COMMIT}" "${GOLDEN}"
+NORMALIZED="${TMP_DIR}/core-manifest.normalized.yaml"
+jq --arg ts "1970-01-01T00:00:00Z" '.metadata.generated_at = $ts' "${GENERATED}" > "${NORMALIZED}"
+if ! diff -u "${GOLDEN}" "${NORMALIZED}" >/dev/null; then
+  diff -u "${GOLDEN}" "${NORMALIZED}" || true
+  fail "generated manifest drifted from checked-in golden fixture"
+fi
+pass "golden fixture"
+
+echo "==> go test validator (includes schema_map ↔ Dockerfile pin)"
+(
+  cd scripts/core-manifest
+  go test ./...
+)
+pass "go test"
+
+echo "==> release SBOM + Cosign signing contract"
+bash scripts/test-release-signing-contract.sh
+pass "release signing contract"
+
+echo "==> community independence / private-leakage contract"
+bash scripts/test-community-independence.sh
+pass "community independence contract"
+
+echo
+echo "All core-manifest local tests passed."
+
+python3 scripts/test-maintenance-release-lane.py
+ "${TMP_OUT}" || fail "pending scanner dispatch requested an engine build"
+grep -q 'awaits an engine source-pin PR' "${TMP_SUMMARY}" || fail "missing scanner dispatch summary"
+if SUBMODULE=SiriusScan/go-api COMMIT_SHA=0123456789abcdef0123456789abcdef01234567 \
+  ENGINE_PROMOTION=source-pin-v1 bash scripts/ci-dispatch-allowlist.sh 2>/dev/null; then
+  fail "accepted a scanner promotion mode for another component"
+fi
 pass "dispatch allowlist"
 
 

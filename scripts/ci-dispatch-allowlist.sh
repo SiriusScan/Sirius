@@ -8,6 +8,7 @@
 # Optional env:
 #   APPLY_PIN=1      - append the mapped ENV=COMMIT_SHA to GITHUB_ENV
 #   EMIT_CHANGES=1   - append sirius_*_changes outputs to GITHUB_OUTPUT
+#   ENGINE_PROMOTION - source-pin-v1 records a scanner update for reviewed promotion
 #
 # Never dynamically constructs environment variable names.
 set -euo pipefail
@@ -37,6 +38,24 @@ case "${SUBMODULE}" in
   *)
     die "disallowed submodule '${SUBMODULE}'"
     ;;
+esac
+
+case "${ENGINE_PROMOTION:-}" in
+  "") ;;
+  source-pin-v1)
+    [ "${REPO_SHORT}" = "app-scanner" ] || die "source-pin-v1 is supported only for app-scanner"
+    message="Scanner revision ${COMMIT_SHA} awaits an engine source-pin PR."
+    printf '%s\n' "${message}"
+    if [ "${EMIT_CHANGES}" = "1" ]; then
+      [ -n "${GITHUB_OUTPUT:-}" ] || die "GITHUB_OUTPUT is required when EMIT_CHANGES=1"
+      printf '%s\n' "sirius_api_changes=false" "sirius_engine_changes=false" >> "${GITHUB_OUTPUT}"
+      if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+        printf '%s\n' "${message}" >> "${GITHUB_STEP_SUMMARY}"
+      fi
+    fi
+    exit 0
+    ;;
+  *) die "unknown engine promotion mode" ;;
 esac
 
 echo "Validated dispatch submodule=${REPO_SHORT} pin_env=${PIN_ENV} commit=${COMMIT_SHA}"

@@ -252,7 +252,7 @@ Sirius integration test.
 | --- | --- | --- | --- |
 | app-scanner | `15e25fb` | `cbf4535` | Resolve the template once per admitted job and preserve the effective selection for each host. |
 | app-agent | `227f3f8` | `9df3f87` | Provide offline repository validation for content CI. The packaged agent and server retain their existing protocol and admission contracts. |
-| go-api | `2ceb095` | `617b961` | Serialize core schema migrations and expose a read-only startup check. Sirius API uses SDK `v0.0.32`, which matches the core migrator and engine source pins. |
+| go-api | `2ceb095` | `eec099d` | Serialize core schema migrations, expose a read-only startup check, and support scoped host history. Sirius API uses SDK `v0.0.33`, which matches the core migrator and engine source pins. |
 
 The scanner still uses Go SDK v0.0.26 and the agent uses v0.0.24 at these revisions.
 

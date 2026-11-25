@@ -34,5 +34,18 @@ jobs:
         run: |
           npm exec --no -- tsx --test src/server/api/routers/agent-scan-dispatch.test.ts
           npm run test:scanner-cancellation
-      - name: Type-check the UI
-        run: npm exec --no -- tsc --noEmit
+      - name: Compare UI type diagnostics with the base commit
+        run: |
+          base_dir="$RUNNER_TEMP/agent-dispatch-base"
+          git worktree add --detach "$base_dir" 2085c311da9f854e53bfb41912cfc26f00c54613
+          ln -s "$PWD/node_modules" "$base_dir/sirius-ui/node_modules"
+          compiler="$PWD/node_modules/.bin/tsc"
+          type_check() {
+            "$compiler" --noEmit --pretty false --incremental false > "$1" 2>&1 || {
+              grep -q 'error TS' "$1" || { cat "$1"; return 1; }
+            }
+          }
+          type_check "$RUNNER_TEMP/candidate.types"
+          (cd "$base_dir/sirius-ui" && type_check "$RUNNER_TEMP/base.types")
+          diff -u "$RUNNER_TEMP/base.types" "$RUNNER_TEMP/candidate.types"
+          echo "UI type diagnostics match the base commit."

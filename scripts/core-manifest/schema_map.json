@@ -83,5 +83,16 @@
       "scan_control": "1.0",
       "api_module": "v1"
     }
+  },
+  "18f26a4cacb098975791be91d13f2a88eca546b1": {
+    "ledger_table": "schema_migrations_core",
+    "latest_migration": "012_scan_history_journal",
+    "contracts": {
+      "resource_scope": "1.0",
+      "message_envelope": "1.0",
+      "scan_job": "1.0",
+      "scan_control": "1.0",
+      "api_module": "v1"
+    }
   }
 }

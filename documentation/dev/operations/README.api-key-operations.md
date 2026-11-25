@@ -97,6 +97,15 @@ Recovery:
 3. Validate key exists in API key list and is not revoked.
 4. Roll service restart after secret correction.
 
+## Incident: Internal API Key in Application Logs
+
+After deploying the logging fix, review retained application and container logs
+and support exports using restricted access. If a credential appears, or the
+affected log scope cannot be determined, coordinate rotation of the internal
+service key and apply the appropriate retention controls to affected copies.
+Record timestamps and affected services in incident notes. Keep credential
+values out of reports and support bundles.
+
 ## Validation Commands
 
 Run security checks from repository root:

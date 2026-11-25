@@ -1,5 +1,6 @@
 import axios from "axios";
 import { env } from "~/env.mjs";
+import { toApiRequestError } from "./apiErrors";
 
 /** Shared Go API base URL used by all TRPC routers. */
 export const API_BASE_URL = env.SIRIUS_API_URL || "http://localhost:9001";
@@ -36,6 +37,10 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
+apiClient.interceptors.response.use(undefined, (error: unknown) =>
+  Promise.reject(toApiRequestError(error)),
+);
+
 /**
  * Drop-in replacement for `fetch()` that automatically injects the X-API-Key
  * header.  Use this in routers that still rely on the native Fetch API.
@@ -44,10 +49,14 @@ export async function apiFetch(
   url: string,
   init?: RequestInit,
 ): Promise<Response> {
-  const headers = new Headers(init?.headers);
-  headers.set("X-API-Key", getRequiredApiKey());
-  if (!headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+  try {
+    const headers = new Headers(init?.headers);
+    headers.set("X-API-Key", getRequiredApiKey());
+    if (!headers.has("Content-Type")) {
+      headers.set("Content-Type", "application/json");
+    }
+    return await fetch(url, { ...init, headers });
+  } catch (error) {
+    throw toApiRequestError(error);
   }
-  return fetch(url, { ...init, headers });
 }

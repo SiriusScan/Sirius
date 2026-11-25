@@ -163,6 +163,15 @@ scanner behavior; non-deterministic builds are unacceptable.
 `pingpp` change can land in the engine image with no signal at the
 Sirius repo. Phase 3a/3b adds the explicit pin and the CI arg.
 
+#### November 24, 2026 scanner packaging cutover
+
+The engine pins scanner `b75527622ed8fc8d05e1973eb94f458e207fca3e`. That revision selects
+`github.com/SiriusScan/pingpp@v0.0.0-20261125012228-a6e4289ccaf4` from source
+`a6e4289ccaf46421257f418d3f4a8b30c76d863b`. The engine build resolves the same module as standalone
+scanner CI. The release manifest keeps the compatible
+`PINGPP_COMMIT_SHA` field and reads it from the scanner dependency
+mapping for this and later canonical scanner revisions.
+
 ### `go-api` (`SiriusScan/go-api`)
 
 
@@ -252,8 +261,20 @@ Sirius integration test.
 | --- | --- | --- | --- |
 | app-scanner | `15e25fb` | `cbf4535` | Resolve the template once per admitted job and preserve the effective selection for each host. |
 | app-agent | `227f3f8` | `9df3f87` | Provide offline repository validation for content CI. The packaged agent and server retain their existing protocol and admission contracts. |
+| go-api | `2ceb095` | `eec099d` | Serialize core schema migrations, expose a read-only startup check, and support scoped host history. Sirius API uses SDK `v0.0.33`, which matches the core migrator and engine source pins. |
 
 The scanner still uses Go SDK v0.0.26 and the agent uses v0.0.24 at these revisions.
+
+### November 24 follow-up for template repository imports
+
+The packaged engine advances app-agent from `9df3f87a9f59e0fdb1f6237e46ca67b90b185378` to
+`34d8dee3abb733f9b9b291867c13d2bbe12a6a90` after [app-agent #18](https://github.com/SiriusScan/app-agent/pull/18).
+The engine checks the complete repository before updating catalog records and
+publishes each standard template with a Valkey ownership check. The official
+module manifests passed offline validation on Linux and Windows before the
+engine pin advanced.
+
+The agent uses Go SDK `v0.0.24`, protocol `1.0.0`, and admission contract `1.0.0` at this pin.
 
 ## Risk register
 

@@ -23,11 +23,12 @@ func TestLoadAndValidatePublishedContract(t *testing.T) {
 	if err := ValidateContract(live, class, spec); err != nil {
 		t.Fatalf("published contract should validate: %v", err)
 	}
-	if got := len(live); got != 74 {
-		t.Fatalf("expected 74 golden routes, got %d", got)
+	const wantRoutes = 75
+	if got := len(live); got != wantRoutes {
+		t.Fatalf("expected %d golden routes, got %d", wantRoutes, got)
 	}
-	if got := len(class.Routes); got != 74 {
-		t.Fatalf("expected 74 classified routes, got %d", got)
+	if got := len(class.Routes); got != wantRoutes {
+		t.Fatalf("expected %d classified routes, got %d", wantRoutes, got)
 	}
 }
 

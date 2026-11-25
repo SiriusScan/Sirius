@@ -57,6 +57,7 @@ POST	/api/agent-templates/validate
 POST	/api/agent-templates/:id/test
 POST	/api/agent-templates/:id/deploy
 POST	/api/v1/statistics/vulnerability-snapshot
+POST	/api/v1/scans/submit
 POST	/api/v1/scans/cancel
 POST	/api/v1/scans/force-stop
 POST	/api/v1/scans/reset

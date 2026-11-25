@@ -6,5 +6,9 @@
   "9df3f87a9f59e0fdb1f6237e46ca67b90b185378": {
     "agent_protocol": "1.0.0",
     "agent_admission": "1.0.0"
+  },
+  "34d8dee3abb733f9b9b291867c13d2bbe12a6a90": {
+    "agent_protocol": "1.0.0",
+    "agent_admission": "1.0.0"
   }
 }

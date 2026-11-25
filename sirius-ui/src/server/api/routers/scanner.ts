@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { apiClient } from "~/server/api/shared/apiClient";
 import type { ScanResult } from "~/types/scanTypes";
 import { handleSendMsg } from "~/server/api/routers/queue";
 import { valkey } from "~/server/valkey";
@@ -41,7 +42,68 @@ export interface ResetScanResponse {
   error?: string;
 }
 
+type NetworkScanAdmissionReceipt = {
+  scan_id: string;
+  outcome: "submitted" | "unconfirmed" | "busy" | "failed" | "not_recorded";
+  scan?: ScanResult;
+};
+
 export const scannerRouter = createTRPCRouter({
+  submitNetworkScan: protectedProcedure
+    .input(
+      z.object({
+        scanId: z.string().regex(/^scan-\d{1,20}-[a-z0-9]{1,9}$/),
+        targets: z.array(z.object({
+          value: z.string().min(1),
+          type: z.enum(["single_ip", "ip_range", "cidr", "dns_name", "dns_wildcard"]),
+        })).min(1),
+        templateId: z.string(),
+        priority: z.number().int(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const { status, data } = await apiClient.post<NetworkScanAdmissionReceipt>(
+          "/api/v1/scans/submit",
+          {
+            scan_id: input.scanId,
+            targets: input.targets,
+            template_id: input.templateId,
+            priority: input.priority,
+          },
+          { validateStatus: () => true }
+        );
+
+        if (status === 404 || status === 405) {
+          return { outcome: "unsupported" } as const;
+        }
+        if (status === 400 || status === 401 || status === 403 || status === 413) {
+          return { outcome: "rejected" } as const;
+        }
+        if (data?.scan_id === input.scanId) {
+          if (
+            status === 202 &&
+            (data.outcome === "submitted" || data.outcome === "unconfirmed") &&
+            data.scan?.id === input.scanId &&
+            data.scan.status === "pending"
+          ) {
+            return { outcome: data.outcome, scan: data.scan } as const;
+          }
+          if (
+            (status === 409 && data.outcome === "busy") ||
+            (status === 502 && data.outcome === "failed") ||
+            (status === 503 && data.outcome === "not_recorded")
+          ) {
+            return { outcome: data.outcome } as const;
+          }
+        }
+      } catch {
+        // A lost API response leaves delivery unknown. Never retry or log the
+        // request config, which contains the service credential.
+      }
+      return { outcome: "unconfirmed" } as const;
+    }),
+
   cancelScan: protectedProcedure
     .input(
       z

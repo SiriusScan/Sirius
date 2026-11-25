@@ -793,8 +793,13 @@ func GetVulnerabilitySources(c *fiber.Ctx) error {
 	})
 }
 
-// GetHostHistory handles the GET /host/{id}/history route
+// GetHostHistory handles GET /host/{id}/history. The accepted_reports view
+// adds the paginated acceptance journal while preserving the default timeline.
 func GetHostHistory(c *fiber.Ctx) error {
+	if c.Query("view") == acceptedReportHistoryView {
+		return communityAcceptedReportHistory(c)
+	}
+
 	hostIP := c.Params("id")
 
 	// This would get a comprehensive history of all scan activities for the host

@@ -42,7 +42,7 @@ search_keywords:
 
 ## Overview
 
-The SystemMonitor is a critical component that provides real-time system resource monitoring for all Sirius containers. It collects CPU, memory, network, disk, and process metrics from within containerized environments and stores them in Valkey for centralized monitoring and alerting.
+The SystemMonitor is a critical component that provides real-time system resource monitoring for all Sirius containers. It collects CPU, memory, network, and process metrics from within containerized environments and stores them in Valkey for centralized monitoring and alerting.
 
 **Key Features:**
 
@@ -290,20 +290,27 @@ fi
 
 ```json
 {
+  "observation_version": 2,
   "container_name": "sirius-postgres",
   "timestamp": "2025-01-07T12:00:00Z",
+  "collector_started_at": "2025-01-07T11:00:00Z",
+  "collector_uptime_seconds": 3600,
   "cpu_percent": 15.2,
   "memory_usage_bytes": 67108864,
-  "memory_percent": 1.8,
+  "memory_limit_bytes": 1073741824,
+  "memory_percent": 6.25,
   "network_rx_bytes": 1048576,
   "network_tx_bytes": 524288,
-  "disk_usage_bytes": 134217728,
-  "disk_percent": 1.3,
+  "disk_read_bytes": null,
+  "disk_write_bytes": null,
+  "disk_usage_bytes": null,
+  "disk_total_bytes": null,
+  "disk_percent": null,
   "process_count": 12,
-  "file_descriptors": 45,
-  "load_average_1m": 0.15,
-  "load_average_5m": 0.12,
-  "load_average_15m": 0.1,
+  "file_descriptors": null,
+  "load_average_1m": null,
+  "load_average_5m": null,
+  "load_average_15m": null,
   "uptime_seconds": 3600,
   "status": "running"
 }

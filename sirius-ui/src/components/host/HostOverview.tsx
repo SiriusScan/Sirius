@@ -29,7 +29,8 @@ import {
 import { DashboardHeroCard } from "~/components/dashboard/DashboardHeroCard";
 import { VulnerabilitySeverityCardsHorizontal } from "~/components/VulnerabilitySeverityCards";
 import { SourceBadge } from "~/components/shared/SourceBadge";
-import type { HostPageData, DeduplicatedVulnerability } from "./types";
+import { observedTimestamp } from "./hostFindings";
+import type { HostPageData, DeduplicatedVulnerability, TabType } from "./types";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -50,36 +51,27 @@ function computeRiskScore(counts: {
 }
 
 function getRiskLabel(score: number): string {
-  if (score === 0) return "Clean";
   if (score < 2) return "Low";
   if (score < 5) return "Medium";
   if (score < 8) return "High";
   return "Critical";
 }
 
-function getRiskVariant(score: number): "success" | "default" | "critical" {
-  if (score === 0) return "success";
+function getRiskVariant(score: number): "default" | "critical" {
   if (score >= 8) return "critical";
   return "default";
 }
 
 function formatRelativeTime(dateString?: string | null): string {
-  if (!dateString) return "Never";
-  try {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-    if (diffDays > 0) return `${diffDays}d ago`;
-    if (diffHours > 0) return `${diffHours}h ago`;
-    if (diffMinutes > 0) return `${diffMinutes}m ago`;
-    return "Just now";
-  } catch {
-    return "Unknown";
-  }
+  const timestamp = observedTimestamp(dateString);
+  if (!timestamp) return "Unknown";
+  const date = new Date(timestamp);
+  const diffMinutes = Math.floor((Date.now() - date.getTime()) / 60_000);
+  if (diffMinutes < 0) return date.toLocaleString();
+  if (diffMinutes >= 1440) return `${Math.floor(diffMinutes / 1440)}d ago`;
+  if (diffMinutes >= 60) return `${Math.floor(diffMinutes / 60)}h ago`;
+  if (diffMinutes > 0) return `${diffMinutes}m ago`;
+  return "Just now";
 }
 
 function getSeverityColor(severity: string): string {
@@ -105,6 +97,7 @@ function getSeverityBg(severity: string): string {
 interface HostOverviewProps {
   host: HostPageData;
   vulnerabilities?: DeduplicatedVulnerability[];
+  onTabChange: (tab: TabType) => void;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -112,6 +105,7 @@ interface HostOverviewProps {
 export const HostOverview: React.FC<HostOverviewProps> = ({
   host,
   vulnerabilities = [],
+  onTabChange,
 }) => {
   const router = useRouter();
 
@@ -152,11 +146,17 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
   const totalMemoryGB =
     systemFingerprint?.fingerprint?.hardware?.memory?.total_gb || 0;
 
-  const lastScanTime =
-    softwareInventory?.collected_at || systemFingerprint?.collected_at;
+  const collectionTimes = [
+    observedTimestamp(softwareInventory?.collected_at),
+    observedTimestamp(systemFingerprint?.collected_at),
+  ].filter((value): value is string => value !== undefined);
+  const lastCollectionTime = collectionTimes
+    .sort((a, b) => Date.parse(b) - Date.parse(a))[0];
 
   const riskScore = computeRiskScore(host.severityCounts);
-  const riskLabel = getRiskLabel(riskScore);
+  const riskLabel = host.severityCounts.informational === host.vulnerabilityCount
+    ? "Informational"
+    : getRiskLabel(riskScore);
 
   // Top 5 most critical vulnerabilities for the mini table
   const topVulns = [...vulnerabilities]
@@ -177,15 +177,15 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
           ══════════════════════════════════════════════════════════════════ */}
       <div className="grid gap-6 md:grid-cols-3">
         <DashboardHeroCard
-          title="Vulnerabilities"
+          title="Recorded Findings"
           value={host.vulnerabilityCount}
           icon={Target}
           subtitle={
             host.vulnerabilityCount > 0
               ? `${host.severityCounts.critical} critical, ${host.severityCounts.high} high`
-              : "No known vulnerabilities"
+              : "Assessment coverage unknown"
           }
-          variant={host.severityCounts.critical > 0 ? "critical" : host.vulnerabilityCount === 0 ? "success" : "default"}
+          variant={host.severityCounts.critical > 0 ? "critical" : "default"}
         />
 
         {/* Asset Metrics — dual bubble: Open Ports + Packages */}
@@ -230,10 +230,10 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
         </div>
 
         <DashboardHeroCard
-          title="Risk Score"
-          value={riskScore.toFixed(1)}
+          title="Observed Risk Score"
+          value={host.vulnerabilityCount ? riskScore.toFixed(1) : "Unknown"}
           icon={Shield}
-          subtitle={riskLabel}
+          subtitle={host.vulnerabilityCount ? riskLabel : "No recorded findings"}
           variant={getRiskVariant(riskScore)}
         />
       </div>
@@ -258,9 +258,9 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
               />
             ) : (
               <div className="flex items-center gap-2 py-4">
-                <Shield className="h-5 w-5 text-emerald-400" />
-                <span className="text-sm text-emerald-400">
-                  No vulnerabilities detected — system is clean
+                <Shield className="h-5 w-5 text-gray-500" />
+                <span className="text-sm text-gray-400">
+                  No findings recorded. Assessment coverage is unknown.
                 </span>
               </div>
             )}
@@ -275,14 +275,12 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
                   Top Vulnerabilities
                 </h2>
               </div>
-              {host.vulnerabilityCount > 5 && (
+              {host.vulnerabilityCount > 0 && (
                 <button
-                  onClick={() => {
-                    /* The tab change must be done via parent — push a pseudo-anchor instead */
-                  }}
+                  onClick={() => onTabChange("vulnerabilities")}
                   className="flex items-center gap-1 text-xs text-violet-400 transition-colors hover:text-violet-300"
                 >
-                  View all {host.vulnerabilityCount}
+                  View finding evidence
                   <ExternalLink className="h-3 w-3" />
                 </button>
               )}
@@ -327,9 +325,9 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
               </div>
             ) : (
               <div className="flex items-center gap-2 px-6 py-6">
-                <Shield className="h-4 w-4 text-emerald-400" />
-                <span className="text-sm text-gray-500">
-                  No vulnerabilities to display
+                <Shield className="h-4 w-4 text-gray-500" />
+                <span className="text-sm text-gray-400">
+                  No recorded findings to display
                 </span>
               </div>
             )}
@@ -424,7 +422,7 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
             <div className="mb-4 flex items-center gap-2">
               <Target className="h-5 w-5 text-violet-400" />
               <h2 className="text-sm font-semibold uppercase tracking-wide text-violet-300">
-                Source Coverage
+                Discovery Sources
               </h2>
             </div>
             {host.sources.length > 0 ? (
@@ -435,9 +433,6 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
                     className="flex items-center justify-between"
                   >
                     <SourceBadge source={source} />
-                    <span className="text-[10px] text-gray-500">
-                      {formatRelativeTime(lastScanTime)}
-                    </span>
                   </div>
                 ))}
               </div>
@@ -457,27 +452,21 @@ export const HostOverview: React.FC<HostOverviewProps> = ({
             <div className="space-y-2.5">
               <ActivityItem
                 label="Last data collection"
-                value={formatRelativeTime(lastScanTime)}
+                value={formatRelativeTime(lastCollectionTime)}
               />
               <ActivityItem
                 label="First discovered"
                 value={formatRelativeTime(host.createdAt)}
               />
               <ActivityItem
-                label="Risk posture"
-                value={
-                  host.vulnerabilityCount === 0
-                    ? "Clean — no known vulnerabilities"
-                    : `${host.severityCounts.critical} critical, ${host.severityCounts.high} high, ${host.severityCounts.medium + host.severityCounts.low + host.severityCounts.informational} other`
-                }
+                label="Recorded findings"
+                value={host.vulnerabilityCount.toLocaleString()}
               />
             </div>
             {/* Link to full History tab */}
             <button
               className="mt-3 flex items-center gap-1 text-[11px] text-violet-400 transition-colors hover:text-violet-300"
-              onClick={() => {
-                /* Parent handles tab switching — this is cosmetic */
-              }}
+              onClick={() => onTabChange("history")}
             >
               View full history
               <ChevronRight className="h-3 w-3" />

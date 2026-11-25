@@ -32,13 +32,18 @@ interface ScanRequest {
 export const useStartScan = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unconfirmedScanId, setUnconfirmedScanId] = useState<string | null>(null);
+  const submitNetworkScan = api.scanner.submitNetworkScan.useMutation({
+    retry: false,
+  });
   const sendMessage = api.queue.sendMsg.useMutation();
   const updateScan = api.store.setValue.useMutation();
   const dispatchAgentScan = api.agentScan.dispatchAgentScan.useMutation();
   const utils = api.useContext();
 
   const generateScanId = () => {
-    return `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const suffix = Math.random().toString(36).slice(2, 11) || "0";
+    return `scan-${Date.now()}-${suffix}`;
   };
 
   const initiateScan = async (
@@ -51,12 +56,40 @@ export const useStartScan = () => {
     try {
       setIsLoading(true);
       setError(null);
+      setUnconfirmedScanId(null);
 
       const scanId = generateScanId();
       const hasNetworkScan = targets.length > 0 && !skipNetworkScan;
       const hasAgentScan = agentScanConfig?.enabled ?? false;
 
-      // Build modular sub_scans map
+      if (hasNetworkScan && !hasAgentScan) {
+        const receipt = await submitNetworkScan.mutateAsync({
+          scanId,
+          targets,
+          templateId,
+          priority,
+        }).catch(() => ({ outcome: "unconfirmed" } as const));
+
+        if ("scan" in receipt && receipt.scan) return receipt.scan;
+        switch (receipt.outcome) {
+          case "unsupported":
+            throw new Error("This API version does not support network scan submission.");
+          case "rejected":
+            throw new Error("The API rejected the network scan request.");
+          case "busy":
+            throw new Error("A scan is already active or its state cannot be replaced.");
+          case "failed":
+            throw new Error("The network scan could not be submitted.");
+          case "not_recorded":
+            throw new Error("Could not record the scan. No scan request was published.");
+          default:
+            setUnconfirmedScanId(scanId);
+            throw new Error("Could not confirm scan submission. Check the dashboard before retrying.");
+        }
+      }
+
+      // Agent-only and combined profiles still use their legacy dispatch.
+      // Select that path before any network submission is attempted.
       const subScans: Record<string, SubScan> = {};
 
       if (hasNetworkScan) {
@@ -239,8 +272,6 @@ export const useStartScan = () => {
         }
       }
 
-      await utils.store.getValue.invalidate();
-
       return scan;
     } catch (err) {
       const errorMessage =
@@ -249,6 +280,7 @@ export const useStartScan = () => {
       throw err;
     } finally {
       setIsLoading(false);
+      void utils.store.getValue.invalidate({ key: "currentScan" });
     }
   };
 
@@ -256,6 +288,7 @@ export const useStartScan = () => {
     initiateScan,
     isLoading,
     error,
+    unconfirmedScanId,
   };
 };
 

@@ -268,6 +268,7 @@ export function useStopScan() {
     (status: string | undefined) => {
       if (
         stopStage !== "idle" &&
+        status !== "pending" &&
         status !== "running" &&
         status !== "cancelling"
       ) {

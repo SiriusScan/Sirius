@@ -15,7 +15,7 @@ RUN apk add --no-cache git ca-certificates tzdata
 
 # Pin policy (utility binaries): ARG defaults MUST match ci.yml build-args.
 # Enforced by .github/workflows/check-pin-consistency.yml.
-ARG APP_SYSTEM_MONITOR_COMMIT_SHA=5e6b8db1a0d15e31519aa2fba62a9d9ce401a3c2
+ARG APP_SYSTEM_MONITOR_COMMIT_SHA=abbeea729b909a239a376806f5b3541bc3b585bc
 ARG APP_ADMINISTRATOR_COMMIT_SHA=142ac93b620ac8a52a033f312fc2cb86c1f2979d
 
 RUN git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
@@ -173,12 +173,11 @@ RUN sed -i "s|deb.debian.org/debian-security|archive.debian.org/debian-security|
 #     CI fallback, and SHA-AUDIT-2026-04.md (or its successor) in one PR.
 #
 # Audit doc: documentation/dev-notes/SHA-AUDIT-2026-04.md
-ARG GO_API_COMMIT_SHA=2ceb0951105d9f322b9825210e84086632b624b3
-ARG APP_SCANNER_COMMIT_SHA=cbf4535f609cfc9f162fe56fbe3c2c2f5b0fb27f
+ARG GO_API_COMMIT_SHA=eec099d012845817d22a37c72db8f89e8c609032
+ARG APP_SCANNER_COMMIT_SHA=b75527622ed8fc8d05e1973eb94f458e207fca3e
 ARG APP_TERMINAL_COMMIT_SHA=5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1
 ARG SIRIUS_NSE_COMMIT_SHA=a58e8c5330b49bd8f4e93c27e340c43c1fa89fa9
-ARG APP_AGENT_COMMIT_SHA=9df3f87a9f59e0fdb1f6237e46ca67b90b185378
-ARG PINGPP_COMMIT_SHA=9508a16c40a49746feb7cab4b8c1c358246169b0
+ARG APP_AGENT_COMMIT_SHA=34d8dee3abb733f9b9b291867c13d2bbe12a6a90
 
 WORKDIR /repos
 
@@ -188,19 +187,20 @@ RUN git clone https://github.com/SiriusScan/go-api.git && \
     git checkout ${GO_API_COMMIT_SHA} && \
     go mod tidy
 
-# Clone ping++ (fingerprinting engine, needed by app-scanner)
-RUN git clone https://github.com/SiriusScan/pingpp.git "ping++" && \
-    cd "ping++" && \
-    git checkout ${PINGPP_COMMIT_SHA}
-
 # Clone and build app-scanner (CGO_ENABLED=1, requires libpcap).
 # All previous inline sed patches against internal/scan/manager.go have been
 # upstreamed in app-scanner@ca1ef2f. See documentation/dev-notes/SHA-AUDIT-2026-04.md.
 RUN git clone https://github.com/SiriusScan/app-scanner.git && \
     cd app-scanner && \
     git checkout ${APP_SCANNER_COMMIT_SHA} && \
+    export GOWORK=off && \
     go mod download && \
-    CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s" -o scanner main.go
+    git diff --exit-code -- go.mod go.sum && \
+    pingpp_version="$(go list -mod=readonly -m -f '{{if not .Replace}}{{.Version}}{{end}}' github.com/SiriusScan/pingpp)" && \
+    test -n "${pingpp_version}" && \
+    CGO_ENABLED=1 GOOS=linux go build -mod=readonly -ldflags="-w -s" -o scanner main.go && \
+    go version -m scanner | awk -v version="${pingpp_version}" \
+        '$1 == "dep" && $2 == "github.com/SiriusScan/pingpp" && $3 == version { print; found=1 } END { exit !found }'
 
 # Clone and build app-terminal
 RUN git clone https://github.com/SiriusScan/app-terminal.git && \

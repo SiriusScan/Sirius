@@ -924,6 +924,48 @@ paths:
               example:
                 error: Failed to connect to store
 
+  /api/v1/scans/submit:
+    post:
+      tags: [scans]
+      operationId: submitNetworkScan
+      summary: Admit a network-only scan attempt
+      description: The existing worker consumes the selected template ID and reports scan progress under the admitted ID.
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/RequestID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NetworkScanSubmission'
+      responses:
+        '202':
+          description: The attempt is recorded. Worker progress confirms execution.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NetworkScanReceipt'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The API key cannot access the Community REST surface.
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+        '409':
+          $ref: '#/components/responses/NetworkScanAdmissionBusy'
+        '502':
+          $ref: '#/components/responses/NetworkScanAdmissionFailed'
+        '503':
+          $ref: '#/components/responses/NetworkScanAdmissionUnavailable'
+
   /api/v1/scans/cancel:
     post:
       tags: [scans]
@@ -1185,6 +1227,95 @@ components:
       schema:
         type: string
   schemas:
+    NetworkScanSubmission:
+      type: object
+      required: [scan_id, targets]
+      properties:
+        scan_id:
+          type: string
+          pattern: '^scan-[0-9]{1,20}-[a-z0-9]{1,9}$'
+        template_id:
+          type: string
+          pattern: '^([A-Za-z0-9._:-]{1,128})?$'
+        targets:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [value, type]
+            properties:
+              value:
+                type: string
+                minLength: 1
+              type:
+                type: string
+                enum: [single_ip, ip_range, cidr, dns_name, dns_wildcard]
+        priority:
+          type: integer
+          default: 3
+    NetworkScanReceipt:
+      type: object
+      required: [scan_id, outcome]
+      properties:
+        scan_id:
+          type: string
+        outcome:
+          type: string
+          enum: [submitted, unconfirmed, failed, busy, not_recorded]
+        scan:
+          $ref: '#/components/schemas/NetworkScanPendingProjection'
+    NetworkScanPendingProjection:
+      type: object
+      required: [id, status, targets, hosts, hosts_completed, vulnerabilities, start_time, sub_scans]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [pending]
+        targets:
+          type: array
+          items:
+            type: string
+        hosts:
+          type: array
+          items:
+            type: object
+        hosts_completed:
+          type: integer
+        vulnerabilities:
+          type: array
+          items:
+            type: object
+        start_time:
+          type: string
+          format: date-time
+        sub_scans:
+          type: object
+          required: [network]
+          properties:
+            network:
+              type: object
+              required: [type, enabled, status, progress]
+              properties:
+                type:
+                  type: string
+                  enum: [network]
+                enabled:
+                  type: boolean
+                status:
+                  type: string
+                  enum: [pending]
+                progress:
+                  type: object
+                  required: [completed, total, label]
+                  properties:
+                    completed:
+                      type: integer
+                    total:
+                      type: integer
+                    label:
+                      type: string
     LogSubmissionRequest:
       type: object
       required: [service, level, message]
@@ -1307,7 +1438,8 @@ components:
           type: string
     SystemResourceObservations:
       type: object
-      required: [message, timestamp, availability, freshness_seconds, containers, summary]
+      description: Additive observation fields for the v1 resource response.
+      additionalProperties: true
       properties:
         message:
           type: string
@@ -1326,7 +1458,6 @@ components:
             $ref: '#/components/schemas/SystemResourceObservation'
         summary:
           type: object
-          required: [total_containers, running_containers, fresh_containers, stale_containers, missing_containers, invalid_containers, unavailable_containers, total_cpu_percent, total_memory_usage, total_memory_percent]
           properties:
             total_containers:
               type: integer
@@ -1346,14 +1477,14 @@ components:
             total_cpu_percent:
               type: number
               deprecated: true
-              description: Compatibility placeholder. Use peak_cpu_percent for measured observations.
+              description: Legacy sum of measured CPU percentages from fresh collectors reporting running status. An empty sum is zero. Use peak_cpu_percent for current CPU observations.
             total_memory_usage:
               type: string
-              description: Legacy formatted observed memory bytes.
+              description: Legacy formatted sum of measured memory bytes from fresh collectors reporting running status.
             total_memory_percent:
               type: number
               deprecated: true
-              description: Compatibility placeholder. Individual percentages use different limits.
+              description: Legacy sum of measured memory percentages from fresh collectors reporting running status. An empty sum is zero. Individual percentages use different limits.
             peak_cpu_percent:
               type: number
               description: Highest fresh measured collector CPU percentage. Omitted when unavailable.
@@ -1365,7 +1496,6 @@ components:
               format: date-time
     SystemResourceObservation:
       type: object
-      required: [name, telemetry_status, measurements]
       additionalProperties: true
       properties:
         name:
@@ -1420,6 +1550,33 @@ components:
               type: number
 
   responses:
+    NetworkScanAdmissionBusy:
+      description: The current scan is active, already recorded with this ID, or cannot safely be replaced.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NetworkScanReceipt'
+    NetworkScanAdmissionFailed:
+      description: The network message was not sent.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NetworkScanReceipt'
+    NetworkScanAdmissionUnavailable:
+      description: The API could not confirm a reservation and stopped before publish.
+      headers:
+        X-Request-ID:
+          $ref: '#/components/headers/RequestID'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NetworkScanReceipt'
     Unauthorized:
       description: Missing or invalid API key
       headers:

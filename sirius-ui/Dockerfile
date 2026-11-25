@@ -7,7 +7,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 FROM golang:1.24-alpine AS utility-go-binaries
 
-ARG APP_SYSTEM_MONITOR_COMMIT_SHA=5e6b8db1a0d15e31519aa2fba62a9d9ce401a3c2
+ARG APP_SYSTEM_MONITOR_COMMIT_SHA=abbeea729b909a239a376806f5b3541bc3b585bc
 
 RUN apk add --no-cache git ca-certificates tzdata
 

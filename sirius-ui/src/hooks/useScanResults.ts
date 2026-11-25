@@ -20,7 +20,14 @@ export function useScanResults() {
 
   useEffect(() => {
     const decoded = b64Decode(scanStatusQuery.data ?? "");
-    setScanResult(decoded);
+    // The packaged worker advances the network sub-scan before settling the
+    // aggregate. Project the worker's start to the dashboard without a write.
+    const network = decoded?.sub_scans?.network;
+    setScanResult(
+      decoded?.status === "pending" && network?.enabled && network.status === "running"
+        ? { ...decoded, status: "running" }
+        : decoded
+    );
     if (!decoded) {
       setHosts([]);
       setVulnerabilities([]);

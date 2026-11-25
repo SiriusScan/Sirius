@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ScanBar } from "../ScanBar";
 import {
   Bot,
@@ -19,6 +19,8 @@ import { type ScanResult, type SubScan } from "~/types/scanTypes";
 import { normalizeSeverity } from "~/utils/riskScoreCalculator";
 import { SEVERITY_COLORS, type SeverityLevel } from "~/utils/severityTheme";
 import type { StopStage } from "~/hooks/useStopScan";
+
+const SUBMISSION_OBSERVATION_MS = 30_000;
 
 // Icon/color map for known scanner types — extensible for future scanner types
 const SCANNER_CONFIG: Record<
@@ -207,6 +209,30 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({
   onRescan,
   isRescanLoading = false,
 }) => {
+  const [unconfirmedScanId, setUnconfirmedScanId] = useState<string | null>(null);
+  const { id, start_time: startedAt, status } = results;
+
+  useEffect(() => {
+    if (status !== "pending") return;
+    const submittedAt = Date.parse(startedAt);
+    const elapsed = Number.isFinite(submittedAt) ? Date.now() - submittedAt : 0;
+    const remaining = Math.min(SUBMISSION_OBSERVATION_MS, SUBMISSION_OBSERVATION_MS - elapsed);
+    const timer = setTimeout(() => setUnconfirmedScanId(id), Math.max(0, remaining));
+    return () => clearTimeout(timer);
+  }, [id, startedAt, status]);
+
+  let statusMessage: string | null = null;
+  if (status === "pending") {
+    statusMessage = unconfirmedScanId === id
+      ? "Scanner start could not be confirmed"
+      : "Waiting for scanner to start";
+  } else if (status === "failed") {
+    statusMessage =
+      results.sub_scans?.network?.metadata?.submission_error === "not_published"
+        ? "Network scan could not be submitted"
+        : "Scan failed";
+  }
+
   const normalizedTargets = useMemo(() => {
     return (results?.targets ?? []) as ScanTargetLike[];
   }, [results?.targets]);
@@ -222,7 +248,7 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({
 
   /** Render the compact stop/escalation button(s) next to the scan bar */
   const renderStopActions = () => {
-    const isActive = results?.status === "running" || results?.status === "cancelling";
+    const isActive = status === "pending" || status === "running" || status === "cancelling";
     if (!isActive) return null;
 
     // Tier 2: Force Stop
@@ -316,17 +342,23 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <div className="w-[320px]">
-            <ScanBar
-              isScanning={results?.status === "running"}
-              hasRun={results?.status === "completed"}
-              isCancelling={results?.status === "cancelling"}
-              wasCancelled={results?.status === "cancelled"}
-              scanStartTime={results?.start_time ?? null}
-              scanEndTime={results?.end_time ?? null}
-            />
+            {statusMessage ? (
+              <p role="status" className="text-center text-sm font-medium text-violet-100">
+                {statusMessage}
+              </p>
+            ) : (
+              <ScanBar
+                isScanning={status === "running"}
+                hasRun={status === "completed"}
+                isCancelling={status === "cancelling"}
+                wasCancelled={status === "cancelled"}
+                scanStartTime={startedAt}
+                scanEndTime={results.end_time ?? null}
+              />
+            )}
           </div>
           {renderStopActions()}
-          {(results?.status === "completed" || results?.status === "cancelled") && onRescan && (
+          {(status === "completed" || status === "cancelled" || status === "failed") && onRescan && (
             <button
               onClick={onRescan}
               disabled={isRescanLoading}

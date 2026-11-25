@@ -61,43 +61,43 @@ type ValkeyContainerLog struct {
 
 // ValkeyContainerResource represents container resource usage for API response
 type ValkeyContainerResource struct {
-	Name            string  `json:"name"`
-	CPUPercent      float64 `json:"cpu_percent"`
-	MemoryUsage     string  `json:"memory_usage"`
-	MemoryPercent   float64 `json:"memory_percent"`
-	NetworkIO       string  `json:"network_io"`
-	BlockIO         string  `json:"block_io"`
-	DiskUsage       string  `json:"disk_usage"`
-	DiskPercent     float64 `json:"disk_percent"`
-	ProcessCount    int     `json:"process_count"`
-	FileDescriptors int     `json:"file_descriptors"`
-	LoadAverage1m   float64 `json:"load_average_1m"`
-	LoadAverage5m   float64 `json:"load_average_5m"`
-	LoadAverage15m  float64 `json:"load_average_15m"`
-	Uptime          string  `json:"uptime"`
-	Status          string  `json:"status"`
-	ObservedAt      *time.Time `json:"observed_at,omitempty"`
-	TelemetryStatus string `json:"telemetry_status"`
-	Measurements MeasuredResources `json:"measurements"`
-	CollectorStartedAt *time.Time `json:"collector_started_at,omitempty"`
-	CollectorUptimeSeconds *int64 `json:"collector_uptime_seconds,omitempty"`
+	Name                   string            `json:"name"`
+	CPUPercent             float64           `json:"cpu_percent"`
+	MemoryUsage            string            `json:"memory_usage"`
+	MemoryPercent          float64           `json:"memory_percent"`
+	NetworkIO              string            `json:"network_io"`
+	BlockIO                string            `json:"block_io"`
+	DiskUsage              string            `json:"disk_usage"`
+	DiskPercent            float64           `json:"disk_percent"`
+	ProcessCount           int               `json:"process_count"`
+	FileDescriptors        int               `json:"file_descriptors"`
+	LoadAverage1m          float64           `json:"load_average_1m"`
+	LoadAverage5m          float64           `json:"load_average_5m"`
+	LoadAverage15m         float64           `json:"load_average_15m"`
+	Uptime                 string            `json:"uptime"`
+	Status                 string            `json:"status"`
+	ObservedAt             *time.Time        `json:"observed_at,omitempty"`
+	TelemetryStatus        string            `json:"telemetry_status"`
+	Measurements           MeasuredResources `json:"measurements"`
+	CollectorStartedAt     *time.Time        `json:"collector_started_at,omitempty"`
+	CollectorUptimeSeconds *int64            `json:"collector_uptime_seconds,omitempty"`
 }
 
 // ValkeySystemResourcesSummary represents system resource summary
 type ValkeySystemResourcesSummary struct {
-	TotalContainers    int     `json:"total_containers"`
-	RunningContainers  int     `json:"running_containers"`
-	TotalCPUPercent    float64 `json:"total_cpu_percent"`
-	TotalMemoryUsage   string  `json:"total_memory_usage"`
-	TotalMemoryPercent float64 `json:"total_memory_percent"`
-	FreshContainers       int `json:"fresh_containers"`
-	StaleContainers       int `json:"stale_containers"`
-	MissingContainers     int `json:"missing_containers"`
-	InvalidContainers     int `json:"invalid_containers"`
-	UnavailableContainers int `json:"unavailable_containers"`
-	LatestObservedAt *time.Time `json:"latest_observed_at,omitempty"`
-	PeakCPUPercent *float64 `json:"peak_cpu_percent,omitempty"`
-	ObservedMemoryBytes *int64 `json:"observed_memory_bytes,omitempty"`
+	TotalContainers       int        `json:"total_containers"`
+	RunningContainers     int        `json:"running_containers"`
+	TotalCPUPercent       float64    `json:"total_cpu_percent"`
+	TotalMemoryUsage      string     `json:"total_memory_usage"`
+	TotalMemoryPercent    float64    `json:"total_memory_percent"`
+	FreshContainers       int        `json:"fresh_containers"`
+	StaleContainers       int        `json:"stale_containers"`
+	MissingContainers     int        `json:"missing_containers"`
+	InvalidContainers     int        `json:"invalid_containers"`
+	UnavailableContainers int        `json:"unavailable_containers"`
+	LatestObservedAt      *time.Time `json:"latest_observed_at,omitempty"`
+	PeakCPUPercent        *float64   `json:"peak_cpu_percent,omitempty"`
+	ObservedMemoryBytes   *int64     `json:"observed_memory_bytes,omitempty"`
 }
 
 type SystemResourcesObservation struct {
@@ -135,7 +135,7 @@ func (v *ValkeyMonitorService) GetContainerResources(ctx context.Context) (Syste
 	}
 	summary := &response.Summary
 	summary.TotalContainers = len(monitoredContainers)
-	var totalMemoryBytes int64
+	var totalMemoryBytes, runningMemoryBytes int64
 
 	for _, name := range monitoredContainers {
 		resource := v.readResource(ctx, name)
@@ -158,6 +158,10 @@ func (v *ValkeyMonitorService) GetContainerResources(ctx context.Context) (Syste
 			}
 			if resource.Status == "running" {
 				summary.RunningContainers++
+				// Preserve the legacy running-collector aggregates.
+				summary.TotalCPUPercent += valueOrZero(resource.Measurements.CPUPercent)
+				summary.TotalMemoryPercent += valueOrZero(resource.Measurements.MemoryPercent)
+				runningMemoryBytes += valueOrZero(resource.Measurements.MemoryUsage)
 			}
 		case "stale":
 			summary.StaleContainers++
@@ -171,7 +175,7 @@ func (v *ValkeyMonitorService) GetContainerResources(ctx context.Context) (Syste
 	}
 
 	response.Timestamp = v.now().UTC()
-	summary.TotalMemoryUsage = v.formatBytes(totalMemoryBytes)
+	summary.TotalMemoryUsage = v.formatBytes(runningMemoryBytes)
 	switch {
 	case summary.FreshContainers == summary.TotalContainers:
 		response.Availability = "available"

@@ -1,8 +1,10 @@
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { storeMockHosts } from "./shared-mock-data";
 import { type VulnerabilitySeverityCounts } from "~/components/VulnerabilityBarGraph";
 import { apiClient as httpClient } from "~/server/api/shared/apiClient";
+import { apiErrorDiagnostics } from "~/server/api/shared/apiErrors";
 
 import {
   mockHostData,
@@ -346,6 +348,25 @@ export type PortWithSource = {
   status: string;
   notes?: string;
 };
+
+const acceptedHostHistoryResponse = z.object({
+  view: z.literal("accepted_reports"),
+  host_ip: z.string(),
+  timeline: z.array(z.object({
+    id: z.string().min(1),
+    event_type: z.enum(["host_discovery", "report_accepted"]),
+    timestamp: z.string().nullable(),
+    source: z.string(),
+    details: z.string(),
+    report: z.object({
+      submitted_item_count: z.number().int().nullable(),
+      source_version: z.string(),
+      assessment_coverage: z.literal("unknown"),
+    }).optional(),
+  }).refine((event) => event.event_type !== "report_accepted" || event.report !== undefined)),
+  sources: z.array(z.string()),
+  next_cursor: z.string().max(256).optional(),
+});
 
 export const hostRouter = createTRPCRouter({
   // Create a new host in the environment
@@ -697,7 +718,7 @@ export const hostRouter = createTRPCRouter({
 
         return hostWithSources;
       } catch (error) {
-        console.error("Error fetching host with sources:", error);
+        console.error("Error fetching host with sources:", apiErrorDiagnostics(error));
         return null;
       }
     }),
@@ -1146,27 +1167,40 @@ export const hostRouter = createTRPCRouter({
 
   /** Fetch the scan-activity timeline for a single host. */
   getHostHistory: protectedProcedure
-    .input(z.object({ ip: z.string().min(1) }))
+    .input(z.object({
+      ip: z.string().min(1),
+      cursor: z.string().max(256).optional(),
+      limit: z.number().int().min(1).max(100).optional(),
+    }))
     .query(async ({ input }) => {
+      const params = new URLSearchParams({ view: "accepted_reports" });
+      if (input.cursor) params.set("cursor", input.cursor);
+      if (input.limit !== undefined) params.set("limit", String(input.limit));
+      const path = `/host/${encodeURIComponent(input.ip)}/history`;
+      const response = await httpClient.get<unknown>(path, {
+        params,
+        validateStatus: () => true,
+      }).catch(() => {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Host history is unavailable" });
+      });
+      if (response.status < 200 || response.status >= 300) {
+        switch (response.status) {
+          case 400:
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid host history request" });
+          case 401:
+            throw new TRPCError({ code: "UNAUTHORIZED", message: "Host history access denied" });
+          case 403:
+            throw new TRPCError({ code: "FORBIDDEN", message: "Host history access denied" });
+          case 404:
+            throw new TRPCError({ code: "NOT_FOUND", message: "Host not found" });
+          default:
+            throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Host history is unavailable" });
+        }
+      }
       try {
-        const response = await httpClient.get(`/host/${input.ip}/history`);
-        return response.data as {
-          host_ip: string;
-          timeline: Array<{
-            event_type: string;
-            timestamp: string;
-            source: string;
-            details: string;
-          }>;
-          sources: string[];
-        };
-      } catch (error) {
-        console.error("Error fetching host history:", error);
-        return {
-          host_ip: input.ip,
-          timeline: [],
-          sources: [],
-        };
+        return acceptedHostHistoryResponse.parse(response.data);
+      } catch {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Host history is unavailable" });
       }
     }),
 

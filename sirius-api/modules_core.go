@@ -69,7 +69,10 @@ func buildCommunityModuleRegistry(kvStore store.KVStore) (*module.Registry, erro
 	if err != nil {
 		return nil, err
 	}
-	scan, err := adapt(module.IDScan, &routes.ScanRouteSetter{})
+	scanState, _ := kvStore.(services.ScanReservationStore)
+	scan, err := adapt(module.IDScan, &routes.ScanRouteSetter{
+		Submission: services.NewScanAdmission(scanState, services.NewRabbitMQScanPublisher()),
+	})
 	if err != nil {
 		return nil, err
 	}

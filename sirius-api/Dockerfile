@@ -7,7 +7,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 FROM golang:1.24-alpine AS utility-go-binaries
 
-ARG APP_SYSTEM_MONITOR_COMMIT_SHA=5e6b8db1a0d15e31519aa2fba62a9d9ce401a3c2
+ARG APP_SYSTEM_MONITOR_COMMIT_SHA=abbeea729b909a239a376806f5b3541bc3b585bc
 
 RUN apk add --no-cache git ca-certificates tzdata
 
@@ -73,7 +73,7 @@ RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o sirius-api .
 
 # Build the core schema migrator from the pinned go-api module (one-shot compose service).
-ARG GO_API_COMMIT_SHA=2ceb0951105d9f322b9825210e84086632b624b3
+ARG GO_API_COMMIT_SHA=eec099d012845817d22a37c72db8f89e8c609032
 RUN git clone https://github.com/SiriusScan/go-api.git /tmp/go-api && \
     cd /tmp/go-api && \
     git checkout ${GO_API_COMMIT_SHA} && \
@@ -100,11 +100,12 @@ RUN mkdir -p /system-monitor
 # Copy API binary from builder stage
 COPY --from=builder /app/sirius-api /app/sirius-api
 COPY --from=builder /app/migrate /app/migrate
+COPY start-runtime.sh /app/start-runtime.sh
 
 COPY --from=utility-go-binaries /usr/local/bin/system-monitor /system-monitor/system-monitor
 COPY --from=utility-go-binaries /usr/local/bin/administrator /app/administrator
 
-RUN chmod +x /system-monitor/system-monitor /app/administrator /app/sirius-api /app/migrate
+RUN chmod +x /system-monitor/system-monitor /app/administrator /app/sirius-api /app/migrate /app/start-runtime.sh
 
 RUN chown -R appuser:appgroup /app /system-monitor
 
@@ -112,4 +113,4 @@ USER appuser
 
 EXPOSE 9001
 
-CMD ["sh", "-c", "CONTAINER_NAME=sirius-api /system-monitor/system-monitor >> /tmp/system-monitor.log 2>&1 & CONTAINER_NAME=sirius-api /app/administrator >> /tmp/administrator.log 2>&1 & /app/sirius-api"]
+CMD ["/app/start-runtime.sh"]

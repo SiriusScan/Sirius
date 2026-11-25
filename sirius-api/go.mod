@@ -3,11 +3,12 @@ module github.com/SiriusScan/sirius-api
 go 1.24.0
 
 require (
-	github.com/SiriusScan/go-api v0.0.29
+	github.com/SiriusScan/go-api v0.0.33
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/gofiber/fiber/v2 v2.49.2
 	github.com/google/uuid v1.6.0
 	github.com/oasdiff/oasdiff v1.11.7
+	github.com/streadway/amqp v1.1.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -35,7 +36,6 @@ require (
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	github.com/streadway/amqp v1.1.0 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect

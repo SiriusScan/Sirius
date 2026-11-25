@@ -45,6 +45,31 @@ Use **`644` (owner read/write, world read)** on `secrets/sirius_api_key.txt`, no
 
 Re-run the installer to add `SIRIUS_API_KEY_FILE=/run/secrets/sirius_api_key` to `.env` if it is missing. Services accept **either** the file or `SIRIUS_API_KEY` during transition.
 
+## Core schema startup and upgrade
+
+Production and development Compose run the one-shot `sirius-migrate` service
+before starting the API and engine. The API uses
+`SIRIUS_SCHEMA_MODE=verify`, so it reads the required ledger versions and exits
+before serving traffic when migrations are pending. Verify mode takes
+precedence over the SDK's legacy AutoMigrate and reset flags.
+
+Standalone and Swarm installations use `SIRIUS_SCHEMA_MODE=apply` by default.
+Swarm mounts the existing external `postgres_password` secret into the API.
+The packaged API loads it before the Go SDK initializes. Explicit
+`DB_PASSWORD` and `POSTGRES_PASSWORD` take precedence.
+Set `SIRIUS_SCHEMA_MODE=verify` when a dedicated migrator owns schema changes in
+those installations. `SIRIUS_SCHEMA_STARTUP_TIMEOUT` takes a Go duration and
+defaults to `10m`. Packaged containers default PostgreSQL connection attempts
+to ten seconds through `PGCONNECT_TIMEOUT`. For a larger one-shot migration,
+pass a longer deadline with
+`docker compose run --rm sirius-migrate -timeout=25m`.
+
+For the first upgrade to a release with migration locking, stop old processes
+that can perform migrations against the database. Run the new one-shot migrator
+exclusively, then start the new API and engine. Older migration binaries predate
+the lock. Check `docker compose ps -a sirius-migrate` and
+`docker compose logs sirius-migrate sirius-api` if startup is blocked.
+
 ## Release Image Propagation Verification
 
 Use this path to validate what operators experience when running pulled release images.

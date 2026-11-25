@@ -120,6 +120,11 @@ func TestResourcesRecoverAndShowExpiredSamplesAsMissing(t *testing.T) {
 				row.CollectorUptimeSeconds == nil || *row.CollectorUptimeSeconds != 0 {
 				t.Fatalf("upgraded collector provenance or measured zero missing: %+v", row)
 			}
+			if summary := data.Summary; summary.TotalCPUPercent != 5 || summary.TotalMemoryPercent != 1 || summary.TotalMemoryUsage != "64.0B" {
+				t.Fatalf("legacy totals lost fresh measurements: %+v", summary)
+			}
+		} else if summary := data.Summary; summary.TotalCPUPercent != 0 || summary.TotalMemoryPercent != 0 || summary.TotalMemoryUsage != "0B" {
+			t.Fatalf("legacy totals retained an expired observation: %+v", summary)
 		}
 		now = now.Add(31 * time.Second)
 		if status == "stale" {

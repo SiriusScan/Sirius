@@ -12,7 +12,7 @@ cleanup() {
 trap cleanup EXIT
 
 # These are immutable public revisions. Update only after reviewing compatibility.
-scanner_commit=15e25fbeb2d54c26c4790330b3f5ada9e90b2f4e
+scanner_commit=cbf4535f609cfc9f162fe56fbe3c2c2f5b0fb27f
 ping_commit=9508a16c40a49746feb7cab4b8c1c358246169b0
 
 git clone --quiet --no-checkout https://github.com/SiriusScan/app-scanner.git "$test_dir/scanner"

@@ -37,7 +37,7 @@ mechanically (see `.github/workflows/check-pin-consistency.yml`).
 
 | ARG | Repository | Used by | Notes |
 | --- | --- | --- | --- |
-| `GO_API_COMMIT_SHA` | `SiriusScan/go-api` | Packaged migrator and SDK source in the engine image | Full SHA of the SDK tag locked in the API Go module files. Workers use their own Go module locks. |
+| `GO_API_COMMIT_SHA` | `SiriusScan/go-api` | Packaged migrator and sibling SDK source used by app-terminal | Full SHA of the SDK tag locked in the API Go module files. The scanner and agent select SDK versions through their own locks. |
 | `APP_SCANNER_COMMIT_SHA` | `SiriusScan/app-scanner` | Scanner binary (`/scanner`) | Full SHA. CGO build, depends on `libpcap` and `pingpp`. |
 | `APP_TERMINAL_COMMIT_SHA` | `SiriusScan/app-terminal` | Terminal binary (`/terminal`) | Full SHA. |
 | `SIRIUS_NSE_COMMIT_SHA` | `SiriusScan/sirius-nse` | NSE script repo bundled with the scanner | Full SHA. |

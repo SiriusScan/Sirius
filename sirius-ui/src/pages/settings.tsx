@@ -148,7 +148,7 @@ const Settings: NextPage = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-gray-400">User Name</Label>
+                  <Label className="text-gray-400">Sign-in Name</Label>
                   <Input
                     type="text"
                     placeholder="Enter your user name"

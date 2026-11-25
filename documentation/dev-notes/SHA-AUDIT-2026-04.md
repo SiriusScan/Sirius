@@ -276,6 +276,16 @@ engine pin advanced.
 
 The agent uses Go SDK `v0.0.24`, protocol `1.0.0`, and admission contract `1.0.0` at this pin.
 
+### November 24 follow-up for resource observations
+
+The six monitor-bearing Sirius images advance `app-system-monitor` from the
+previous engine pin `d4780cff46c98d6d030d03a4c73a40a78c7895ae` to
+`abbeea729b909a239a376806f5b3541bc3b585bc`. The collector retains its
+five-second sample interval and expires each key after 60 seconds. Version 2
+observations encode unsupported measurements as JSON null and retain measured
+zero. The Dockerfile defaults, CI fallback arguments and core manifest fixture
+use the same SHA. [Upstream collector update](https://github.com/SiriusScan/app-system-monitor/pull/4)
+
 ## Risk register
 
 - `**app-scanner` sed → source rewrite (Phase 2)** is the highest-risk

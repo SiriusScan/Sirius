@@ -158,25 +158,33 @@ paths:
     get:
       tags: [system]
       operationId: getSystemResources
-      summary: Container resource snapshot (ops)
-      description: Internal/ops surface. May return real or mock container metrics.
+      summary: System resource observations
+      description: Current totals include only fresh observations. Timestamp records the response time. Observed-at values record collector sample times.
       security:
         - ApiKeyAuth: []
       parameters:
         - $ref: '#/components/parameters/RequestID'
       responses:
         '200':
-          description: Resource payload (real or mock)
+          description: Resource observations including available, partial, or unavailable coverage
           headers:
             X-Request-ID:
               $ref: '#/components/headers/RequestID'
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/SystemResourceObservations'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '503':
+          description: All resource telemetry reads failed
+          headers:
+            X-Request-ID:
+              $ref: '#/components/headers/RequestID'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemResourceObservations'
 
   /api/v1/performance/metrics:
     get:
@@ -1428,6 +1436,119 @@ components:
           type: string
         end_time:
           type: string
+    SystemResourceObservations:
+      type: object
+      description: Additive observation fields for the v1 resource response.
+      additionalProperties: true
+      properties:
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+          description: Time the API generated the response.
+        availability:
+          type: string
+          enum: [available, partial, unavailable]
+        freshness_seconds:
+          type: integer
+        containers:
+          type: array
+          items:
+            $ref: '#/components/schemas/SystemResourceObservation'
+        summary:
+          type: object
+          properties:
+            total_containers:
+              type: integer
+            running_containers:
+              type: integer
+              description: Legacy count of fresh collectors reporting running status.
+            fresh_containers:
+              type: integer
+            stale_containers:
+              type: integer
+            missing_containers:
+              type: integer
+            invalid_containers:
+              type: integer
+            unavailable_containers:
+              type: integer
+            total_cpu_percent:
+              type: number
+              deprecated: true
+              description: Legacy sum of measured CPU percentages from fresh collectors reporting running status. An empty sum is zero. Use peak_cpu_percent for current CPU observations.
+            total_memory_usage:
+              type: string
+              description: Legacy formatted sum of measured memory bytes from fresh collectors reporting running status.
+            total_memory_percent:
+              type: number
+              deprecated: true
+              description: Legacy sum of measured memory percentages from fresh collectors reporting running status. An empty sum is zero. Individual percentages use different limits.
+            peak_cpu_percent:
+              type: number
+              description: Highest fresh measured collector CPU percentage. Omitted when unavailable.
+            observed_memory_bytes:
+              type: integer
+              description: Sum of fresh measured bytes. Omitted when unavailable.
+            latest_observed_at:
+              type: string
+              format: date-time
+    SystemResourceObservation:
+      type: object
+      additionalProperties: true
+      properties:
+        name:
+          type: string
+        telemetry_status:
+          type: string
+          enum: [fresh, stale, missing, invalid, unavailable]
+        observed_at:
+          type: string
+          format: date-time
+        collector_started_at:
+          type: string
+          format: date-time
+        collector_uptime_seconds:
+          type: integer
+        measurements:
+          type: object
+          description: Verified resource readings. Each field is omitted if unmeasured. A numeric zero represents an observation.
+          additionalProperties: false
+          properties:
+            cpu_percent:
+              type: number
+            memory_usage_bytes:
+              type: integer
+            memory_limit_bytes:
+              type: integer
+            memory_percent:
+              type: number
+            network_rx_bytes:
+              type: integer
+            network_tx_bytes:
+              type: integer
+            disk_read_bytes:
+              type: integer
+            disk_write_bytes:
+              type: integer
+            disk_usage_bytes:
+              type: integer
+            disk_total_bytes:
+              type: integer
+            disk_percent:
+              type: number
+            process_count:
+              type: integer
+            file_descriptors:
+              type: integer
+            load_average_1m:
+              type: number
+            load_average_5m:
+              type: number
+            load_average_15m:
+              type: number
+
   responses:
     NetworkScanAdmissionBusy:
       description: The current scan is active, already recorded with this ID, or cannot safely be replaced.

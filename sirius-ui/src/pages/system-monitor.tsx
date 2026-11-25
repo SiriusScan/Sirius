@@ -1,6 +1,5 @@
 import { type NextPage } from "next";
-import { useSession } from "next-auth/react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import Layout from "~/components/Layout";
 import { Badge } from "~/components/lib/ui/badge";
 import { Button } from "~/components/lib/ui/button";
@@ -21,13 +20,14 @@ import {
 } from "lucide-react";
 import {
   healthCheckService,
-  type SystemHealthResponse,
   type ServiceHealth,
 } from "~/services/healthCheckService";
 import { LogDashboard } from "~/components/LogDashboard";
 import { SystemResourcesDashboard } from "~/components/SystemResourcesDashboard";
 import { DockerLogsViewer } from "~/components/DockerLogsViewer";
 import { api } from "~/utils/api";
+import { useSystemResources } from "~/hooks/useSystemResources";
+import { formatResourceBytes } from "~/utils/systemResourceObservations";
 
 // ── Tab definitions ───────────────────────────────────────────────────────────
 type MonitorTab = "services" | "resources" | "logs";
@@ -85,8 +85,10 @@ type ServiceStatus = "up" | "down" | "loading" | "error";
 const ServiceStatusCard: React.FC<{
   serviceConfig: (typeof serviceConfig)[0];
   serviceHealth: ServiceHealth | null;
-  uptime?: string;
-}> = ({ serviceConfig, serviceHealth, uptime }) => {
+  collectorUptime: string;
+  observedAt?: string;
+  telemetryStatus: string;
+}> = ({ serviceConfig, serviceHealth, collectorUptime, observedAt, telemetryStatus }) => {
   const Icon = serviceConfig.icon;
 
   const getStatusColor = (status: ServiceStatus) => {
@@ -150,11 +152,15 @@ const ServiceStatusCard: React.FC<{
               <span className="text-white">{port}</span>
             </div>
           )}
-          {uptime && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Uptime:</span>
-              <span className="text-white">{uptime}</span>
-            </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">Collector uptime</span>
+            <span className="text-white">{collectorUptime}</span>
+          </div>
+          {observedAt && (
+            <p className="text-xs text-gray-400">
+              {telemetryStatus === "stale" ? "Stale observation" : "Observed"}{" "}
+              {new Date(observedAt).toLocaleString()}
+            </p>
           )}
         </div>
       </div>
@@ -164,15 +170,21 @@ const ServiceStatusCard: React.FC<{
 
 // ── Page Component ────────────────────────────────────────────────────────────
 const SystemMonitor: NextPage = () => {
-  const { data: sessionData } = useSession();
   const [activeTab, setActiveTab] = useState<MonitorTab>("services");
-  const [systemHealth, setSystemHealth] = useState<SystemHealthResponse | null>(
-    null,
-  );
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [resourceData, setResourceData] = useState<any>(null);
-  const [resourceLoading, setResourceLoading] = useState(false);
+  const health = api.system.health.useQuery(undefined, { refetchInterval: 5000 });
+  const systemHealth = health.isError ? null : health.data ?? null;
+  const error = health.isError ? health.error.message : null;
+  const isRefreshing = health.isFetching;
+  const {
+    data: resourceData,
+    freshCount,
+    partial,
+    peakCPU,
+    peakDisk,
+    observedMemory,
+    loading: resourceLoading,
+    refetch: refetchResources,
+  } = useSystemResources(5000, activeTab === "services");
 
   // Fetch recent events and filter for error/warning/critical
   const { data: eventsData, isLoading: errorEventsLoading } =
@@ -194,88 +206,11 @@ const SystemMonitor: NextPage = () => {
       .slice(0, 3);
   }, [eventsData]);
 
-  // Load resource data for dashboard
-  const loadResourceData = async () => {
-    try {
-      setResourceLoading(true);
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/resources`,
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setResourceData(data);
-      }
-    } catch (error) {
-      console.error("Error loading resource data:", error);
-    } finally {
-      setResourceLoading(false);
-    }
-  };
-
-  // Get uptime for a specific service from resource data
-  const getServiceUptime = (serviceId: string): string | undefined => {
-    if (!resourceData?.containers) return undefined;
-
-    const containerNameMap: Record<string, string> = {
-      "sirius-ui": "sirius-ui",
-      "sirius-api": "sirius-api",
-      "sirius-engine": "sirius-engine",
-      "sirius-postgres": "sirius-postgres",
-      "sirius-valkey": "sirius-valkey",
-      "sirius-rabbitmq": "sirius-rabbitmq",
-    };
-
-    const containerName = containerNameMap[serviceId];
-    if (!containerName) return undefined;
-
-    const container = resourceData.containers.find(
-      (c: any) => c.name === containerName,
-    );
-    return container?.uptime;
-  };
-
-  // Start polling for health checks on component mount
-  useEffect(() => {
-    const stopPolling = healthCheckService.startPolling(
-      (health) => {
-        setSystemHealth(health);
-        setError(null);
-      },
-      (err) => {
-        setError(err.message);
-        console.error("Health check error:", err);
-      },
-      {
-        interval: 5000,
-        retries: 3,
-        timeout: 5000,
-      },
-    );
-
-    // Load resource data on mount
-    loadResourceData();
-
-    return () => {
-      stopPolling();
-    };
-  }, []);
-
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    setError(null);
-
-    try {
-      const health = await healthCheckService.checkSystemHealth();
-      setSystemHealth(health);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to refresh health status",
-      );
-    } finally {
-      setIsRefreshing(false);
-    }
+    await Promise.all([
+      health.refetch(),
+      activeTab === "services" ? refetchResources() : Promise.resolve(),
+    ]);
   };
 
   const serviceCounts = healthCheckService.getServiceCounts(systemHealth);
@@ -411,6 +346,12 @@ const SystemMonitor: NextPage = () => {
               <h2 className="mb-4 text-xl font-medium text-white">
                 Resource Overview
               </h2>
+              {resourceData?.summary.latest_observed_at && (
+                <p className="mb-3 text-xs text-gray-400">
+                  Latest observation {new Date(resourceData.summary.latest_observed_at).toLocaleString()}
+                  {partial && " · Partial coverage"}
+                </p>
+              )}
               {resourceLoading ? (
                 <div className="flex h-32 items-center justify-center">
                   <div className="flex items-center space-x-2">
@@ -418,7 +359,7 @@ const SystemMonitor: NextPage = () => {
                     <span>Loading resource data...</span>
                   </div>
                 </div>
-              ) : resourceData?.summary ? (
+              ) : freshCount && resourceData ? (
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                   {/* Peak CPU Usage */}
                   <div className="rounded-xl border border-gray-700/50 bg-gray-800/40">
@@ -429,15 +370,7 @@ const SystemMonitor: NextPage = () => {
                         </div>
                         <div>
                           <p className="text-2xl font-bold text-white">
-                            {resourceData.containers &&
-                            resourceData.containers.length > 0
-                              ? Math.max(
-                                  ...resourceData.containers.map(
-                                    (c: any) => c.cpu_percent || 0,
-                                  ),
-                                ).toFixed(1)
-                              : "0.0"}
-                            %
+                            {peakCPU === undefined ? "—" : `${peakCPU.toFixed(1)}%`}
                           </p>
                           <p className="text-sm text-gray-400">
                             Peak CPU Usage
@@ -456,12 +389,9 @@ const SystemMonitor: NextPage = () => {
                         </div>
                         <div>
                           <p className="text-2xl font-bold text-white">
-                            {resourceData.summary.total_memory_percent?.toFixed(
-                              1,
-                            ) || "0.0"}
-                            %
+                            {freshCount}/{resourceData.summary.total_containers}
                           </p>
-                          <p className="text-sm text-gray-400">Memory Usage</p>
+                          <p className="text-sm text-gray-400">Fresh collectors</p>
                         </div>
                       </div>
                     </div>
@@ -476,20 +406,10 @@ const SystemMonitor: NextPage = () => {
                         </div>
                         <div>
                           <p className="text-2xl font-bold text-white">
-                            {resourceData.containers &&
-                            resourceData.containers.length > 0
-                              ? resourceData.containers
-                                  .reduce(
-                                    (sum: number, container: any) =>
-                                      sum + (container.disk_percent || 0),
-                                    0,
-                                  )
-                                  .toFixed(1)
-                              : "0.0"}
-                            %
+                            {peakDisk === undefined ? "—" : `${peakDisk.toFixed(1)}%`}
                           </p>
                           <p className="text-sm text-gray-400">
-                            Total Disk Usage
+                            Peak Disk Usage
                           </p>
                         </div>
                       </div>
@@ -505,9 +425,9 @@ const SystemMonitor: NextPage = () => {
                         </div>
                         <div>
                           <p className="text-2xl font-bold text-white">
-                            {resourceData.summary.total_memory_usage || "0MB"}
+                            {observedMemory === undefined ? "—" : formatResourceBytes(observedMemory)}
                           </p>
-                          <p className="text-sm text-gray-400">Memory Used</p>
+                          <p className="text-sm text-gray-400">Observed memory</p>
                         </div>
                       </div>
                     </div>
@@ -516,9 +436,9 @@ const SystemMonitor: NextPage = () => {
               ) : (
                 <div className="flex h-32 items-center justify-center">
                   <div className="text-center">
-                    <p className="text-gray-400">No resource data available</p>
+                    <p className="text-gray-400">Current resource telemetry is unavailable.</p>
                     <Button
-                      onClick={loadResourceData}
+                      onClick={() => void refetchResources()}
                       variant="outline"
                       className="mt-2"
                     >
@@ -536,17 +456,19 @@ const SystemMonitor: NextPage = () => {
                 Service Status
               </h2>
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {serviceConfig.map((service) => (
-                  <ServiceStatusCard
-                    key={service.id}
-                    serviceConfig={service}
-                    serviceHealth={healthCheckService.getServiceStatus(
-                      service.id,
-                      systemHealth,
-                    )}
-                    uptime={getServiceUptime(service.id)}
-                  />
-                ))}
+                {serviceConfig.map((service) => {
+                  const observation = resourceData?.containers.find((row) => row.name === service.id);
+                  return (
+                    <ServiceStatusCard
+                      key={service.id}
+                      serviceConfig={service}
+                      serviceHealth={healthCheckService.getServiceStatus(service.id, systemHealth)}
+                      collectorUptime={observation?.collector_uptime_seconds === undefined ? "Unavailable" : observation.uptime}
+                      observedAt={observation?.observed_at}
+                      telemetryStatus={observation?.telemetry_status ?? "unavailable"}
+                    />
+                  );
+                })}
               </div>
             </div>
 

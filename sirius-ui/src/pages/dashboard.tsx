@@ -48,7 +48,6 @@ const Dashboard: NextPage = () => {
 
   // Fetch dashboard data (no auto-refresh)
   const { data, isLoading, error } = useDashboardData({
-    enableSystemMetrics: showSystemHealth,
     vulnerabilityRefetch: false,
     hostRefetch: false,
     agentRefetch: false,
@@ -255,7 +254,7 @@ const Dashboard: NextPage = () => {
           >
             <span className="flex items-center gap-2 text-violet-300">
               <Activity className="h-4 w-4" />
-              System Health Monitoring
+              System Telemetry
             </span>
             {showSystemHealth ? (
               <ChevronUp className="h-4 w-4 text-violet-400" />

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { api } from "~/utils/api";
+import { useSystemResources } from "~/hooks/useSystemResources";
 
 export interface DashboardVulnerabilityCounts {
   total: number;
@@ -24,10 +25,9 @@ export interface DashboardAgentData {
 
 export interface DashboardSystemMetrics {
   totalContainers: number;
-  runningContainers: number;
-  totalCpuPercent: number;
-  totalMemoryUsage: string;
-  totalMemoryPercent: number;
+  freshContainers: number;
+  peakCpuPercent?: number;
+  observedMemoryBytes?: number;
 }
 
 export interface DashboardData {
@@ -114,54 +114,18 @@ export const useDashboardData = (
     keepPreviousData: true, // Prevent flash on refetch
   });
 
-  // Fetch system metrics (optional)
-  const [systemMetrics, setSystemMetrics] =
-    useState<DashboardSystemMetrics | null>(null);
-  const [systemMetricsLoading, setSystemMetricsLoading] = useState(false);
-
-  const fetchSystemMetrics = useCallback(async () => {
-    if (!enableSystemMetrics) return;
-
-    try {
-      setSystemMetricsLoading(true);
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/resources`
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+  const {
+    data: resources, freshCount, peakCPU, observedMemory,
+    loading: systemMetricsLoading, refetch: refetchResources,
+  } = useSystemResources(systemMetricsRefetch, enableSystemMetrics);
+  const systemMetrics: DashboardSystemMetrics | null = freshCount && resources
+    ? {
+        totalContainers: resources.summary.total_containers,
+        freshContainers: freshCount,
+        peakCpuPercent: peakCPU,
+        observedMemoryBytes: observedMemory,
       }
-
-      const data = await response.json();
-      setSystemMetrics({
-        totalContainers: data.summary.total_containers,
-        runningContainers: data.summary.running_containers,
-        totalCpuPercent: data.summary.total_cpu_percent,
-        totalMemoryUsage: data.summary.total_memory_usage,
-        totalMemoryPercent: data.summary.total_memory_percent,
-      });
-    } catch (error) {
-      console.error("Failed to fetch system metrics:", error);
-      setSystemMetrics(null);
-    } finally {
-      setSystemMetricsLoading(false);
-    }
-  }, [enableSystemMetrics]);
-
-  // Auto-fetch system metrics
-  React.useEffect(() => {
-    if (enableSystemMetrics) {
-      fetchSystemMetrics();
-
-      const interval = setInterval(() => {
-        fetchSystemMetrics();
-      }, systemMetricsRefetch);
-
-      return () => clearInterval(interval);
-    }
-  }, [enableSystemMetrics, systemMetricsRefetch, fetchSystemMetrics]);
+    : null;
 
   // Manual refresh function
   const refresh = useCallback(async () => {
@@ -169,7 +133,7 @@ export const useDashboardData = (
       refetchVulns(),
       refetchHosts(),
       refetchAgents(),
-      enableSystemMetrics ? fetchSystemMetrics() : Promise.resolve(),
+      enableSystemMetrics ? refetchResources() : Promise.resolve(),
     ]);
     setLastUpdated(new Date());
   }, [
@@ -177,7 +141,7 @@ export const useDashboardData = (
     refetchHosts,
     refetchAgents,
     enableSystemMetrics,
-    fetchSystemMetrics,
+    refetchResources,
   ]);
 
   // Update last updated timestamp when data changes

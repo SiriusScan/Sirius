@@ -2,9 +2,12 @@
 #
 # Build system-monitor in-image so the postgres container is self-contained.
 FROM golang:1.24-alpine AS go-binaries
+
+ARG APP_SYSTEM_MONITOR_COMMIT_SHA=abbeea729b909a239a376806f5b3541bc3b585bc
 RUN apk add --no-cache git ca-certificates tzdata && \
     git clone https://github.com/SiriusScan/app-system-monitor.git /tmp/system-monitor && \
     cd /tmp/system-monitor && \
+    git checkout ${APP_SYSTEM_MONITOR_COMMIT_SHA} && \
     go mod download && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /usr/local/bin/system-monitor main.go && \
     rm -rf /tmp/system-monitor

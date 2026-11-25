@@ -15,6 +15,7 @@ import { eventsRouter } from "~/server/api/routers/events";
 import { agentScanRouter } from "~/server/api/routers/agentScan";
 import { apikeysRouter } from "~/server/api/routers/apikeys";
 import { logsRouter } from "~/server/api/routers/logs";
+import { systemRouter } from "~/server/api/routers/system";
 import { createTRPCRouter } from "~/server/api/trpc";
 import { serverExtensionRegistry } from "~/server/extensions";
 import { registeredServerRouters } from "~/server/extensions/registered-routers";
@@ -44,6 +45,7 @@ const routers = {
   agentScan: agentScanRouter,
   apikeys: apikeysRouter,
   logs: logsRouter,
+  system: systemRouter,
   ...registeredServerRouters,
 };
 

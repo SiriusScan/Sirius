@@ -42,7 +42,7 @@ search_keywords:
 
 ## Overview
 
-The SystemMonitor is a critical component that provides real-time system resource monitoring for all Sirius containers. It collects CPU, memory, network, disk, and process metrics from within containerized environments and stores them in Valkey for centralized monitoring and alerting.
+The SystemMonitor is a critical component that provides real-time system resource monitoring for all Sirius containers. It collects CPU, memory, network, and process metrics from within containerized environments and stores them in Valkey for centralized monitoring and alerting.
 
 **Key Features:**
 
@@ -50,7 +50,7 @@ The SystemMonitor is a critical component that provides real-time system resourc
 - Support for both development (`go run`) and production (binary) modes
 - Multi-architecture support (amd64, arm64)
 - CPU drift-free monitoring with time-based calculations
-- Automatic fallback mechanisms for missing metrics
+- Explicit stale and missing telemetry states
 
 ## Architecture
 
@@ -290,20 +290,27 @@ fi
 
 ```json
 {
+  "observation_version": 2,
   "container_name": "sirius-postgres",
   "timestamp": "2025-01-07T12:00:00Z",
+  "collector_started_at": "2025-01-07T11:00:00Z",
+  "collector_uptime_seconds": 3600,
   "cpu_percent": 15.2,
   "memory_usage_bytes": 67108864,
-  "memory_percent": 1.8,
+  "memory_limit_bytes": 1073741824,
+  "memory_percent": 6.25,
   "network_rx_bytes": 1048576,
   "network_tx_bytes": 524288,
-  "disk_usage_bytes": 134217728,
-  "disk_percent": 1.3,
+  "disk_read_bytes": null,
+  "disk_write_bytes": null,
+  "disk_usage_bytes": null,
+  "disk_total_bytes": null,
+  "disk_percent": null,
   "process_count": 12,
-  "file_descriptors": 45,
-  "load_average_1m": 0.15,
-  "load_average_5m": 0.12,
-  "load_average_15m": 0.1,
+  "file_descriptors": null,
+  "load_average_1m": null,
+  "load_average_5m": null,
+  "load_average_15m": null,
   "uptime_seconds": 3600,
   "status": "running"
 }
@@ -868,3 +875,11 @@ System monitor started with PID: 8
 ---
 
 _This documentation covers SystemMonitor v2.1+ with development mode support, CPU drift fixes, and multi-stage Docker builds. For older versions, refer to historical documentation or upgrade to the latest version._
+
+## Resource observation availability
+
+The collector writes `system:metrics:{container_name}` with a 60-second expiry. `timestamp` records when it gathered the sample. Its starting time and age identify the collector process. The REST response keeps its own generation timestamp and reports each valid sample time in `observed_at`.
+
+The API uses a 20-second freshness window by default. Set `SIRIUS_METRICS_FRESHNESS_SECONDS` in the API process environment to configure it. Fresh rows alone contribute to current totals. Stale rows retain their last observations. Missing, invalid, and unreadable rows have separate telemetry states. The API returns HTTP 503 if every read fails.
+
+Older collectors' timestamps and reported process ages are supported. Their numeric payloads mix readings and estimates, so those rows show timing and age with unavailable resource measurements. Version 2 producers distinguish measured zero from unknown. The API reports peak observed CPU and the sum of observed memory bytes, with individual resource percentages shown per collector. The new Resources and Dashboard views use the protected session-backed query and require the updated API. Independent probes supply service health, while resource observations supply collector uptime.

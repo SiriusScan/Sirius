@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
+import { useSystemResources } from "~/hooks/useSystemResources";
+import { formatResourceBytes } from "~/utils/systemResourceObservations";
 import {
   Card,
   CardContent,
@@ -37,10 +39,6 @@ import {
   ChevronDown,
   ChevronRight,
   RotateCcw,
-  Play,
-  Square,
-  CheckCircle,
-  XCircle,
 } from "lucide-react";
 import {
   Dialog,
@@ -55,44 +53,12 @@ interface SystemResourceProps {
   className?: string;
 }
 
-interface ContainerResource {
-  name: string;
-  cpu_percent: number;
-  memory_usage: string;
-  memory_percent: number;
-  network_io: string;
-  disk_usage: string;
-  disk_percent: number;
-  process_count: number;
-  file_descriptors: number;
-  load_average_1m: number;
-  load_average_5m: number;
-  load_average_15m: number;
-  uptime: string;
-  status: string;
-}
-
-interface SystemResourcesSummary {
-  total_containers: number;
-  running_containers: number;
-  total_cpu_percent: number;
-  total_memory_usage: string;
-  total_memory_percent: number;
-}
-
-interface SystemResourcesData {
-  containers: ContainerResource[];
-  summary: SystemResourcesSummary;
-  timestamp: string;
-}
-
 export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
   className,
 }) => {
-  const [data, setData] = useState<SystemResourcesData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [refreshInterval, setRefreshInterval] = useState<string>("5");
+  const { data, loading, refreshing, freshCount, partial, unavailable, stale, peakCPU, observedMemory, refetch } =
+    useSystemResources(refreshInterval === "0" ? false : Number(refreshInterval) * 1000);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogContent, setDialogContent] = useState<{
@@ -103,201 +69,9 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
   const [restartingContainers, setRestartingContainers] = useState<Set<string>>(
     new Set()
   );
-  const [containerUptimes, setContainerUptimes] = useState<Map<string, string>>(
-    new Map()
-  );
   const [containerLogs, setContainerLogs] = useState<Map<string, any[]>>(
     new Map()
   );
-
-  // Mock data for fallback
-  const generateMockData = (): SystemResourcesData => {
-    const now = new Date();
-    return {
-      containers: [
-        {
-          name: "sirius-api",
-          cpu_percent: 2.5,
-          memory_usage: "45.2MB",
-          memory_percent: 1.2,
-          network_io: "1.2kB / 856B",
-          disk_usage: "26.1GB / 503.6GB",
-          disk_percent: 5.2,
-          process_count: 3,
-          file_descriptors: 8,
-          load_average_1m: 1.96,
-          load_average_5m: 1.84,
-          load_average_15m: 1.47,
-          uptime: "1d 15h",
-          status: "running",
-        },
-        {
-          name: "sirius-ui",
-          cpu_percent: 1.8,
-          memory_usage: "128.5MB",
-          memory_percent: 3.4,
-          network_io: "2.1kB / 1.2kB",
-          disk_usage: "15.2GB / 503.6GB",
-          disk_percent: 3.0,
-          process_count: 2,
-          file_descriptors: 6,
-          load_average_1m: 0.85,
-          load_average_5m: 0.92,
-          load_average_15m: 0.78,
-          uptime: "1d 15h",
-          status: "running",
-        },
-        {
-          name: "sirius-engine",
-          cpu_percent: 0.5,
-          memory_usage: "89.3MB",
-          memory_percent: 2.1,
-          network_io: "856B / 432B",
-          disk_usage: "8.7GB / 503.6GB",
-          disk_percent: 1.7,
-          process_count: 5,
-          file_descriptors: 12,
-          load_average_1m: 0.45,
-          load_average_5m: 0.38,
-          load_average_15m: 0.42,
-          uptime: "1d 15h",
-          status: "running",
-        },
-        {
-          name: "sirius-postgres",
-          cpu_percent: 0.2,
-          memory_usage: "156.7MB",
-          memory_percent: 4.1,
-          network_io: "3.2kB / 2.1kB",
-          disk_usage: "45.3GB / 503.6GB",
-          disk_percent: 9.0,
-          process_count: 8,
-          file_descriptors: 24,
-          load_average_1m: 0.12,
-          load_average_5m: 0.15,
-          load_average_15m: 0.18,
-          uptime: "1d 15h",
-          status: "running",
-        },
-        {
-          name: "sirius-valkey",
-          cpu_percent: 0.1,
-          memory_usage: "12.3MB",
-          memory_percent: 0.3,
-          network_io: "432B / 256B",
-          disk_usage: "2.1GB / 503.6GB",
-          disk_percent: 0.4,
-          process_count: 1,
-          file_descriptors: 4,
-          load_average_1m: 0.05,
-          load_average_5m: 0.08,
-          load_average_15m: 0.06,
-          uptime: "1d 15h",
-          status: "running",
-        },
-        {
-          name: "sirius-rabbitmq",
-          cpu_percent: 0.3,
-          memory_usage: "67.8MB",
-          memory_percent: 1.8,
-          network_io: "1.5kB / 1.1kB",
-          disk_usage: "3.4GB / 503.6GB",
-          disk_percent: 0.7,
-          process_count: 4,
-          file_descriptors: 16,
-          load_average_1m: 0.18,
-          load_average_5m: 0.22,
-          load_average_15m: 0.19,
-          uptime: "1d 15h",
-          status: "running",
-        },
-      ],
-      summary: {
-        total_containers: 6,
-        running_containers: 6,
-        total_cpu_percent: 5.4,
-        total_memory_usage: "499.8MB",
-        total_memory_percent: 13.1,
-      },
-      timestamp: now.toISOString(),
-    };
-  };
-
-  const loadSystemResources = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Fetch real system resource data from API
-      const response = await fetch(
-        `${
-          process.env.NEXT_PUBLIC_SIRIUS_API_URL || "http://localhost:9001"
-        }/api/v1/system/resources`
-      );
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const apiData = await response.json();
-
-      // Check for container restarts by comparing uptimes
-      if (apiData.containers) {
-        const newUptimes = new Map<string, string>();
-        const newRestartingContainers = new Set(restartingContainers);
-
-        apiData.containers.forEach((container: ContainerResource) => {
-          const previousUptime = containerUptimes.get(container.name);
-          newUptimes.set(container.name, container.uptime);
-
-          // If uptime changed and container was restarting, it's back online
-          if (
-            previousUptime &&
-            previousUptime !== container.uptime &&
-            restartingContainers.has(container.name)
-          ) {
-            newRestartingContainers.delete(container.name);
-            console.log(
-              `Container ${container.name} has restarted successfully`
-            );
-          }
-        });
-
-        setContainerUptimes(newUptimes);
-        setRestartingContainers(newRestartingContainers);
-      }
-
-      setData(apiData);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load system resources"
-      );
-      console.error("Failed to load system resources:", err);
-
-      // Fallback to mock data on error
-      const mockData = generateMockData();
-      setData(mockData);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadSystemResources();
-  }, []);
-
-  // Auto-refresh based on interval
-  useEffect(() => {
-    if (refreshInterval === "0") return; // Disabled
-
-    const interval = setInterval(() => {
-      loadSystemResources();
-    }, parseInt(refreshInterval) * 1000);
-
-    return () => clearInterval(interval);
-  }, [refreshInterval]);
-
-  const handleRefresh = () => {
-    loadSystemResources();
-  };
 
   // Load recent logs for a specific container
   const loadContainerLogs = async (containerName: string) => {
@@ -320,17 +94,12 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
     }
   };
 
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "running":
-        return "default";
-      case "exited":
-        return "destructive";
-      case "paused":
-        return "secondary";
-      default:
-        return "outline";
-    }
+  const telemetryLabels = {
+    fresh: "Fresh",
+    stale: "Stale",
+    missing: "Missing",
+    invalid: "Invalid",
+    unavailable: "Unavailable",
   };
 
   const getCpuColor = (cpuPercent: number) => {
@@ -361,10 +130,8 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
     } else {
       newExpanded.add(index);
       // Load logs when expanding
-      if (data && data.containers[index]) {
-        const containerName = data.containers[index].name;
-        loadContainerLogs(containerName);
-      }
+      const container = data?.containers[index];
+      if (container) void loadContainerLogs(container.name);
     }
     setExpandedRows(newExpanded);
   };
@@ -400,7 +167,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
             System Resources
           </h2>
           <p className="text-muted-foreground">
-            Real-time container resource monitoring
+            Collector resource observations
           </p>
         </div>
         <div className="flex items-center space-x-4">
@@ -418,23 +185,23 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
               <SelectItem value="300">5m</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={handleRefresh} disabled={loading} variant="outline">
+          <Button onClick={() => void refetch()} disabled={refreshing} variant="outline">
             <RefreshCw
-              className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
             />
             Refresh
           </Button>
         </div>
       </div>
 
-      {/* Error Alert */}
-      {error && (
-        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/20 p-4">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5 text-red-400" />
-            <span className="font-medium text-red-400">Error</span>
-          </div>
-          <p className="mt-1 text-sm text-red-300">{error}</p>
+      {(stale || unavailable || partial) && (
+        <div role="status" className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-300">
+          <AlertTriangle className="h-5 w-5" />
+          {stale
+            ? "Showing last observations. Current resource totals are unavailable."
+            : unavailable
+            ? "Current resource telemetry is unavailable."
+            : "Resource totals include only collectors with fresh observations."}
         </div>
       )}
 
@@ -453,28 +220,24 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                 {data.summary.total_containers}
               </div>
               <p className="text-xs text-muted-foreground">
-                {data.summary.running_containers} running
+                {freshCount ? `${freshCount} with fresh telemetry` : "No fresh telemetry"}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total CPU</CardTitle>
+              <CardTitle className="text-sm font-medium">Peak reported CPU</CardTitle>
               <Cpu className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${getCpuColor(
-                  data.summary.total_cpu_percent
-                )}`}
+                className="text-2xl font-bold"
               >
-                {data.summary.total_cpu_percent.toFixed(1)}%
+                {peakCPU === undefined ? "—" : `${peakCPU.toFixed(1)}%`}
               </div>
               <p className="text-xs text-muted-foreground">
-                {data.summary.total_cpu_percent < 50
-                  ? "Low usage"
-                  : "High usage"}
+                {peakCPU === undefined ? "Unavailable" : "Fresh observations"}
               </p>
             </CardContent>
           </Card>
@@ -482,20 +245,18 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Total Memory
+                Observed memory
               </CardTitle>
               <MemoryStick className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div
-                className={`text-2xl font-bold ${getMemoryColor(
-                  data.summary.total_memory_percent
-                )}`}
+                className="text-2xl font-bold"
               >
-                {data.summary.total_memory_usage}
+                {observedMemory === undefined ? "—" : formatResourceBytes(observedMemory)}
               </div>
               <p className="text-xs text-muted-foreground">
-                {data.summary.total_memory_percent.toFixed(1)}% of system
+                {observedMemory === undefined ? "Unavailable" : "Sum of fresh readings"}
               </p>
             </CardContent>
           </Card>
@@ -503,13 +264,15 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Last Updated
+                Latest Observation
               </CardTitle>
               <RefreshCw className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {formatTimestamp(data.timestamp)}
+                {data.summary.latest_observed_at
+                  ? formatTimestamp(data.summary.latest_observed_at)
+                  : "—"}
               </div>
               <p className="text-xs text-muted-foreground">
                 {refreshInterval === "0"
@@ -534,12 +297,12 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
               <TableHeader>
                 <TableRow>
                   <TableHead>Container</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Telemetry</TableHead>
                   <TableHead>CPU</TableHead>
                   <TableHead>Memory</TableHead>
                   <TableHead>Network I/O</TableHead>
                   <TableHead>Disk Usage</TableHead>
-                  <TableHead>Uptime</TableHead>
+                  <TableHead>Collector uptime</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -565,17 +328,20 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={getStatusBadgeVariant(container.status)}
-                        >
-                          {container.status}
+                        <Badge variant={container.telemetry_status === "fresh" ? "default" : "outline"}>
+                          {telemetryLabels[container.telemetry_status]}
                         </Badge>
+                        {container.observed_at && (
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {formatTimestamp(container.observed_at)}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center space-x-2">
                           <Cpu className="h-4 w-4" />
                           <span className={getCpuColor(container.cpu_percent)}>
-                            {container.cpu_percent.toFixed(1)}%
+                            {container.measurements.cpu_percent === undefined ? "—" : `${container.cpu_percent.toFixed(1)}%`}
                           </span>
                         </div>
                       </TableCell>
@@ -584,14 +350,14 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                           <MemoryStick className="h-4 w-4" />
                           <div>
                             <div className="font-medium">
-                              {container.memory_usage}
+                              {container.measurements.memory_usage_bytes === undefined ? "—" : container.memory_usage}
                             </div>
                             <div
                               className={`text-xs ${getMemoryColor(
                                 container.memory_percent
                               )}`}
                             >
-                              {container.memory_percent.toFixed(1)}%
+                              {container.measurements.memory_percent === undefined ? "" : `${container.memory_percent.toFixed(1)}%`}
                             </div>
                           </div>
                         </div>
@@ -600,7 +366,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                         <div className="flex items-center space-x-2">
                           <Network className="h-4 w-4" />
                           <span className="font-mono text-sm">
-                            {container.network_io}
+                            {container.measurements.network_rx_bytes === undefined && container.measurements.network_tx_bytes === undefined ? "—" : container.network_io}
                           </span>
                         </div>
                       </TableCell>
@@ -609,14 +375,14 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                           <HardDrive className="h-4 w-4" />
                           <div>
                             <div className="text-sm font-medium">
-                              {container.disk_usage}
+                              {container.measurements.disk_usage_bytes === undefined && container.measurements.disk_total_bytes === undefined ? "—" : container.disk_usage}
                             </div>
                             <div
                               className={`text-xs ${getDiskColor(
                                 container.disk_percent
                               )}`}
                             >
-                              {container.disk_percent.toFixed(1)}%
+                              {container.measurements.disk_percent === undefined ? "" : `${container.disk_percent.toFixed(1)}%`}
                             </div>
                           </div>
                         </div>
@@ -625,7 +391,7 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                         <div className="flex items-center space-x-2">
                           <Clock className="h-4 w-4" />
                           <span className="font-mono text-sm">
-                            {container.uptime}
+                            {container.collector_uptime_seconds === undefined ? "—" : container.uptime}
                           </span>
                         </div>
                       </TableCell>
@@ -676,16 +442,10 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                                     const result = await response.json();
                                     setDialogContent({
                                       title: "Restart Command Sent",
-                                      message: `Restart command sent successfully! Request ID: ${result.request_id}. The container will restart shortly.`,
+                                      message: `Restart requested. Request ID: ${result.request_id}.`,
                                       type: "success",
                                     });
                                   } else {
-                                    // Remove from restarting state on failure
-                                    setRestartingContainers((prev) => {
-                                      const newSet = new Set(prev);
-                                      newSet.delete(targetContainer);
-                                      return newSet;
-                                    });
                                     setDialogContent({
                                       title: "Restart Failed",
                                       message:
@@ -694,12 +454,6 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                                     });
                                   }
                                 } catch (error) {
-                                  // Remove from restarting state on error
-                                  setRestartingContainers((prev) => {
-                                    const newSet = new Set(prev);
-                                    newSet.delete(targetContainer);
-                                    return newSet;
-                                  });
                                   console.error(
                                     "Error sending restart command:",
                                     error
@@ -709,6 +463,12 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                                     message:
                                       "Error sending restart command. Please check your connection.",
                                     type: "error",
+                                  });
+                                } finally {
+                                  setRestartingContainers((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(targetContainer);
+                                    return next;
                                   });
                                 }
                               };
@@ -733,71 +493,52 @@ export const SystemResourcesDashboard: React.FC<SystemResourceProps> = ({
                         <TableCell colSpan={8} className="bg-muted/20">
                           <div className="space-y-4 p-4">
                             {/* Secondary Metrics */}
-                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                              <div className="flex items-center space-x-2">
-                                <Users className="h-4 w-4" />
-                                <div>
-                                  <div className="text-sm font-medium">
-                                    Processes
-                                  </div>
-                                  <div className="text-lg font-bold">
-                                    {container.process_count}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <FileText className="h-4 w-4" />
-                                <div>
-                                  <div className="text-sm font-medium">
-                                    File Descriptors
-                                  </div>
-                                  <div className="text-lg font-bold">
-                                    {container.file_descriptors}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <BarChart3 className="h-4 w-4" />
-                                <div>
-                                  <div className="text-sm font-medium">
-                                    Load Average
-                                  </div>
-                                  <div className="text-sm">
-                                    <div>
-                                      1m: {container.load_average_1m.toFixed(2)}
+                            {container.observed_at && (
+                              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                                <div className="flex items-center space-x-2">
+                                  <Users className="h-4 w-4" />
+                                  <div>
+                                    <div className="text-sm font-medium">
+                                      Processes
                                     </div>
-                                    <div>
-                                      5m: {container.load_average_5m.toFixed(2)}
-                                    </div>
-                                    <div>
-                                      15m:{" "}
-                                      {container.load_average_15m.toFixed(2)}
+                                    <div className="text-lg font-bold">
+                                      {container.measurements.process_count ?? "—"}
                                     </div>
                                   </div>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                  <Activity className="h-4 w-4" />
+                                  <FileText className="h-4 w-4" />
                                   <div>
                                     <div className="text-sm font-medium">
-                                      Container Health
+                                      File Descriptors
+                                    </div>
+                                    <div className="text-lg font-bold">
+                                      {container.measurements.file_descriptors ?? "—"}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <BarChart3 className="h-4 w-4" />
+                                  <div>
+                                    <div className="text-sm font-medium">
+                                      Load Average
                                     </div>
                                     <div className="text-sm">
-                                      {container.status === "running" ? (
-                                        <span className="flex items-center text-green-500">
-                                          <CheckCircle className="mr-1 h-3 w-3" />
-                                          Healthy
-                                        </span>
-                                      ) : (
-                                        <span className="flex items-center text-red-500">
-                                          <XCircle className="mr-1 h-3 w-3" />
-                                          {container.status}
-                                        </span>
-                                      )}
+                                      <div>
+                                        1m: {container.measurements.load_average_1m?.toFixed(2) ?? "—"}
+                                      </div>
+                                      <div>
+                                        5m: {container.measurements.load_average_5m?.toFixed(2) ?? "—"}
+                                      </div>
+                                      <div>
+                                        15m:{" "}
+                                        {container.measurements.load_average_15m?.toFixed(2) ?? "—"}
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
+                            )}
 
                             {/* Recent Logs */}
                             <div className="border-t pt-4">

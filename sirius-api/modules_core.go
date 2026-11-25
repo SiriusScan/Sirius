@@ -28,7 +28,9 @@ func buildCommunityModuleRegistry(kvStore store.KVStore) (*module.Registry, erro
 	if err != nil {
 		return nil, err
 	}
-	app, err := adapt(module.IDApp, &routes.AppRouteSetter{})
+	app, err := adapt(module.IDApp, &routes.AppRouteSetter{
+		Monitor: services.NewValkeyMonitorService(kvStore),
+	})
 	if err != nil {
 		return nil, err
 	}

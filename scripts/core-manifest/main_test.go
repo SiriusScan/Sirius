@@ -79,6 +79,14 @@ func TestComponentDependencyTamperingRejected(t *testing.T) {
 			d.SourceCommit = strings.Repeat("a", 40)
 			m.ComponentDependencies["app-scanner"] = d
 		}},
+		{"scanner pingpp version", func(m *CoreManifest) {
+			d := m.ComponentDependencies["app-scanner"]
+			d.PingPPVersion = "v9.9.9"
+			m.ComponentDependencies["app-scanner"] = d
+		}},
+		{"scanner pingpp commit", func(m *CoreManifest) {
+			m.ComponentPins[pingPPPin] = strings.Repeat("c", 40)
+		}},
 		{"agent SDK version", func(m *CoreManifest) {
 			d := m.ComponentDependencies["app-agent"]
 			d.GoAPIVersion = "v0.0.26"

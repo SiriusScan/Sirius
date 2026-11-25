@@ -7,6 +7,12 @@
     "cbf4535f609cfc9f162fe56fbe3c2c2f5b0fb27f": {
       "go_api_version": "v0.0.26",
       "go_api_commit": "5beb7ee9e1446ef85ad99dce873014ea720b6eb9"
+    },
+    "b75527622ed8fc8d05e1973eb94f458e207fca3e": {
+      "go_api_version": "v0.0.26",
+      "go_api_commit": "5beb7ee9e1446ef85ad99dce873014ea720b6eb9",
+      "pingpp_version": "v0.0.0-20261125012228-a6e4289ccaf4",
+      "pingpp_commit": "a6e4289ccaf46421257f418d3f4a8b30c76d863b"
     }
   },
   "app-agent": {

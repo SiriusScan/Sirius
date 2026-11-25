@@ -14,10 +14,9 @@ related_docs:
 
 # Engine Component Pinning
 
-`sirius-engine` is built from eight external SiriusScan repositories that
-are cloned and compiled inside the engine image. To make every build
-reproducible, each repository is pinned to a single commit SHA (or, for
-`go-api`, a tag). This document describes where those pins live, the
+`sirius-engine` builds from pinned SiriusScan repositories and the Go
+dependencies selected by those repositories. The scanner's `go.mod`
+and `go.sum` select its pingpp release. This document describes where those pins live, the
 rules that govern them, and the workflow to bump one safely.
 
 ## Why pin
@@ -43,7 +42,6 @@ mechanically (see `.github/workflows/check-pin-consistency.yml`).
 | `APP_TERMINAL_COMMIT_SHA` | `SiriusScan/app-terminal` | Terminal binary (`/terminal`) | Full SHA. |
 | `SIRIUS_NSE_COMMIT_SHA` | `SiriusScan/sirius-nse` | NSE script repo bundled with the scanner | Full SHA. |
 | `APP_AGENT_COMMIT_SHA` | `SiriusScan/app-agent` | Agent server (`/app-agent-src/server`) | Full SHA. |
-| `PINGPP_COMMIT_SHA` | `SiriusScan/pingpp` | Fingerprinting library linked into `app-scanner` | Full SHA. |
 | `APP_SYSTEM_MONITOR_COMMIT_SHA` | `SiriusScan/app-system-monitor` | `system-monitor` sidecar binary | Full SHA. Built in `utility-go-binaries` stage. |
 | `APP_ADMINISTRATOR_COMMIT_SHA` | `SiriusScan/app-administrator` | `administrator` binary | Full SHA. Built in `utility-go-binaries` stage. |
 
@@ -141,10 +139,25 @@ dispatch-triggered build is reproducible only as long as the dispatched
 SHA exists; if you want the new SHA to be the long-lived floor, follow
 the manual workflow above to land it in the Dockerfile.
 
-Scanner notifications carrying `"engine_promotion": "source-pin-v1"`
-remain visible as CI runs. The Actions summary records the scanner source
+Scanner update notifications remain visible as CI runs, including the
+`"engine_promotion": "source-pin-v1"` form. The Actions summary records the scanner source
 SHA awaiting a reviewed engine pin PR. The PR is where the engine pin,
 lockfile dependency provenance and release metadata advance together.
+
+### Bumping the scanner and pingpp
+
+Publish the scanner's updated pingpp module lock first. Then update
+`APP_SCANNER_COMMIT_SHA` and its dependency mapping in
+`scripts/core-manifest/component_dependencies.json` in the Sirius pin PR.
+Record the full pingpp commit and the selected version. Engine CI checks the
+linked version, and release tooling compares the metadata to the scanner
+and pingpp sources. Older releases retain their historical
+`component_pins.PINGPP_COMMIT_SHA` field from the Dockerfile.
+
+For local iteration, bind-mount the canonical pingpp checkout and a
+`go.work` file through a private Compose override, then set `GOWORK`
+to that mounted file in the development container. Use workspace paths
+that match the mounted scanner and pingpp directories.
 
 ### Local hot-swap (no rebuild)
 

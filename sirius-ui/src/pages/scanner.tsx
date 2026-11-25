@@ -85,6 +85,7 @@ const ScannerContent: React.FC = () => {
     isStopping,
     stopStage,
     error,
+    unconfirmedScanId,
     stopError,
     handleScanStatusChange,
   } = scanOrchestration;
@@ -300,7 +301,7 @@ const ScannerContent: React.FC = () => {
               </div>
             )}
 
-            {error && scanResults.scanResult?.status !== "failed" && (
+            {error && unconfirmedScanId !== scanResults.scanResult?.id && (
               <p role="alert" className="rounded-lg bg-red-900/30 px-4 py-3 text-sm text-red-200">
                 {error}
               </p>

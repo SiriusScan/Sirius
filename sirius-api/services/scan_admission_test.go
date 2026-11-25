@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/SiriusScan/go-api/sirius/store"
@@ -131,37 +132,56 @@ func TestScanAdmissionPreservesActiveRecord(t *testing.T) {
 	}
 }
 
+type racingScanStateFixture struct {
+	*scanStateFixture
+	reads   atomic.Int32
+	started chan struct{}
+	release chan struct{}
+}
+
+func (s *racingScanStateFixture) GetValue(ctx context.Context, key string) (store.ValkeyResponse, error) {
+	response, err := s.scanStateFixture.GetValue(ctx, key)
+	if s.reads.Add(1) <= 2 {
+		s.started <- struct{}{}
+		<-s.release
+	}
+	return response, err
+}
+
 func TestScanAdmissionSerializesConcurrentRequests(t *testing.T) {
 	ctx := context.Background()
-	state := &scanStateFixture{value: base64.StdEncoding.EncodeToString(
-		[]byte(`{"id":"scan-2-old","status":"completed","hosts":["fixture.invalid"]}`),
-	)}
-	started := make(chan struct{})
-	release := make(chan struct{})
-	first := make(chan NetworkScanReceipt, 1)
-	publisher := scanPublisherFixture(func(ctx context.Context, _ []byte) ScanPublication {
-		close(started)
-		select {
-		case <-ctx.Done():
-			return ScanPublicationUnconfirmed
-		case <-release:
-			return ScanPublicationSubmitted
-		}
+	state := &racingScanStateFixture{
+		scanStateFixture: &scanStateFixture{value: base64.StdEncoding.EncodeToString(
+			[]byte(`{"id":"scan-2-old","status":"completed","hosts":["fixture.invalid"]}`),
+		)},
+		started: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+	var calls atomic.Int32
+	publisher := scanPublisherFixture(func(context.Context, []byte) ScanPublication {
+		calls.Add(1)
+		return ScanPublicationSubmitted
 	})
 	admission := NewScanAdmission(state, publisher)
-	go func() {
-		first <- admission.SubmitNetworkScan(ctx, scanRequestFixture("scan-1-winner"))
-	}()
-	<-started
-	second := admission.SubmitNetworkScan(ctx, scanRequestFixture("scan-1-loser"))
-	close(release)
-	if second.Outcome != NetworkScanBusy {
-		t.Errorf("concurrent receipt = %+v", second)
+	results := make(chan NetworkScanReceipt, 2)
+	for _, id := range []string{"scan-1-first", "scan-1-second"} {
+		go func() {
+			results <- admission.SubmitNetworkScan(ctx, scanRequestFixture(id))
+		}()
 	}
-	if winner := <-first; winner.Outcome != NetworkScanSubmitted {
-		t.Errorf("winning receipt = %+v", winner)
+	<-state.started
+	<-state.started
+	close(state.release)
+
+	receipts := map[ScanAdmissionOutcome]string{}
+	for i := 0; i < 2; i++ {
+		got := <-results
+		receipts[got.Outcome] = got.ScanID
 	}
-	if scan := state.current(t); scan.ID != "scan-1-winner" {
+	if receipts[NetworkScanBusy] == "" || receipts[NetworkScanSubmitted] == "" || calls.Load() != 1 {
+		t.Fatalf("concurrent receipts = %v, publish calls = %d", receipts, calls.Load())
+	}
+	if scan := state.current(t); scan.ID != receipts[NetworkScanSubmitted] {
 		t.Fatalf("current ID = %q", scan.ID)
 	}
 }

@@ -32,6 +32,7 @@ interface ScanRequest {
 export const useStartScan = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unconfirmedScanId, setUnconfirmedScanId] = useState<string | null>(null);
   const submitNetworkScan = api.scanner.submitNetworkScan.useMutation({
     retry: false,
   });
@@ -55,6 +56,7 @@ export const useStartScan = () => {
     try {
       setIsLoading(true);
       setError(null);
+      setUnconfirmedScanId(null);
 
       const scanId = generateScanId();
       const hasNetworkScan = targets.length > 0 && !skipNetworkScan;
@@ -81,6 +83,7 @@ export const useStartScan = () => {
           case "not_recorded":
             throw new Error("Could not record the scan. No scan request was published.");
           default:
+            setUnconfirmedScanId(scanId);
             throw new Error("Could not confirm scan submission. Check the dashboard before retrying.");
         }
       }
@@ -285,6 +288,7 @@ export const useStartScan = () => {
     initiateScan,
     isLoading,
     error,
+    unconfirmedScanId,
   };
 };
 

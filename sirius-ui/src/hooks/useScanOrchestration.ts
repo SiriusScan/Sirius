@@ -51,7 +51,7 @@ export function useScanOrchestration({
   scanId,
   previousScanTargets,
 }: UseScanOrchestrationParams) {
-  const { initiateScan, isLoading, error } = useStartScan();
+  const { initiateScan, isLoading, error, unconfirmedScanId } = useStartScan();
   const {
     stopScan,
     forceStopScan,
@@ -235,6 +235,7 @@ export function useScanOrchestration({
     isStopping,
     stopStage,
     error,
+    unconfirmedScanId,
     stopError,
     handleScanStatusChange,
   };

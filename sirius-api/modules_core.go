@@ -6,6 +6,7 @@ import (
 	"github.com/SiriusScan/go-api/sirius/module"
 	"github.com/SiriusScan/go-api/sirius/store"
 	"github.com/SiriusScan/sirius-api/routes"
+	"github.com/SiriusScan/sirius-api/services"
 )
 
 // buildCommunityModuleRegistry constructs the canonical Community modules.
@@ -66,7 +67,10 @@ func buildCommunityModuleRegistry(kvStore store.KVStore) (*module.Registry, erro
 	if err != nil {
 		return nil, err
 	}
-	scan, err := adapt(module.IDScan, &routes.ScanRouteSetter{})
+	scanState, _ := kvStore.(services.ScanReservationStore)
+	scan, err := adapt(module.IDScan, &routes.ScanRouteSetter{
+		Submission: services.NewScanAdmission(scanState, services.NewRabbitMQScanPublisher()),
+	})
 	if err != nil {
 		return nil, err
 	}

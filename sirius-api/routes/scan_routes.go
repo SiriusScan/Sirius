@@ -6,12 +6,16 @@ import (
 )
 
 // ScanRouteSetter implements RouteSetter for scan-related routes
-type ScanRouteSetter struct{}
+type ScanRouteSetter struct {
+	Submission handlers.NetworkScanSubmitter
+}
 
 // SetupRoutes registers scan control routes
 func (s *ScanRouteSetter) SetupRoutes(app *fiber.App) {
 	// API v1 scan routes
 	api := app.Group("/api/v1/scans")
+
+	api.Post("/submit", handlers.SubmitNetworkScan(s.Submission))
 
 	// POST /api/v1/scans/cancel - Cancel the current running scan (graceful)
 	api.Post("/cancel", handlers.CancelScan)

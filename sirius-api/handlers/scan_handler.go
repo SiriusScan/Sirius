@@ -209,6 +209,13 @@ func GetScanStatus(c *fiber.Ctx) error {
 	response := ScanStatusResponse{
 		Status: getStringField(scanResult, "status"),
 	}
+	if response.Status == "pending" {
+		subScans, _ := scanResult["sub_scans"].(map[string]interface{})
+		network, _ := subScans["network"].(map[string]interface{})
+		if network["enabled"] == true && network["status"] == "running" {
+			response.Status = "running"
+		}
+	}
 
 	// Add optional fields if present
 	if id, ok := scanResult["id"].(string); ok {

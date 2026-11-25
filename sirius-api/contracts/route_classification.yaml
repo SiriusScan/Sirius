@@ -240,6 +240,10 @@ routes:
   class: public
   note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."
 - method: POST
+  path: /api/v1/scans/submit
+  class: public
+  note: "Typed network-only admission during the legacy scanner transition."
+- method: POST
   path: /api/v1/scans/cancel
   class: public
   note: "Versioned Community /api/v1 surface covered by the published OpenAPI contract."

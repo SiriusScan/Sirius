@@ -88,11 +88,15 @@ export function FindingEvidence({ observations }: { observations: readonly HostF
         <li key={observation.key} className="min-w-0 rounded-md border border-violet-500/15 bg-gray-900/60 p-3">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             {observation.source ? (
-              <SourceBadge source={observation.source} />
+              <SourceBadge source={observation.source} className="px-2.5 py-1 ring-1 ring-inset ring-white/10" />
             ) : (
               <span className="text-xs text-gray-400">Unknown source</span>
             )}
-            {observation.version && <span className="text-[11px] text-gray-500">{observation.version}</span>}
+            {observation.version && (
+              <span className="inline-flex items-center rounded-full border border-violet-500/15 bg-gray-950/40 px-2 py-0.5 text-xs font-medium tabular-nums text-gray-300">
+                {observation.version}
+              </span>
+            )}
           </div>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
             <Fact label="Status">{observation.status ?? <span className="text-gray-500">Unknown</span>}</Fact>

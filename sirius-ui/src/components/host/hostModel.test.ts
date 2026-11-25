@@ -3,7 +3,9 @@ import type { HostFinding } from "~/server/api/routers/host";
 import {
   csvField,
   eventLabel,
+  historyRuns,
   historyTimeline,
+  itemsLabel,
   submittedItemsLabel,
   findingToVulnRow,
   hostCsvFilename,
@@ -289,5 +291,38 @@ assert.equal(submittedItemsLabel(0), "Submitted 0 items");
 assert.equal(submittedItemsLabel(1), "Submitted 1 item");
 assert.equal(submittedItemsLabel(1234), "Submitted 1,234 items");
 assert.equal(submittedItemsLabel(null), "Submitted items unknown");
+
+// Scan runs: reports within two minutes of each other are one run.
+{
+  const report = (key: string, time: string | null, source: string, items: number | null) => ({
+    key,
+    time,
+    label: "Report accepted",
+    source,
+    report: { submittedItems: items },
+  });
+  const discovery = { key: "d1", time: "2026-11-20T09:00:00Z", label: "Host discovered", source: "initial" };
+  const { runs, events } = historyRuns([
+    report("a", "2026-11-21T20:48:30Z", "ping++", 0),
+    report("b", "2026-11-21T20:47:58Z", "naabu", 2),
+    report("c", "2026-11-21T20:46:40Z", "nmap", 104),
+    report("d", "2026-11-21T18:00:00Z", "nmap", 98),
+    report("e", null, "naabu", null),
+    discovery,
+  ]);
+  assert.deepEqual(
+    runs.map((r) => [r.key, r.time, r.reports.map((x) => x.key)]),
+    [
+      ["a", "2026-11-21T20:48:30Z", ["a", "b", "c"]],
+      ["d", "2026-11-21T18:00:00Z", ["d"]],
+      ["e", null, ["e"]],
+    ],
+  );
+  assert.deepEqual(events, [discovery]);
+  assert.deepEqual(historyRuns([]), { runs: [], events: [] });
+}
+assert.equal(itemsLabel(104), "104 items");
+assert.equal(itemsLabel(1), "1 item");
+assert.equal(itemsLabel(null), "items unknown");
 
 console.log("hostModel: all cases pass");

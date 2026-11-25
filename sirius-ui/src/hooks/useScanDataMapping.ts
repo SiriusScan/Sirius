@@ -16,6 +16,7 @@ import type {
 } from "~/types/riskSummary";
 import { findingSeverity, hostRisk, roundScore } from "~/utils/risk";
 import { summaryFor } from "~/utils/findingSummary";
+import { formatPortService } from "~/utils/portService";
 import { useScanResults } from "~/hooks/useScanResults";
 
 /** A host this scan found ("this scan" counts; saved-to-inventory state). */
@@ -35,6 +36,8 @@ export type ScanVulnRow = VulnerabilityTableData &
     /** CVE / finding id (same as `cve`). */
     id: string;
     severityKey: RiskSeverity;
+    /** "8080/tcp · http (Apache Tomcat 8.5.19)", from the finding's own fields. */
+    portService?: string;
   };
 
 /** The CVSS the scanner reported, or 0 when it reported none. */
@@ -70,6 +73,20 @@ export function useScanDataMapping(): {
     refetchOnWindowFocus: false,
   });
 
+  // Catalog CVE descriptions (shared with the Dashboard and Navigator
+  // query), so a finding shows the real CVE description over scanner text.
+  const { data: catalog } = api.vulnerability.getAllVulnerabilities.useQuery(undefined, {
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+  const catalogDescriptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const v of catalog?.vulnerabilities ?? []) {
+      if (v?.vid && v.description) map.set(v.vid, v.description);
+    }
+    return map;
+  }, [catalog]);
+
   return useMemo(() => {
     const inventoryByIp = new Map<string, InventoryHostRef>(
       (inventory?.hosts ?? []).map((h) => [h.ip, h] as const),
@@ -86,8 +103,17 @@ export function useScanDataMapping(): {
       (vuln: VulnerabilitySummary & { count?: number }) => {
         const cvss = reportedCvss(vuln);
         const severityKey = findingSeverity({ cvss, severity: vuln.severity });
-        const summary = summaryFor({ description: vuln.description });
         const id = vuln.title || vuln.id || "Unknown";
+        const summary = summaryFor({
+          description: vuln.description,
+          catalogDescription: catalogDescriptions.get(id) ?? catalogDescriptions.get(vuln.id),
+        });
+        const portService = formatPortService({
+          port: vuln.port,
+          protocol: vuln.protocol,
+          serviceInfo: vuln.service_info,
+          fallback: summary.component?.label,
+        });
         return {
           id,
           cve: id,
@@ -101,6 +127,7 @@ export function useScanDataMapping(): {
           scan_source: vuln.scan_source,
           agent_id: vuln.agent_id,
           host_id: vuln.host_id,
+          ...(portService ? { portService } : {}),
         };
       },
     );
@@ -161,5 +188,5 @@ export function useScanDataMapping(): {
       vulnerabilityList: mappedVulnerabilities,
       inventoryIps,
     };
-  }, [hosts, vulnerabilities, inventory]);
+  }, [hosts, vulnerabilities, inventory, catalogDescriptions]);
 }

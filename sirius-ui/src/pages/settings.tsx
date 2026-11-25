@@ -106,7 +106,13 @@ const Settings: NextPage = () => {
 
         {/* ── Content panel ────────────────────────────────────────────── */}
         {activeTab !== "scanning" && (
-          <div className="rounded-xl border border-gray-700/50 bg-gray-800/40 p-6">
+          <div
+            className={
+              activeTab === "general" || activeTab === "security"
+                ? "max-w-2xl rounded-xl border border-gray-700/50 bg-gray-800/40 p-6"
+                : "rounded-xl border border-gray-700/50 bg-gray-800/40 p-6"
+            }
+          >
             {/* ── General tab ──────────────────────────────────────────── */}
             {activeTab === "general" && (
               <form onSubmit={handleUserNameSubmit}>
@@ -125,7 +131,7 @@ const Settings: NextPage = () => {
                     </div>
                     <p
                       aria-labelledby="settings-email-label"
-                      className="truncate rounded-md bg-gray-900/40 px-3 py-2 text-sm text-gray-300"
+                      className="flex h-10 w-full cursor-default items-center truncate rounded-md border border-gray-700 bg-gray-900/60 px-3 text-sm text-gray-300"
                       title={sessionData?.user?.email ?? undefined}
                     >
                       {sessionData?.user?.email ? sessionData.user.email : <span className="text-gray-500">Not set</span>}

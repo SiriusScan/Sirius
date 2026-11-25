@@ -152,6 +152,30 @@ assert.deepEqual(rows, [
 ]);
 assert.deepEqual(aggregateScanFindings([]), []);
 
+// Port / service from the finding's own fields; differing versions across
+// hosts are summarised, with each host's label in the tooltip.
+assert.deepEqual(
+  aggregateScanFindings([
+    { id: "CVE-3", severityKey: "high", cvss: 7.5, host_id: "192.168.123.12", portService: "80/tcp · Apache httpd 2.2.22" },
+    { id: "CVE-3", severityKey: "high", cvss: 7.5, host_id: "192.168.123.13", portService: "80/tcp · Apache httpd 2.4.25" },
+    { id: "CVE-4", severityKey: "medium", cvss: 5, host_id: "192.168.123.12", portService: "8080/tcp · http" },
+    { id: "CVE-4", severityKey: "medium", cvss: 5, host_id: "192.168.123.13", portService: "8080/tcp · http" },
+  ]),
+  [
+    {
+      id: "CVE-3",
+      severity: "high",
+      cvss: 7.5,
+      summary: "",
+      portService: "80/tcp · 2 versions",
+      portServiceDetail:
+        "192.168.123.12: 80/tcp · Apache httpd 2.2.22\n192.168.123.13: 80/tcp · Apache httpd 2.4.25",
+      hosts: 2,
+    },
+    { id: "CVE-4", severity: "medium", cvss: 5, summary: "", portService: "8080/tcp · http", hosts: 2 },
+  ],
+);
+
 // Inventory badge
 const start = "2026-11-21T21:39:07Z";
 assert.deepEqual(inventoryBadge({ inInventory: false, scanActive: true }), { kind: "pending", label: "Not saved yet" });

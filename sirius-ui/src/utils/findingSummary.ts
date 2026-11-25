@@ -77,7 +77,10 @@ export function looksLikeScannerText(text: string | null | undefined): boolean {
     // NSE vuln-script output.
     /\bVULNERABLE\b/.test(text) ||
     /\bIDs:\s/.test(text) ||
-    /\bCVE:CVE-\d/.test(text)
+    /\bCVE:CVE-\d/.test(text) ||
+    // Boilerplate the nmap mapping writes when it has no description.
+    /^\s*Vulnerable version detected for .+ via nmap/i.test(text) ||
+    /^\s*Potential vulnerability CVE-\d{4}-\d+ matched by nmap/i.test(text)
   );
 }
 

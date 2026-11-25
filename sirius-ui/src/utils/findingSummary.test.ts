@@ -114,4 +114,19 @@ assert.deepEqual(summaryFor({}), { summary: "", evidence: "", summarySource: "no
 assert.equal(looksLikeScannerText(nvd), false);
 assert.equal(looksLikeScannerText(""), false);
 
+// nmap mapping boilerplate is scanner text: a real catalog/NVD description wins.
+const boilerplate = [
+  "Vulnerable version detected for Apache httpd 2.4.25 via nmap",
+  "Potential vulnerability CVE-2017-15715 matched by nmap",
+];
+for (const text of boilerplate) {
+  assert.equal(looksLikeScannerText(text), true, `boilerplate: ${text}`);
+  const withCatalog = summaryFor({ description: text, catalogDescription: nvd });
+  assert.equal(withCatalog.summary, nvd.replace(/\s+/g, " ").trim());
+  assert.equal(withCatalog.summarySource, "catalog");
+  assert.equal(withCatalog.evidence, text);
+  // Catalog text that is itself boilerplate does not win over the finding.
+  assert.equal(summaryFor({ description: text, catalogDescription: text }).summarySource, "scanner");
+}
+
 console.log("findingSummary: all cases pass");

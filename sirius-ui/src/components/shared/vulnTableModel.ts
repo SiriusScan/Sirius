@@ -15,8 +15,10 @@ export type VulnRow = {
   summary: string;
   /** Affected hosts. */
   hosts?: number;
-  /** e.g. "22/tcp OpenSSH 10.0p2". */
+  /** e.g. "22/tcp · OpenSSH 10.0p2". */
   portService?: string;
+  /** Tooltip for the port/service cell, e.g. every host's label when they differ. */
+  portServiceDetail?: string;
   sources?: string[];
   firstSeen?: string;
   lastSeen?: string;
@@ -78,7 +80,8 @@ export function filterVulnRows(
     return (
       row.id.toLowerCase().includes(q) ||
       (row.summary ?? "").toLowerCase().includes(q) ||
-      (row.portService ?? "").toLowerCase().includes(q)
+      (row.portService ?? "").toLowerCase().includes(q) ||
+      (row.portServiceDetail ?? "").toLowerCase().includes(q)
     );
   });
 }

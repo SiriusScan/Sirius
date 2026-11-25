@@ -129,7 +129,7 @@ function Cell({ column, row }: { column: VulnColumnId; row: VulnRow }) {
       );
     case "portService":
       return row.portService ? (
-        <span className="block truncate font-mono text-xs text-gray-400" title={row.portService}>
+        <span className="block truncate font-mono text-xs text-gray-400" title={row.portServiceDetail ?? row.portService}>
           {row.portService}
         </span>
       ) : (

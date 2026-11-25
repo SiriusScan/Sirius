@@ -8,6 +8,7 @@ import {
   lastScanMetaTitle,
   lastScanNote,
   openFindingsNote,
+  openFindingsTitle,
   plural,
   scanPhase,
   severityHref,
@@ -117,6 +118,11 @@ assert.equal(openFindingsNote(1, undefined), "1 unique CVE");
 assert.equal(openFindingsNote(1204, undefined), "1,204 unique CVEs");
 assert.equal(openFindingsNote(undefined, "4 so far in this scan"), "4 so far in this scan");
 assert.equal(openFindingsNote(Number.NaN, undefined), undefined);
+assert.equal(
+  openFindingsTitle(362, 253),
+  "362 open findings: one per host and CVE. 253 unique CVEs across the inventory, the count Vulnerabilities lists.",
+);
+assert.equal(openFindingsTitle(1, undefined), "1 open finding: one per host and CVE.");
 
 assert.equal(
   lastScanMetaTitle({ ...done, id: "scan-1795609195467-all3", targets: ["192.0.2.12", "10.0.0.0/24"] }),

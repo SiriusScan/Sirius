@@ -81,6 +81,12 @@ export interface VulnerabilitySummary {
   agent_id?: string;
   /** Host IP that this vulnerability belongs to */
   host_id?: string;
+  /** Port the finding was observed on, when the scanner recorded one. */
+  port?: number;
+  /** Transport protocol for `port` ("tcp" / "udp"). */
+  protocol?: string;
+  /** Service the scanner identified on the port, e.g. "http (Apache Tomcat 8.5.19)". */
+  service_info?: string;
 }
 
 /** Source of a finding or host: network scan, agent, cloud, or application. */

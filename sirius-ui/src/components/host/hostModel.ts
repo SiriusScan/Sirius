@@ -17,6 +17,7 @@ import {
   type Severity,
 } from "~/components/shared/severity";
 import type { VulnRow } from "~/components/shared/vulnTableModel";
+import { formatPortService } from "~/utils/portService";
 
 // ─── Tabs and links (ADR-6) ─────────────────────────────────────────────────
 
@@ -134,10 +135,11 @@ export function osLabel(os: string | null | undefined, osversion?: string | null
 export function portServiceLabel(
   finding: Pick<HostFinding, "port" | "serviceInfo" | "component">,
 ): string | undefined {
-  const port = typeof finding.port === "number" && finding.port > 0 ? String(finding.port) : undefined;
-  const service = realText(finding.serviceInfo) ?? finding.component?.label;
-  if (port && service) return `${port} · ${service}`;
-  return port ?? service ?? undefined;
+  return formatPortService({
+    port: finding.port,
+    serviceInfo: realText(finding.serviceInfo),
+    fallback: finding.component?.label,
+  });
 }
 
 /** One VulnTable row (preset "host") from a server finding. */
@@ -511,4 +513,53 @@ export function historyTimeline(events: readonly AcceptedHistoryEvent[]): Histor
 export function submittedItemsLabel(count: number | null): string {
   if (count === null) return "Submitted items unknown";
   return `Submitted ${count.toLocaleString("en-US")} ${count === 1 ? "item" : "items"}`;
+}
+
+/** "104 items", "1 item", "items unknown" (a report's pill). */
+export function itemsLabel(count: number | null): string {
+  if (count === null) return "items unknown";
+  return `${count.toLocaleString("en-US")} ${count === 1 ? "item" : "items"}`;
+}
+
+/** One scan run: accepted reports a few minutes apart, newest first. */
+export interface HistoryRun {
+  key: string;
+  /** The newest report's time; null when none records a real time. */
+  time: string | null;
+  reports: HistoryEntry[];
+}
+
+/** Reports this close together belong to the same scan run. */
+export const HISTORY_RUN_WINDOW_MS = 2 * 60 * 1000;
+
+/**
+ * Groups the timeline's accepted reports into scan runs: a report joins the
+ * run before it when it is within `windowMs` of that run's last report
+ * (nmap, naabu and ping++ report one run seconds apart). Reports with no
+ * real time stay on their own. Other events (the discovery) are returned
+ * apart, in order.
+ */
+export function historyRuns(
+  timeline: readonly HistoryEntry[],
+  windowMs: number = HISTORY_RUN_WINDOW_MS,
+): { runs: HistoryRun[]; events: HistoryEntry[] } {
+  const runs: HistoryRun[] = [];
+  const events: HistoryEntry[] = [];
+  let lastTime: number | null = null;
+  for (const entry of timeline) {
+    if (!entry.report) {
+      events.push(entry);
+      continue;
+    }
+    const t = entry.time ? Date.parse(entry.time) : NaN;
+    const current = runs[runs.length - 1];
+    if (current && Number.isFinite(t) && lastTime !== null && Math.abs(lastTime - t) <= windowMs) {
+      current.reports.push(entry);
+      lastTime = t;
+      continue;
+    }
+    runs.push({ key: entry.key, time: Number.isFinite(t) ? entry.time : null, reports: [entry] });
+    lastTime = Number.isFinite(t) ? t : null;
+  }
+  return { runs, events };
 }

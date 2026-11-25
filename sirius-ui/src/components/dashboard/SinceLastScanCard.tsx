@@ -23,24 +23,37 @@ import {
   lastScanMetaTitle,
   lastScanNote,
   openFindingsNote,
+  openFindingsTitle,
 } from "./dashboardModel";
 
 function Stat({
   label,
+  hint,
+  title,
   value,
   note,
   link,
   valueClassName,
 }: {
   label: string;
+  /** Muted qualifier after the label, e.g. "per host & CVE". */
+  hint?: string;
+  /** Tooltip for the whole tile. */
+  title?: string;
   value: React.ReactNode;
   note?: React.ReactNode;
   link?: { href: string; label: string };
   valueClassName?: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-col rounded-lg border border-violet-500/15 bg-gray-950/30 px-4 py-3">
-      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{label}</div>
+    <div
+      className="flex min-w-0 flex-col rounded-lg border border-violet-500/15 bg-gray-950/30 px-4 py-3"
+      title={title}
+    >
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+        {label}
+        {hint && <span className="font-normal normal-case tracking-normal text-gray-500"> · {hint}</span>}
+      </div>
       <div className="mt-1 flex min-w-0 items-baseline gap-2">
         <span className={cn("text-2xl font-bold leading-8 tabular-nums text-white", valueClassName)}>{value}</span>
         {note && (
@@ -101,6 +114,8 @@ export function SinceLastScanCard({ summary }: { summary: SummaryStats }) {
         />
         <Stat
           label="Open findings"
+          hint="per host & CVE"
+          title={openFindingsTitle(summary.findings.open, summary.vulnerabilities?.unique)}
           value={fmt(summary.findings.open)}
           note={openFindingsNote(summary.vulnerabilities?.unique, lastScanNote(lastScan, lastScan?.findings))}
           link={{ href: "/vulnerabilities", label: "Review findings" }}

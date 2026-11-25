@@ -19,6 +19,7 @@ import {
   type SeverityCounts,
 } from "~/components/shared/severity";
 import type { VulnRow } from "~/components/shared/vulnTableModel";
+import { combinePortServices } from "~/utils/portService";
 
 /* ------------------------------------------------------------------ */
 /*  Status                                                             */
@@ -302,6 +303,8 @@ export interface ScanFindingInput {
   summary?: string;
   host_id?: string;
   component?: { label: string } | null;
+  /** Port / service from the finding's own fields (formatPortService). */
+  portService?: string;
 }
 
 /** Findings by severity, one per host and CVE, as the scan reported them. */
@@ -316,37 +319,40 @@ export function scanSeverityCounts(findings: readonly Pick<ScanFindingInput, "se
 
 /**
  * One VulnTable row per CVE: the highest CVSS and severity any host
- * reported, the first clean summary and product, and how many hosts this
- * scan found it on.
+ * reported, the first clean summary, how many hosts this scan found it on,
+ * and the port/service — the one label when every host agrees, else
+ * "80/tcp · 2 versions" with each host's label in the cell's tooltip.
  */
 export function aggregateScanFindings(findings: readonly ScanFindingInput[]): VulnRow[] {
-  const byId = new Map<string, { row: VulnRow; hosts: Set<string> }>();
+  const byId = new Map<string, { row: VulnRow; hosts: Map<string, string | undefined> }>();
   findings.forEach((f, index) => {
     const id = orUndefined(f.id) ?? "Unknown";
     const cvss = Number.isFinite(f.cvss) && f.cvss > 0 ? f.cvss : 0;
     const hostKey = orUndefined(f.host_id) ?? `#${index}`;
+    const label = orUndefined(f.portService) ?? orUndefined(f.component?.label);
     const entry = byId.get(id);
     if (!entry) {
       byId.set(id, {
-        row: {
-          id,
-          severity: f.severityKey,
-          cvss,
-          summary: f.summary?.trim() ?? "",
-          ...(f.component?.label ? { portService: f.component.label } : {}),
-        },
-        hosts: new Set([hostKey]),
+        row: { id, severity: f.severityKey, cvss, summary: f.summary?.trim() ?? "" },
+        hosts: new Map([[hostKey, label]]),
       });
       return;
     }
-    entry.hosts.add(hostKey);
+    if (!entry.hosts.get(hostKey)) entry.hosts.set(hostKey, label);
     const row = entry.row;
     if (cvss > row.cvss) row.cvss = cvss;
     if (severityRank(f.severityKey) > severityRank(row.severity)) row.severity = f.severityKey;
     if (!row.summary && f.summary?.trim()) row.summary = f.summary.trim();
-    if (!row.portService && f.component?.label) row.portService = f.component.label;
   });
-  return [...byId.values()].map(({ row, hosts }) => ({ ...row, hosts: hosts.size }));
+  return [...byId.values()].map(({ row, hosts }) => {
+    const { label, detail } = combinePortServices([...hosts.entries()]);
+    return {
+      ...row,
+      ...(label ? { portService: label } : {}),
+      ...(detail ? { portServiceDetail: detail } : {}),
+      hosts: hosts.size,
+    };
+  });
 }
 
 /* ------------------------------------------------------------------ */

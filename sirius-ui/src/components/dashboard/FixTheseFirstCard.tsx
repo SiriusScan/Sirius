@@ -1,7 +1,8 @@
 /**
  * FixTheseFirstCard (R01) — the summary's top open findings, highest CVSS
  * first (`summary.topFindings`, ADR-2): CVE, severity, CVSS with a small
- * bar, and the clean summary (ADR-4). Each row opens the CVE page.
+ * bar, the clean summary (ADR-4) and how many hosts it is open on. Each
+ * row opens the CVE page.
  */
 
 import React from "react";
@@ -54,12 +55,13 @@ export function FixTheseFirstCard({
         <PanelNote>No open findings.</PanelNote>
       ) : (
         <div className="-mx-1 overflow-x-auto">
-          <table className="w-full min-w-[32rem] table-fixed text-left">
+          <table className="w-full min-w-[36rem] table-fixed text-left">
             <colgroup>
               <col className="w-36" />
               <col className="w-24" />
               <col className="w-24" />
               <col />
+              <col className="w-20" />
             </colgroup>
             <thead>
               <tr className="border-b border-violet-500/10 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
@@ -67,6 +69,7 @@ export function FixTheseFirstCard({
                 <th scope="col" className="px-1 pb-2 font-semibold">Severity</th>
                 <th scope="col" className="px-1 pb-2 font-semibold">CVSS</th>
                 <th scope="col" className="px-1 pb-2 font-semibold">Summary</th>
+                <th scope="col" className="px-1 pb-2 text-right font-semibold">Hosts</th>
               </tr>
             </thead>
             <tbody>
@@ -106,6 +109,18 @@ export function FixTheseFirstCard({
                         </span>
                       ) : (
                         <span className="text-xs text-gray-600">No description yet</span>
+                      )}
+                    </td>
+                    <td className="px-1 py-2.5 text-right">
+                      {hosts ? (
+                        <span
+                          className="inline-flex items-center rounded border border-violet-500/15 bg-gray-950/40 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-gray-400"
+                          title={`Open on ${hosts}`}
+                        >
+                          {hosts}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-600">—</span>
                       )}
                     </td>
                   </tr>

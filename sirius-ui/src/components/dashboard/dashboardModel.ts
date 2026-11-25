@@ -163,6 +163,16 @@ export function openFindingsNote(
   return parts.length ? parts.join(" · ") : undefined;
 }
 
+/**
+ * Tooltip for the "Open findings" stat: why it differs from the unique CVE
+ * count the Vulnerabilities page lists.
+ */
+export function openFindingsTitle(open: number, uniqueCves: number | undefined): string {
+  const head = `${plural(open, "open finding")}: one per host and CVE.`;
+  if (typeof uniqueCves !== "number" || !Number.isFinite(uniqueCves) || uniqueCves < 0) return head;
+  return `${head} ${plural(uniqueCves, "unique CVE")} across the inventory, the count Vulnerabilities lists.`;
+}
+
 /** The header chip's time: when the last scan ended. Undefined while it runs. */
 export function lastScanEndedAt(scan: SummaryLastScan | null | undefined): string | undefined {
   if (!scan || scanPhase(scan) === "running") return undefined;

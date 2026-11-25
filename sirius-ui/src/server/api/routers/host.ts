@@ -792,6 +792,14 @@ export function hostFindingsFromSources(
       description: snapshot?.description ?? canonical.Description,
       catalogDescription: catalog.get(id),
     });
+    // Port / service are the stored host_vulnerabilities columns: the
+    // canonical source's when it recorded them, else another source's.
+    const hasPort = (o: VulnerabilityWithSource) =>
+      typeof o.port === "number" && Number.isInteger(o.port) && o.port > 0 && o.port <= 65535;
+    const withPort = hasPort(canonical) ? canonical : list.find(hasPort);
+    const withService = canonical.service_info?.trim()
+      ? canonical
+      : list.find((o) => o.service_info?.trim());
     findings.push({
       id,
       ...(canonical.Title && canonical.Title !== id ? { title: canonical.Title } : {}),
@@ -802,8 +810,8 @@ export function hostFindingsFromSources(
       ...(firsts.length ? { firstSeen: new Date(Math.min(...firsts)).toISOString() } : {}),
       ...(lasts.length ? { lastSeen: new Date(Math.max(...lasts)).toISOString() } : {}),
       confidence: canonical.confidence ?? 0,
-      ...(typeof canonical.port === "number" ? { port: canonical.port } : {}),
-      ...(canonical.service_info ? { serviceInfo: canonical.service_info } : {}),
+      ...(withPort ? { port: withPort.port } : {}),
+      ...(withService?.service_info ? { serviceInfo: withService.service_info.trim() } : {}),
     });
   }
 

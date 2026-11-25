@@ -1,8 +1,10 @@
 /**
  * HostHistory — the History tab: the host's accepted reports in the caller's
  * scope, newest first and paged by the API's cursor, then the host's
- * discovery. Each report shows what it submitted; assessment coverage is
- * always unknown, so an empty submission never reads as "assessed clean".
+ * discovery. Reports a few minutes apart are one scan run (historyRuns),
+ * shown as a card with a pill per source (version · items submitted), in a
+ * two-column grid. Assessment coverage is always unknown, so an empty
+ * submission never reads as "assessed clean".
  * A failed older page keeps the entries already shown and offers a retry.
  * The sources that have reported are listed below. Times use the shared
  * formatter.
@@ -18,12 +20,29 @@ import { SourceBadge } from "~/components/shared/SourceBadge";
 import { SECTION_HEADER } from "~/utils/themeConstants";
 import { formatDateTime } from "~/utils/formatDateTime";
 import type { SourceFreshness } from "~/types/riskSummary";
-import { historyTimeline, rescanHref, submittedItemsLabel } from "./hostModel";
+import {
+  historyRuns,
+  historyTimeline,
+  itemsLabel,
+  plural,
+  rescanHref,
+  submittedItemsLabel,
+} from "./hostModel";
 
 interface HostHistoryProps {
   hostIp: string;
   /** Per-source report times from the host query (freshness.sources). */
   sourceFreshness?: readonly SourceFreshness[];
+}
+
+function EventTime({ time }: { time: string | null }) {
+  return time ? (
+    <time dateTime={time} title={formatDateTime(time, "long")} className="text-xs text-gray-500">
+      {formatDateTime(time)}
+    </time>
+  ) : (
+    <span className="text-xs text-gray-500">Time unknown</span>
+  );
 }
 
 function HistorySkeleton() {
@@ -60,6 +79,7 @@ export const HostHistory: React.FC<HostHistoryProps> = ({ hostIp, sourceFreshnes
   const pages = useMemo(() => query.data?.pages ?? [], [query.data?.pages]);
   const timeline = useMemo(() => historyTimeline(pages.flatMap((page) => page.timeline)), [pages]);
   const reportCount = timeline.filter((entry) => entry.report).length;
+  const { runs, events } = useMemo(() => historyRuns(timeline), [timeline]);
   const sources = useMemo(() => {
     const names = new Set<string>(pages.flatMap((page) => page.sources));
     for (const s of sourceFreshness) names.add(s.name);
@@ -131,45 +151,60 @@ export const HostHistory: React.FC<HostHistoryProps> = ({ hostIp, sourceFreshnes
         )}
 
         {timeline.length > 0 && (
-          <div className="relative">
-            <div className="absolute bottom-2 left-[5px] top-2 w-px bg-violet-500/20" aria-hidden />
-            <ol className="space-y-4">
-              {timeline.map((event) => (
-                <li key={event.key} className="relative flex gap-3 pl-5">
-                  <div
-                    className="absolute left-0 top-1.5 h-[11px] w-[11px] rounded-full border-2 border-violet-500/40 bg-gray-900"
-                    aria-hidden
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-medium text-gray-300">{event.label}</span>
-                      {event.source && <SourceBadge source={event.source} />}
-                      {event.report?.sourceVersion && (
-                        <span className="text-[10px] text-gray-500">{event.report.sourceVersion}</span>
+          <ol className="grid gap-3 md:grid-cols-2">
+            {runs.map((run) => (
+              <li
+                key={run.key}
+                className="min-w-0 rounded-md border border-violet-500/15 bg-gray-900/60 p-3"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <span className="text-xs font-medium text-gray-300">
+                    {run.reports.length > 1 ? "Scan run" : "Report accepted"}
+                    <span className="font-normal text-gray-500">
+                      {" "}· {plural(run.reports.length, "report")}
+                    </span>
+                  </span>
+                  <EventTime time={run.time} />
+                </div>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {run.reports.map((entry) => (
+                    <li
+                      key={entry.key}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/15 bg-gray-950/40 py-0.5 pl-0.5 pr-2.5"
+                      title={entry.report ? submittedItemsLabel(entry.report.submittedItems) : undefined}
+                    >
+                      {entry.source ? (
+                        <SourceBadge source={entry.source} />
+                      ) : (
+                        <span className="pl-2 text-xs text-gray-400">Unknown source</span>
                       )}
-                    </div>
-                    {event.details && <p className="mt-0.5 text-xs text-gray-500">{event.details}</p>}
-                    {event.report && (
-                      <p className="mt-0.5 text-xs text-gray-500">
-                        {submittedItemsLabel(event.report.submittedItems)} · Assessment coverage unknown
-                      </p>
-                    )}
-                    {event.time ? (
-                      <time
-                        dateTime={event.time}
-                        title={formatDateTime(event.time, "long")}
-                        className="mt-0.5 block text-[10px] text-gray-500"
-                      >
-                        {formatDateTime(event.time)}
-                      </time>
-                    ) : (
-                      <span className="mt-0.5 block text-[10px] text-gray-500">Time unknown</span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
+                      <span className="text-xs tabular-nums text-gray-300">
+                        {[entry.report?.sourceVersion, entry.report ? itemsLabel(entry.report.submittedItems) : undefined]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-gray-500">Assessment coverage unknown</p>
+              </li>
+            ))}
+            {events.map((event) => (
+              <li
+                key={event.key}
+                className="min-w-0 rounded-md border border-violet-500/15 bg-gray-900/60 p-3"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <span className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-300">
+                    {event.label}
+                    {event.source && <SourceBadge source={event.source} />}
+                  </span>
+                  <EventTime time={event.time} />
+                </div>
+                {event.details && <p className="mt-2 text-xs text-gray-500">{event.details}</p>}
+              </li>
+            ))}
+          </ol>
         )}
 
         {olderReportsError && (

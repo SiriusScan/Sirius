@@ -84,11 +84,12 @@ const Sidebar = () => {
           <Tooltip.Portal>
             <Tooltip.Content
               side="right"
-              sideOffset={12}
-              className="animate-fade-in-up z-50 rounded-md border border-violet-500/30 bg-violet-950 px-3 py-2 text-sm font-medium text-white shadow-lg"
+              sideOffset={8}
+              collisionPadding={8}
+              className="animate-fade-in-up z-[100] rounded-md border border-violet-500/40 bg-[#161224] px-3 py-2 text-sm font-medium text-white shadow-xl shadow-black/50"
             >
               Dashboard
-              <Tooltip.Arrow className="fill-violet-950" />
+              <Tooltip.Arrow className="fill-[#161224]" />
             </Tooltip.Content>
           </Tooltip.Portal>
         </Tooltip.Root>
@@ -183,11 +184,12 @@ const Sidebar = () => {
                   <Tooltip.Portal>
                     <Tooltip.Content
                       side="right"
-                      sideOffset={12}
-                      className="animate-fade-in-up z-50 rounded-md border border-violet-500/30 bg-violet-950 px-3 py-2 text-sm font-medium text-white shadow-lg"
+                      sideOffset={8}
+                      collisionPadding={8}
+              className="animate-fade-in-up z-[100] rounded-md border border-violet-500/40 bg-[#161224] px-3 py-2 text-sm font-medium text-white shadow-xl shadow-black/50"
                     >
                       {item.label}
-                      <Tooltip.Arrow className="fill-violet-950" />
+                      <Tooltip.Arrow className="fill-[#161224]" />
                     </Tooltip.Content>
                   </Tooltip.Portal>
                 </Tooltip.Root>

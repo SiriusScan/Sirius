@@ -52,6 +52,7 @@ const ScannerContent: React.FC = () => {
     scanResults.hosts, scanResults.vulnerabilities,
   );
   const liveScan = createLiveScanExport(scanResults.scanResult);
+  const exportMetadata = liveScanExportFields(liveScan);
   const [selectedProfile, setSelectedProfileState] = useState<ScanProfile>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("scanner.selectedProfile") ?? "high-risk";
@@ -145,11 +146,7 @@ const ScannerContent: React.FC = () => {
     }));
     const options = {
       title: "Sirius Scan Vulnerability Report",
-      scanProfile:
-        selectedProfile.charAt(0).toUpperCase() + selectedProfile.slice(1),
-      targetsCount: targets.length,
       hostsAffected: scanResults.hosts.length,
-      targetsList: targets.join(", ") || "None",
       scanDate: new Date().toLocaleDateString(),
       liveScan,
     };
@@ -397,6 +394,8 @@ const ScannerContent: React.FC = () => {
                         <EnvironmentDataTable
                           columns={scanHostColumns}
                           data={hostList as any}
+                          exportMetadata={exportMetadata}
+                          onExportEmptyRun={() => handleGenerateReport(vulnerabilityList)}
                         />
                       </div>
                     )}
@@ -411,7 +410,7 @@ const ScannerContent: React.FC = () => {
                             );
                           }}
                           onGenerateReport={handleGenerateReport}
-                          exportMetadata={liveScanExportFields(liveScan)}
+                          exportMetadata={exportMetadata}
                         />
                       </div>
                     )}

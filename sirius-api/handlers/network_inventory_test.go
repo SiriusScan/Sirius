@@ -29,8 +29,11 @@ func TestScanStatusNetworkInventoryFixtures(t *testing.T) {
 				t.Fatal("projection changed the scan ID or lifecycle status")
 			}
 			findings, _ := fixture.Scan["vulnerabilities"].([]any)
-			if response.Vulnerabilities != len(findings) {
-				t.Fatal("projection changed the live finding count")
+			hosts, _ := fixture.Scan["hosts"].([]any)
+			completed, _ := fixture.Scan["hosts_completed"].(float64)
+			if response.Vulnerabilities != len(findings) || response.TotalHosts != len(hosts) ||
+				response.HostsCompleted != int(completed) {
+				t.Fatal("projection changed the live finding or host counts")
 			}
 
 			data, err := json.Marshal(response)

@@ -134,15 +134,29 @@ func main() {
 	dockerfile := flag.String("dockerfile", "", "path to sirius-engine/Dockerfile for pin parity")
 	schemaMapPath := flag.String("schema-map", "", "path to go-api schema_map.json")
 	verifyDigests := flag.Bool("verify-digests", false, "verify image digests against registry via CORE_MANIFEST_INSPECT_CMD or docker")
-	mode := flag.String("mode", "manifest", "manifest|inventory")
+	mode := flag.String("mode", "manifest", "manifest|inventory|scribe-evidence")
+	var evidence scribeEvidenceOptions
+	flag.StringVar(&evidence.inventoryPath, "inventory", "", "CoreBuildInventory JSON for scribe-evidence mode")
+	flag.StringVar(&evidence.indexPath, "engine-index", "", "raw engine OCI index JSON for scribe-evidence mode")
+	flag.StringVar(&evidence.receiptPath, "scribe-receipt", "", "Scribe lineage receipt JSON for candidate evidence review")
+	flag.StringVar(&evidence.receiptDigest, "scribe-receipt-sha256", "", "trusted receipt digest in sha256:<hex> form")
+	flag.StringVar(&evidence.scopeID, "scribe-scope", "", "required canonical Scribe workflow ID")
+	flag.StringVar(&evidence.scopeDigest, "scribe-scope-sha256", "", "trusted scope digest in lowercase hex")
 	flag.Parse()
 
 	if flag.NArg() != 1 {
 		fmt.Fprintf(os.Stderr, "usage: go run . [flags] <file>\n")
 		os.Exit(2)
 	}
+	if *mode != "scribe-evidence" && evidence.configured() {
+		fatalf("Scribe evidence flags require --mode scribe-evidence")
+	}
 	path := flag.Arg(0)
-	data, err := os.ReadFile(path)
+	read := os.ReadFile
+	if *mode == "scribe-evidence" {
+		read = readScribeEvidence
+	}
+	data, err := read(path)
 	if err != nil {
 		fatalf("read %s: %v", path, err)
 	}
@@ -150,16 +164,17 @@ func main() {
 		fatalf("%s: %v", path, err)
 	}
 
+	opt := options{
+		expectTag:          *expectTag,
+		expectCommit:       *expectCommit,
+		skipDockerfilePins: *skipDockerfilePins,
+		dockerfile:         *dockerfile,
+		schemaMapPath:      *schemaMapPath,
+		verifyDigests:      *verifyDigests,
+	}
 	switch *mode {
 	case "manifest":
-		if err := validateManifest(data, options{
-			expectTag:          *expectTag,
-			expectCommit:       *expectCommit,
-			skipDockerfilePins: *skipDockerfilePins,
-			dockerfile:         *dockerfile,
-			schemaMapPath:      *schemaMapPath,
-			verifyDigests:      *verifyDigests,
-		}); err != nil {
+		if err := validateManifest(data, opt); err != nil {
 			fatalf("%s", err)
 		}
 		fmt.Printf("PASS core-manifest validation: %s\n", path)
@@ -168,6 +183,16 @@ func main() {
 			fatalf("%s", err)
 		}
 		fmt.Printf("PASS core-build-inventory validation: %s\n", path)
+	case "scribe-evidence":
+		status, err := reviewScribeEvidence(data, opt, evidence)
+		if err != nil {
+			fatalf("%s", err)
+		}
+		encoder := json.NewEncoder(os.Stdout)
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(status); err != nil {
+			fatalf("write Scribe evidence result: %v", err)
+		}
 	default:
 		fatalf("unknown mode %q", *mode)
 	}

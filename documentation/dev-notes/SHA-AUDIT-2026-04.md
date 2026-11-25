@@ -265,6 +265,17 @@ Sirius integration test.
 
 The scanner still uses Go SDK v0.0.26 and the agent uses v0.0.24 at these revisions.
 
+### November 24 follow-up for report history and PostgreSQL credentials
+
+The API module locks, one-shot migrator and engine SDK source use go-api
+`v0.0.38` at `18f26a4cacb098975791be91d13f2a88eca546b1`. The release adds
+core migration `012_scan_history_journal` for the host journal index
+and preserves password characters when the API and migrator connect to
+PostgreSQL. The scanner and agent retain the SDK versions selected by
+their own module locks. The packaged terminal uses this SDK source via
+`../go-api`. Its standalone CI checks a v0.0.36 sibling checkout.
+[Standalone terminal CI](https://github.com/SiriusScan/app-terminal/pull/5)
+
 ### November 24 follow-up for template repository imports
 
 The packaged engine advances app-agent from `9df3f87a9f59e0fdb1f6237e46ca67b90b185378` to
@@ -285,6 +296,23 @@ five-second sample interval and expires each key after 60 seconds. Version 2
 observations encode unsupported measurements as JSON null and retain measured
 zero. The Dockerfile defaults, CI fallback arguments and core manifest fixture
 use the same SHA. [Upstream collector update](https://github.com/SiriusScan/app-system-monitor/pull/4)
+
+### November 24 follow-up for terminal output capture
+
+The engine advances `app-terminal` from `5745e43ca1f2ad3936a02a51cc77bfcf33ee95c1` to
+`55d76dc405e6c2d49ae39222705d5fa24a4343c0` after [app-terminal #4](https://github.com/SiriusScan/app-terminal/pull/4).
+The worker caps captured stdout and stderr at 64 KiB each, continues draining
+overflow, and marks truncated replies in the existing text format. The
+Dockerfile, CI fallback, and Core manifest fixture use the same revision.
+
+### November 24 follow-up for network inventory report status
+
+The engine advances app-scanner from `cb294ea1616619b458fe9352b49e525aa4299e01` to
+`f8dc73f16a62e4d218521cdec4aabecfeb70bd5a` after [app-scanner #26](https://github.com/SiriusScan/app-scanner/pull/26).
+The worker records a version 1 summary of accepted, rejected and unconfirmed
+inventory submissions as part of the network scan state. The deployment
+retains the scanner's Go SDK v0.0.36 and pingpp module locks. Core projects the
+summary in the scanner dashboard, exports and REST status.
 
 ## Risk register
 

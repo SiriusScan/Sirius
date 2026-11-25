@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
+import { currentScanStore } from "~/server/currentScan";
+import { recordAgentDispatch } from "./agent-scan-dispatch";
 import { handleSendMsg, waitForResponse } from "./queue";
 import { valkey } from "~/server/valkey";
 
@@ -272,6 +274,14 @@ export const agentScanRouter = createTRPCRouter({
           "EX",
           3600 // 1 hour TTL
         );
+
+        // Dispatch has already happened. A projection failure cannot turn the
+        // same request into a failed dispatch or justify issuing the work again.
+        try {
+          await recordAgentDispatch(currentScanStore, input.scanId, dispatchedAgents);
+        } catch {
+          console.warn("[AgentScan] Could not update current scan dispatch metadata");
+        }
 
         console.log(
           `[AgentScan] Dispatched to ${dispatchedAgents.length} agents, ${failedAgents.length} failed`

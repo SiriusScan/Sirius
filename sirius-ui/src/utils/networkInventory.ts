@@ -1,3 +1,5 @@
+import type { TableExportMetadata } from "~/utils/tableExport";
+
 const reasons = {
   local_error: "Local submission error",
   http_rejected: "Inventory API rejection",
@@ -40,6 +42,7 @@ export interface NetworkInventoryStatus {
 
 export interface LiveScanExport {
   scanId?: string;
+  targets?: string[];
   networkInventory: NetworkInventoryStatus | null;
 }
 
@@ -134,16 +137,27 @@ export function describeNetworkInventory({ status, summary }: NetworkInventorySt
   return { label, counts, reasons: reasonLabels.join(" · ") };
 }
 
-export function createLiveScanExport(scan: unknown): LiveScanExport {
-  const id = isRecord(scan) ? scan.id : undefined;
+export function createLiveScanExport(value: unknown): LiveScanExport {
+  const scan = isRecord(value) ? value : undefined;
+  const id = scan?.id;
+  const targets = Array.isArray(scan?.targets)
+    ? scan.targets.map((target: unknown) => {
+        if (typeof target === "string") return target;
+        if (!isRecord(target)) return "[unknown]";
+        return [target.ip, target.value, target.hostname, target.id].find(
+          (entry): entry is string => typeof entry === "string",
+        ) ?? "[unknown]";
+      })
+    : undefined;
   return {
     scanId: typeof id === "string" && id.trim() ? id : undefined,
+    targets,
     networkInventory: projectNetworkInventory(scan),
   };
 }
 
 export function liveScanExportFields({ scanId, networkInventory }: LiveScanExport) {
-  const fields: Record<string, string | number | boolean> = { data_source: "live_scan" };
+  const fields: TableExportMetadata = { data_source: "live_scan" };
   if (scanId) fields.scan_id = scanId;
   if (!networkInventory) return fields;
   fields.network_inventory_status = networkInventory.status;
@@ -158,23 +172,4 @@ export function liveScanExportFields({ scanId, networkInventory }: LiveScanExpor
     network_inventory_unknown: summary.unknown,
     network_inventory_reasons: describeNetworkInventory(networkInventory).reasons ?? "",
   };
-}
-
-export function serializeLiveScanExport(
-  format: "csv" | "json",
-  rows: Record<string, unknown>[],
-  fields: Record<string, string | number | boolean>,
-): string {
-  const withMetadata = rows.map((row) => ({ ...row, ...fields }));
-  if (format === "json") return JSON.stringify(withMetadata, null, 2);
-
-  const columns = Object.keys(withMetadata[0] ?? fields);
-  const csvCell = (value: unknown) => {
-    const cell = value == null ? "" : String(value);
-    return /[",\r\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell;
-  };
-  return [
-    columns.map(csvCell).join(","),
-    ...withMetadata.map((row) => columns.map((key) => csvCell(row[key])).join(",")),
-  ].join("\n");
 }

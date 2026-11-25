@@ -57,7 +57,13 @@
         }
       },
       "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      "end_time": "2026-01-01T00:01:00Z",
+      "targets": [
+        "203.0.113.10",
+        {
+          "hostname": "fixture.example"
+        }
+      ]
     },
     "expected": {
       "status": "incomplete",
@@ -81,20 +87,10 @@
     "scan": {
       "id": "fixture-complete",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -106,9 +102,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "complete",
@@ -127,20 +121,10 @@
     "scan": {
       "id": "fixture-uncertain",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -155,9 +139,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable",
@@ -179,20 +161,10 @@
     "scan": {
       "id": "fixture-empty",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -204,9 +176,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "no_attempts",
@@ -225,20 +195,10 @@
     "scan": {
       "id": "fixture-cancelled",
       "status": "cancelled",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "running",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -250,9 +210,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "provisional",
@@ -271,20 +229,10 @@
     "scan": {
       "id": "fixture-running",
       "status": "running",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "running",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -296,9 +244,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "provisional",
@@ -317,20 +263,10 @@
     "scan": {
       "id": "fixture-interrupted",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -343,9 +279,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "provisional",
@@ -364,20 +298,10 @@
     "scan": {
       "id": "fixture-contradictory",
       "status": "running",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "running",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -389,9 +313,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -415,25 +337,13 @@
     "scan": {
       "id": "fixture-old-network",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {}
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "untracked"
@@ -444,20 +354,10 @@
     "scan": {
       "id": "fixture-future",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 2,
@@ -469,9 +369,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -482,27 +380,15 @@
     "scan": {
       "id": "fixture-malformed",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": "synthetic private response"
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -513,20 +399,10 @@
     "scan": {
       "id": "fixture-inconsistent",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -538,9 +414,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -551,20 +425,10 @@
     "scan": {
       "id": "fixture-negative",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -576,9 +440,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -589,20 +451,10 @@
     "scan": {
       "id": "fixture-oversize",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -614,9 +466,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -627,20 +477,10 @@
     "scan": {
       "id": "fixture-reason",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -655,9 +495,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -668,27 +506,12 @@
     "scan": {
       "id": "fixture-agent",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "agent": {
-          "type": "agent",
           "enabled": true,
-          "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
-          "metadata": {
-            "agent_statuses": []
-          }
+          "status": "completed"
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": null
   },
@@ -697,20 +520,10 @@
     "scan": {
       "id": "fixture-agent-disabled",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": false,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -723,20 +536,10 @@
           }
         },
         "agent": {
-          "type": "agent",
           "enabled": true,
-          "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
-          "metadata": {
-            "agent_statuses": []
-          }
+          "status": "completed"
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": null
   },
@@ -745,19 +548,9 @@
     "scan": {
       "id": "fixture-missing-enabled",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -769,9 +562,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -782,20 +573,10 @@
     "scan": {
       "id": "fixture-invalid-enabled",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": "true",
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -807,9 +588,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -820,20 +599,10 @@
     "scan": {
       "id": "fixture-interrupted-finalized",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -846,9 +615,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -859,20 +626,10 @@
     "scan": {
       "id": "fixture-interrupted-malformed",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": {
             "inventory_reports": {
               "version": 1,
@@ -885,9 +642,7 @@
             }
           }
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -898,25 +653,13 @@
     "scan": {
       "id": "fixture-metadata-malformed",
       "status": "completed",
-      "hosts": [
-        "203.0.113.10"
-      ],
-      "hosts_completed": 1,
-      "vulnerabilities": [],
       "sub_scans": {
         "network": {
-          "type": "network",
           "enabled": true,
           "status": "completed",
-          "progress": {
-            "completed": 1,
-            "total": 1
-          },
           "metadata": null
         }
-      },
-      "start_time": "2026-01-01T00:00:00Z",
-      "end_time": "2026-01-01T00:01:00Z"
+      }
     },
     "expected": {
       "status": "unavailable"
@@ -937,6 +680,40 @@
     },
     "expected": {
       "status": "untracked"
+    }
+  },
+  {
+    "name": "aggregate cancellation retains completed network acknowledgement",
+    "scan": {
+      "id": "fixture-completed-network-cancelled-agent",
+      "status": "cancelled",
+      "sub_scans": {
+        "network": {
+          "enabled": true,
+          "status": "completed",
+          "metadata": {
+            "inventory_reports": {
+              "version": 1,
+              "finalized": true,
+              "attempted": 3,
+              "accepted": 3,
+              "rejected": 0,
+              "unknown": 0
+            }
+          }
+        }
+      }
+    },
+    "expected": {
+      "status": "complete",
+      "summary": {
+        "version": 1,
+        "finalized": true,
+        "attempted": 3,
+        "accepted": 3,
+        "rejected": 0,
+        "unknown": 0
+      }
     }
   }
 ]

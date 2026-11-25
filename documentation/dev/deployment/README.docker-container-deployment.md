@@ -285,6 +285,13 @@ docker compose -f docker-compose.yaml -f docker-compose.secrets.yaml up -d
 
 `sirius_api_key.txt` should stay **world-readable** (`644`) so bind-mounted `/run/secrets/sirius_api_key` is readable inside **sirius-api** / **sirius-ui** / **sirius-engine** (non-root UIDs).
 
+For Swarm, create the external `postgres_password` secret from a single-line
+file. Use `printf '%s'` to write the password without a line ending. The
+PostgreSQL image and Sirius API remove trailing LF bytes when reading a
+password file. Set the database role password to the same value. The API
+container uses a nonempty `DB_PASSWORD` first, then a nonempty
+`POSTGRES_PASSWORD`, then the mounted file.
+
 ## Troubleshooting
 
 ### Images Not Pulling

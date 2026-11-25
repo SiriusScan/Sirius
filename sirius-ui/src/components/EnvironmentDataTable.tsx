@@ -19,6 +19,7 @@ import { cn } from "~/components/lib/utils";
 import { Download, Filter, MoreHorizontal, RefreshCw } from "lucide-react";
 import { getRiskLevel as getRiskLevelUtil } from "~/utils/riskScoreCalculator";
 import { matchesSourceFilter } from "~/utils/tableFilters";
+import { downloadTableExport, type TableExportMetadata } from "~/utils/tableExport";
 
 /**
  * Custom global filter that searches across all relevant string fields
@@ -50,12 +51,16 @@ interface EnvironmentDataTableProps {
   columns: ColumnDef<EnvironmentTableData, any>[];
   data: EnvironmentTableData[];
   onRefresh?: () => void;
+  exportMetadata?: TableExportMetadata;
+  onExportEmptyRun?: () => void;
 }
 
 export function EnvironmentDataTable({
   columns,
   data,
   onRefresh,
+  exportMetadata,
+  onExportEmptyRun,
 }: EnvironmentDataTableProps) {
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -296,31 +301,12 @@ export function EnvironmentDataTable({
         ? selectedRows.map((row) => row.original)
         : filteredData;
 
-    if (format === "csv") {
-      // CSV export logic
-      const headers = Object.keys(dataToExport[0] || {}).join(",");
-      const csvRows = dataToExport.map((row) => Object.values(row).join(","));
-      const csvContent = [headers, ...csvRows].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", "environment-hosts.csv");
-      link.click();
-      setShowExportDropdown(false);
-    } else if (format === "json") {
-      // JSON export logic
-      const jsonContent = JSON.stringify(dataToExport, null, 2);
-      const blob = new Blob([jsonContent], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", "environment-hosts.json");
-      link.click();
-      setShowExportDropdown(false);
-    }
+    downloadTableExport(format, dataToExport, "environment-hosts", { metadata: exportMetadata });
+    setShowExportDropdown(false);
   };
+
+  const exportReportOnly = onExportEmptyRun && filteredData.length === 0 &&
+    table.getSelectedRowModel().rows.length === 0;
 
   // Calculate summary of selected hosts
   const selectedHostsSummary = useMemo(() => {
@@ -539,18 +525,32 @@ export function EnvironmentDataTable({
               </button>
               {showExportDropdown && (
                 <div className="absolute right-0 top-full z-10 mt-1 w-36 rounded-md border border-violet-500/20 bg-gray-900 py-1 shadow-lg">
-                  <button
-                    className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-violet-500/[0.06]"
-                    onClick={() => handleExport("csv")}
-                  >
-                    Export as CSV
-                  </button>
-                  <button
-                    className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-violet-500/[0.06]"
-                    onClick={() => handleExport("json")}
-                  >
-                    Export as JSON
-                  </button>
+                  {exportReportOnly ? (
+                    <button
+                      className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-violet-500/[0.06]"
+                      onClick={() => {
+                        onExportEmptyRun?.();
+                        setShowExportDropdown(false);
+                      }}
+                    >
+                      Export run report
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-violet-500/[0.06]"
+                        onClick={() => handleExport("csv")}
+                      >
+                        Export as CSV
+                      </button>
+                      <button
+                        className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-violet-500/[0.06]"
+                        onClick={() => handleExport("json")}
+                      >
+                        Export as JSON
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>

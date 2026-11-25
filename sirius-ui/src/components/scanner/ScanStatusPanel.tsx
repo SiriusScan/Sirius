@@ -223,9 +223,13 @@ export const ScanStatus: React.FC<ScanStatusProps> = ({
 
   let statusMessage: string | null = null;
   if (status === "pending") {
-    statusMessage = unconfirmedScanId === id
-      ? "Scanner start could not be confirmed"
-      : "Waiting for scanner to start";
+    if (isStopping) {
+      statusMessage = "Waiting for scanner to confirm the stop";
+    } else {
+      statusMessage = unconfirmedScanId === id
+        ? "Scanner start could not be confirmed"
+        : "Waiting for scanner to start";
+    }
   } else if (status === "failed") {
     statusMessage =
       results.sub_scans?.network?.metadata?.submission_error === "not_published"
